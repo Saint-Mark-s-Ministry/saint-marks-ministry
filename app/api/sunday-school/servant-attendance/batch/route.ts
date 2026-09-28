@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { prisma } from "@/lib/prisma"
 import { canTakeServantAttendance, getSundaySchoolAccess } from "@/lib/sunday-school-access"
-import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { isSessionDateToday, normalizeSessionDate } from "@/lib/sunday-school-class"
 
 interface ServantAttendanceRecord {
   servantId: string
@@ -41,13 +41,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    if (sessionDate > normalizeSessionDate(new Date())) {
-      return NextResponse.json(
-        { error: "Cannot record attendance for a future date" },
-        { status: 400 }
-      )
-    }
-
     const servantIds = records.map(record => record.servantId)
     if (new Set(servantIds).size !== servantIds.length) {
       return NextResponse.json({ error: "Each servant may only appear once" }, { status: 400 })
@@ -77,6 +70,12 @@ export async function POST(request: Request) {
     const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
     if (!canTakeServantAttendance(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (!isSessionDateToday(sessionDate)) {
+      return NextResponse.json(
+        { error: "Attendance can only be recorded on the session date" },
+        { status: 400 }
+      )
     }
 
     const rosterAssignments = await prisma.sundaySchoolServantAssignment.findMany({

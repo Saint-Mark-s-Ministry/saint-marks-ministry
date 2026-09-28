@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { isValidLevel } from '@/lib/sunday-school-class'
 import { notifyChildRegistrationSubmitted } from '@/lib/notifications'
-import { RegistrationStatus, UserRole } from '@prisma/client'
+import { RegistrationStatus, SundaySchoolChildGender, UserRole } from '@prisma/client'
 import { normalizeOptionalEmail } from '@/lib/email'
 
 // POST /api/parent/children/register
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       firstName,
       lastName,
       birthDate,
+      gender,
       intendedLevel,
       guardianName,
       guardianPhone,
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
+    if (gender && !Object.values(SundaySchoolChildGender).includes(gender)) {
+      return NextResponse.json({ error: 'Invalid gender' }, { status: 400 })
+    }
 
     const parsedBirthDate = new Date(birthDate)
     if (isNaN(parsedBirthDate.getTime())) {
@@ -56,6 +60,7 @@ export async function POST(req: NextRequest) {
         firstName,
         lastName,
         birthDate: parsedBirthDate,
+        gender: gender || null,
         intendedLevel,
         guardianName: guardianName || user.name,
         guardianPhone: guardianPhone || '',

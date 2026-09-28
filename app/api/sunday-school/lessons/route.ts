@@ -80,12 +80,28 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    const openSundaySchoolYear = await prisma.sundaySchoolYear.findFirst({
+      where: { status: "OPEN" },
+      orderBy: { startDate: "desc" },
+      select: { id: true, startDate: true, endDate: true },
+    })
+    const sundayDateFilter = fullYear && openSundaySchoolYear
+      ? {
+          gte: normalizeSessionDate(openSundaySchoolYear.startDate),
+          lte: normalizeSessionDate(openSundaySchoolYear.endDate),
+        }
+      : fullYear
+        ? undefined
+        : { gte: from, lte: to }
+
     const lessons = await prisma.sundaySchoolWeeklyLesson.findMany({
       where: {
-        ...(fullYear ? {} : { sundayDate: { gte: from, lte: to } }),
+        ...(sundayDateFilter ? { sundayDate: sundayDateFilter } : {}),
         class: {
           isActive: true,
-          academicYear: { isActive: true },
+          ...(openSundaySchoolYear
+            ? { sundaySchoolYearId: openSundaySchoolYear.id }
+            : { academicYear: { isActive: true } }),
         },
         ...(requestedClassId
           ? { classId: requestedClassId }
@@ -130,7 +146,7 @@ export async function GET(request: Request) {
           ? canAssignWeeklyLessonOwner(access, lesson.classId)
           : false
         const canEdit = access
-          ? canEditWeeklyLesson(access, lesson.classId, lesson.ownerId, user.id)
+          ? canEditWeeklyLesson(access, lesson.classId)
           : false
 
         return {

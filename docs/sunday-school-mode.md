@@ -91,12 +91,13 @@ Guardian and household contact belongs to minors and is returned only by the
 child and family routes, only to people with Sunday School class visibility.
 
 **Weekly lessons are not attendance sessions.** The generator maintains every
-scheduled meeting in the active academic year for every active class. Elementary
-levels meet on Saturday; all older levels meet on Sunday. A Monday 10:00 UTC
+scheduled meeting in the open Sunday School year for every active class (with
+the active academic year retained only as a legacy fallback). Elementary levels
+meet on Saturday; all older levels meet on Sunday. A Monday 10:00 UTC
 Vercel cron invokes the protected generator,
 and class creation/reactivation invokes the same idempotent helper. Lesson rows
-can represent future preparation; `SundaySchoolSession` continues to reject
-future dates and is only created when attendance is saved. History displays
+can represent future preparation; `SundaySchoolSession` accepts attendance
+writes only on that session's church-local calendar day and is created on save. History displays
 join the two by class and normalized UTC date.
 
 **A class's band is derived, not stored.** There is no `ageGroupId` on
@@ -158,7 +159,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `children/[id]` | GET, PATCH, DELETE | People who serve the child's class |
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
 | `lessons` | GET | Class-scoped servants/leaders, linked parents, and linked child accounts |
-| `lessons/[id]` | PATCH | Coordinator/admin assigns owners; owner or coordinator/admin edits title and links |
+| `lessons/[id]` | PATCH | Any active servant assigned to the class assigns an active class servant as owner and edits title and links |
 | `sessions` | GET, POST | People who serve the class |
 | `sessions/[id]` | PATCH, DELETE | People who serve the class |
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |

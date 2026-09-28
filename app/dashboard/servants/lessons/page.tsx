@@ -49,7 +49,7 @@ export default function SundaySchoolLessonsPage() {
   const manageableClasses = Array.from(
     new Map(
       lessons
-        .filter(lesson => lesson.canAssignOwner)
+        .filter(lesson => lesson.canEdit)
         .map(lesson => [lesson.class.id, { id: lesson.class.id, name: lesson.class.name }])
     ).values()
   ).sort((a, b) => a.name.localeCompare(b.name))
@@ -162,7 +162,7 @@ export default function SundaySchoolLessonsPage() {
                   <div>
                     <p className="font-medium">{lesson.title || 'Lesson title not added'}</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {lesson.owner ? `Owner: ${lesson.owner.name}` : 'A coordinator needs to assign an owner.'}
+                      {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No lesson owner assigned yet.'}
                     </p>
                   </div>
 

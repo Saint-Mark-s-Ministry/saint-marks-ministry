@@ -2,11 +2,8 @@ import { readCsv } from './sunday-school-roster-csv'
 
 export const LESSON_CSV_TEMPLATE_HEADERS = [
   'date',
-  'lesson_title',
-  'resource_1_title',
-  'resource_1_url',
-  'resource_2_title',
-  'resource_2_url',
+  'name',
+  'email',
 ] as const
 
 export interface SundaySchoolLessonCsvResource {
@@ -17,7 +14,9 @@ export interface SundaySchoolLessonCsvResource {
 export interface SundaySchoolLessonCsvRow {
   rowNumber: number
   lessonDate: string
-  title: string
+  ownerName: string | null
+  ownerEmail: string | null
+  title: string | null
   resources: SundaySchoolLessonCsvResource[]
   replaceResources: boolean
 }
@@ -40,6 +39,15 @@ const DATE_HEADERS = new Set([
 const TITLE_HEADERS = new Set([
   'title', 'lesson', 'lesson title', 'lesson_title', 'topic', 'lesson topic', 'lesson_topic',
 ])
+const OWNER_NAME_HEADERS = new Set([
+  'name', 'servant', 'servant name', 'servant_name', 'teacher', 'teacher name', 'teacher_name',
+  'assigned to', 'assigned_to', 'owner', 'owner name', 'owner_name',
+])
+const OWNER_EMAIL_HEADERS = new Set([
+  'email', 'servant email', 'servant_email', 'teacher email', 'teacher_email',
+  'owner email', 'owner_email',
+])
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const DIRECT_RESOURCE_HEADERS: Record<string, string> = {
   link: 'Resource',
   url: 'Resource',
@@ -131,9 +139,16 @@ export function validateSundaySchoolLessonRow(row: SundaySchoolLessonCsvRow): Su
   if (!normalizeLessonDate(row.lessonDate)) {
     errors.push({ rowNumber: row.rowNumber, message: 'Date must be YYYY-MM-DD or MM/DD/YYYY' })
   }
-  if (!row.title.trim()) {
-    errors.push({ rowNumber: row.rowNumber, message: 'Lesson title is required' })
-  } else if (row.title.length > 255) {
+  if (!row.ownerName && !row.ownerEmail && !row.title) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Include a servant name, email, or lesson title' })
+  }
+  if (row.ownerName && row.ownerName.length > 200) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Servant name must be 200 characters or fewer' })
+  }
+  if (row.ownerEmail && !EMAIL_PATTERN.test(row.ownerEmail)) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Servant email is invalid' })
+  }
+  if (row.title && row.title.length > 255) {
     errors.push({ rowNumber: row.rowNumber, message: 'Lesson title must be 255 characters or fewer' })
   }
   if (row.resources.length > 10) {
@@ -163,13 +178,20 @@ export function parseSundaySchoolLessonCsv(text: string): ParsedSundaySchoolLess
   const headers = csvRows[0].values.map(normalizeHeader)
   const dateIndex = headers.findIndex(header => DATE_HEADERS.has(header))
   const titleIndex = headers.findIndex(header => TITLE_HEADERS.has(header))
+  const ownerNameIndex = headers.findIndex(header => OWNER_NAME_HEADERS.has(header))
+  const ownerEmailIndex = headers.findIndex(header => OWNER_EMAIL_HEADERS.has(header))
   const resourceColumns = headers
     .map((header, index) => ({ index, column: resourceColumn(header) }))
     .filter((item): item is { index: number; column: NonNullable<ReturnType<typeof resourceColumn>> } => Boolean(item.column))
 
   const headerErrors: SundaySchoolLessonCsvError[] = []
   if (dateIndex < 0) headerErrors.push({ rowNumber: csvRows[0].rowNumber, message: 'Include a date column' })
-  if (titleIndex < 0) headerErrors.push({ rowNumber: csvRows[0].rowNumber, message: 'Include a lesson_title or title column' })
+  if (ownerNameIndex < 0 && ownerEmailIndex < 0 && titleIndex < 0) {
+    headerErrors.push({
+      rowNumber: csvRows[0].rowNumber,
+      message: 'Include a name, email, or lesson title column',
+    })
+  }
   if (headerErrors.length > 0) {
     return { rows: [], errors: headerErrors, hasResourceColumns: resourceColumns.length > 0 }
   }
@@ -197,7 +219,9 @@ export function parseSundaySchoolLessonCsv(text: string): ParsedSundaySchoolLess
     return {
       rowNumber,
       lessonDate: normalizedDate ?? values[dateIndex]?.trim() ?? '',
-      title: values[titleIndex]?.trim() ?? '',
+      ownerName: ownerNameIndex >= 0 ? values[ownerNameIndex]?.trim() || null : null,
+      ownerEmail: ownerEmailIndex >= 0 ? values[ownerEmailIndex]?.trim().toLowerCase() || null : null,
+      title: titleIndex >= 0 ? values[titleIndex]?.trim() || null : null,
       resources,
       replaceResources: resourceColumns.length > 0,
     }
@@ -211,5 +235,5 @@ export function parseSundaySchoolLessonCsv(text: string): ParsedSundaySchoolLess
 }
 
 export function createSundaySchoolLessonCsvTemplate() {
-  return `${LESSON_CSV_TEMPLATE_HEADERS.join(',')}\n2026-09-27,The Good Samaritan,Slides,https://example.com/slides,Video,https://example.com/video\n`
+  return `${LESSON_CSV_TEMPLATE_HEADERS.join(',')}\n2026-09-27,Jane Servant,servant@example.com\n2026-10-04,John Servant,\n`
 }

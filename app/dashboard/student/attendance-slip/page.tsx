@@ -54,7 +54,7 @@ export default function AttendanceSlipPage() {
           </Button>
         </div>
 
-        <div className="bg-white text-black rounded-lg border p-6 md:p-10 print:border-0 print:rounded-none print:p-0">
+        <div className="rounded-lg border bg-white p-6 text-black dark:bg-gray-900 dark:text-white md:p-10 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black">
           <div className="border-b-2 border-black pb-3 mb-4">
             <h1 className="text-2xl font-bold">Servants Preparation Program</h1>
             <p className="text-lg">Async Student Attendance Slip</p>

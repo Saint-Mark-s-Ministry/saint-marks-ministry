@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { canServeClass, getSundaySchoolAccess } from '@/lib/sunday-school-access'
 import {
   normalizeRosterBirthDate,
+  normalizeRosterGender,
   type SundaySchoolRosterCsvRow,
   validateSundaySchoolRosterRow,
 } from '@/lib/sunday-school-roster-csv'
@@ -61,6 +62,7 @@ function normalizeRequestRows(value: unknown): SundaySchoolRosterCsvRow[] | null
         : index + 2,
       firstName: typeof input.firstName === 'string' ? input.firstName.trim() : '',
       lastName: typeof input.lastName === 'string' ? input.lastName.trim() : '',
+      gender: stringOrNull('gender') as SundaySchoolRosterCsvRow['gender'],
       birthDate: stringOrNull('birthDate'),
       guardianName: stringOrNull('guardianName'),
       guardianPhone: stringOrNull('guardianPhone'),
@@ -210,6 +212,7 @@ export async function POST(request: Request) {
 
     const normalizedRows = rows.map(row => ({
       ...row,
+      gender: normalizeRosterGender(row.gender) ?? row.gender,
       birthDate: normalizeRosterBirthDate(row.birthDate) ?? row.birthDate,
     }))
     const requestHash = createHash('sha256')
@@ -378,6 +381,7 @@ export async function POST(request: Request) {
               level: targetClass.level,
               status: 'ACTIVE',
               isActive: true,
+              ...(row.gender ? { gender: row.gender } : {}),
               ...(row.birthDate ? { birthDate: new Date(`${row.birthDate}T00:00:00.000Z`) } : {}),
               ...(row.guardianName ? { guardianName: row.guardianName } : {}),
               ...(row.guardianPhone ? { guardianPhone: row.guardianPhone } : {}),
@@ -423,6 +427,7 @@ export async function POST(request: Request) {
             level: targetClass.level,
             classId,
             birthDate: row.birthDate ? new Date(`${row.birthDate}T00:00:00.000Z`) : null,
+            gender: row.gender,
             guardianName: row.guardianName,
             guardianPhone: row.guardianPhone,
             guardianEmail: row.guardianEmail,

@@ -171,11 +171,13 @@ export function PortalProvider({ children }: PropsWithChildren) {
       // Retain roster fields only, never guardian contacts in the mobile cache.
       result = {
         session: null,
-        roster: children.map(({ id, firstName, lastName, level }) => ({
+        roster: children.map(({ id, firstName, lastName, level, gender, user }) => ({
           id,
           firstName,
           lastName,
           level,
+          gender,
+          profileImageUrl: user?.profileImageUrl ?? null,
           attendance: null,
         })),
       };

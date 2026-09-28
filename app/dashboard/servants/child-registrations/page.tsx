@@ -43,6 +43,7 @@ interface ChildRegistrationRequest {
   firstName: string
   lastName: string
   birthDate: string
+  gender: 'MALE' | 'FEMALE' | null
   intendedLevel: SundaySchoolLevel
   guardianName: string
   guardianPhone: string
@@ -119,7 +120,8 @@ export default function ChildRegistrationsPage() {
                       {request.firstName} {request.lastName}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {getLevelDisplayName(request.intendedLevel)} &middot; Submitted by{' '}
+                      {getLevelDisplayName(request.intendedLevel)} &middot;{' '}
+                      {request.gender === 'MALE' ? 'Boy' : request.gender === 'FEMALE' ? 'Girl' : 'Gender not specified'} &middot; Submitted by{' '}
                       {request.submittedBy.name} ({request.submittedBy.email})
                     </div>
                     {request.notes && (

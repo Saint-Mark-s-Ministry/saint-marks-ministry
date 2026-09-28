@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from "@/lib/sunday-school-access"
-import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { isSessionDateToday, normalizeSessionDate } from "@/lib/sunday-school-class"
 
 // Sunday School mode: a session is one weekly meeting of one class.
 
@@ -89,14 +89,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    const today = normalizeSessionDate(new Date())
-    if (sessionDate > today) {
-      return NextResponse.json(
-        { error: "Cannot create a session for a future date" },
-        { status: 400 }
-      )
-    }
-
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id: classId },
       select: { id: true, academicYearId: true },
@@ -108,6 +100,12 @@ export async function POST(request: Request) {
     const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
     if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (!isSessionDateToday(sessionDate)) {
+      return NextResponse.json(
+        { error: "Attendance sessions can only be opened on the session date" },
+        { status: 400 }
+      )
     }
 
     // Idempotent: opening the attendance page for a date that already has a

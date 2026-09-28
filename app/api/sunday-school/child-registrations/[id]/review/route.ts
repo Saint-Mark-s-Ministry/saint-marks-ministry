@@ -119,6 +119,7 @@ export async function POST(
             level: registrationRequest.intendedLevel,
             classId: targetClass.id,
             birthDate: registrationRequest.birthDate,
+            gender: registrationRequest.gender,
             guardianName: registrationRequest.guardianName,
             guardianPhone: registrationRequest.guardianPhone,
             guardianEmail: registrationRequest.guardianEmail,

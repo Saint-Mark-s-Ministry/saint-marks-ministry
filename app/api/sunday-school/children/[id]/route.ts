@@ -17,6 +17,7 @@ import {
   sundaySchoolFamilyInclude,
 } from "@/lib/sunday-school-family"
 import { normalizeEmail, normalizeOptionalEmail } from "@/lib/email"
+import { SundaySchoolChildGender } from "@prisma/client"
 
 // Sunday School mode: a single child on a Sunday School roster.
 
@@ -106,7 +107,7 @@ export async function GET(
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         attendance: {
           include: {
             session: { select: { id: true, date: true, topic: true } },
@@ -141,6 +142,7 @@ export async function PATCH(
       level,
       classId,
       birthDate,
+      gender,
       familyId,
       family,
       guardianName,
@@ -278,6 +280,12 @@ export async function PATCH(
         updateData.birthDate = null
       }
     }
+    if (gender !== undefined) {
+      if (gender && !Object.values(SundaySchoolChildGender).includes(gender)) {
+        return NextResponse.json({ error: "Invalid gender" }, { status: 400 })
+      }
+      updateData.gender = gender || null
+    }
     if (guardianName !== undefined) updateData.guardianName = guardianName?.trim() || null
     if (guardianPhone !== undefined) updateData.guardianPhone = guardianPhone?.trim() || null
     if (guardianEmail !== undefined) updateData.guardianEmail = normalizeOptionalEmail(guardianEmail)
@@ -368,7 +376,7 @@ export async function PATCH(
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         },
       })
     })

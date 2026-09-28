@@ -48,24 +48,29 @@ export function AttendanceTrendChart({ data, required = 75 }: AttendanceTrendCha
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="label" stroke="#6b7280" fontSize={11} tickMargin={6} />
-                <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={11} tickFormatter={v => `${v}%`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={11} tickMargin={6} />
+                <YAxis domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={11} tickFormatter={v => `${v}%`} />
                 <Tooltip
                   formatter={(value) => {
                     const v = typeof value === 'number' ? value : null
                     return v === null ? '—' : `${v.toFixed(1)}%`
                   }}
                   labelClassName="font-medium"
-                  contentStyle={{ borderRadius: 6, border: '1px solid #e5e7eb' }}
+                  contentStyle={{
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--popover)',
+                    color: 'var(--popover-foreground)',
+                  }}
                 />
-                <ReferenceLine y={required} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${required}% target`, position: 'right', fill: '#ef4444', fontSize: 11 }} />
+                <ReferenceLine y={required} stroke="var(--chart-target)" strokeDasharray="4 4" label={{ value: `${required}% target`, position: 'right', fill: 'var(--chart-target)', fontSize: 11 }} />
                 <Line
                   type="monotone"
                   dataKey="attendanceRate"
-                  stroke="#7c1d3f"
+                  stroke="var(--chart-attendance)"
                   strokeWidth={2}
-                  dot={{ r: 3, fill: '#7c1d3f' }}
+                  dot={{ r: 3, fill: 'var(--chart-attendance)' }}
                   activeDot={{ r: 5 }}
                   connectNulls
                   name="Attendance %"
@@ -102,24 +107,29 @@ export function ExamTrendChart({ data, required = 75 }: ExamTrendChartProps) {
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="label" stroke="#6b7280" fontSize={11} tickMargin={6} />
-                <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={11} tickFormatter={v => `${v}%`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={11} tickMargin={6} />
+                <YAxis domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={11} tickFormatter={v => `${v}%`} />
                 <Tooltip
                   formatter={(value) => {
                     const v = typeof value === 'number' ? value : null
                     return v === null ? '—' : `${v.toFixed(1)}%`
                   }}
-                  contentStyle={{ borderRadius: 6, border: '1px solid #e5e7eb' }}
+                  contentStyle={{
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--popover)',
+                    color: 'var(--popover-foreground)',
+                  }}
                 />
-                <ReferenceLine y={required} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${required}% target`, position: 'right', fill: '#ef4444', fontSize: 11 }} />
+                <ReferenceLine y={required} stroke="var(--chart-target)" strokeDasharray="4 4" label={{ value: `${required}% target`, position: 'right', fill: 'var(--chart-target)', fontSize: 11 }} />
                 <Legend />
                 <Line
                   type="monotone"
                   dataKey="average"
-                  stroke="#7c3aed"
+                  stroke="var(--chart-exam)"
                   strokeWidth={2}
-                  dot={{ r: 3, fill: '#7c3aed' }}
+                  dot={{ r: 3, fill: 'var(--chart-exam)' }}
                   activeDot={{ r: 5 }}
                   connectNulls
                   name="Class Average"

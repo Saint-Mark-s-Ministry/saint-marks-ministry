@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SundaySchoolServantAttendanceStatus } from '@prisma/client'
+import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
@@ -74,12 +75,13 @@ const unrelatedServantAccess = {
   ...servantAccess,
   servantClassIds: new Set(['class-2']),
 }
+const currentSessionDate = getSundaySchoolTodayDateInputValue()
 
 function saveRequest(records: Array<{ servantId: string; status: string }>) {
   return new Request('http://localhost/api/sunday-school/servant-attendance/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ classId: 'class-1', date: '2025-10-05', records }),
+    body: JSON.stringify({ classId: 'class-1', date: currentSessionDate, records }),
   })
 }
 
@@ -121,7 +123,7 @@ describe('Sunday School servant attendance API', () => {
 
   it('allows a class or age-group coordinator to load the roster', async () => {
     const response = await GET(new Request(
-      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+      `http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${currentSessionDate}`
     ))
     const body = await response.json()
 
@@ -141,7 +143,7 @@ describe('Sunday School servant attendance API', () => {
     })
 
     const response = await GET(new Request(
-      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+      `http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${currentSessionDate}`
     ))
 
     expect(response.status).toBe(200)
@@ -152,7 +154,7 @@ describe('Sunday School servant attendance API', () => {
     mocks.getSundaySchoolAccess.mockResolvedValue(priestAccess)
 
     const response = await GET(new Request(
-      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+      `http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${currentSessionDate}`
     ))
     const body = await response.json()
 
@@ -165,7 +167,7 @@ describe('Sunday School servant attendance API', () => {
     mocks.getSundaySchoolAccess.mockResolvedValue(servantAccess)
 
     const loadResponse = await GET(new Request(
-      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+      `http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${currentSessionDate}`
     ))
     const saveResponse = await POST(saveRequest([
       { servantId: 'servant-1', status: SundaySchoolServantAttendanceStatus.PRESENT },
@@ -180,7 +182,7 @@ describe('Sunday School servant attendance API', () => {
     mocks.getSundaySchoolAccess.mockResolvedValue(unrelatedServantAccess)
 
     const response = await GET(new Request(
-      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+      `http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${currentSessionDate}`
     ))
 
     expect(response.status).toBe(403)
@@ -219,6 +221,31 @@ describe('Sunday School servant attendance API', () => {
       { servantId: 'servant-1', status: SundaySchoolServantAttendanceStatus.ABSENT },
     ]))
     expect(duplicateResponse.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('keeps past servant attendance read-only', async () => {
+    const loadResponse = await GET(new Request(
+      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2000-01-02'
+    ))
+    expect((await loadResponse.json()).canEdit).toBe(false)
+
+    const saveResponse = await POST(new Request(
+      'http://localhost/api/sunday-school/servant-attendance/batch',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: 'class-1',
+          date: '2000-01-02',
+          records: [{
+            servantId: 'servant-1',
+            status: SundaySchoolServantAttendanceStatus.PRESENT,
+          }],
+        }),
+      }
+    ))
+    expect(saveResponse.status).toBe(400)
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 

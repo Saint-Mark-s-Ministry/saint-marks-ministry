@@ -3,6 +3,7 @@ export type {
   AttendanceStatus,
   SundaySchoolLevel,
   SundaySchoolAuthority,
+  SundaySchoolChildGender,
   SundaySchoolFeedbackType,
   UserRole,
   RoleTag,

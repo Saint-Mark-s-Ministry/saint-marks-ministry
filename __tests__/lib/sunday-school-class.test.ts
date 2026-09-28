@@ -10,8 +10,10 @@ import {
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
+  getSundaySchoolTodayDateInputValue,
   getTodayDateInputValue,
   isValidLevel,
+  isSessionDateToday,
   normalizeSessionDate,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
@@ -72,6 +74,15 @@ describe('Sunday School class helpers', () => {
 
     it('rejects an unparseable date', () => {
       expect(() => normalizeSessionDate('not-a-date')).toThrow('Invalid session date')
+    })
+  })
+
+  describe('session-day attendance window', () => {
+    it('uses the church calendar date across UTC boundaries', () => {
+      const lateSundayInNewYork = new Date('2026-08-10T03:30:00.000Z')
+      expect(getSundaySchoolTodayDateInputValue(lateSundayInNewYork)).toBe('2026-08-09')
+      expect(isSessionDateToday('2026-08-09', lateSundayInNewYork)).toBe(true)
+      expect(isSessionDateToday('2026-08-08', lateSundayInNewYork)).toBe(false)
     })
   })
 

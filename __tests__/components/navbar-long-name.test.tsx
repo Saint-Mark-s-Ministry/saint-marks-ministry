@@ -67,6 +67,16 @@ describe('Navbar with long names', () => {
     )
   })
 
+  it('keeps the desktop page scrollbar stable while the More menu is open', async () => {
+    const user = userEvent.setup()
+    render(<Navbar />)
+
+    await user.click(screen.getByRole('button', { name: /more/i }))
+
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+    expect(document.body).not.toHaveAttribute('data-scroll-locked')
+  })
+
   it('puts the logo-based service switcher in the profile menu', async () => {
     const user = userEvent.setup()
     render(<Navbar />)

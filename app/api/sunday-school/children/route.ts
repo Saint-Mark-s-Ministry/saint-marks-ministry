@@ -14,7 +14,7 @@ import {
   normalizeSundaySchoolFamilyDetails,
   sundaySchoolFamilyInclude,
 } from "@/lib/sunday-school-family"
-import { SundaySchoolLevel } from "@prisma/client"
+import { SundaySchoolChildGender, SundaySchoolLevel } from "@prisma/client"
 import { normalizeOptionalEmail } from "@/lib/email"
 
 // Sunday School mode: the children enrolled in the Sunday School classes.
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
       },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     })
@@ -104,6 +104,7 @@ export async function POST(request: Request) {
       level,
       classId,
       birthDate,
+      gender,
       familyId,
       family,
       guardianName,
@@ -117,6 +118,9 @@ export async function POST(request: Request) {
     }
     if (!lastName || !String(lastName).trim()) {
       return NextResponse.json({ error: "Last name is required" }, { status: 400 })
+    }
+    if (gender && !Object.values(SundaySchoolChildGender).includes(gender)) {
+      return NextResponse.json({ error: "Invalid gender" }, { status: 400 })
     }
     if (!isValidLevel(level)) {
       return NextResponse.json({ error: "A valid grade level is required" }, { status: 400 })
@@ -185,6 +189,7 @@ export async function POST(request: Request) {
           classId: classId || null,
           familyId: resolvedFamilyId,
           birthDate: parsedBirthDate,
+          gender: gender || null,
           guardianName: guardianName?.trim() || null,
           guardianPhone: guardianPhone?.trim() || null,
           guardianEmail: normalizeOptionalEmail(guardianEmail),
@@ -193,7 +198,7 @@ export async function POST(request: Request) {
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         },
       })
     })

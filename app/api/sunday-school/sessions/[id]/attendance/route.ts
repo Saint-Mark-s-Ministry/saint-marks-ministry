@@ -37,7 +37,14 @@ export async function GET(
     const [children, records] = await Promise.all([
       prisma.sundaySchoolChild.findMany({
         where: { classId: session.classId, isActive: true },
-        select: { id: true, firstName: true, lastName: true, level: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          level: true,
+          gender: true,
+          user: { select: { profileImageUrl: true } },
+        },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       }),
       prisma.sundaySchoolChildAttendance.findMany({
@@ -51,7 +58,12 @@ export async function GET(
     return NextResponse.json({
       session,
       roster: children.map(child => ({
-        ...child,
+        id: child.id,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        level: child.level,
+        gender: child.gender,
+        profileImageUrl: child.user?.profileImageUrl ?? null,
         attendance: recordByChild.get(child.id) ?? null,
       })),
     })

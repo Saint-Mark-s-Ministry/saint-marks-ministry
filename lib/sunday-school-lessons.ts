@@ -23,18 +23,23 @@ type LessonDatabase = {
     findMany(args: {
       where: {
         isActive: boolean
-        academicYear: { isActive: boolean }
+        OR: [
+          { sundaySchoolYear: { status: "OPEN" } },
+          { sundaySchoolYearId: null; academicYear: { isActive: boolean } },
+        ]
         id?: { in: string[] }
       }
       select: {
         id: true
         level: true
         academicYear: { select: { startDate: true; endDate: true } }
+        sundaySchoolYear: { select: { startDate: true; endDate: true } }
       }
     }): Promise<Array<{
       id: string
       level: SundaySchoolLevel
       academicYear: { startDate: Date; endDate: Date }
+      sundaySchoolYear: { startDate: Date; endDate: Date } | null
     }>>
   }
   sundaySchoolWeeklyLesson: {
@@ -140,19 +145,24 @@ export async function ensureSundaySchoolWeeklyLessons({
   const classes = await db.sundaySchoolClass.findMany({
     where: {
       isActive: true,
-      academicYear: { isActive: true },
+      OR: [
+        { sundaySchoolYear: { status: "OPEN" } },
+        { sundaySchoolYearId: null, academicYear: { isActive: true } },
+      ],
       ...(classIds ? { id: { in: classIds } } : {}),
     },
     select: {
       id: true,
       level: true,
       academicYear: { select: { startDate: true, endDate: true } },
+      sundaySchoolYear: { select: { startDate: true, endDate: true } },
     },
   })
 
   const rows = classes.flatMap((cls) => {
-    const yearStart = normalizeSessionDate(cls.academicYear.startDate)
-    const yearEnd = normalizeSessionDate(cls.academicYear.endDate)
+    const lessonYear = cls.sundaySchoolYear ?? cls.academicYear
+    const yearStart = normalizeSessionDate(lessonYear.startDate)
+    const yearEnd = normalizeSessionDate(lessonYear.endDate)
     return getMeetingDatesInRange(yearStart, yearEnd, getClassMeetingDay(cls.level))
       .map((sundayDate) => ({ classId: cls.id, sundayDate }))
   })

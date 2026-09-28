@@ -152,7 +152,7 @@ export default function CompleteApplicationPage() {
         />
 
         {complete ? (
-          <Card className="border-green-300 bg-green-50/70">
+          <Card className="border-green-300 bg-green-50/70 dark:border-green-800 dark:bg-green-950/40">
             <CardContent className="flex items-start gap-3 pt-6">
               <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-700" />
               <div>
@@ -168,7 +168,7 @@ export default function CompleteApplicationPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-amber-300 bg-amber-50/70">
+          <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/40">
             <CardContent className="flex items-start gap-3 pt-6">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
               <p className="text-sm text-amber-900">

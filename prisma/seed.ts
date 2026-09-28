@@ -178,13 +178,21 @@ async function main() {
 
   // Create academic year
   console.log('Creating academic year...')
+  await prisma.academicYear.updateMany({
+    where: { isActive: true, name: { not: '2026-2027' } },
+    data: { isActive: false },
+  })
   const academicYear = await prisma.academicYear.upsert({
-    where: { name: '2024-2025' },
-    update: {},
+    where: { name: '2026-2027' },
+    update: {
+      startDate: new Date('2026-09-11'),
+      endDate: new Date('2027-09-10'),
+      isActive: true,
+    },
     create: {
-      name: '2024-2025',
-      startDate: new Date('2024-09-01'),
-      endDate: new Date('2025-06-30'),
+      name: '2026-2027',
+      startDate: new Date('2026-09-11'),
+      endDate: new Date('2027-09-10'),
       isActive: true,
     },
   })

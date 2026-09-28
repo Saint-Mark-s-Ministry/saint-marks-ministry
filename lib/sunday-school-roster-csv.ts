@@ -1,6 +1,7 @@
 export const ROSTER_CSV_TEMPLATE_HEADERS = [
   'first_name',
   'last_name',
+  'gender',
   'birth_date',
   'guardian_name',
   'guardian_phone',
@@ -12,6 +13,7 @@ export interface SundaySchoolRosterCsvRow {
   rowNumber: number
   firstName: string
   lastName: string
+  gender: 'MALE' | 'FEMALE' | null
   birthDate: string | null
   guardianName: string | null
   guardianPhone: string | null
@@ -38,6 +40,8 @@ const HEADER_ALIASES: Record<string, keyof Omit<SundaySchoolRosterCsvRow, 'rowNu
   lastname: 'lastName',
   last_name: 'lastName',
   'last name': 'lastName',
+  gender: 'gender',
+  sex: 'gender',
   birthdate: 'birthDate',
   birth_date: 'birthDate',
   'birth date': 'birthDate',
@@ -67,6 +71,14 @@ function normalizeHeader(value: string) {
 function nullable(value: string | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   return trimmed || null
+}
+
+export function normalizeRosterGender(value: string | null): 'MALE' | 'FEMALE' | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'male' || normalized === 'm' || normalized === 'boy') return 'MALE'
+  if (normalized === 'female' || normalized === 'f' || normalized === 'girl') return 'FEMALE'
+  return null
 }
 
 export function normalizeRosterBirthDate(value: string | null): string | null {
@@ -148,6 +160,9 @@ export function validateSundaySchoolRosterRow(
   if (row.birthDate && !normalizeRosterBirthDate(row.birthDate)) {
     errors.push({ rowNumber: row.rowNumber, message: 'Birth date must be YYYY-MM-DD or MM/DD/YYYY' })
   }
+  if (row.gender && !normalizeRosterGender(row.gender)) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Gender must be Male, Female, Boy, or Girl' })
+  }
   if (row.guardianEmail && !EMAIL_PATTERN.test(row.guardianEmail)) {
     errors.push({ rowNumber: row.rowNumber, message: 'Guardian email is invalid' })
   }
@@ -195,6 +210,7 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
       rowNumber,
       firstName: fields.firstName ?? '',
       lastName: fields.lastName ?? '',
+      gender: nullable(fields.gender) as SundaySchoolRosterCsvRow['gender'],
       birthDate: nullable(fields.birthDate),
       guardianName: nullable(fields.guardianName),
       guardianPhone: nullable(fields.guardianPhone),
@@ -203,6 +219,8 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
     }
     const normalizedBirthDate = normalizeRosterBirthDate(row.birthDate)
     if (normalizedBirthDate) row.birthDate = normalizedBirthDate
+    const normalizedGender = normalizeRosterGender(row.gender)
+    if (normalizedGender) row.gender = normalizedGender
     return row
   })
 
@@ -213,5 +231,5 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
 }
 
 export function createSundaySchoolRosterCsvTemplate() {
-  return `${ROSTER_CSV_TEMPLATE_HEADERS.join(',')}\nJane,Doe,2015-04-12,John Doe,555-123-4567,parent@example.com,Allergy information here\n`
+  return `${ROSTER_CSV_TEMPLATE_HEADERS.join(',')}\nJane,Doe,Female,2015-04-12,John Doe,555-123-4567,parent@example.com,Allergy information here\n`
 }

@@ -286,6 +286,10 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
+  --chart-attendance: #800020;
+  --chart-exam: #7c3aed;
+  --chart-roster: #64748b;
+  --chart-target: #ef4444;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -335,6 +339,10 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+  --chart-attendance: #ec7693;
+  --chart-exam: #c4b5fd;
+  --chart-roster: #aeaeb2;
+  --chart-target: #fca5a5;
   --sidebar: #242426;
   --sidebar-foreground: #f5f5f7;
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -354,19 +362,43 @@
     width: 100%;
     min-width: 0;
   }
+  html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Radix keeps modal focus and background scrolling locked by marking the
+     body. Preserve the native scrollbar track while locked so opening a
+     dialog never changes the page width or makes the interface jump. */
+  html body[data-scroll-locked] {
+    overflow-y: scroll !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+
 }
 
 /* Dark mode overrides for common utility classes */
 @layer utilities {
+  /* Dashboard pages historically use bg-gray-50 for their outer wrapper.
+     Keep that wrapper on the shared canvas in dark mode so it cannot diverge
+     from the navbar and footer gutters. */
+  .dark #app-content > .min-h-screen.bg-gray-50 {
+    background-color: var(--app-canvas);
+  }
+
   /* Page backgrounds */
   .bg-gray-50 {
     @apply dark:bg-gray-900;
   }
   .bg-gray-100 {
     @apply dark:bg-gray-800;
+  }
+  .bg-gray-200 {
+    @apply dark:bg-gray-700;
   }
   .bg-white {
     @apply dark:bg-gray-900;
@@ -448,6 +480,51 @@
   .bg-orange-100 {
     @apply dark:bg-orange-900/50;
   }
+  .bg-maroon-50 {
+    @apply dark:bg-maroon-900/30;
+  }
+  .bg-maroon-100 {
+    @apply dark:bg-maroon-900/50;
+  }
+  .bg-indigo-50 {
+    @apply dark:bg-indigo-900/30;
+  }
+  .bg-indigo-100 {
+    @apply dark:bg-indigo-900/50;
+  }
+  .bg-violet-50 {
+    @apply dark:bg-violet-900/30;
+  }
+  .bg-emerald-50 {
+    @apply dark:bg-emerald-900/30;
+  }
+  .bg-teal-100 {
+    @apply dark:bg-teal-900/50;
+  }
+  .bg-cyan-50 {
+    @apply dark:bg-cyan-900/30;
+  }
+  .bg-slate-50 {
+    @apply dark:bg-slate-900;
+  }
+  .bg-slate-100 {
+    @apply dark:bg-slate-800;
+  }
+
+  /* Components such as Button and Badge inherit the theme's primary
+     foreground. When their background is replaced with a strong brand/status
+     color, keep the foreground independently readable in both themes. */
+  .bg-maroon-600,
+  .bg-maroon-700,
+  .bg-red-500,
+  .bg-red-600,
+  .bg-red-700,
+  .bg-blue-600,
+  .bg-blue-700,
+  .bg-purple-600,
+  .bg-purple-700 {
+    @apply text-white dark:text-white;
+  }
 
   /* Semantic/Status text colors */
   .text-green-800 {
@@ -459,6 +536,9 @@
   .text-green-600 {
     @apply dark:text-green-400;
   }
+  .text-green-900 {
+    @apply dark:text-green-200;
+  }
   .text-red-800 {
     @apply dark:text-red-300;
   }
@@ -467,6 +547,9 @@
   }
   .text-red-600 {
     @apply dark:text-red-400;
+  }
+  .text-red-900 {
+    @apply dark:text-red-200;
   }
   .text-yellow-800 {
     @apply dark:text-yellow-300;
@@ -477,6 +560,9 @@
   .text-yellow-600 {
     @apply dark:text-yellow-400;
   }
+  .text-yellow-900 {
+    @apply dark:text-yellow-200;
+  }
   .text-blue-800 {
     @apply dark:text-blue-300;
   }
@@ -485,6 +571,9 @@
   }
   .text-blue-600 {
     @apply dark:text-blue-400;
+  }
+  .text-blue-900 {
+    @apply dark:text-blue-200;
   }
   .text-amber-800 {
     @apply dark:text-amber-300;
@@ -495,16 +584,56 @@
   .text-amber-600 {
     @apply dark:text-amber-400;
   }
+  .text-amber-900,
+  .text-amber-950 {
+    @apply dark:text-amber-100;
+  }
   .text-purple-800 {
     @apply dark:text-purple-300;
   }
   .text-purple-700 {
     @apply dark:text-purple-400;
   }
+  .text-purple-600 {
+    @apply dark:text-purple-400;
+  }
+  .text-indigo-800 {
+    @apply dark:text-indigo-200;
+  }
+  .text-indigo-700 {
+    @apply dark:text-indigo-300;
+  }
+  .text-indigo-600 {
+    @apply dark:text-indigo-300;
+  }
+  .text-violet-700 {
+    @apply dark:text-violet-300;
+  }
+  .text-emerald-700,
+  .text-emerald-600 {
+    @apply dark:text-emerald-300;
+  }
+  .text-teal-600 {
+    @apply dark:text-teal-300;
+  }
+  .text-cyan-800 {
+    @apply dark:text-cyan-200;
+  }
+  .text-maroon-900,
+  .text-maroon-800 {
+    @apply dark:text-maroon-200;
+  }
+  .text-maroon-700,
+  .text-maroon-600 {
+    @apply dark:text-maroon-300;
+  }
   .text-orange-800 {
     @apply dark:text-orange-300;
   }
   .text-orange-700 {
+    @apply dark:text-orange-400;
+  }
+  .text-orange-600 {
     @apply dark:text-orange-400;
   }
 
@@ -542,17 +671,59 @@
   .border-blue-100 {
     @apply dark:border-blue-900;
   }
+  .border-blue-300 {
+    @apply dark:border-blue-700;
+  }
   .border-amber-200 {
     @apply dark:border-amber-800;
   }
   .border-amber-100 {
     @apply dark:border-amber-900;
   }
-  .border-purple-100 {
-    @apply dark:border-purple-900;
+  .border-amber-300 {
+    @apply dark:border-amber-700;
   }
   .border-orange-200 {
     @apply dark:border-orange-800;
+  }
+  .border-orange-300 {
+    @apply dark:border-orange-700;
+  }
+  .border-purple-100 {
+    @apply dark:border-purple-900;
+  }
+  .border-purple-200 {
+    @apply dark:border-purple-800;
+  }
+  .border-purple-300 {
+    @apply dark:border-purple-700;
+  }
+  .border-indigo-100 {
+    @apply dark:border-indigo-900;
+  }
+  .border-violet-200 {
+    @apply dark:border-violet-800;
+  }
+  .border-emerald-200 {
+    @apply dark:border-emerald-800;
+  }
+  .border-cyan-300 {
+    @apply dark:border-cyan-700;
+  }
+  .border-slate-300 {
+    @apply dark:border-slate-600;
+  }
+  .border-maroon-50 {
+    @apply dark:border-maroon-950;
+  }
+  .border-maroon-200 {
+    @apply dark:border-maroon-800;
+  }
+  .border-maroon-300 {
+    @apply dark:border-maroon-700;
+  }
+  .border-maroon-400 {
+    @apply dark:border-maroon-600;
   }
 
   /* Hover states for semantic colors */
@@ -565,7 +736,47 @@
   .hover\:bg-yellow-100:hover {
     @apply dark:bg-yellow-900/60;
   }
+  .hover\:bg-maroon-50:hover {
+    @apply dark:bg-maroon-900/40;
+  }
+  .hover\:bg-maroon-100:hover {
+    @apply dark:bg-maroon-900/60;
+  }
   .hover\:text-red-700:hover {
     @apply dark:text-red-400;
+  }
+  .hover\:text-red-600:hover,
+  .hover\:text-red-800:hover {
+    @apply dark:text-red-300;
+  }
+  .hover\:text-amber-700:hover,
+  .hover\:text-amber-800:hover,
+  .hover\:text-amber-900:hover {
+    @apply dark:text-amber-200;
+  }
+  .hover\:text-blue-600:hover,
+  .hover\:text-blue-700:hover {
+    @apply dark:text-blue-300;
+  }
+  .hover\:text-green-600:hover,
+  .hover\:text-green-700:hover {
+    @apply dark:text-green-300;
+  }
+  .hover\:text-indigo-600:hover {
+    @apply dark:text-indigo-300;
+  }
+  .hover\:text-orange-600:hover,
+  .hover\:text-orange-700:hover {
+    @apply dark:text-orange-300;
+  }
+  .hover\:text-purple-700:hover {
+    @apply dark:text-purple-300;
+  }
+  .hover\:text-yellow-600:hover {
+    @apply dark:text-yellow-300;
+  }
+  .hover\:text-maroon-600:hover,
+  .hover\:text-maroon-700:hover {
+    @apply dark:text-maroon-300;
   }
 }

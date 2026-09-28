@@ -7,8 +7,8 @@ import {
 describe('Sunday School roster CSV parsing', () => {
   it('parses the supported columns and normalizes common dates and emails', () => {
     const result = parseSundaySchoolRosterCsv([
-      'first_name,last_name,birth_date,guardian_name,guardian_phone,guardian_email,notes',
-      'Jane,Doe,4/12/2015,John Doe,555-1234,PARENT@EXAMPLE.COM,"Needs, inhaler"',
+      'first_name,last_name,gender,birth_date,guardian_name,guardian_phone,guardian_email,notes',
+      'Jane,Doe,Girl,4/12/2015,John Doe,555-1234,PARENT@EXAMPLE.COM,"Needs, inhaler"',
     ].join('\n'))
 
     expect(result.errors).toEqual([])
@@ -16,6 +16,7 @@ describe('Sunday School roster CSV parsing', () => {
       rowNumber: 2,
       firstName: 'Jane',
       lastName: 'Doe',
+      gender: 'FEMALE',
       birthDate: '2015-04-12',
       guardianName: 'John Doe',
       guardianPhone: '555-1234',
@@ -46,6 +47,13 @@ describe('Sunday School roster CSV parsing', () => {
       'Birth date must be YYYY-MM-DD or MM/DD/YYYY',
       'Guardian email is invalid',
     ])
+  })
+
+  it('rejects unsupported gender values', () => {
+    const result = parseSundaySchoolRosterCsv('first_name,last_name,gender\nJane,Doe,Unknown')
+    expect(result.errors.map(error => error.message)).toContain(
+      'Gender must be Male, Female, Boy, or Girl'
+    )
   })
 
   it('provides a template that round-trips through the parser', () => {

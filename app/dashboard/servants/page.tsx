@@ -21,9 +21,49 @@ import type {
   SundaySchoolClassSummary,
   SundaySchoolDashboard,
 } from '@/types/sunday-school'
-import { Users, CalendarCheck, ClipboardList, ArrowRight, School } from 'lucide-react'
+import { Users, CalendarCheck, ClipboardList, ArrowRight, School, type LucideIcon } from 'lucide-react'
 
 const UNBANDED = '__unbanded__'
+
+function DashboardShortcutCard({
+  href,
+  icon: Icon,
+  value,
+  label,
+  hint,
+}: {
+  href: string
+  icon: LucideIcon
+  value: number
+  label: string
+  hint: string
+}) {
+  return (
+    <Card className="group overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-maroon-200 hover:shadow-md dark:hover:border-maroon-800">
+      <Link
+        href={href}
+        aria-label={`${value} ${label}. ${hint}`}
+        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-600 focus-visible:ring-offset-2"
+      >
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <Icon className="h-5 w-5 shrink-0 text-maroon-600" />
+              <div className="min-w-0">
+                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
+                <p className="mt-1 truncate text-xs font-medium text-maroon-700 dark:text-maroon-300">
+                  {hint}
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-maroon-600 dark:group-hover:text-maroon-300" />
+          </div>
+        </CardContent>
+      </Link>
+    </Card>
+  )
+}
 
 export default function SundaySchoolDashboardPage() {
   const { session, status } = useSundaySchoolGuard()
@@ -73,6 +113,16 @@ export default function SundaySchoolDashboardPage() {
   const totals = dashboard?.totals
   const standing = dashboard?.standing
   const classCount = dashboard?.classes.length ?? 0
+  const singleClass = classCount === 1 ? dashboard?.classes[0] : undefined
+  const classHref = singleClass
+    ? `/dashboard/servants/classes/${singleClass.id}`
+    : '/dashboard/servants/classes'
+  const rosterHref = singleClass
+    ? `/dashboard/servants/roster?classId=${singleClass.id}`
+    : '/dashboard/servants/roster'
+  const attendanceHref = singleClass
+    ? `/dashboard/servants/attendance?classId=${singleClass.id}`
+    : '/dashboard/servants/attendance'
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
@@ -95,39 +145,27 @@ export default function SundaySchoolDashboardPage() {
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <School className="h-5 w-5 text-maroon-600" />
-                <div>
-                  <p className="text-2xl font-bold">{totals?.classes ?? 0}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Classes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-maroon-600" />
-                <div>
-                  <p className="text-2xl font-bold">{totals?.children ?? 0}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Children</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CalendarCheck className="h-5 w-5 text-maroon-600" />
-                <div>
-                  <p className="text-2xl font-bold">{totals?.classesNeedingAttendance ?? 0}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Need attendance this week</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <DashboardShortcutCard
+            href={classHref}
+            icon={School}
+            value={totals?.classes ?? 0}
+            label={(totals?.classes ?? 0) === 1 ? 'Class' : 'Classes'}
+            hint={singleClass ? `Open ${singleClass.name}` : 'View all classes'}
+          />
+          <DashboardShortcutCard
+            href={rosterHref}
+            icon={Users}
+            value={totals?.children ?? 0}
+            label="Children"
+            hint={singleClass ? `Open ${singleClass.name} roster` : 'Open rosters'}
+          />
+          <DashboardShortcutCard
+            href={attendanceHref}
+            icon={CalendarCheck}
+            value={totals?.classesNeedingAttendance ?? 0}
+            label="Need attendance this week"
+            hint={singleClass ? `Take ${singleClass.name} attendance` : 'Open attendance'}
+          />
         </div>
 
         {dashboard?.attendanceTrend && (

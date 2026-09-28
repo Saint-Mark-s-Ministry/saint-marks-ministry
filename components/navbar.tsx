@@ -437,7 +437,7 @@ export function Navbar() {
 
               {/* "More" dropdown for admin roles */}
               {moreLinks.length > 0 && (
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <button
                       className={`inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${

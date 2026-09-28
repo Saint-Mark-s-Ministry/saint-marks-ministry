@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   getAccess: vi.fn(),
-  canAssign: vi.fn(),
+  canServe: vi.fn(),
   findClass: vi.fn(),
   findLessons: vi.fn(),
+  findAssignments: vi.fn(),
   transaction: vi.fn(),
   upsertLesson: vi.fn(),
   deleteResources: vi.fn(),
@@ -15,12 +16,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/sunday-school-access', () => ({
   getSundaySchoolAccess: mocks.getAccess,
-  canAssignWeeklyLessonOwner: mocks.canAssign,
+  canServeClass: mocks.canServe,
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     sundaySchoolClass: { findUnique: mocks.findClass },
     sundaySchoolWeeklyLesson: { findMany: mocks.findLessons },
+    sundaySchoolServantAssignment: { findMany: mocks.findAssignments },
     $transaction: mocks.transaction,
   },
 }))
@@ -38,9 +40,9 @@ function request(rows: Array<Record<string, unknown>>) {
 describe('Sunday School lesson CSV import API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.requireAuth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
     mocks.getAccess.mockResolvedValue({ canRead: true })
-    mocks.canAssign.mockReturnValue(true)
+    mocks.canServe.mockReturnValue(true)
     mocks.findClass.mockResolvedValue({
       id: 'class-1',
       name: 'Grade 4',
@@ -48,13 +50,20 @@ describe('Sunday School lesson CSV import API', () => {
       academicYearId: 'year-1',
       isActive: true,
       academicYear: {
-        startDate: new Date('2026-09-01T00:00:00.000Z'),
-        endDate: new Date('2027-06-30T00:00:00.000Z'),
+        startDate: new Date('2024-09-01T00:00:00.000Z'),
+        endDate: new Date('2025-06-30T00:00:00.000Z'),
+      },
+      sundaySchoolYear: {
+        startDate: new Date('2026-09-11T00:00:00.000Z'),
+        endDate: new Date('2027-09-10T00:00:00.000Z'),
       },
     })
     mocks.findLessons.mockResolvedValue([{
       id: 'lesson-existing',
       sundayDate: new Date('2026-09-27T00:00:00.000Z'),
+    }])
+    mocks.findAssignments.mockResolvedValue([{
+      user: { id: 'servant-1', name: 'Jane Servant', email: 'jane@example.com' },
     }])
     mocks.upsertLesson.mockResolvedValue({ id: 'lesson-existing' })
     mocks.transaction.mockImplementation(async callback => callback({
@@ -102,6 +111,66 @@ describe('Sunday School lesson CSV import API', () => {
     }] })
   })
 
+  it('assigns by servant name when the spreadsheet has no email', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: '  jane   servant ',
+      ownerEmail: null,
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ assignedRows: 1, unmatchedRows: 0, warnings: [] })
+    expect(mocks.upsertLesson).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        ownerId: 'servant-1',
+        assignedById: 'servant-1',
+        title: null,
+      }),
+      update: {
+        ownerId: 'servant-1',
+        assignedById: 'servant-1',
+      },
+    }))
+  })
+
+  it('falls back to the servant name when the supplied email does not match', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: 'Jane Servant',
+      ownerEmail: 'old-address@example.com',
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+
+    expect(await response.json()).toMatchObject({ assignedRows: 1, unmatchedRows: 0 })
+  })
+
+  it('imports unmatched rows without overwriting the current lesson owner', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: 'Unknown Servant',
+      ownerEmail: null,
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+    const body = await response.json()
+
+    expect(body).toMatchObject({
+      assignedRows: 0,
+      unmatchedRows: 1,
+      warnings: [{ rowNumber: 2 }],
+    })
+    expect(mocks.upsertLesson).toHaveBeenCalledWith(expect.objectContaining({ update: {} }))
+  })
+
   it('preserves existing links for a title-only spreadsheet', async () => {
     await POST(request([{
       rowNumber: 2,
@@ -125,8 +194,8 @@ describe('Sunday School lesson CSV import API', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('requires coordinator permission for the selected class', async () => {
-    mocks.canAssign.mockReturnValue(false)
+  it('requires an active class assignment', async () => {
+    mocks.canServe.mockReturnValue(false)
 
     const response = await POST(request([{
       rowNumber: 2,

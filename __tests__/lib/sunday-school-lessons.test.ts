@@ -77,6 +77,10 @@ describe('weekly Sunday School lessons', () => {
         id: 'class-1',
         level: 'GRADE_6',
         academicYear: {
+          startDate: new Date('2024-09-01T00:00:00Z'),
+          endDate: new Date('2025-06-30T23:59:59Z'),
+        },
+        sundaySchoolYear: {
           startDate: new Date('2026-09-01T00:00:00Z'),
           endDate: new Date('2026-09-27T23:59:59Z'),
         },
@@ -106,7 +110,13 @@ describe('weekly Sunday School lessons', () => {
     expect(first).toEqual({ classes: 1, attempted: 4, created: 4 })
     expect(second).toEqual({ classes: 1, attempted: 4, created: 0 })
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ isActive: true, academicYear: { isActive: true } }),
+      where: expect.objectContaining({
+        isActive: true,
+        OR: [
+          { sundaySchoolYear: { status: 'OPEN' } },
+          { sundaySchoolYearId: null, academicYear: { isActive: true } },
+        ],
+      }),
     }))
     expect(Array.from(seen)).toHaveLength(4)
   })
@@ -123,6 +133,7 @@ describe('weekly Sunday School lessons', () => {
               startDate: new Date('2026-09-01T00:00:00Z'),
               endDate: new Date('2026-09-27T23:59:59Z'),
             },
+            sundaySchoolYear: null,
           },
           {
             id: 'middle',
@@ -131,6 +142,7 @@ describe('weekly Sunday School lessons', () => {
               startDate: new Date('2026-09-01T00:00:00Z'),
               endDate: new Date('2026-09-27T23:59:59Z'),
             },
+            sundaySchoolYear: null,
           },
         ]),
       },

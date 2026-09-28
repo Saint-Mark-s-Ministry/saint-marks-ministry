@@ -7,7 +7,7 @@ import {
   canViewServantAttendance,
   getSundaySchoolAccess,
 } from "@/lib/sunday-school-access"
-import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { isSessionDateToday, normalizeSessionDate } from "@/lib/sunday-school-class"
 
 // GET /api/sunday-school/servant-attendance?classId=xxx&date=YYYY-MM-DD
 export async function GET(request: Request) {
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
       class: sundaySchoolClass,
       session,
       roster,
-      canEdit: canTakeServantAttendance(access, classId),
+      canEdit: canTakeServantAttendance(access, classId) && isSessionDateToday(sessionDate),
     })
   } catch (error: unknown) {
     return handleApiError(error)

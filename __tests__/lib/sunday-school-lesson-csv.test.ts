@@ -16,6 +16,8 @@ describe('Sunday School lesson CSV parsing', () => {
     expect(result.rows).toEqual([{
       rowNumber: 2,
       lessonDate: '2026-09-27',
+      ownerName: null,
+      ownerEmail: null,
       title: 'The Good Samaritan',
       resources: [
         { title: 'Slides', url: 'https://example.com/slides' },
@@ -23,6 +25,30 @@ describe('Sunday School lesson CSV parsing', () => {
       ],
       replaceResources: true,
     }])
+  })
+
+  it('parses the existing assignment schedule format and allows missing email', () => {
+    const result = parseSundaySchoolLessonCsv([
+      ',Date,Name,Email,Calendar,Comments,,Update',
+      'Sept,9/21/2026,Jane Servant,jane@example.com,y,,,',
+      ',9/28/2026,John Servant,,y,,,',
+    ].join('\n'))
+
+    expect(result.errors).toEqual([])
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        lessonDate: '2026-09-21',
+        ownerName: 'Jane Servant',
+        ownerEmail: 'jane@example.com',
+        title: null,
+      }),
+      expect.objectContaining({
+        lessonDate: '2026-09-28',
+        ownerName: 'John Servant',
+        ownerEmail: null,
+        title: null,
+      }),
+    ])
   })
 
   it('accepts common spreadsheet link headings', () => {
@@ -45,15 +71,15 @@ describe('Sunday School lesson CSV parsing', () => {
     expect(result.rows[0]).toMatchObject({ resources: [], replaceResources: false })
   })
 
-  it('reports invalid dates, missing titles, and unsafe links', () => {
+  it('reports invalid dates, missing assignment data, and unsafe links', () => {
     const result = parseSundaySchoolLessonCsv([
-      'date,title,resource_url',
-      '2026-02-31,,javascript:alert(1)',
+      'date,name,email,resource_url',
+      '2026-02-31,,not-an-email,javascript:alert(1)',
     ].join('\n'))
 
     expect(result.errors.map(error => error.message)).toEqual([
       'Date must be YYYY-MM-DD or MM/DD/YYYY',
-      'Lesson title is required',
+      'Servant email is invalid',
       'Resource links must be valid http:// or https:// URLs',
     ])
   })
@@ -61,6 +87,7 @@ describe('Sunday School lesson CSV parsing', () => {
   it('provides a template that round-trips through the parser', () => {
     const result = parseSundaySchoolLessonCsv(createSundaySchoolLessonCsvTemplate())
     expect(result.errors).toEqual([])
-    expect(result.rows).toHaveLength(1)
+    expect(result.rows).toHaveLength(2)
+    expect(result.rows[1].ownerEmail).toBeNull()
   })
 })

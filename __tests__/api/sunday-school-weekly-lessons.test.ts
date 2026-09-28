@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   visibleFilter: vi.fn(),
   guardianFindMany: vi.fn(),
   childFindUnique: vi.fn(),
+  sundaySchoolYearFindFirst: vi.fn(),
   lessonFindMany: vi.fn(),
   lessonFindUnique: vi.fn(),
   assignmentFindFirst: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     sundaySchoolChildGuardian: { findMany: mocks.guardianFindMany },
     sundaySchoolChild: { findUnique: mocks.childFindUnique },
+    sundaySchoolYear: { findFirst: mocks.sundaySchoolYearFindFirst },
     sundaySchoolWeeklyLesson: {
       findMany: mocks.lessonFindMany,
       findUnique: mocks.lessonFindUnique,
@@ -61,6 +63,11 @@ describe('weekly lesson API permissions and saves', () => {
     mocks.visibleFilter.mockReturnValue(['class-1'])
     mocks.guardianFindMany.mockResolvedValue([])
     mocks.childFindUnique.mockResolvedValue(null)
+    mocks.sundaySchoolYearFindFirst.mockResolvedValue({
+      id: 'sunday-year-2026',
+      startDate: new Date('2026-09-11T00:00:00.000Z'),
+      endDate: new Date('2027-09-10T00:00:00.000Z'),
+    })
     mocks.lessonFindMany.mockResolvedValue([])
     mocks.lessonFindUnique.mockResolvedValue({
       id: 'lesson-1',
@@ -123,6 +130,21 @@ describe('weekly lesson API permissions and saves', () => {
     expect(response.status).toBe(200)
     expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ classId: { in: ['class-1'] } }),
+    }))
+  })
+
+  it('uses the open Sunday School year for the full-year schedule', async () => {
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons?scope=year'))
+
+    expect(response.status).toBe(200)
+    expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        sundayDate: {
+          gte: new Date('2026-09-11T00:00:00.000Z'),
+          lte: new Date('2027-09-10T00:00:00.000Z'),
+        },
+        class: { isActive: true, sundaySchoolYearId: 'sunday-year-2026' },
+      }),
     }))
   })
 

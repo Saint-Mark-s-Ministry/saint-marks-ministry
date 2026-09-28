@@ -12,15 +12,21 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
+import {
+  organizeAttendanceRoster,
+  type AttendanceRosterNameOrder,
+} from '@stmark/domain'
 import {
   getChildFullName,
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
+  isSessionDateToday,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type {
@@ -33,6 +39,17 @@ import type {
 } from '@/types/sunday-school'
 import { AttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
+
+function normalizeSundaySchoolAttendanceStatus(status?: AttendanceStatus | null) {
+  if (
+    status === AttendanceStatus.PRESENT ||
+    status === AttendanceStatus.LATE ||
+    status === AttendanceStatus.ABSENT
+  ) {
+    return status
+  }
+  return undefined
+}
 
 function SundaySchoolAttendanceContent() {
   const { status } = useSundaySchoolGuard()
@@ -48,11 +65,14 @@ function SundaySchoolAttendanceContent() {
   const [loadingSession, setLoadingSession] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
+  const [showPhotos, setShowPhotos] = useState(true)
+  const [groupByGender, setGroupByGender] = useState(false)
 
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const selectedClassLevel = selectedClass?.level
-  const canEdit = selectedClass?.canServe ?? false
+  const canEdit = (selectedClass?.canServe ?? false) && isSessionDateToday(sessionDate)
   const {
     data: trendData,
     isLoading: trendLoading,
@@ -104,14 +124,12 @@ function SundaySchoolAttendanceContent() {
         }
         const loaded = attendanceBody as SundaySchoolSessionAttendance
         setAttendance(loaded)
-        setMarks(
-          Object.fromEntries(
-            loaded.roster.map(entry => [
-              entry.id,
-              entry.attendance?.status ?? AttendanceStatus.PRESENT,
-            ])
-          )
-        )
+        const savedMarks: Record<string, AttendanceStatus> = {}
+        for (const entry of loaded.roster) {
+          const savedStatus = normalizeSundaySchoolAttendanceStatus(entry.attendance?.status)
+          if (savedStatus) savedMarks[entry.id] = savedStatus
+        }
+        setMarks(savedMarks)
         return
       }
 
@@ -127,11 +145,13 @@ function SundaySchoolAttendanceContent() {
         firstName: child.firstName,
         lastName: child.lastName,
         level: child.level,
+        gender: child.gender,
+        profileImageUrl: child.user?.profileImageUrl ?? null,
         attendance: null,
       }))
 
       setAttendance({ session: null, roster })
-      setMarks(Object.fromEntries(roster.map(entry => [entry.id, AttendanceStatus.PRESENT])))
+      setMarks({})
     } catch (error: unknown) {
       setAttendance(null)
       setMarks({})
@@ -147,6 +167,14 @@ function SundaySchoolAttendanceContent() {
 
   const handleSave = async () => {
     if (!attendance) return
+
+    const unmarkedCount = attendance.roster.filter(entry => !marks[entry.id]).length
+    if (unmarkedCount > 0) {
+      toast.error(
+        `Select attendance for ${unmarkedCount} ${unmarkedCount === 1 ? 'child' : 'children'} before saving`
+      )
+      return
+    }
 
     setSaving(true)
     try {
@@ -169,7 +197,7 @@ function SundaySchoolAttendanceContent() {
           sessionId: sessionBody.id,
           records: attendance.roster.map(entry => ({
             childId: entry.id,
-            status: marks[entry.id] ?? AttendanceStatus.PRESENT,
+            status: marks[entry.id]!,
           })),
         }),
       })
@@ -194,6 +222,11 @@ function SundaySchoolAttendanceContent() {
     () => Object.values(marks).filter(s => s === AttendanceStatus.PRESENT || s === AttendanceStatus.LATE).length,
     [marks]
   )
+  const rosterGroups = useMemo(
+    () => organizeAttendanceRoster(attendance?.roster ?? [], { nameOrder, groupByGender }),
+    [attendance?.roster, groupByGender, nameOrder]
+  )
+  const unmarkedCount = attendance?.roster.filter(entry => !marks[entry.id]).length ?? 0
 
   if (status === 'loading' || classesLoading) {
     return <PageLoading />
@@ -204,7 +237,7 @@ function SundaySchoolAttendanceContent() {
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Take Attendance"
-          description="Mark each child in your class for the week."
+          description="Select a status for every child before saving this week's attendance."
           lastSaved={lastSaved}
           actions={
             canEdit && attendance ? (
@@ -254,6 +287,12 @@ function SundaySchoolAttendanceContent() {
               </CardContent>
             </Card>
 
+            {!isSessionDateToday(sessionDate) && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Past attendance is read-only. Attendance can only be changed on the session date.
+              </p>
+            )}
+
             {selectedClass && (
               <SundaySchoolRecentAttendanceChart
                 trend={trendDashboard?.attendanceTrend}
@@ -270,33 +309,94 @@ function SundaySchoolAttendanceContent() {
                   {attendance && (
                     <span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-400">
                       {presentCount} of {attendance.roster.length} here
+                      {unmarkedCount > 0 && ` · ${unmarkedCount} unmarked`}
                     </span>
                   )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {attendance && attendance.roster.length > 0 && (
+                  <div className="mb-4 grid gap-4 rounded-lg border bg-gray-50 p-4 sm:grid-cols-3 dark:border-gray-800 dark:bg-gray-900/50">
+                    <div className="space-y-2">
+                      <Label htmlFor="attendance-name-order">Alphabetize by</Label>
+                      <select
+                        id="attendance-name-order"
+                        value={nameOrder}
+                        onChange={event => setNameOrder(event.target.value as AttendanceRosterNameOrder)}
+                        className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <option value="last">Last name</option>
+                        <option value="first">First name</option>
+                      </select>
+                    </div>
+                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={showPhotos}
+                        onChange={event => setShowPhotos(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 accent-primary"
+                      />
+                      Include photos
+                    </label>
+                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={groupByGender}
+                        onChange={event => setGroupByGender(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 accent-primary"
+                      />
+                      Group roster by gender
+                    </label>
+                  </div>
+                )}
                 {loadingSession ? (
                   <p className="text-center py-8 text-gray-500">Loading roster…</p>
                 ) : !attendance || attendance.roster.length === 0 ? (
                   <EmptyState message="No children on this roster yet. Add them from the Children page." />
                 ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {attendance.roster.map(entry => (
-                      <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{getChildFullName(entry)}</p>
-                          <Badge variant="secondary" className="mt-1">
-                            {getLevelDisplayName(entry.level)}
-                          </Badge>
+                  <div className="space-y-5">
+                    {rosterGroups.map(group => (
+                      <section key={group.key}>
+                        {group.label && (
+                          <div className="mb-1 flex items-center gap-2 border-b pb-2 dark:border-gray-800">
+                            <h3 className="font-semibold">{group.label}</h3>
+                            <Badge variant="secondary">{group.entries.length}</Badge>
+                          </div>
+                        )}
+                        <div className="divide-y dark:divide-gray-800">
+                          {group.entries.map(entry => (
+                            <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                {showPhotos && (
+                                  <Avatar className="h-10 w-10 shrink-0">
+                                    {entry.profileImageUrl && (
+                                      <AvatarImage src={entry.profileImageUrl} alt={getChildFullName(entry)} />
+                                    )}
+                                    <AvatarFallback>
+                                      {(entry.firstName[0] ?? '') + (entry.lastName[0] ?? '')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{getChildFullName(entry)}</p>
+                                  <Badge variant="secondary" className="mt-1">
+                                    {getLevelDisplayName(entry.level)}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <AttendanceStatusButtons
+                                currentStatus={marks[entry.id]}
+                                onStatusChange={statusValue =>
+                                  setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
+                                }
+                                disabled={!canEdit}
+                                showExcused={false}
+                                absentLabel="Not present"
+                              />
+                            </div>
+                          ))}
                         </div>
-                        <AttendanceStatusButtons
-                          currentStatus={marks[entry.id] ?? AttendanceStatus.PRESENT}
-                          onStatusChange={statusValue =>
-                            setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
-                          }
-                          disabled={!canEdit}
-                        />
-                      </div>
+                      </section>
                     ))}
                   </div>
                 )}

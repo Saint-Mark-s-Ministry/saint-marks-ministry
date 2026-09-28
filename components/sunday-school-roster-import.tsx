@@ -232,7 +232,7 @@ export function SundaySchoolRosterImport({
                 <div>
                   <p className="font-medium">CSV format</p>
                   <p className="mt-1 text-gray-600 dark:text-gray-400">
-                    First and last name are required. Birth date, guardian contact, and notes are optional.
+                    First and last name are required. Gender, birth date, guardian contact, and notes are optional.
                     Birth dates help safely match an existing child.
                   </p>
                 </div>

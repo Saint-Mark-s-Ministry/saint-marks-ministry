@@ -1,6 +1,7 @@
 import type {
   AttendanceStatus,
   SundaySchoolAuthority,
+  SundaySchoolChildGender,
   SundaySchoolFeedbackStatus,
   SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
@@ -95,6 +96,7 @@ export interface SundaySchoolChild {
   level: SundaySchoolLevel;
   classId: string | null;
   birthDate: string | null;
+  gender: SundaySchoolChildGender | null;
   guardianName: string | null;
   guardianPhone: string | null;
   guardianEmail: string | null;
@@ -102,7 +104,7 @@ export interface SundaySchoolChild {
   isActive: boolean;
   class?: SundaySchoolClassRef | null;
   family?: SundaySchoolFamily | null;
-  user?: { id: string; name: string; email: string } | null;
+  user?: { id: string; name: string; email: string; profileImageUrl: string | null } | null;
 }
 
 export type SundaySchoolWeeklyLessonStatus =
@@ -265,6 +267,8 @@ export interface SundaySchoolRosterEntry {
   firstName: string;
   lastName: string;
   level: SundaySchoolLevel;
+  gender: SundaySchoolChildGender | null;
+  profileImageUrl: string | null;
   attendance: {
     id: string;
     childId: string;

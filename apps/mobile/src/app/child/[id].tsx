@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import type { SundaySchoolChild, SundaySchoolFamily } from "@stmark/contracts";
+import type { SundaySchoolChild, SundaySchoolChildGender, SundaySchoolFamily } from "@stmark/contracts";
 import { LEVEL_ORDER, getLevelDisplayName } from "@stmark/domain";
 import { Button, Card, Copy, CopyableValue, readableDate } from "@/components/ui";
 import { Choice, Field, Page, confirmAction, useAction } from "@/components/forms";
@@ -22,7 +22,7 @@ export default function Child() {
   const done = async () => { setEditing(false); await Promise.all([resource.refresh(), refresh()]); };
   return <Page title={id === "new" ? "Add child" : child ? `${child.firstName} ${child.lastName}` : "Child profile"} {...resource}>
     {(id === "new" || (child && editing && canEdit)) ? <ChildForm key={id} child={child} initialClassId={classId} done={done} /> : child && <>
-      <Card><Copy kind="title">{child.firstName} {child.lastName}</Copy><Copy>{child.class?.name ?? "Unassigned"} · {getLevelDisplayName(child.level)}</Copy>
+      <Card><Copy kind="title">{child.firstName} {child.lastName}</Copy><Copy>{child.class?.name ?? "Unassigned"} · {getLevelDisplayName(child.level)}{child.gender ? ` · ${child.gender === "MALE" ? "Boy" : "Girl"}` : ""}</Copy>
         <Copy>{child.isActive ? "Active" : "Inactive"}</Copy>{child.birthDate && <Copy>Born {child.birthDate.slice(0, 10)}</Copy>}
         {child.notes && <Copy>{child.notes}</Copy>}{child.user && <Copy>Linked account: {child.user.email}</Copy>}</Card>
       <Card><Copy kind="heading">Family & guardian</Copy>
@@ -52,7 +52,7 @@ function ChildForm({ child, initialClassId, done }: { child?: SundaySchoolChild;
   const { classes } = usePortal();
   const { user } = useAuth();
   const families = useResource<SundaySchoolFamily[]>(endpoint("families"));
-  const [form, setForm] = useState(() => ({ firstName: child?.firstName ?? "", lastName: child?.lastName ?? "", level: child?.level ?? classes.find(c => c.id === initialClassId)?.level ?? "GRADE_1", classId: child?.classId ?? initialClassId ?? "", birthDate: child?.birthDate?.slice(0, 10) ?? "", guardianName: child?.guardianName ?? "", guardianPhone: child?.guardianPhone ?? "", guardianEmail: child?.guardianEmail ?? "", notes: child?.notes ?? "", linkedUserEmail: child?.user?.email ?? "" }));
+  const [form, setForm] = useState(() => ({ firstName: child?.firstName ?? "", lastName: child?.lastName ?? "", gender: child?.gender ?? "" as SundaySchoolChildGender | "", level: child?.level ?? classes.find(c => c.id === initialClassId)?.level ?? "GRADE_1", classId: child?.classId ?? initialClassId ?? "", birthDate: child?.birthDate?.slice(0, 10) ?? "", guardianName: child?.guardianName ?? "", guardianPhone: child?.guardianPhone ?? "", guardianEmail: child?.guardianEmail ?? "", notes: child?.notes ?? "", linkedUserEmail: child?.user?.email ?? "" }));
   const [familyId, setFamilyId] = useState(child?.familyId ?? "");
   const [family, setFamily] = useState({ name: child?.family?.name ?? "", homeAddress: child?.family?.homeAddress ?? "", motherName: child?.family?.motherName ?? "", motherPhone: child?.family?.motherPhone ?? "", motherEmail: child?.family?.motherEmail ?? "", fatherName: child?.family?.fatherName ?? "", fatherPhone: child?.family?.fatherPhone ?? "", fatherEmail: child?.family?.fatherEmail ?? "" });
   const action = useAction();
@@ -73,6 +73,7 @@ function ChildForm({ child, initialClassId, done }: { child?: SundaySchoolChild;
   }, "Child saved");
   return <><Card>
     {([['firstName', 'First name'], ['lastName', 'Last name']] as const).map(([key, label]) => <Field key={key} label={label} value={form[key]} onChange={v => set(key, v)} disabled={action.busy} />)}
+    <Choice label="Gender" value={form.gender} disabled={action.busy} onChange={v => set("gender", v)} options={[{ value: "", label: "Not specified" }, { value: "MALE", label: "Boy" }, { value: "FEMALE", label: "Girl" }]} />
     <Choice label="Grade" value={form.level} disabled={!!child || action.busy} onChange={v => setForm(f => ({ ...f, level: v as typeof f.level, classId: "" }))} options={LEVEL_ORDER.map(value => ({ value, label: getLevelDisplayName(value) }))} />
     <Choice label="Class" value={form.classId} disabled={action.busy} onChange={v => set("classId", v)} options={[{ value: "", label: "Unassigned (admin only)" }, ...allowedClasses.map(c => ({ value: c.id, label: c.name }))]} />
     <Field label="Birth date (YYYY-MM-DD)" value={form.birthDate} onChange={v => set("birthDate", v)} disabled={action.busy} />

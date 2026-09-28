@@ -246,9 +246,9 @@ export function SundaySchoolAttendanceChart({
                     type="monotone"
                     dataKey="attendedCount"
                     name="Attended"
-                    stroke="#800020"
+                    stroke="var(--chart-attendance)"
                     strokeWidth={2.5}
-                    dot={{ r: 2.5, fill: '#800020', strokeWidth: 0 }}
+                    dot={{ r: 2.5, fill: 'var(--chart-attendance)', strokeWidth: 0 }}
                     activeDot={{ r: 5 }}
                     connectNulls={false}
                   />
@@ -256,7 +256,7 @@ export function SundaySchoolAttendanceChart({
                     type="monotone"
                     dataKey="rosterCount"
                     name="On roster"
-                    stroke="#64748b"
+                    stroke="var(--chart-roster)"
                     strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 4 }}

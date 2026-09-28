@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { canAssignWeeklyLessonOwner, getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import {
+  canServeClass,
+  getSundaySchoolAccess,
+} from '@/lib/sunday-school-access'
 import { normalizeSessionDate } from '@/lib/sunday-school-class'
 import {
   normalizeLessonDate,
@@ -34,11 +37,17 @@ function normalizeRows(value: unknown): SundaySchoolLessonCsvRow[] | null {
         ? Number(row.rowNumber)
         : index + 2,
       lessonDate: normalizeLessonDate(rawDate) ?? rawDate,
-      title: typeof row.title === 'string' ? row.title.trim() : '',
+      ownerName: typeof row.ownerName === 'string' ? row.ownerName.trim() || null : null,
+      ownerEmail: typeof row.ownerEmail === 'string' ? row.ownerEmail.trim().toLowerCase() || null : null,
+      title: typeof row.title === 'string' ? row.title.trim() || null : null,
       resources,
       replaceResources: row.replaceResources === true,
     }
   })
+}
+
+function normalizeIdentity(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
 }
 
 // POST /api/sunday-school/lesson-imports
@@ -69,6 +78,7 @@ export async function POST(request: Request) {
         academicYearId: true,
         isActive: true,
         academicYear: { select: { startDate: true, endDate: true } },
+        sundaySchoolYear: { select: { startDate: true, endDate: true } },
       },
     })
     if (!targetClass || !targetClass.isActive) {
@@ -76,14 +86,14 @@ export async function POST(request: Request) {
     }
 
     const access = await getSundaySchoolAccess(user, targetClass.academicYearId)
-    if (!canAssignWeeklyLessonOwner(access, classId)) {
+    if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-
     const errors = rows.flatMap(validateSundaySchoolLessonRow)
     const seenDates = new Set<string>()
-    const academicYearStart = normalizeSessionDate(targetClass.academicYear.startDate)
-    const academicYearEnd = normalizeSessionDate(targetClass.academicYear.endDate)
+    const lessonYear = targetClass.sundaySchoolYear ?? targetClass.academicYear
+    const lessonYearStart = normalizeSessionDate(lessonYear.startDate)
+    const lessonYearEnd = normalizeSessionDate(lessonYear.endDate)
     for (const row of rows) {
       if (seenDates.has(row.lessonDate)) {
         errors.push({ rowNumber: row.rowNumber, message: 'This date appears more than once in the CSV' })
@@ -93,8 +103,8 @@ export async function POST(request: Request) {
       const date = normalizeLessonDate(row.lessonDate)
       if (!date) continue
       const lessonDate = new Date(`${date}T00:00:00.000Z`)
-      if (lessonDate < academicYearStart || lessonDate > academicYearEnd) {
-        errors.push({ rowNumber: row.rowNumber, message: 'Date is outside this class\'s academic year' })
+      if (lessonDate < lessonYearStart || lessonDate > lessonYearEnd) {
+        errors.push({ rowNumber: row.rowNumber, message: 'Date is outside this class\'s Sunday School year' })
       }
     }
     if (errors.length > 0) {
@@ -102,19 +112,72 @@ export async function POST(request: Request) {
     }
 
     const lessonDates = rows.map(row => new Date(`${row.lessonDate}T00:00:00.000Z`))
-    const existingLessons = await prisma.sundaySchoolWeeklyLesson.findMany({
-      where: { classId, sundayDate: { in: lessonDates } },
-      select: { id: true, sundayDate: true },
-    })
+    const [existingLessons, eligibleAssignments] = await Promise.all([
+      prisma.sundaySchoolWeeklyLesson.findMany({
+        where: { classId, sundayDate: { in: lessonDates } },
+        select: { id: true, sundayDate: true },
+      }),
+      prisma.sundaySchoolServantAssignment.findMany({
+        where: {
+          classId,
+          academicYearId: targetClass.academicYearId,
+          endedAt: null,
+          user: { isDisabled: false },
+        },
+        select: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+    ])
     const existingDates = new Set(existingLessons.map(lesson => lesson.sundayDate.toISOString().slice(0, 10)))
+    const assignedOwnerIds = new Map<number, string>()
+    const warnings: Array<{ rowNumber: number; message: string }> = []
+
+    for (const row of rows) {
+      if (!row.ownerName && !row.ownerEmail) continue
+
+      let matches = row.ownerEmail
+        ? eligibleAssignments.filter(assignment =>
+            normalizeIdentity(assignment.user.email) === normalizeIdentity(row.ownerEmail!)
+          )
+        : []
+      if (matches.length === 0 && row.ownerName) {
+        matches = eligibleAssignments.filter(assignment =>
+          normalizeIdentity(assignment.user.name) === normalizeIdentity(row.ownerName!)
+        )
+      }
+
+      if (matches.length === 1) {
+        assignedOwnerIds.set(row.rowNumber, matches[0].user.id)
+      } else if (matches.length === 0) {
+        warnings.push({
+          rowNumber: row.rowNumber,
+          message: `${row.ownerName || row.ownerEmail} is not an active servant assigned to this class`,
+        })
+      } else {
+        warnings.push({
+          rowNumber: row.rowNumber,
+          message: `${row.ownerName || row.ownerEmail} matches more than one servant; assign this lesson in the portal`,
+        })
+      }
+    }
 
     await prisma.$transaction(async tx => {
       for (const row of rows) {
         const sundayDate = new Date(`${row.lessonDate}T00:00:00.000Z`)
+        const ownerId = assignedOwnerIds.get(row.rowNumber)
         const lesson = await tx.sundaySchoolWeeklyLesson.upsert({
           where: { classId_sundayDate: { classId, sundayDate } },
-          create: { classId, sundayDate, title: row.title },
-          update: { title: row.title },
+          create: {
+            classId,
+            sundayDate,
+            title: row.title,
+            ...(ownerId ? { ownerId, assignedById: user.id } : {}),
+          },
+          update: {
+            ...(row.title ? { title: row.title } : {}),
+            ...(ownerId ? { ownerId, assignedById: user.id } : {}),
+          },
           select: { id: true },
         })
 
@@ -141,6 +204,9 @@ export async function POST(request: Request) {
       totalRows: rows.length,
       updatedRows,
       createdRows: rows.length - updatedRows,
+      assignedRows: assignedOwnerIds.size,
+      unmatchedRows: warnings.length,
+      warnings,
       classId,
       className: targetClass.name,
     }, { status: 201 })

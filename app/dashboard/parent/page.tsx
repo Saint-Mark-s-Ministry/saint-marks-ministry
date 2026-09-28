@@ -38,6 +38,7 @@ interface FormData {
   firstName: string
   lastName: string
   birthDate: string
+  gender: string
   intendedLevel: string
   guardianName: string
   guardianPhone: string
@@ -231,6 +232,7 @@ function RegisterChildDialog({ onSuccess }: { onSuccess: () => void }) {
     firstName: '',
     lastName: '',
     birthDate: '',
+    gender: '',
     intendedLevel: '',
     guardianName: session?.user?.name ?? '',
     guardianPhone: '',
@@ -302,6 +304,25 @@ function RegisterChildDialog({ onSuccess }: { onSuccess: () => void }) {
             value={formData.birthDate}
             onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="gender">Gender</Label>
+          <Select
+            value={formData.gender || 'UNSPECIFIED'}
+            onValueChange={(value) => setFormData({
+              ...formData,
+              gender: value === 'UNSPECIFIED' ? '' : value,
+            })}
+          >
+            <SelectTrigger id="gender">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="UNSPECIFIED">Prefer not to specify</SelectItem>
+              <SelectItem value="MALE">Boy</SelectItem>
+              <SelectItem value="FEMALE">Girl</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="intendedLevel">Grade Level *</Label>

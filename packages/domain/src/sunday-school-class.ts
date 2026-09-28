@@ -108,6 +108,35 @@ export function normalizeSessionDate(date: Date | string): Date {
   return d;
 }
 
+export const SUNDAY_SCHOOL_TIME_ZONE = "America/New_York";
+
+/** Calendar date at the church, independent of the server/device timezone. */
+export function getSundaySchoolTodayDateInputValue(
+  date: Date = new Date(),
+  timeZone: string = SUNDAY_SCHOOL_TIME_ZONE,
+): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: "year" | "month" | "day") =>
+    parts.find(value => value.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/** Attendance writes are allowed only on the session's church-local date. */
+export function isSessionDateToday(
+  sessionDate: Date | string,
+  now: Date = new Date(),
+): boolean {
+  return (
+    toDateInputValue(normalizeSessionDate(sessionDate)) ===
+    getSundaySchoolTodayDateInputValue(now)
+  );
+}
+
 /**
  * The most recent Sunday on or before the given date — the default date when
  * a servant opens the attendance page. Derived from the viewer's local

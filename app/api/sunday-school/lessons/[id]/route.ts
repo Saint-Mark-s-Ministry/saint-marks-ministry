@@ -36,7 +36,7 @@ export async function PATCH(
 
     const access = await getSundaySchoolAccess(user, lesson.class.academicYearId)
     const canAssignOwner = canAssignWeeklyLessonOwner(access, lesson.classId)
-    const canEdit = canEditWeeklyLesson(access, lesson.classId, lesson.ownerId, user.id)
+    const canEdit = canEditWeeklyLesson(access, lesson.classId)
     const body = await request.json()
     const hasOwner = Object.prototype.hasOwnProperty.call(body, "ownerId")
     const hasTitle = Object.prototype.hasOwnProperty.call(body, "title")
@@ -124,7 +124,7 @@ export async function PATCH(
     return NextResponse.json({
       ...updated,
       status: getWeeklyLessonStatus(updated.ownerId, updated.resources.length),
-      canEdit: canEditWeeklyLesson(access, updated.classId, updated.ownerId, user.id),
+      canEdit: canEditWeeklyLesson(access, updated.classId),
       canAssignOwner,
     })
   } catch (error: unknown) {

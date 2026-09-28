@@ -102,6 +102,7 @@ describe('Sunday School roster CSV import API', () => {
       rowNumber: 2,
       firstName: 'Jane',
       lastName: 'Doe',
+      gender: 'FEMALE',
       birthDate: '2015-04-12',
       guardianName: 'John Doe',
       guardianPhone: '555-1234',
@@ -127,6 +128,7 @@ describe('Sunday School roster CSV import API', () => {
         lastName: 'Doe',
         level: 'GRADE_3',
         classId: 'class-1',
+        gender: 'FEMALE',
         guardianEmail: 'parent@example.com',
       }),
     })

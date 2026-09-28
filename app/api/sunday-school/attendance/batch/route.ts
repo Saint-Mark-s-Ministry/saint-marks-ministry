@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { canServeClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 import { AttendanceStatus } from "@prisma/client"
+import { isSessionDateToday } from "@/lib/sunday-school-class"
 
 // Sunday School mode: save a whole class's child attendance for one session.
 // Modeled on /api/attendance/batch, minus the prep-only concerns (conduct
@@ -19,6 +20,12 @@ interface BatchRequest {
   sessionId: string
   records: ChildAttendanceRecord[]
 }
+
+const SUNDAY_SCHOOL_ATTENDANCE_STATUSES = new Set<AttendanceStatus>([
+  AttendanceStatus.PRESENT,
+  AttendanceStatus.LATE,
+  AttendanceStatus.ABSENT,
+])
 
 // POST /api/sunday-school/attendance/batch
 export async function POST(request: Request) {
@@ -37,26 +44,30 @@ export async function POST(request: Request) {
 
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, classId: true, class: { select: { academicYearId: true } } },
+      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
     })
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
-
     // Serving this class is what grants this — PRIEST reads but never writes
     const access = await getSundaySchoolAccess(user, session.class.academicYearId)
     if (!canServeClass(access, session.classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+    if (!isSessionDateToday(session.date)) {
+      return NextResponse.json(
+        { error: "Attendance can only be recorded on the session date" },
+        { status: 400 }
+      )
+    }
 
-    const validStatuses = Object.values(AttendanceStatus)
     for (const record of records) {
       if (!record.childId) {
         return NextResponse.json({ error: "Each record needs a childId" }, { status: 400 })
       }
-      if (!validStatuses.includes(record.status)) {
+      if (!SUNDAY_SCHOOL_ATTENDANCE_STATUSES.has(record.status)) {
         return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
+          { error: `Invalid status. Must be one of: ${Array.from(SUNDAY_SCHOOL_ATTENDANCE_STATUSES).join(", ")}` },
           { status: 400 }
         )
       }

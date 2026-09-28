@@ -1,12 +1,18 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Image, Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   AttendanceStatus,
   SundaySchoolSessionAttendance,
 } from "@stmark/contracts";
-import { getChildFullName, getLevelDisplayName } from "@stmark/domain";
+import {
+  getChildFullName,
+  getLevelDisplayName,
+  isSessionDateToday,
+  organizeAttendanceRoster,
+  type AttendanceRosterNameOrder,
+} from "@stmark/domain";
 import { GlassChrome } from "@/components/chrome";
 import {
   Button,
@@ -22,6 +28,7 @@ import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
 import { rosterProgress, sameMarks, shiftWeek } from "@/data/attendance-draft";
 import { useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
+import { Choice, Toggle } from "@/components/forms";
 
 const statuses: { value: AttendanceStatus; label: string; short: string }[] = [
   { value: "PRESENT", label: "Present", short: "Present" },
@@ -64,6 +71,9 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>("last");
+  const [showPhotos, setShowPhotos] = useState(true);
+  const [groupByGender, setGroupByGender] = useState(false);
   useEffect(() => {
     let active = true;
     setLoadError(null);
@@ -86,7 +96,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   }, [classId, date, loadAttendance, retry]);
   const current = loaded?.date === date ? loaded.value : null;
   const key = attendanceKey(classId, date);
-  const roster = current?.roster ?? [];
+  const roster = useMemo(() => current?.roster ?? [], [current?.roster]);
+  const rosterGroups = useMemo(
+    () => organizeAttendanceRoster(roster, { nameOrder, groupByGender }),
+    [groupByGender, nameOrder, roster],
+  );
   const serverMarks = Object.fromEntries(
     roster.flatMap((child) =>
       child.attendance ? [[child.id, child.attendance.status]] : [],
@@ -97,12 +111,14 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const ids = roster.map((child) => child.id);
   const progress = rosterProgress(ids, marks);
   const dirty = !sameMarks(ids, marks, serverMarks);
-  const canEdit = !!current && !!cls.canServe && !saving;
+  const canEdit = !!current && !!cls.canServe && !saving && isSessionDateToday(date);
   const canSave = canEdit && progress.complete && dirty;
   const saveLabel = saving
     ? "Saving…"
     : !cls.canServe
       ? "Read-only access"
+      : !isSessionDateToday(date)
+        ? "Past attendance is read-only"
       : saved && !dirty
         ? "Attendance saved"
         : "Save attendance";
@@ -171,6 +187,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             </Pressable>
           </View>
         </GlassChrome>
+        {!isSessionDateToday(date) && (
+          <Copy kind="caption" color={colors.warning}>
+            Attendance can only be changed on the session date.
+          </Copy>
+        )}
         {!current && !loadError && (
           <ActivityIndicator
             accessibilityLabel="Loading class roster"
@@ -192,6 +213,26 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             <Copy>No active children in this class.</Copy>
           </Card>
         )}
+        {!!roster.length && (
+          <Card>
+            <Copy kind="heading">Roster organization</Copy>
+            <Choice
+              label="Alphabetize by"
+              value={nameOrder}
+              onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
+              options={[
+                { value: "last", label: "Last name" },
+                { value: "first", label: "First name" },
+              ]}
+            />
+            <Toggle label="Include photos" value={showPhotos} onChange={setShowPhotos} />
+            <Toggle
+              label="Group roster by gender"
+              value={groupByGender}
+              onChange={setGroupByGender}
+            />
+          </Card>
+        )}
         <View style={{ gap: 12 }}>
           <View style={[styles.row, { justifyContent: "space-between" }]}>
             <Copy kind="heading">Class roster</Copy>
@@ -211,23 +252,39 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
               )
             }
           />
-          {roster.map((child) => (
+          {rosterGroups.map((group) => (
+            <View key={group.key} style={{ gap: 12 }}>
+              {group.label && (
+                <View style={[styles.row, { justifyContent: "space-between" }]}>
+                  <Copy kind="heading">{group.label}</Copy>
+                  <Copy kind="caption">{group.entries.length}</Copy>
+                </View>
+              )}
+              {group.entries.map((child) => (
             <Card key={child.id} style={{ padding: 16, gap: 13 }}>
               <View style={styles.row}>
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    backgroundColor: colors.primarySoft,
-                    borderRadius: 18,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Copy color={colors.primary} style={{ fontWeight: "600" }}>
-                    {child.firstName[0]}
-                  </Copy>
-                </View>
+                {showPhotos && (child.profileImageUrl ? (
+                  <Image
+                    source={{ uri: child.profileImageUrl }}
+                    accessibilityLabel={`${getChildFullName(child)} profile photo`}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: colors.primarySoft,
+                      borderRadius: 20,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Copy color={colors.primary} style={{ fontWeight: "600" }}>
+                      {(child.firstName[0] ?? "") + (child.lastName[0] ?? "")}
+                    </Copy>
+                  </View>
+                ))}
                 <View style={{ flex: 1 }}>
                   <Copy style={{ fontWeight: "600" }}>
                     {getChildFullName(child)}
@@ -300,6 +357,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
                 })}
               </View>
             </Card>
+              ))}
+            </View>
           ))}
         </View>
         <Copy kind="caption">
