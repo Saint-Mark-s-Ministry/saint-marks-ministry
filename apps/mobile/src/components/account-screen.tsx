@@ -110,6 +110,14 @@ export function AccountScreen() {
             onPress={() => router.push("/notifications")}
           />
         </Card>
+        <Card>
+          <RowLink
+            title="Academic years"
+            subtitle="Manage years for lessons and exams"
+            icon={<Icon ios="calendar" android="calendar_month" />}
+            onPress={() => router.push("/academic-years")}
+          />
+        </Card>
         {user?.role === "SUPER_ADMIN" && (
           <>
             <SectionTitle title="Connected portal" />

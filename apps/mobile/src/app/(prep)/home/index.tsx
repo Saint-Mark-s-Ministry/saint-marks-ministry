@@ -19,10 +19,10 @@ export default function PrepHome() {
       <Stack.Screen
         options={{
           title: "Servants Prep",
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions notifications ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions notifications />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions notifications ministry="prep" />}
+      {Platform.OS === "ios" && <TopActions notifications />}
       <Screen resetOnFocus>
         <View style={[styles.row, { justifyContent: "space-between" }]}>
           <Brand />

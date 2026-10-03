@@ -1,4 +1,4 @@
-import { Platform, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
 import type { SundaySchoolDashboard } from "@stmark/contracts";
 import {
@@ -11,6 +11,7 @@ import {
   styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { ResourceState } from "@/components/forms";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
@@ -105,7 +106,7 @@ export default function Ministry() {
     <>
       <Stack.Screen
         options={{
-          title: "Ministry",
+          title: "More",
           headerRight:
             Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
@@ -116,6 +117,7 @@ export default function Ministry() {
         refreshing={resource.loading || resource.refreshing}
         onRefresh={() => void resource.refresh()}
       >
+        <MinistrySwitcherPill current="sundaySchool" />
         <ResourceState
           loading={resource.loading}
           error={resource.error}
@@ -138,7 +140,7 @@ export default function Ministry() {
   );
 }
 
-/** Non-interactive academic-year chip (SMM-28 shell); mirrors the web TopBar's year display. */
+/** Academic-year chip (SMM-28 shell); mirrors the web TopBar's year display, and opens year management. */
 function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }) {
   const { colors } = useAppTheme();
   const { attendanceTrend } = dashboard;
@@ -146,8 +148,11 @@ function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }
     attendanceTrend.academicYears.find((y) => y.id === attendanceTrend.selectedAcademicYearId)
       ?.name ?? "Current year";
   return (
-    <View
-      style={[
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Academic year: ${yearName}. Manage academic years`}
+      onPress={() => router.push("/academic-years")}
+      style={({ pressed }) => [
         styles.row,
         {
           alignSelf: "flex-start",
@@ -155,7 +160,8 @@ function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }
           paddingVertical: 6,
           paddingHorizontal: 10,
           borderRadius: 8,
-          backgroundColor: colors.primarySoft,
+          backgroundColor: pressed ? colors.primary : colors.primarySoft,
+          opacity: pressed ? 0.85 : 1,
         },
       ]}
     >
@@ -163,7 +169,8 @@ function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }
       <Copy kind="caption" color={colors.primary}>
         {yearName}
       </Copy>
-    </View>
+      <Icon ios="chevron.right" android="chevron_right" size={12} color={colors.primary} />
+    </Pressable>
   );
 }
 

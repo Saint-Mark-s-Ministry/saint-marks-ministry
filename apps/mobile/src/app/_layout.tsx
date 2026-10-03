@@ -73,6 +73,16 @@ function Navigation() {
           }}
         />
         <Stack.Screen
+          name="switch-ministry"
+          options={{
+            title: "Switch ministry",
+            presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+            sheetAllowedDetents: Platform.OS === "ios" ? [0.4] : undefined,
+            sheetInitialDetentIndex: 0,
+            sheetGrabberVisible: Platform.OS === "ios",
+          }}
+        />
+        <Stack.Screen
           name="account"
           options={{
             title: "Account",

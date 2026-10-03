@@ -8,6 +8,7 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
 
@@ -43,12 +44,13 @@ export default function PrepMinistry() {
     <>
       <Stack.Screen
         options={{
-          title: "Ministry",
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions ministry="prep" />,
+          title: "More",
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions ministry="prep" />}
+      {Platform.OS === "ios" && <TopActions />}
       <Screen resetOnFocus>
+        <MinistrySwitcherPill current="prep" />
         <View style={{ gap: 10 }}>
           <SectionTitle title="Servants Prep" />
           <ListSurface>

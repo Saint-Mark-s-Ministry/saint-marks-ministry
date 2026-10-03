@@ -18,10 +18,10 @@ export default function PrepStudents() {
       <Stack.Screen
         options={{
           title: copy.title,
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions ministry="prep" />}
+      {Platform.OS === "ios" && <TopActions />}
       <Screen resetOnFocus>
         <ComingSoon title={copy.title} icon={copy.icon} />
       </Screen>

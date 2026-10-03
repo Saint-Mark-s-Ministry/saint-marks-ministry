@@ -9,10 +9,10 @@ export default function PrepCalendar() {
       <Stack.Screen
         options={{
           title: "Calendar",
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions ministry="prep" />}
+      {Platform.OS === "ios" && <TopActions />}
       <Screen resetOnFocus>
         <ComingSoon title="Calendar" icon="calendar" />
       </Screen>
