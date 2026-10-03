@@ -3,7 +3,12 @@ import { Platform, View } from "react-native";
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { AppThemeProvider, useAppTheme } from "@/theme";
+import { useFonts } from "expo-font";
+import {
+  PlayfairDisplay_600SemiBold,
+  PlayfairDisplay_700Bold,
+} from "@expo-google-fonts/playfair-display";
+import { AppThemeProvider, serifDisplay, serifHeading, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
@@ -52,19 +57,30 @@ function Navigation() {
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
+          // Every "browse" destination (Academic years, Visitations, Age
+          // groups, etc.) gets the reference's big serif title. Task-focused
+          // and form-sheet screens below opt back out — a large title
+          // doesn't fit a short sheet or a screen with a dynamic subtitle.
+          headerLargeTitle: Platform.OS === "ios",
+          headerLargeTitleStyle: { fontFamily: serifDisplay },
+          headerTitleStyle: { fontFamily: serifHeading },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
         <Stack.Screen name="(prep)" options={{ headerShown: false, title: "" }} />
         <Stack.Screen
           name="attendance/[classId]"
-          options={{ title: "Take attendance" }}
+          options={{ title: "Take attendance", headerLargeTitle: false }}
         />
-        <Stack.Screen name="lesson/[id]" options={{ title: "Weekly lesson" }} />
+        <Stack.Screen
+          name="lesson/[id]"
+          options={{ title: "Weekly lesson", headerLargeTitle: false }}
+        />
         <Stack.Screen
           name="notifications"
           options={{
             title: "Notifications",
+            headerLargeTitle: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "modal",
             sheetAllowedDetents: Platform.OS === "ios" ? [0.55, 0.92] : undefined,
             sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
@@ -76,6 +92,7 @@ function Navigation() {
           name="switch-ministry"
           options={{
             title: "Switch ministry",
+            headerLargeTitle: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "modal",
             sheetAllowedDetents: Platform.OS === "ios" ? [0.4] : undefined,
             sheetInitialDetentIndex: 0,
@@ -86,6 +103,7 @@ function Navigation() {
           name="account"
           options={{
             title: "Account",
+            headerLargeTitle: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "card",
             sheetAllowedDetents:
               Platform.OS === "ios" ? [0.68, 0.95] : undefined,
@@ -112,12 +130,17 @@ export default function RootLayout() {
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_700Bold,
+    PlayfairDisplay_600SemiBold,
+  });
+  const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);
   const finishSplash = useCallback(() => setShowSplash(false), []);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#5C1A1A" }}>
-      {!loading &&
+      {ready &&
         (!user || user.mustChangePassword ? (
           <SignIn />
         ) : (
@@ -125,9 +148,7 @@ function AuthenticatedApp() {
             <Navigation />
           </PortalProvider>
         ))}
-      {showSplash && (
-        <LaunchScreen ready={!loading} onFinished={finishSplash} />
-      )}
+      {showSplash && <LaunchScreen ready={ready} onFinished={finishSplash} />}
     </View>
   );
 }

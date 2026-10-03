@@ -11,7 +11,7 @@ import {
   isGlassEffectAPIAvailable,
   isLiquidGlassAvailable,
 } from "expo-glass-effect";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, serifHeading, useAppTheme } from "@/theme";
 
 export function SectionStack() {
   const { colors } = useAppTheme();
@@ -23,6 +23,8 @@ export function SectionStack() {
         contentStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
         headerLargeTitle: Platform.OS === "ios",
+        headerLargeTitleStyle: { fontFamily: serifDisplay },
+        headerTitleStyle: { fontFamily: serifHeading },
       }}
     />
   );

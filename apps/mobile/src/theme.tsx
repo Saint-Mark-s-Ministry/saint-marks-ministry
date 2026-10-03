@@ -19,6 +19,14 @@ import {
 
 // Mirrors app/globals.css: the website's neutral surfaces and Sunday School
 // maroon scale are the source of truth for native color decisions.
+//
+// The UI/UX reference pairs a dark theme with a gold accent (selected tab,
+// icons, chips) and reserves burgundy for filled call-to-action buttons —
+// burgundy text/icons directly on a near-black background reads poorly, but
+// burgundy *inside* a solid button has its own contrast against the white
+// label, so `action` (button fills) stays burgundy in both modes while
+// `primary` (accents drawn straight on the background) switches to gold in
+// dark mode only. Light mode already matches the reference there.
 const light = {
   background: "#F7F7F5",
   surface: "#FFFFFF",
@@ -44,7 +52,7 @@ const dark: typeof light = {
   text: "#F5F5F7",
   muted: "#98989D",
   border: "rgba(255, 255, 255, 0.08)",
-  primary: "#F5F5F7",
+  primary: "#CBA135",
   primarySoft: "rgba(255, 255, 255, 0.09)",
   action: "#800020",
   onAction: "#FFFFFF",
@@ -57,6 +65,12 @@ const dark: typeof light = {
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
 };
+
+// The reference's serif display headings, loaded via @expo-google-fonts so no
+// font files need to be vendored by hand. Body/caption text stays the system
+// sans — only titles and section headings switch over (see components/ui.tsx).
+export const serifDisplay = "PlayfairDisplay_700Bold";
+export const serifHeading = "PlayfairDisplay_600SemiBold";
 
 export type AppearancePreference = "system" | "light" | "dark";
 type ResolvedAppearance = "light" | "dark";
