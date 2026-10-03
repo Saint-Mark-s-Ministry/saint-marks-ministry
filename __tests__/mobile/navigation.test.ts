@@ -17,11 +17,14 @@ const roles = [
 
 describe("mobile ministry switching", () => {
   it.each(roles.filter((role) => role !== "SERVANT" && role !== "PARENT"))(
-    "gives %s both ministries once they have Sunday School access",
+    "gives %s both ministries once they have Sunday School access, defaulting to Sunday School",
     (role) => {
       const options = availableMinistries({ role }, true);
       expect(options.map((o) => o.id)).toEqual(["prep", "sundaySchool"]);
-      expect(defaultMinistry({ role }, true)).toBe("prep");
+      // Sunday School is this app's pre-existing default — a cold start must
+      // not silently drop an admin/priest/leader into the new Prep shell
+      // just because Prep is technically "available" to them too.
+      expect(defaultMinistry({ role }, true)).toBe("sundaySchool");
     },
   );
 
