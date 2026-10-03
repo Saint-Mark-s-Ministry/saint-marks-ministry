@@ -39,16 +39,20 @@ export function availableMinistries(
   return [prep, { id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool }];
 }
 
-/** Default ministry to land in when more than one is available. */
+/**
+ * Default ministry to land in on a cold start, before any manual switch.
+ * Sunday School is this app's pre-existing default (everything that works
+ * today lives there) — only fall back to Prep when Sunday School genuinely
+ * isn't one of this account's options, e.g. a Mentor/Student with no
+ * Sunday School assignment.
+ */
 export function defaultMinistry(
   user: Pick<PortalUser, "role">,
   hasSundaySchoolAccess: boolean,
 ): Ministry {
   const options = availableMinistries(user, hasSundaySchoolAccess);
   if (!options.length) return "prep";
-  // SERVANT/PARENT only ever get sundaySchool in options; everyone else
-  // defaults to Prep, matching the web's prepHome()-first behavior.
-  return options.some((option) => option.id === "prep")
-    ? "prep"
-    : options[0].id;
+  return options.some((option) => option.id === "sundaySchool")
+    ? "sundaySchool"
+    : "prep";
 }
