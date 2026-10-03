@@ -59,7 +59,7 @@ export default function PrepTabLayout() {
           sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
           md="dashboard"
         />
-        <NativeTabs.Trigger.Label>Ministry</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="search" role="search">
         {Platform.OS === "android" && <NativeTabs.Trigger.Icon md="search" />}
