@@ -64,6 +64,7 @@ function MinistrySwitcher({ current }: { current: Ministry }) {
     <MenuView
       title="Switch ministry"
       actions={actions}
+      style={{ width: 38, height: 38 }}
       onPressAction={({ nativeEvent }) => {
         const next = nativeEvent.event as Ministry;
         if (next === current) return;
