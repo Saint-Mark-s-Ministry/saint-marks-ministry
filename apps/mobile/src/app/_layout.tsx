@@ -1,13 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { AppThemeProvider, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
-import { PortalProvider } from "@/data/portal-provider";
+import { PortalProvider, usePortal } from "@/data/portal-provider";
+import { defaultMinistry } from "@/data/navigation";
 import SignIn from "@/components/sign-in";
 import LaunchScreen from "@/components/launch-screen";
+import { AttendanceAccessory } from "@/components/attendance-accessory";
 
 export { ErrorBoundary } from "expo-router";
 export const unstable_settings = { initialRouteName: "(tabs)" };
@@ -16,7 +18,19 @@ SplashScreen.setOptions({ duration: 500, fade: true });
 
 function Navigation() {
   const { colors, isDark } = useAppTheme();
+  const { user } = useAuth();
+  const { classes, loading } = usePortal();
   const base = isDark ? DarkTheme : DefaultTheme;
+  // Route to the right ministry once, as soon as we know whether this
+  // account has Sunday School access (classes finished loading). A manual
+  // switcher choice afterwards is a deliberate navigation, not re-routed.
+  const autoRouted = useRef(false);
+  useEffect(() => {
+    if (autoRouted.current || loading || !user) return;
+    autoRouted.current = true;
+    const ministry = defaultMinistry(user, classes.length > 0);
+    if (ministry === "prep") router.replace("/(prep)/home");
+  }, [loading, classes.length, user]);
   return (
     <ThemeProvider
       value={{
@@ -41,6 +55,7 @@ function Navigation() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
+        <Stack.Screen name="(prep)" options={{ headerShown: false, title: "" }} />
         <Stack.Screen
           name="attendance/[classId]"
           options={{ title: "Take attendance" }}
@@ -70,6 +85,7 @@ function Navigation() {
           }}
         />
       </Stack>
+      <AttendanceAccessory />
     </ThemeProvider>
   );
 }
