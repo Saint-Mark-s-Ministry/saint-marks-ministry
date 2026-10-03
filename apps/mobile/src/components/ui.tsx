@@ -23,7 +23,7 @@ import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, serifHeading, useAppTheme } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
 import { NativeActionButton } from "./native-action-button";
 
@@ -525,12 +525,12 @@ export const styles = StyleSheet.create({
     alignSelf: "center",
   },
   title: {
+    fontFamily: serifDisplay,
     fontSize: 34,
-    fontWeight: "700",
-    letterSpacing: -1.1,
+    letterSpacing: -0.4,
     lineHeight: 40,
   },
-  heading: { fontSize: 21, fontWeight: "600", letterSpacing: -0.4 },
+  heading: { fontFamily: serifHeading, fontSize: 21, letterSpacing: -0.2 },
   body: { fontSize: 16, lineHeight: 23 },
   caption: { fontSize: 13, lineHeight: 19 },
   eyebrow: {
