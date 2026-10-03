@@ -8,6 +8,7 @@ import {
   ListSurface,
   Screen,
   SectionTitle,
+  styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { ResourceState } from "@/components/forms";
@@ -122,6 +123,7 @@ export default function Ministry() {
         />
         {resource.data && (
           <>
+            <AcademicYearContext dashboard={resource.data} />
             <MinistryGroup title="Sunday School" links={common} />
             {!!admin.length && (
               <MinistryGroup title="Administration" links={admin} />
@@ -133,6 +135,35 @@ export default function Ministry() {
         )}
       </Screen>
     </>
+  );
+}
+
+/** Non-interactive academic-year chip (SMM-28 shell); mirrors the web TopBar's year display. */
+function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }) {
+  const { colors } = useAppTheme();
+  const { attendanceTrend } = dashboard;
+  const yearName =
+    attendanceTrend.academicYears.find((y) => y.id === attendanceTrend.selectedAcademicYearId)
+      ?.name ?? "Current year";
+  return (
+    <View
+      style={[
+        styles.row,
+        {
+          alignSelf: "flex-start",
+          gap: 6,
+          paddingVertical: 6,
+          paddingHorizontal: 10,
+          borderRadius: 8,
+          backgroundColor: colors.primarySoft,
+        },
+      ]}
+    >
+      <Icon ios="calendar" android="calendar_month" size={14} color={colors.primary} />
+      <Copy kind="caption" color={colors.primary}>
+        {yearName}
+      </Copy>
+    </View>
   );
 }
 
