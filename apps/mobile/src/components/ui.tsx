@@ -342,6 +342,44 @@ export function ConnectionBadge() {
   );
 }
 
+export function initials(name?: string | null) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+}
+
+export function InitialsAvatar({
+  name,
+  size = 32,
+}: {
+  name?: string | null;
+  size?: number;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.avatarSoft,
+      }}
+    >
+      <Text
+        style={{
+          color: colors.avatar,
+          fontWeight: "700",
+          fontSize: size * 0.38,
+        }}
+      >
+        {initials(name)}
+      </Text>
+    </View>
+  );
+}
+
 export function Brand() {
   return (
     <View style={styles.row}>

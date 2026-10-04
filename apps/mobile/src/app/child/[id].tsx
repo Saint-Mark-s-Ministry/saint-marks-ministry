@@ -8,6 +8,7 @@ import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { validDate } from "@/data/ministry";
+import { MinistryTintProvider } from "@/theme";
 
 type ChildDetail = SundaySchoolChild & { attendance: { id: string; status: string; notes: string | null; session: { date: string; topic: string | null } }[] };
 export default function Child() {
@@ -20,7 +21,7 @@ export default function Child() {
   const child = resource.data;
   const canEdit = user?.role === "SUPER_ADMIN" || !!classes.find(c => c.id === child?.classId)?.canServe;
   const done = async () => { setEditing(false); await Promise.all([resource.refresh(), refresh()]); };
-  return <Page title={id === "new" ? "Add child" : child ? `${child.firstName} ${child.lastName}` : "Child profile"} {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title={id === "new" ? "Add child" : child ? `${child.firstName} ${child.lastName}` : "Child profile"} {...resource}>
     {(id === "new" || (child && editing && canEdit)) ? <ChildForm key={id} child={child} initialClassId={classId} done={done} /> : child && <>
       <Card><Copy kind="title">{child.firstName} {child.lastName}</Copy><Copy>{child.class?.name ?? "Unassigned"} · {getLevelDisplayName(child.level)}{child.gender ? ` · ${child.gender === "MALE" ? "Boy" : "Girl"}` : ""}</Copy>
         <Copy>{child.isActive ? "Active" : "Inactive"}</Copy>{child.birthDate && <Copy>Born {child.birthDate.slice(0, 10)}</Copy>}
@@ -46,7 +47,7 @@ export default function Child() {
       {canEdit && child.isActive && <Button secondary disabled={action.busy} label="Archive child" onPress={() => confirmAction("Archive child?", "This removes the child from the active roster and ends their current enrollment. Attendance history is preserved.", () => void action.run(async () => { await request(endpoint("children", id), "DELETE"); await done(); }), true)} />}
     </>}
     {editing && <Button label="Cancel editing" secondary onPress={() => setEditing(false)} />}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function ChildForm({ child, initialClassId, done }: { child?: SundaySchoolChild; initialClassId?: string; done: () => Promise<void> }) {
   const { classes } = usePortal();

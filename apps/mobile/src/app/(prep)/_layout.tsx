@@ -1,14 +1,20 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Platform } from "react-native";
-import { useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 /**
- * Servants Prep tab set (SMM-28 shell). Mirrors the shape of
- * `(tabs)/_layout.tsx` (Sunday School) exactly — same NativeTabs styling —
- * but these screens are placeholders. SMM-32–61 own the real page content;
- * this layout only owns the destinations existing and being reachable.
+ * Servants Prep tab set. Mirrors the shape of `(tabs)/_layout.tsx` (Sunday
+ * School) — same NativeTabs styling, tinted maroon instead of gold.
  */
 export default function PrepTabLayout() {
+  return (
+    <MinistryTintProvider ministry="prep">
+      <Tabs />
+    </MinistryTintProvider>
+  );
+}
+
+function Tabs() {
   const { colors, isDark } = useAppTheme();
   return (
     <NativeTabs

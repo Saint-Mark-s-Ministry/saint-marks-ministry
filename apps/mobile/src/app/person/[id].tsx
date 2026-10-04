@@ -8,14 +8,15 @@ import { endpoint, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { accessTagLabels, type Person } from "@/data/people";
 import { usePortal } from "@/data/portal-provider";
+import { MinistryTintProvider } from "@/theme";
 
 export default function PersonScreen() {
   const { id, disabled } = useLocalSearchParams<{ id: string; disabled?: string }>();
   const { user } = useAuth();
   const resource = useResource<Person>(user?.role === "SUPER_ADMIN" && id !== "new" ? `/api/users/${encodeURIComponent(id)}` : null);
-  return <Page title={id === "new" ? "New account" : "Manage account"} {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title={id === "new" ? "New account" : "Manage account"} {...resource}>
     {user?.role !== "SUPER_ADMIN" ? <Copy>Super-admin access is required.</Copy> : (id === "new" || resource.data) && <PersonEditor key={`${id}:${resource.data?.name}`} person={resource.data} initiallyDisabled={disabled === "true"} refresh={resource.refresh} />}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person; initiallyDisabled: boolean; refresh: () => Promise<void> }) {
   const { user } = useAuth();

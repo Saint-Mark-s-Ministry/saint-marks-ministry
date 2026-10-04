@@ -5,6 +5,7 @@ import { Button, Card, Copy, RowLink } from "@/components/ui";
 import { Choice, Page } from "@/components/forms";
 import { endpoint, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
+import { MinistryTintProvider } from "@/theme";
 
 type Organization = { academicYear: { name: string } | null; priests: SundaySchoolServantRef[]; classes: SundaySchoolClassRef[]; ageGroups: { id: string; name: string; levels: SundaySchoolLevel[]; overseerId: string | null }[]; assignments: SundaySchoolAssignmentRow[] };
 export default function Organization() {
@@ -15,7 +16,7 @@ export default function Organization() {
   const data = resource.data;
   const people = data ? Array.from(new Map([...data.priests, ...data.assignments.map(a => a.user)].map(p => [p.id, p])).values()).sort((a, b) => a.name.localeCompare(b.name)) : [];
   const groups = data ? [...data.ageGroups, { id: "ungrouped", name: "No age group", levels: [], overseerId: null }] : [];
-  return <Page title="Ministry organization" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Ministry organization" {...resource}>
     {user?.role !== "SUPER_ADMIN" && <Copy>Super-admin access is required.</Copy>}
     {data && <><Copy kind="heading">{data.academicYear?.name ?? "No active year"}</Copy><Choice label="Focus on a person" value={selected} onChange={setSelected} options={[{ value: "", label: "Entire ministry" }, ...people.map(p => ({ value: p.id, label: p.name }))]} />
       <Button secondary label="Reset focus" onPress={() => setSelected("")} />
@@ -33,5 +34,5 @@ export default function Organization() {
         </Card>;
       })}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }

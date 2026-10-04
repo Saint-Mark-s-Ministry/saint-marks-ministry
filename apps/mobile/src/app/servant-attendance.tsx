@@ -7,6 +7,7 @@ import { GlassChrome } from "@/components/chrome";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { usePortal, meetingDate } from "@/data/portal-provider";
 import { validDate } from "@/data/ministry";
+import { MinistryTintProvider } from "@/theme";
 
 export default function ServantAttendance() {
   const params = useLocalSearchParams<{ classId?: string }>();
@@ -28,7 +29,7 @@ export default function ServantAttendance() {
   const key = `${classId}:${date}`;
   const action = useAction();
   const marks = drafts[key] ?? Object.fromEntries(resource.data?.roster.flatMap(p => p.attendance ? [[p.userId, p.attendance.status]] : []) ?? []);
-  return <Page title="Servant attendance" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Servant attendance" {...resource}>
     <Choice label="Class" value={classId} disabled={action.busy} onChange={value => { setClassId(value); const c = allowed.find(c => c.id === value); if (c) setDate(meetingDate(c)); }} options={allowed.map(c => ({ value: c.id, label: c.name }))} />
     <Field label="Meeting date (YYYY-MM-DD)" value={date} onChange={setDate} disabled={action.busy} />
     {resource.data?.canEdit && <Copy kind="caption">Unsaved marks stay in memory when changing dates. They are lost when leaving this screen.</Copy>}
@@ -43,5 +44,5 @@ export default function ServantAttendance() {
         setDrafts(d => { const next = { ...d }; delete next[key]; return next; }); await resource.refresh();
       }, "Attendance saved")} /></GlassChrome>}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }

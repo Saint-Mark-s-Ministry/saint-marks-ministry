@@ -1,11 +1,21 @@
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Copy, Icon, ListSurface, Screen, SectionTitle, styles } from "@/components/ui";
+import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
 import { usePortal } from "@/data/portal-provider";
 import { availableMinistries, type Ministry } from "@/data/navigation";
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  PRIEST: "Priest",
+  SERVANT_PREP: "Servant",
+  MENTOR: "Mentor",
+  STUDENT: "Student",
+  SERVANT: "Servant",
+  PARENT: "Parent",
+};
 
 /**
  * Formsheet presented from the ministry switcher pill on "More". Picking a
@@ -23,7 +33,7 @@ export default function SwitchMinistry() {
     <>
       <Stack.Screen
         options={{
-          title: "Switch ministry",
+          title: "Ministries",
           headerRight:
             Platform.OS === "android"
               ? () => (
@@ -46,38 +56,47 @@ export default function SwitchMinistry() {
       )}
       <Screen>
         <View style={{ gap: 10 }}>
-          <SectionTitle title="Ministries" subtitle="Everything connected to your account." />
           <ListSurface>
-            {options.map((option, index) => (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: option.id === current }}
-                onPress={() => {
-                  void Haptics.selectionAsync().catch(() => undefined);
-                  if (option.id === current) {
-                    router.back();
-                    return;
-                  }
-                  router.replace(option.id === "prep" ? "/(prep)/home" : "/(tabs)/home");
-                }}
-                style={({ pressed }) => [
-                  styles.compactRow,
-                  index < options.length - 1 && {
-                    borderBottomWidth: 0.5,
-                    borderBottomColor: colors.border,
-                  },
-                  { backgroundColor: pressed ? colors.primarySoft : "transparent" },
-                ]}
-              >
-                <Copy style={{ flex: 1, fontWeight: "600" }}>{option.name}</Copy>
-                {option.id === current && (
-                  <Icon ios="checkmark" android="check" size={18} color={colors.primary} />
-                )}
-              </Pressable>
-            ))}
+            {options.map((option, index) => {
+              const roleLabel = user ? ROLE_LABELS[user.role] ?? user.role : "";
+              const subtitle =
+                option.id === "sundaySchool"
+                  ? `${roleLabel} · ${classes.length} ${classes.length === 1 ? "class" : "classes"}`
+                  : roleLabel;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: option.id === current }}
+                  onPress={() => {
+                    void Haptics.selectionAsync().catch(() => undefined);
+                    if (option.id === current) {
+                      router.back();
+                      return;
+                    }
+                    router.replace(option.id === "prep" ? "/(prep)/home" : "/(tabs)/home");
+                  }}
+                  style={({ pressed }) => [
+                    styles.compactRow,
+                    index < options.length - 1 && {
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: colors.border,
+                    },
+                    { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Copy style={{ fontWeight: "600" }}>{option.name}</Copy>
+                    {!!subtitle && <Copy kind="caption">{subtitle}</Copy>}
+                  </View>
+                  {option.id === current && (
+                    <Icon ios="checkmark" android="check" size={18} color={colors.primary} />
+                  )}
+                </Pressable>
+              );
+            })}
           </ListSurface>
-          <Copy kind="caption">Sign in once to reach every ministry connected to your account.</Copy>
+          <Copy kind="caption">Only ministries you can open appear here.</Copy>
         </View>
       </Screen>
     </>

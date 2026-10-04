@@ -6,17 +6,18 @@ import { Choice, Field, Page, confirmAction, useAction } from "@/components/form
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { ministryAccess } from "@/data/ministry";
+import { MinistryTintProvider } from "@/theme";
 
 interface Registration { id: string; firstName: string; lastName: string; intendedLevel: SundaySchoolLevel; birthDate: string; guardianName: string; guardianPhone: string; guardianEmail: string | null; notes: string | null; status: string; submittedBy: { name: string; email: string }; placedClass: { name: string } | null; reviewNote?: string | null; }
 export default function Registrations() {
   const [status, setStatus] = useState("PENDING");
   const resource = useResource<Registration[]>(`${endpoint("child-registrations")}?status=${status}`);
   const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
-  return <Page title="Child registrations" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Child registrations" {...resource}>
     <Choice label="Status" value={status} onChange={setStatus} options={["PENDING", "APPROVED", "REJECTED"].map(value => ({ value, label: value }))} />
     {resource.data && !resource.data.length && <Copy>No registrations in this view.</Copy>}
     {resource.data?.map(r => <RegistrationCard key={r.id} registration={r} canReview={ministryAccess(dashboard.data).createLevels.includes(r.intendedLevel)} refresh={resource.refresh} />)}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function RegistrationCard({ registration: r, canReview, refresh }: { registration: Registration; canReview: boolean; refresh: () => Promise<void> }) {
   const { classes, refresh: refreshPortal } = usePortal();

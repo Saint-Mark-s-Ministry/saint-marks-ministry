@@ -20,6 +20,7 @@ import {
   styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { meetingDate, attendanceKey, usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
@@ -55,6 +56,7 @@ export default function Classes() {
       <Stack.Screen
         options={{
           title: classes.length === 1 ? "My class" : "Classes",
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           headerRight:
             Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}

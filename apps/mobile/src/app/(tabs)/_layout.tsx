@@ -1,8 +1,16 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Platform } from "react-native";
-import { useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 export default function TabLayout() {
+  return (
+    <MinistryTintProvider ministry="sundaySchool">
+      <Tabs />
+    </MinistryTintProvider>
+  );
+}
+
+function Tabs() {
   const { colors, isDark } = useAppTheme();
   return (
     <NativeTabs

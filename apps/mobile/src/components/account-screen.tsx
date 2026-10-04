@@ -8,6 +8,7 @@ import {
   Copy,
   CopyableValue,
   Icon,
+  InitialsAvatar,
   ConnectionBadge,
   RowLink,
   Screen,
@@ -61,11 +62,7 @@ export function AccountScreen() {
         <ConnectionBadge />
         <Card>
           <View style={styles.row}>
-            <Icon
-              ios="person.crop.circle.fill"
-              android="account_circle"
-              size={48}
-            />
+            <InitialsAvatar name={user?.name} size={48} />
             <View style={{ flex: 1 }}>
               <Copy kind="heading">{user?.name ?? "Ministry account"}</Copy>
               {user?.email && (

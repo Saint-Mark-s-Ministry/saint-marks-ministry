@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import { ComingSoon, Screen } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 
 const COPY_BY_ROLE: Record<string, { title: string; icon: "person.2" | "book" | "clock" }> = {
@@ -18,6 +19,7 @@ export default function PrepStudents() {
       <Stack.Screen
         options={{
           title: copy.title,
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />

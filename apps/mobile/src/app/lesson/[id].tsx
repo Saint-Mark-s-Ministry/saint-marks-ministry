@@ -6,6 +6,7 @@ import { Button, Card, Copy, RowLink, readableDate } from "@/components/ui";
 import { Choice, Field, Page, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
+import { MinistryTintProvider } from "@/theme";
 
 export default function Lesson() {
   const { id, classId } = useLocalSearchParams<{ id: string; classId?: string }>();
@@ -13,7 +14,7 @@ export default function Lesson() {
   const [editing, setEditing] = useState(false);
   const { refresh } = usePortal();
   const lesson = resource.data?.lessons.find(l => l.id === id);
-  return <Page title={lesson?.class.name ?? "Weekly lesson"} {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title={lesson?.class.name ?? "Weekly lesson"} {...resource}>
     {resource.data && !lesson && <Copy>This lesson is unavailable for this account or academic year.</Copy>}
     {lesson && <><Copy kind="title">{lesson.title || "Weekly lesson"}</Copy><Copy>{readableDate(lesson.sundayDate)}</Copy><Copy>{lesson.owner?.name ?? "Teacher not assigned"}</Copy>
       {(lesson.canEdit || lesson.canAssignOwner) && !editing && <Button label="Edit lesson" onPress={() => setEditing(true)} />}
@@ -23,7 +24,7 @@ export default function Lesson() {
         try { const url = new URL(r.url); if (!["https:", "http:"].includes(url.protocol)) throw new Error(); void Linking.openURL(url.href).catch(() => Alert.alert("Unable to open resource")); } catch { Alert.alert("Invalid resource link"); }
       }} /></Card>)}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function LessonEditor({ lesson, done, cancel }: { lesson: SundaySchoolWeeklyLesson; done: () => Promise<void>; cancel: () => void }) {
   const [title, setTitle] = useState(lesson.title ?? "");
