@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowLeft, Network, Users } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,7 @@ function Connector() {
 export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPerson; onClose: () => void }) {
   const { data, error, isLoading, mutate } = useSundaySchoolOrganization()
   const [history, setHistory] = useState<OrganizationPerson[]>([user])
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const selected = history[history.length - 1]
   const bands = data ? organizationBands(data, selected.id) : []
   const overseers = [...new Map(
@@ -65,9 +66,15 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="flex min-w-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+      <DialogContent
+        className="flex min-w-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        onOpenAutoFocus={event => {
+          event.preventDefault()
+          titleRef.current?.focus()
+        }}
+      >
         <DialogHeader className="border-b px-6 py-5 pr-12 text-left">
-          <DialogTitle className="flex items-center gap-2"><Network className="h-5 w-5 text-indigo-600" />Organization</DialogTitle>
+          <DialogTitle ref={titleRef} tabIndex={-1} className="flex items-center gap-2 focus:outline-none"><Network className="h-5 w-5 text-indigo-600" />Organization</DialogTitle>
           <DialogDescription>Sunday School · {data?.academicYear?.name ?? 'Current academic year'}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap items-center gap-3 border-b px-6 py-3">
@@ -90,14 +97,14 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
           ) : (
             <>
               <p className="text-center text-xs text-muted-foreground">Priest overseer → Age-group coordinators → Class coordinators → Servants</p>
+              <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {bands.length} {bands.length === 1 ? 'age group' : 'age groups'} · {classCount} {classCount === 1 ? 'class' : 'classes'} · Select a person to explore
+              </div>
               <Connector />
               <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Priest overseer</h4>
               {cards(overseers, 'Priest overseer', 'No priest overseer assigned')}
               <Connector />
-              <div className="flex items-center justify-center gap-2 pb-2 text-xs text-muted-foreground">
-                <Users className="h-4 w-4" />
-                {bands.length} {bands.length === 1 ? 'age group' : 'age groups'} · {classCount} {classCount === 1 ? 'class' : 'classes'} · Select a person to explore
-              </div>
 
               <div className="space-y-10">
                 {bands.map(band => (
@@ -114,10 +121,10 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
                         <Connector />
                         <div
                           aria-label={`${band.name} classes`}
-                          className="grid min-w-0 grid-cols-1 gap-4 pt-2 sm:grid-cols-2 xl:grid-cols-3"
+                          className="flex min-w-0 flex-wrap justify-center gap-4 pt-2"
                         >
                           {band.classes.map(team => (
-                            <div key={team.id} className="min-w-0 rounded-xl border border-indigo-100 bg-background/70 p-4 dark:border-indigo-950">
+                            <div key={team.id} className="w-full min-w-0 max-w-sm rounded-xl border border-indigo-100 bg-background/70 p-4 sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)] dark:border-indigo-950">
                               <div className="mb-4 text-center">
                                 <h3 className="font-semibold">{team.name}</h3>
                                 <p className="text-xs text-muted-foreground">Class</p>
