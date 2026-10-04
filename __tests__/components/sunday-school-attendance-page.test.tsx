@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SundaySchoolLevel } from '@prisma/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -63,41 +63,59 @@ describe('Sunday School attendance page', () => {
       if (url.startsWith('/api/sunday-school/children?')) {
         return {
           ok: true,
-          json: async () => [{
-            id: 'child-1',
-            firstName: 'Mina',
-            lastName: 'Mark',
-            level: SundaySchoolLevel.GRADE_5,
-          }],
+          json: async () => [
+            { id: 'child-1', firstName: 'Mina', lastName: 'Mark', level: SundaySchoolLevel.GRADE_5 },
+            { id: 'child-2', firstName: 'Abanoub', lastName: 'Saad', level: SundaySchoolLevel.GRADE_5 },
+          ],
         }
+      }
+      if (url === '/api/sunday-school/sessions') {
+        return { ok: true, json: async () => ({ id: 'session-1' }) }
+      }
+      if (url === '/api/sunday-school/attendance/batch') {
+        return { ok: true, json: async () => ({ success: true }) }
       }
       throw new Error(`Unexpected request: ${url}`)
     })
   })
 
-  it('keeps past child attendance editable, starts unmarked, and requires every child to be marked', async () => {
-    const user = userEvent.setup()
+  it('keeps past child attendance editable and starts unmarked', async () => {
     render(<SundaySchoolAttendancePage />)
 
     expect(await screen.findByText('Mina Mark')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /excused/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Present' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Late' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Present' })).toBeEnabled()
+    const [present] = screen.getAllByRole('button', { name: 'Present' })
+    expect(present).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByRole('button', { name: 'Late' })[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByRole('button', { name: 'Not present' })[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(present).toBeEnabled()
     expect(screen.queryByText(/Past attendance is read-only/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/2 not marked will be saved as absent/)).toBeInTheDocument()
+  })
 
+  it('saves children left unmarked as absent', async () => {
+    const user = userEvent.setup()
+    render(<SundaySchoolAttendancePage />)
+    expect(await screen.findByText('Abanoub Saad')).toBeInTheDocument()
+
+    // Mark only Mina present, then save
+    const minaRow = screen.getByText('Mina Mark').closest('li')!
+    await user.click(within(minaRow).getByRole('button', { name: 'Present' }))
     await user.click(screen.getByRole('button', { name: 'Save attendance' }))
 
-    expect(mocks.toastError).toHaveBeenCalledWith('Select attendance for 1 child before saving')
     await waitFor(() => {
-      expect(mocks.fetch).not.toHaveBeenCalledWith(
-        '/api/sunday-school/sessions',
-        expect.objectContaining({ method: 'POST' })
-      )
+      const batch = mocks.fetch.mock.calls.find(([url]) => url === '/api/sunday-school/attendance/batch')
+      expect(batch).toBeDefined()
+      expect(JSON.parse(batch![1].body).records).toEqual([
+        { childId: 'child-1', status: 'PRESENT' },
+        { childId: 'child-2', status: 'ABSENT' },
+      ])
     })
-
-    await user.click(screen.getByRole('button', { name: 'Not present' }))
-    expect(screen.getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'true')
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    // The unmarked child now shows as absent
+    const abanoubRow = screen.getByText('Abanoub Saad').closest('li')!
+    await waitFor(() =>
+      expect(within(abanoubRow).getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'true')
+    )
   })
 })

@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClass } from '@/lib/swr'
-import { getChildFullName, getLevelDisplayName } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName } from '@/lib/sunday-school-class'
 import type { OrganizationPerson } from '@/lib/sunday-school-organization'
 import { formatDateUTC } from '@/lib/utils'
 import type {
@@ -497,7 +497,7 @@ export default function SundaySchoolClassDetailPage() {
               <ul className="grid gap-x-6 sm:grid-cols-2">
                 {detail.children.map(child => (
                   <li key={child.id} className="flex items-center gap-2.5 border-b border-line py-2">
-                    <Initials name={getChildFullName(child)} />
+                    <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                     <span className={`truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                       {getChildFullName(child)}
                     </span>

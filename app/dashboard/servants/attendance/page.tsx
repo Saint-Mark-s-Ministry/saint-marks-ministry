@@ -12,7 +12,6 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Initials } from '@/components/ds/person'
-import { StatusBadge } from '@/components/ds/status-badge'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
@@ -23,6 +22,7 @@ import {
 } from '@/lib/attendance-roster'
 import {
   getChildFullName,
+  getChildPhotoUrl,
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
@@ -149,7 +149,7 @@ function SundaySchoolAttendanceContent() {
         lastName: child.lastName,
         level: child.level,
         gender: child.gender,
-        profileImageUrl: child.user?.profileImageUrl ?? null,
+        profileImageUrl: getChildPhotoUrl(child),
         attendance: null,
       }))
 
@@ -173,13 +173,10 @@ function SundaySchoolAttendanceContent() {
   const handleSave = async () => {
     if (!attendance) return
 
-    const unmarkedCount = attendance.roster.filter(entry => !marks[entry.id]).length
-    if (unmarkedCount > 0) {
-      toast.error(
-        `Select attendance for ${unmarkedCount} ${unmarkedCount === 1 ? 'child' : 'children'} before saving`
-      )
-      return
-    }
+    // Mark who's here; anyone left unmarked is saved as absent
+    const finalMarks: Record<string, AttendanceStatus> = Object.fromEntries(
+      attendance.roster.map(entry => [entry.id, marks[entry.id] ?? AttendanceStatus.ABSENT])
+    )
 
     setSaving(true)
     try {
@@ -202,7 +199,7 @@ function SundaySchoolAttendanceContent() {
           sessionId: sessionBody.id,
           records: attendance.roster.map(entry => ({
             childId: entry.id,
-            status: marks[entry.id]!,
+            status: finalMarks[entry.id],
           })),
         }),
       })
@@ -212,6 +209,7 @@ function SundaySchoolAttendanceContent() {
       }
 
       const saved = new Date()
+      setMarks(finalMarks)
       setLastSaved(saved)
       setAttendance(prev => (prev ? { ...prev, session: sessionBody } : prev))
       void refreshTrend()
@@ -241,7 +239,7 @@ function SundaySchoolAttendanceContent() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Take attendance"
-        meta={['Select a status for every child before saving this week', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        meta={['Mark who’s here; anyone not marked is saved as absent', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
         actions={
           selectedClassId && (
             <Button asChild variant="outline">
@@ -354,7 +352,7 @@ function SundaySchoolAttendanceContent() {
             <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
               <p className="tabular text-[13px] text-ink-2" aria-live="polite">
                 <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} here
-                {unmarkedCount > 0 && <StatusBadge tone="warn" className="ml-2">{unmarkedCount} unmarked</StatusBadge>}
+                {unmarkedCount > 0 && <span className="ml-2 text-ink-3">· {unmarkedCount} not marked will be saved as absent</span>}
               </p>
               <Button onClick={handleSave} disabled={saving} className="ml-auto">
                 {saving ? 'Saving…' : 'Save attendance'}

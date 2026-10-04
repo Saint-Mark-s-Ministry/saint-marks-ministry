@@ -15,6 +15,7 @@ import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
+import { ChildPhotoField } from '@/components/sunday-school-child-photo'
 import { FilterSelect } from '@/components/ui/filter-select'
 import {
   Dialog,
@@ -30,7 +31,7 @@ import {
   useSundaySchoolClasses,
   useSundaySchoolFamilies,
 } from '@/lib/swr'
-import { getChildFullName, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import type {
   SundaySchoolChild,
   SundaySchoolClass,
@@ -172,6 +173,7 @@ function SundaySchoolChildrenContent() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingPhoto, setEditingPhoto] = useState<{ photoUrl: string | null; accountPhotoUrl: string | null }>({ photoUrl: null, accountPhotoUrl: null })
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
@@ -203,6 +205,7 @@ function SundaySchoolChildrenContent() {
 
   const openEdit = (child: SundaySchoolChild) => {
     setEditingId(child.id)
+    setEditingPhoto({ photoUrl: child.photoUrl ?? null, accountPhotoUrl: child.user?.profileImageUrl ?? null })
     setForm({
       firstName: child.firstName,
       lastName: child.lastName,
@@ -406,7 +409,7 @@ function SundaySchoolChildrenContent() {
                     className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(0,14rem)_auto] lg:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <Initials name={getChildFullName(child)} imageUrl={child.user?.profileImageUrl} />
+                      <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                       <div className="flex min-w-0 flex-col leading-tight">
                         <span className={`truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                           {getChildFullName(child)}
@@ -514,6 +517,20 @@ function SundaySchoolChildrenContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {editingId ? (
+              <ChildPhotoField
+                childId={editingId}
+                name={`${form.firstName} ${form.lastName}`.trim()}
+                photoUrl={editingPhoto.photoUrl}
+                accountPhotoUrl={editingPhoto.accountPhotoUrl}
+                onChange={(photoUrl) => {
+                  setEditingPhoto((prev) => ({ ...prev, photoUrl }))
+                  mutate()
+                }}
+              />
+            ) : (
+              <p className="text-xs text-ink-3">You can add a photo after saving the child.</p>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name</Label>

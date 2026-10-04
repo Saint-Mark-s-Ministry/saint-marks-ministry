@@ -1007,6 +1007,8 @@ model SundaySchoolChild {
   rosterLinkId  String?
   birthDate     DateTime?
   gender        SundaySchoolChildGender?
+  /// Photo servants upload so they can learn names (most children have no account).
+  photoUrl      String?
   guardianName  String?
   guardianPhone String?
   guardianEmail String?
