@@ -17,7 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { LastSaved } from '@/components/ui/last-saved'
 import { isAdmin, canManageData } from '@/lib/roles'
-import { ChevronDown, ChevronRight, CheckCheck, Rows3, X, UserX, Plane } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCheck, Rows3, UserX, Plane } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC, formatUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -86,7 +86,6 @@ export default function AttendancePage() {
   const [compactMode, setCompactMode] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
-  const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
   const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
   const [conductNoteInput, setConductNoteInput] = useState('')
   // Expected absences covering the selected lesson, keyed by studentId
@@ -628,15 +627,7 @@ export default function AttendancePage() {
                         <tr key={student.id} className={`border-b border-line last:border-0 ${compactMode ? 'h-11' : 'h-[52px]'}`}>
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
-                              <button
-                                type="button"
-                                className="shrink-0 cursor-pointer rounded-full disabled:cursor-default"
-                                disabled={!student.profileImageUrl}
-                                aria-label={student.profileImageUrl ? `View ${student.name}'s photo` : undefined}
-                                onClick={() => student.profileImageUrl && setViewingPhoto({ name: student.name, url: student.profileImageUrl })}
-                              >
-                                <Initials name={student.name} imageUrl={student.profileImageUrl} />
-                              </button>
+                              <Initials name={student.name} imageUrl={student.profileImageUrl} />
                               <div className="flex min-w-0 flex-col leading-[1.3]">
                                 <span className="truncate font-medium text-ink">{student.name}</span>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
@@ -812,26 +803,6 @@ export default function AttendancePage() {
         </DialogContent>
       </Dialog>
 
-      {viewingPhoto && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setViewingPhoto(null)}
-        >
-          <div className="relative w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL, sized to viewport */}
-            <img src={viewingPhoto.url} alt={viewingPhoto.name} className="aspect-square w-full rounded-xl object-cover" />
-            <p className="mt-3 text-center text-sm font-medium text-white">{viewingPhoto.name}</p>
-            <button
-              type="button"
-              aria-label="Close photo"
-              onClick={() => setViewingPhoto(null)}
-              className="absolute -top-3 -right-3 cursor-pointer rounded-full bg-surface p-1.5 text-ink-2 shadow-lg hover:text-ink"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

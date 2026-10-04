@@ -790,7 +790,7 @@ function StudentsManagementContent() {
                         className="size-5 shrink-0 accent-brand"
                       />
                       <button type="button" onClick={() => setPreviewId(student.id)} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
-                        <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} />
+                        <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} />
                         <span className="flex min-w-0 flex-col">
                           <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
                           <span className="truncate text-xs text-ink-3">

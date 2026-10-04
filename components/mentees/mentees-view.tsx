@@ -30,7 +30,7 @@ interface StudentNote {
 
 interface Mentee {
   id: string
-  student: { id: string; name: string; email: string; phone?: string }
+  student: { id: string; name: string; email: string; phone?: string; profileImageUrl?: string | null }
   yearLevel: string
   status: string
   fatherOfConfession?: { name: string } | null
@@ -246,7 +246,7 @@ function MenteeCard({
     <Panel>
       <div className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:gap-6">
         <div className="flex min-w-0 items-center gap-3 lg:w-72">
-          <Initials name={mentee.student.name} size={40} />
+          <Initials name={mentee.student.name} imageUrl={mentee.student.profileImageUrl} size={40} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex flex-wrap items-center gap-2">
               <Link

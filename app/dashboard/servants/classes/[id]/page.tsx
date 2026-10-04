@@ -333,7 +333,7 @@ export default function SundaySchoolClassDetailPage() {
                 {classAssignments.map(assignment => (
                   <div key={assignment.id} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <Initials name={assignment.user.name} />
+                      <Initials name={assignment.user.name} imageUrl={assignment.user.profileImageUrl} />
                       <div className="flex min-w-0 flex-col leading-tight">
                         <span className="truncate text-[13.5px] font-medium text-ink">{assignment.user.name}</span>
                         <span className="truncate text-xs text-ink-3">{assignment.user.email}</span>
