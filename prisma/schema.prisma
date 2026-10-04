@@ -995,28 +995,30 @@ model SundaySchoolServantAssignment {
 }
 
 model SundaySchoolChild {
-  id            String                   @id @default(cuid())
-  firstName     String
-  lastName      String
-  level         SundaySchoolLevel
-  classId       String?
-  familyId      String?
-  userId        String?                  @unique
+  id                 String                   @id @default(cuid())
+  firstName          String
+  lastName           String
+  level              SundaySchoolLevel
+  classId            String?
+  familyId           String?
+  userId             String?                  @unique
   // Set when this row came from a public roster sign-up link, so servants can
   // see what a given QR code let onto the roster and clean it up.
-  rosterLinkId  String?
-  birthDate     DateTime?
-  gender        SundaySchoolChildGender?
+  rosterLinkId       String?
+  birthDate          DateTime?
+  gender             SundaySchoolChildGender?
   /// Photo servants upload so they can learn names (most children have no account).
-  photoUrl      String?
-  guardianName  String?
-  guardianPhone String?
-  guardianEmail String?
-  notes         String?                  @db.Text
-  status        SundaySchoolRecordStatus @default(ACTIVE)
-  isActive      Boolean                  @default(true)
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
+  photoUrl           String?
+  guardianName       String?
+  guardianPhone      String?
+  guardianEmail      String?
+  cellPhone          String?
+  fatherOfConfession String?
+  notes              String?                  @db.Text
+  status             SundaySchoolRecordStatus @default(ACTIVE)
+  isActive           Boolean                  @default(true)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   // Relations
   class               SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)

@@ -60,7 +60,7 @@ account access through a dated relationship.
 | `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`. A Postgres enum array, so no join table. |
 | `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. |
 | `SundaySchoolServantAssignment` | Year-bound authority with exactly one class or age-group scope and dated end history. |
-| `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, legacy guardian contact, `notes`, `isActive`. |
+| `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, optional child cell number and father-of-confession name, legacy guardian contact, `notes`, `isActive`. |
 | `SundaySchoolGuardianProfile` | Guardian identity/contact independent of whether the guardian has a login. |
 | `SundaySchoolChildGuardian` | Dated relationship between guardian, child, and optional parent user; this relationship grants parent scope. |
 | `SundaySchoolRosterImport` / `Row` | Idempotent import run and per-row outcome ledger. |
@@ -212,7 +212,8 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
 | `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |

@@ -54,6 +54,8 @@ interface ChildForm {
   guardianName: string
   guardianPhone: string
   guardianEmail: string
+  cellPhone: string
+  fatherOfConfession: string
   familyId: string
   familyName: string
   homeAddress: string
@@ -77,6 +79,8 @@ const EMPTY_FORM: ChildForm = {
   guardianName: '',
   guardianPhone: '',
   guardianEmail: '',
+  cellPhone: '',
+  fatherOfConfession: '',
   familyId: NEW_FAMILY_ID,
   familyName: '',
   homeAddress: '',
@@ -216,6 +220,8 @@ function SundaySchoolChildrenContent() {
       guardianName: child.guardianName ?? '',
       guardianPhone: child.guardianPhone ?? '',
       guardianEmail: child.guardianEmail ?? '',
+      cellPhone: child.cellPhone ?? '',
+      fatherOfConfession: child.fatherOfConfession ?? '',
       familyId: child.familyId ?? NEW_FAMILY_ID,
       ...familyFormFields(child.family),
       linkedUserEmail: child.user?.email ?? '',
@@ -422,6 +428,11 @@ function SundaySchoolChildrenContent() {
                     </div>
 
                     <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
+                      {child.cellPhone && (
+                        <span className="mb-0.5 flex flex-wrap items-center gap-x-1">
+                          Child: <CopyableValue value={child.cellPhone} label="child's cell number" className="py-0.5" />
+                        </span>
+                      )}
                       {child.family ? (
                         <div className="flex flex-col gap-0.5">
                           {(child.family.motherName || child.family.motherPhone) && (
@@ -473,6 +484,11 @@ function SundaySchoolChildrenContent() {
                       {child.notes && (
                         <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
                           Note: {child.notes}
+                        </p>
+                      )}
+                      {child.fatherOfConfession && (
+                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.fatherOfConfession}>
+                          Father of confession: {child.fatherOfConfession}
                         </p>
                       )}
                     </div>
@@ -614,17 +630,45 @@ function SundaySchoolChildrenContent() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Date of birth</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                max={new Date().toISOString().slice(0, 10)}
-                value={form.birthDate}
-                onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
-              />
+            <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
+              <p className="font-medium">Child details</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="birthDate">Date of birth</Label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={form.birthDate}
+                    onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cellPhone">Child&apos;s cell number</Label>
+                  <Input
+                    id="cellPhone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="Only if they have their own phone"
+                    maxLength={50}
+                    value={form.cellPhone}
+                    onChange={e => setForm(prev => ({ ...prev, cellPhone: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fatherOfConfession">Father of confession</Label>
+                <Input
+                  id="fatherOfConfession"
+                  placeholder="Name"
+                  maxLength={200}
+                  value={form.fatherOfConfession}
+                  onChange={e => setForm(prev => ({ ...prev, fatherOfConfession: e.target.value }))}
+                />
+              </div>
               <p className="text-xs text-gray-500">
-                Also used to tell two children with the same name apart on a roster import.
+                Date of birth also helps distinguish children with the same name during roster imports.
               </p>
             </div>
 

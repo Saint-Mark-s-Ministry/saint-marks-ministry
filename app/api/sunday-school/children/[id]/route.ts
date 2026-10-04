@@ -97,6 +97,8 @@ export async function PATCH(
       guardianName,
       guardianPhone,
       guardianEmail,
+      cellPhone,
+      fatherOfConfession,
       notes,
       isActive,
       linkedUserEmail,
@@ -238,6 +240,8 @@ export async function PATCH(
     if (guardianName !== undefined) updateData.guardianName = guardianName?.trim() || null
     if (guardianPhone !== undefined) updateData.guardianPhone = guardianPhone?.trim() || null
     if (guardianEmail !== undefined) updateData.guardianEmail = normalizeOptionalEmail(guardianEmail)
+    if (cellPhone !== undefined) updateData.cellPhone = cellPhone?.trim() || null
+    if (fatherOfConfession !== undefined) updateData.fatherOfConfession = fatherOfConfession?.trim() || null
     if (notes !== undefined) updateData.notes = notes?.trim() || null
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
     if (linkedUserEmail !== undefined) {

@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   BookOpen,
+  Cake,
   Users,
   UserCheck,
   FileText,
@@ -54,6 +55,7 @@ function getNavItemsForRole(
       { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
       { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
     ]
 
@@ -90,6 +92,7 @@ function getNavItemsForRole(
       { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
       { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
       { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]

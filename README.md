@@ -48,12 +48,15 @@ references the prep program, and vice versa.
   set of grades
 - **Classes** per academic year, each with assigned servants
 - **Coordinators** at class or age-group level, with authority scoped accordingly
-- **Children rosters** with profile photos, optional gender, and protected
-  guardian contact visible only to that class's servants and to admins
+- **Children rosters** with profile photos, optional gender, birth date, child
+  cell number, father-of-confession information, and protected contact details
+  visible only to that class's servants and to admins
+- **Birthday tracking** with month and class filters for every child in the
+  viewer's assigned classes
 - **Flexible attendance rosters** with first- or last-name sorting, optional
   photos, and optional grouping by gender
-- **Child and servant attendance** with per-class trends; records can be changed
-  only on the session date
+- **Child and servant attendance** with per-class trends; child records can be
+  corrected later while servant attendance remains limited to the session date
 - **Weekly lesson planning** aligned to the active Sunday School year; any
   servant assigned to the class can update lessons and assign an owner from the
   class roster
