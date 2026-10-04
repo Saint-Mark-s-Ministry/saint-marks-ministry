@@ -203,7 +203,7 @@ function ServantAttendanceContent() {
                   return (
                     <li key={entry.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
                       <span className="flex min-w-0 items-center gap-2.5">
-                        <Initials name={entry.name} />
+                        <Initials name={entry.name} imageUrl={entry.profileImageUrl} />
                         <span className="flex min-w-0 flex-col leading-tight">
                           <span className="flex items-center gap-2">
                             <span className="truncate text-[13.5px] font-medium text-ink">{entry.name}</span>

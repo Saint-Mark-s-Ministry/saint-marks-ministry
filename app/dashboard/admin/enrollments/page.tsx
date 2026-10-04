@@ -558,7 +558,7 @@ export default function EnrollmentsPage() {
                       onClick={() => selectMentor(active ? 'all' : mentor.id)}
                       className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left md:min-h-9 ${active ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
                     >
-                      <Initials name={mentor.name} imageUrl={mentor.profileImageUrl} size={24} />
+                      <Initials name={mentor.name} imageUrl={mentor.profileImageUrl} size={24} enlarge={false} />
                       <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{mentor.name}</span>
                       <span aria-hidden className="h-1.5 w-12 overflow-hidden rounded-[3px] bg-track">
                         <span className="block h-full rounded-[3px] bg-accent-ink" style={{ width: `${(count / maxLoad) * 100}%` }} />

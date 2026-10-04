@@ -128,7 +128,7 @@ export function Sidebar({
             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-accent-ink"
             aria-label="Account menu"
           >
-            <Initials name={user.name} imageUrl={user.imageUrl} size={30} />
+            <Initials name={user.name} imageUrl={user.imageUrl} size={30} enlarge={false} />
             <span className="sidebar-label flex min-w-0 flex-col leading-[1.25]">
               <span className="truncate text-[13px] font-medium text-ink">{user.name}</span>
               <span className="truncate text-[11.5px] text-ink-3">{user.roleLabel}</span>
