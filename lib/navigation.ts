@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   BookOpen,
+  Cake,
   CalendarCheck,
   ClipboardCheck,
   ClipboardList,
@@ -174,6 +175,7 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
     { href: '/dashboard/servants/lessons', label: 'Lessons', icon: Presentation, tab: true },
     { href: '/dashboard/servants/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
     { href: '/dashboard/servants/roster', label: 'Roster', icon: Users, tab: true },
+    { href: '/dashboard/servants/birthdays', label: 'Birthdays', icon: Cake },
     { href: '/dashboard/servants/visitations', label: 'Visitations', icon: HandHeart },
   ]
   const feedback: NavItem = { href: '/dashboard/servants/feedback', label: 'Feedback', icon: MessageSquare }

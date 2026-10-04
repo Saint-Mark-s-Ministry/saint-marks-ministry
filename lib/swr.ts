@@ -193,6 +193,10 @@ export function useSundaySchoolChildren(classId?: string, options?: SWRConfigura
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
 
+export function useSundaySchoolBirthdays(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/birthdays', fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useSundaySchoolVisitations(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/visitations', fetcher, {
     ...defaultSWRConfig,

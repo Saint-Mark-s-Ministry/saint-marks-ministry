@@ -102,11 +102,25 @@ export interface SundaySchoolChild {
   guardianName: string | null
   guardianPhone: string | null
   guardianEmail: string | null
+  cellPhone: string | null
+  fatherOfConfession: string | null
   notes: string | null
   isActive: boolean
   class?: SundaySchoolClassRef | null
   family?: SundaySchoolFamily | null
   user?: { id: string; name: string; email: string; profileImageUrl: string | null } | null
+}
+
+export interface SundaySchoolBirthdayChild {
+  id: string
+  firstName: string
+  lastName: string
+  level: SundaySchoolLevel
+  classId: string | null
+  birthDate: string
+  photoUrl: string | null
+  class: SundaySchoolClassRef | null
+  user: { profileImageUrl: string | null } | null
 }
 
 export type SundaySchoolWeeklyLessonStatus = 'UNASSIGNED' | 'NEEDS_LINKS' | 'READY'

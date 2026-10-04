@@ -93,7 +93,8 @@ export async function GET(request: Request) {
 
 // POST /api/sunday-school/children - Add a child to the roster
 // Body: { firstName, lastName, level, classId?, birthDate?, familyId?,
-//         family?, guardianName?, guardianPhone?, guardianEmail?, notes? }
+//         family?, guardianName?, guardianPhone?, guardianEmail?, cellPhone?,
+//         fatherOfConfession?, notes? }
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
@@ -111,6 +112,8 @@ export async function POST(request: Request) {
       guardianName,
       guardianPhone,
       guardianEmail,
+      cellPhone,
+      fatherOfConfession,
       notes,
     } = body
 
@@ -228,6 +231,8 @@ export async function POST(request: Request) {
           guardianName: guardianName?.trim() || null,
           guardianPhone: guardianPhone?.trim() || null,
           guardianEmail: normalizeOptionalEmail(guardianEmail),
+          cellPhone: cellPhone?.trim() || null,
+          fatherOfConfession: fatherOfConfession?.trim() || null,
           notes: notes?.trim() || null,
         },
         include: {

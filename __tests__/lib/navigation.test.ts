@@ -52,6 +52,7 @@ describe('navigationFor', () => {
     const groups = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
     expect(groups.map((g) => g.label)).not.toContain('Admin')
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).toContain('/dashboard/servants/feedback')
+    expect(hrefs('SERVANT', 'sunday-school', servesSS)).toContain('/dashboard/servants/birthdays')
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/child-registrations')
   })
 
