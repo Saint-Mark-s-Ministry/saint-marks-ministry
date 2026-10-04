@@ -42,6 +42,7 @@ const light = {
   danger: "#B93A26",
   dangerSoft: "#FEF2F2",
   info: "#2D5F9A",
+  infoSoft: "#EAF1FA",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
   // Prep: buttons/mark vs. the lighter "mode active" marker are the same
@@ -71,6 +72,7 @@ const dark: typeof light = {
   danger: "#F0806F",
   dangerSoft: "rgba(127, 29, 29, 0.45)",
   info: "#86AEE0",
+  infoSoft: "rgba(45, 95, 154, 0.35)",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
   // Prep in dark mode splits the role: a pale rose for tint drawn straight
