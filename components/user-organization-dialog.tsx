@@ -65,7 +65,7 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+      <DialogContent className="flex min-w-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
         <DialogHeader className="border-b px-6 py-5 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2"><Network className="h-5 w-5 text-indigo-600" />Organization</DialogTitle>
           <DialogDescription>Sunday School · {data?.academicYear?.name ?? 'Current academic year'}</DialogDescription>
@@ -75,7 +75,7 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
           <p className="min-w-0 flex-1 break-words text-sm">Organization for <strong>{selected.name}</strong></p>
           {history.length > 1 && <Button variant="ghost" size="sm" onClick={() => setHistory([user])}>Reset</Button>}
         </div>
-        <div className="min-h-0 overflow-y-auto bg-muted/30 p-4 sm:p-6" aria-live="polite" aria-busy={isLoading}>
+        <div className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-muted/30 p-4 sm:p-6" aria-live="polite" aria-busy={isLoading}>
           {isLoading ? (
             <p role="status" className="py-16 text-center text-sm text-muted-foreground">Loading organization…</p>
           ) : error ? (
@@ -112,26 +112,23 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
                     {band.classes.length > 0 && (
                       <>
                         <Connector />
-                        <div className="overflow-x-auto pb-3">
-                          <div className="relative mx-auto flex w-max min-w-full justify-center pt-6">
-                            {band.classes.length > 1 && (
-                              <div aria-hidden="true" className="absolute left-36 right-36 top-0 h-px bg-indigo-300 dark:bg-indigo-700" />
-                            )}
-                            {band.classes.map(team => (
-                              <div key={team.id} className="relative w-72 shrink-0 px-3">
-                                <div aria-hidden="true" className="absolute left-1/2 top-[-1.5rem] h-6 w-px bg-indigo-300 dark:bg-indigo-700" />
-                                <div className="mb-4 text-center">
-                                  <h3 className="font-semibold">{team.name}</h3>
-                                  <p className="text-xs text-muted-foreground">Class</p>
-                                </div>
-                                <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Class coordinators</h4>
-                                {cards(team.classCoordinators, 'Class coordinator', 'No class coordinator assigned')}
-                                <Connector />
-                                <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Servants</h4>
-                                {cards(team.servants, 'Servant', 'No servants assigned')}
+                        <div
+                          aria-label={`${band.name} classes`}
+                          className="grid min-w-0 grid-cols-1 gap-4 pt-2 sm:grid-cols-2 xl:grid-cols-3"
+                        >
+                          {band.classes.map(team => (
+                            <div key={team.id} className="min-w-0 rounded-xl border border-indigo-100 bg-background/70 p-4 dark:border-indigo-950">
+                              <div className="mb-4 text-center">
+                                <h3 className="font-semibold">{team.name}</h3>
+                                <p className="text-xs text-muted-foreground">Class</p>
                               </div>
-                            ))}
-                          </div>
+                              <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Class coordinators</h4>
+                              {cards(team.classCoordinators, 'Class coordinator', 'No class coordinator assigned')}
+                              <Connector />
+                              <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Servants</h4>
+                              {cards(team.servants, 'Servant', 'No servants assigned')}
+                            </div>
+                          ))}
                         </div>
                       </>
                     )}
