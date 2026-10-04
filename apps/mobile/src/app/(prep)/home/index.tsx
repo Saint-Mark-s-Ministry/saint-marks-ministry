@@ -189,7 +189,7 @@ export default function PrepHome() {
                       {" · "}
                       {new Date(upNext.scheduledDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </Copy>
-                    <Copy style={{ fontFamily: serifDisplay, fontSize: 26, marginTop: 2 }}>
+                    <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, marginTop: 2 }}>
                       {upNext.isExamDay ? "Exam day" : `Lesson ${upNextIndex + 1} of ${ordered.length}`}
                     </Copy>
                     <Copy kind="caption" style={{ color: colors.text2, fontSize: 15 }}>
@@ -392,7 +392,7 @@ function Metric({
       <Copy kind="caption" style={{ fontWeight: "500" }}>
         {label}
       </Copy>
-      <Copy style={{ fontSize: 28, fontWeight: "600", letterSpacing: -0.3 }} color={color ?? colors.text}>
+      <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "600" }} color={color ?? colors.text}>
         {String(value)}
       </Copy>
       <Copy kind="caption">{sublabel}</Copy>
