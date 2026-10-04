@@ -6,6 +6,7 @@ import { Choice, Field, Page, ResourceState, useAction } from "@/components/form
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { validDate } from "@/data/ministry";
+import { MinistryTintProvider } from "@/theme";
 
 export default function Visitations() {
   const params = useLocalSearchParams<{ classId?: string; childId?: string }>();
@@ -14,7 +15,7 @@ export default function Visitations() {
   const [selected, setSelected] = useState(params.childId ?? "");
   const { classes } = usePortal();
   const resource = useResource<SundaySchoolVisitationsResponse>(`${endpoint("visitations")}?${query({ classId })}`);
-  return <Page title="Visitations" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Visitations" {...resource}>
     <Choice label="Class" value={classId} onChange={value => { setClassId(value); setSelected(""); }} options={[{ value: "", label: "All accessible classes" }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
     <Field label="Find a child" value={search} onChange={setSearch} />
     {resource.data?.classes.map(cls => <Card key={cls.id}><Copy kind="heading">{cls.name}</Copy>
@@ -25,7 +26,7 @@ export default function Visitations() {
       </Card>)}
       {!cls.children.length && <Copy>No active children in this class.</Copy>}
     </Card>)}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function VisitDetail({ child, canEdit, refresh }: { child: SundaySchoolVisitationChild; canEdit: boolean; refresh: () => Promise<void> }) {
   const notes = useResource<{ notes: SundaySchoolPriestNote[] }>(`${endpoint("priest-notes")}?${query({ childId: child.id })}`);

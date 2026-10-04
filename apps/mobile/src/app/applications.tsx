@@ -10,7 +10,7 @@ import {
 } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 type Application = {
   id: string;
@@ -37,6 +37,7 @@ export default function Applications() {
   );
 
   return (
+    <MinistryTintProvider ministry="sundaySchool">
     <Page title="Servant applications" {...resource}>
       {user?.role !== "SUPER_ADMIN" ? (
         <Copy>Super-admin access is required.</Copy>
@@ -62,6 +63,7 @@ export default function Applications() {
         </>
       )}
     </Page>
+    </MinistryTintProvider>
   );
 }
 

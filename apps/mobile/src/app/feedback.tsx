@@ -3,6 +3,7 @@ import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackResponse, SundayScho
 import { Button, Card, Copy } from "@/components/ui";
 import { Choice, Field, Page, confirmAction, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
+import { MinistryTintProvider } from "@/theme";
 
 const statuses = ["OPEN", "PLANNED", "IN_PROGRESS", "COMPLETED", "DECLINED"] as const;
 const option = (value: string) => ({ value, label: value.replaceAll("_", " ") });
@@ -16,7 +17,7 @@ export default function Feedback() {
   const [editor, setEditor] = useState<SundaySchoolFeedbackIdea | "new" | null>(null);
   const resource = useResource<SundaySchoolFeedbackResponse>(`${endpoint("feedback")}?${query({ status, sort })}`);
   const action = useAction();
-  return <Page title="Feedback" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Feedback" {...resource}>
     <Choice label="Status" value={status} onChange={setStatus} options={["ALL", "ACTIVE", ...statuses].map(option)} />
     <Choice label="Sort" value={sort} onChange={setSort} options={[{ value: "TOP", label: "Most upvotes" }, { value: "NEWEST", label: "Newest" }]} />
     {resource.data?.viewer.canSubmit && <Button label="Post feedback" onPress={() => setEditor("new")} />}
@@ -29,7 +30,7 @@ export default function Feedback() {
       {resource.data?.viewer.canModerate && <Choice label="Moderation status" value={idea.status} disabled={action.busy} options={statuses.map(option)} onChange={value => confirmAction("Change feedback status?", `Set this feedback to ${value.replaceAll("_", " ")}?`, () => void action.run(async () => { await request(endpoint("feedback", idea.id), "PATCH", { status: value }); await resource.refresh(); }))} />}
       {idea.canDelete && <Button secondary label="Delete feedback" disabled={action.busy} onPress={() => confirmAction("Delete feedback permanently?", "The feedback and all its votes will be removed. This cannot be undone.", () => void action.run(async () => { await request(endpoint("feedback", idea.id), "DELETE"); await resource.refresh(); }), true)} />}
     </Card>)}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function FeedbackEditor({ idea, done, cancel }: { idea?: SundaySchoolFeedbackIdea; done: () => Promise<void>; cancel: () => void }) {
   const [type, setType] = useState<SundaySchoolFeedbackType>(idea?.type ?? "IDEA");

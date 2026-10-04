@@ -7,6 +7,7 @@ import { Staffing } from "@/components/staffing";
 import { endpoint, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { usePortal } from "@/data/portal-provider";
+import { MinistryTintProvider } from "@/theme";
 
 export default function AgeGroups() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export default function AgeGroups() {
   const action = useAction();
   const portal = usePortal();
   const refresh = async () => { await Promise.all([resource.refresh(), portal.refresh()]); };
-  return <Page title="Age groups" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Age groups" {...resource}>
     {user?.role !== "SUPER_ADMIN" ? <Copy>Super-admin access is required.</Copy> : <>
       <Button label="New age group" onPress={() => setEditor("new")} />
       {editor && <GroupEditor key={editor === "new" ? "new" : editor.id} group={editor === "new" ? undefined : editor} groups={resource.data ?? []} priests={(priests.data ?? []).filter(p => !p.isDisabled)} cancel={() => setEditor(null)} done={async () => { setEditor(null); await refresh(); }} />}
@@ -29,7 +30,7 @@ export default function AgeGroups() {
         <Button secondary label="Delete age group" disabled={action.busy} onPress={() => confirmAction("Delete age group permanently?", "Its coordinator assignments will be removed. Classes stay, but become ungrouped. This cannot be undone.", () => void action.run(async () => { await request(endpoint("age-groups", g.id), "DELETE"); await refresh(); }), true)} />
       </Card>)}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function GroupEditor({ group, groups, priests, done, cancel }: { group?: SundaySchoolAgeGroup; groups: SundaySchoolAgeGroup[]; priests: SundaySchoolServantRef[]; done: () => Promise<void>; cancel: () => void }) {
   const [name, setName] = useState(group?.name ?? "");

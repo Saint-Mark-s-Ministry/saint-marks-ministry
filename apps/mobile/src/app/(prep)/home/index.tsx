@@ -3,22 +3,18 @@ import { Stack } from "expo-router";
 import { Brand, ComingSoon, ConnectionBadge, Screen, styles } from "@/components/ui";
 import { View } from "react-native";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
-
-const TITLE_BY_ROLE: Record<string, string> = {
-  STUDENT: "My progress",
-  MENTOR: "Mentor dashboard",
-  PARENT: "My children",
-};
 
 export default function PrepHome() {
   const { user } = useAuth();
-  const title = (user && TITLE_BY_ROLE[user.role]) ?? "Servants Prep";
+  const title = user?.role === "STUDENT" && user.name ? `Hi, ${user.name.split(" ")[0]}` : "Dashboard";
   return (
     <>
       <Stack.Screen
         options={{
-          title: "Servants Prep",
+          title,
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: Platform.OS === "ios" ? undefined : () => <TopActions notifications />,
         }}
       />

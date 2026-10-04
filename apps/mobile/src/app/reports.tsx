@@ -5,7 +5,7 @@ import type { SundaySchoolDashboard } from "@stmark/contracts";
 import { Card, Copy, RowLink, readableDate } from "@/components/ui";
 import { Choice, Page } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
-import { useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 export default function Reports() {
   const [audience, setAudience] = useState("children");
@@ -16,7 +16,7 @@ export default function Reports() {
   const dashboard = resource.data;
   const options = base.data?.attendanceTrend;
   const { colors } = useAppTheme();
-  return <Page title="Attendance reports" {...resource}>
+  return <MinistryTintProvider ministry="sundaySchool"><Page title="Attendance reports" {...resource}>
     <Choice label="Audience" value={audience} onChange={value => { setAudience(value); setClassId(""); }} options={[{ value: "children", label: "Children" }, ...(options?.canViewServantAttendance ? [{ value: "servants", label: "Servants" }] : [])]} />
     <Choice label="Academic year" value={academicYearId} onChange={setYear} options={[{ value: "", label: "Current year" }, ...(options?.academicYears ?? []).map(y => ({ value: y.id, label: y.name }))]} />
     {options?.canSelectClass && <Choice label="Class" value={classId} onChange={setClassId} options={[{ value: "", label: "All accessible classes" }, ...(options.classes ?? []).map(c => ({ value: c.id, label: c.name }))]} />}
@@ -30,5 +30,5 @@ export default function Reports() {
       </Card>
       {dashboard.classes.map(c => <Card key={c.id}><RowLink title={c.name} subtitle={`${c.ageGroup?.name ?? "No age group"} · ${c.childCount} children · ${c.sessionCount} sessions · ${Math.round(c.attendancePercentage)}% attendance`} onPress={() => router.push({ pathname: "/class/[id]", params: { id: c.id } })} /></Card>)}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }

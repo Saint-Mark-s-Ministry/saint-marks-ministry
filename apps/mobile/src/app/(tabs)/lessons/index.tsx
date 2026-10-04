@@ -13,6 +13,7 @@ import {
   styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { Choice, ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -52,6 +53,7 @@ export default function Lessons() {
         options={{
           title: "Weekly lessons",
           headerLargeTitle: false,
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           headerRight:
             Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}

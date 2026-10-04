@@ -8,7 +8,7 @@ import {
   PlayfairDisplay_600SemiBold,
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
-import { AppThemeProvider, serifDisplay, serifHeading, useAppTheme } from "@/theme";
+import { AppThemeProvider, MinistryTintProvider, serifDisplay, serifHeading, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
@@ -113,7 +113,12 @@ function Navigation() {
           }}
         />
       </Stack>
-      <AttendanceAccessory />
+      {/* Every in-progress draft today is a Sunday School class; revisit once
+          Prep lesson attendance ships and the accessory needs to tint per
+          the draft's own ministry instead of a fixed default. */}
+      <MinistryTintProvider ministry="sundaySchool">
+        <AttendanceAccessory />
+      </MinistryTintProvider>
     </ThemeProvider>
   );
 }

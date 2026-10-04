@@ -8,6 +8,7 @@ import { Staffing } from "@/components/staffing";
 import { endpoint, request, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { usePortal } from "@/data/portal-provider";
+import { MinistryTintProvider } from "@/theme";
 
 type Detail = SundaySchoolClass & { children: SundaySchoolChild[]; sessions: SundaySchoolSession[] };
 export default function ClassDetail() {
@@ -19,11 +20,11 @@ export default function ClassDetail() {
   const action = useAction();
   const cls = resource.data;
   const refresh = async () => { await Promise.all([resource.refresh(), portal.refresh()]); };
-  if (id === "new" || (cls && editing)) return <Page title={id === "new" ? "New class" : "Edit class"} {...dashboard}>
+  if (id === "new" || (cls && editing)) return <MinistryTintProvider ministry="sundaySchool"><Page title={id === "new" ? "New class" : "Edit class"} {...dashboard}>
     {dashboard.data && <ClassForm cls={cls} dashboard={dashboard.data} done={async () => { setEditing(false); await refresh(); }} />}
     {editing && <Button label="Cancel" secondary onPress={() => setEditing(false)} />}
-  </Page>;
-  return <Page title={cls?.name ?? "Class"} {...resource}>
+  </Page></MinistryTintProvider>;
+  return <MinistryTintProvider ministry="sundaySchool"><Page title={cls?.name ?? "Class"} {...resource}>
     {cls && <><Copy kind="title">{cls.name}</Copy><Copy>{getLevelDisplayName(cls.level)} · {cls.academicYear?.name} · {cls.isActive ? "Active" : "Archived"}</Copy>
       <Button label={cls.canServe ? "Take child attendance" : "View child attendance"} onPress={() => router.push({ pathname: "/attendance/[classId]", params: { classId: id } })} />
       {(cls.canViewServantAttendance || cls.canTakeServantAttendance) && <Button secondary label={cls.canTakeServantAttendance ? "Servant attendance" : "View servant attendance"} onPress={() => router.push({ pathname: "/servant-attendance", params: { classId: id } })} />}
@@ -38,7 +39,7 @@ export default function ClassDetail() {
         await request(endpoint("classes", id), "DELETE"); await portal.refresh(); router.back();
       }), true)} />}
     </>}
-  </Page>;
+  </Page></MinistryTintProvider>;
 }
 function ClassForm({ cls, dashboard, done }: { cls?: SundaySchoolClass; dashboard: SundaySchoolDashboard; done: () => Promise<void> }) {
   const [name, setName] = useState(cls?.name ?? "");

@@ -29,6 +29,7 @@ import { rosterProgress, sameMarks, shiftWeek } from "@/data/attendance-draft";
 import { useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
 import { Choice, Toggle } from "@/components/forms";
+import { MinistryTintProvider } from "@/theme";
 
 const statuses: { value: AttendanceStatus; label: string; short: string }[] = [
   { value: "PRESENT", label: "Present", short: "Present" },
@@ -43,12 +44,18 @@ export default function Attendance() {
   const cls = classes.find((item) => item.id === classId);
   if (!cls)
     return (
-      <Screen>
-        <Copy kind="heading">Class not found</Copy>
-        <Copy>Choose a class from the Classes tab.</Copy>
-      </Screen>
+      <MinistryTintProvider ministry="sundaySchool">
+        <Screen>
+          <Copy kind="heading">Class not found</Copy>
+          <Copy>Choose a class from the Classes tab.</Copy>
+        </Screen>
+      </MinistryTintProvider>
     );
-  return <AttendanceRoster key={`${cls.id}:${date ?? ""}`} classId={cls.id} initialDate={date} />;
+  return (
+    <MinistryTintProvider ministry="sundaySchool">
+      <AttendanceRoster key={`${cls.id}:${date ?? ""}`} classId={cls.id} initialDate={date} />
+    </MinistryTintProvider>
+  );
 }
 
 function AttendanceRoster({ classId, initialDate }: { classId: string; initialDate?: string }) {

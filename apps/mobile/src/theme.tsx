@@ -17,54 +17,85 @@ import {
   useColorScheme,
 } from "react-native";
 
-// Mirrors app/globals.css: the website's neutral surfaces and Sunday School
-// maroon scale are the source of truth for native color decisions.
-//
-// The UI/UX reference pairs a dark theme with a gold accent (selected tab,
-// icons, chips) and reserves burgundy for filled call-to-action buttons —
-// burgundy text/icons directly on a near-black background reads poorly, but
-// burgundy *inside* a solid button has its own contrast against the white
-// label, so `action` (button fills) stays burgundy in both modes while
-// `primary` (accents drawn straight on the background) switches to gold in
-// dark mode only. Light mode already matches the reference there.
+// Exact tokens from the UI/UX reference's design-system page ("01 Color"),
+// not approximations. Each ministry carries its own accent everywhere it
+// shows up — tab tint, buttons, chips, icons — maroon for Servants Prep,
+// gold for Sunday School; a screen reached outside either ministry's tab
+// group (Account, Notifications, Academic years, the switcher sheet itself)
+// falls back to the maroon/Prep identity, matching the reference's own
+// default. See MinistryTintProvider / useAppTheme below for how the active
+// ministry resolves `primary`/`action`/`onAction`/`primarySoft`.
 const light = {
-  background: "#F7F7F5",
+  background: "#F5F3F0", // canvas
   surface: "#FFFFFF",
-  text: "#0A0A0A",
-  muted: "#737373",
-  border: "#E5E5E5",
-  primary: "#6B001A",
-  primarySoft: "#F2ECEE",
-  action: "#800020",
-  onAction: "#FFFFFF",
-  success: "#16A34A",
-  successSoft: "#F0FDF4",
-  warning: "#A16207",
+  raised: "#FAF8F6",
+  hover: "#F1EEEA",
+  border: "#E6E1DB",
+  borderStrong: "#D5CEC6",
+  text: "#1B1817",
+  text2: "#57504B",
+  muted: "#736B65", // text-3, 4.5:1 min
+  success: "#1E7A4C",
+  successSoft: "#E5F2EA",
+  warning: "#955A00",
   warningSoft: "#FEFCE8",
-  danger: "#DC2626",
+  danger: "#B93A26",
   dangerSoft: "#FEF2F2",
+  info: "#2D5F9A",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
+  // Prep: buttons/mark vs. the lighter "mode active" marker are the same
+  // value in light mode (deep maroon reads fine directly on a light bg).
+  accentPrep: "#800020",
+  actionPrep: "#800020",
+  // Sunday School: one gold value serves both roles in both themes — it's
+  // already light enough to need dark ink, so there's no separate pastel
+  // "marker" variant the way Prep needs on a dark background.
+  accentGold: "#8A6A1C",
+  onGold: "#1B1817",
+  // Person-avatar monogram tone — fixed regardless of which ministry is
+  // active, since an account's identity looks the same everywhere.
+  avatar: "#9C5F6B",
+  avatarSoft: "#F3E3E6",
 };
 const dark: typeof light = {
-  background: "#111113",
-  surface: "#1C1C1E",
-  text: "#F5F5F7",
-  muted: "#98989D",
-  border: "rgba(255, 255, 255, 0.08)",
-  primary: "#CBA135",
-  primarySoft: "rgba(255, 255, 255, 0.09)",
-  action: "#800020",
-  onAction: "#FFFFFF",
-  success: "#4ADE80",
-  successSoft: "rgba(20, 83, 45, 0.45)",
-  warning: "#FACC15",
+  background: "#131211",
+  surface: "#1A1918",
+  raised: "#201E1D",
+  hover: "#282523",
+  border: "#2B2826",
+  borderStrong: "#3A3633",
+  text: "#EEEAE6",
+  text2: "#B6AFA9",
+  muted: "#958E88",
+  success: "#62C08E",
+  successSoft: "rgba(98, 192, 142, 0.18)",
+  warning: "#E6A94F",
   warningSoft: "rgba(113, 63, 18, 0.45)",
-  danger: "#FF6467",
+  danger: "#F0806F",
   dangerSoft: "rgba(127, 29, 29, 0.45)",
+  info: "#86AEE0",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
+  // Prep in dark mode splits the role: a pale rose for tint drawn straight
+  // on the near-black background (tab icon/label, switcher chevron, today
+  // marker), and a deeper rose for solid button fills, which has its own
+  // contrast against the white label instead of against the page background.
+  accentPrep: "#F08BA3",
+  actionPrep: "#A3213F",
+  accentGold: "#D6B062",
+  onGold: "#1B1817",
+  avatar: "#E8B4C0",
+  avatarSoft: "rgba(232, 180, 192, 0.18)",
 };
+
+function withAlpha(hex: string, alpha: number) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 // The reference's serif display headings, loaded via @expo-google-fonts so no
 // font files need to be vendored by hand. Body/caption text stays the system
@@ -75,8 +106,41 @@ export const serifHeading = "PlayfairDisplay_600SemiBold";
 export type AppearancePreference = "system" | "light" | "dark";
 type ResolvedAppearance = "light" | "dark";
 
+export type MinistryTint = "prep" | "sundaySchool";
+const MinistryTintContext = createContext<MinistryTint>("prep");
+
+/**
+ * Wraps a ministry's screens so every `useAppTheme()` call inside them
+ * resolves `primary`/`action`/`onAction`/`primarySoft` to that ministry's
+ * accent. Wrap the (tabs) and (prep) tab-group layouts with this once each;
+ * every nested screen inherits it automatically. A handful of root-level
+ * routes that are Sunday-School content but sit outside the (tabs) group
+ * (roster, visitations, feedback, etc.) wrap themselves individually.
+ * Anything left unwrapped — Account, Notifications, the switcher sheet,
+ * Academic years — falls back to "prep", matching the reference's own
+ * default identity for cross-ministry chrome.
+ */
+export function MinistryTintProvider({
+  ministry,
+  children,
+}: PropsWithChildren<{ ministry: MinistryTint }>) {
+  return (
+    <MinistryTintContext.Provider value={ministry}>
+      {children}
+    </MinistryTintContext.Provider>
+  );
+}
+
+type BaseColors = typeof light;
+export type ThemeColors = BaseColors & {
+  primary: string;
+  primarySoft: string;
+  action: string;
+  onAction: string;
+};
+
 const ThemeContext = createContext<{
-  colors: typeof light;
+  colors: BaseColors;
   isDark: boolean;
   preference: AppearancePreference;
   setPreference: (value: AppearancePreference) => void;
@@ -216,7 +280,18 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
 export function useAppTheme() {
   const value = useContext(ThemeContext);
   if (!value) throw new Error("AppThemeProvider is missing");
-  return value;
+  const ministry = useContext(MinistryTintContext);
+  const { colors: base, isDark } = value;
+  const isGold = ministry === "sundaySchool";
+  const primary = isGold ? base.accentGold : base.accentPrep;
+  const colors: ThemeColors = {
+    ...base,
+    primary,
+    primarySoft: withAlpha(primary, isDark ? 0.16 : 0.1),
+    action: isGold ? base.accentGold : base.actionPrep,
+    onAction: isGold ? base.onGold : "#FFFFFF",
+  };
+  return { ...value, colors };
 }
 
 const styles = StyleSheet.create({
