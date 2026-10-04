@@ -16,7 +16,7 @@
     "export": "expo export --platform ios --platform android"
   },
   "dependencies": {
-    "@expo-google-fonts/playfair-display": "^0.4.2",
+    "@expo-google-fonts/newsreader": "^0.4.1",
     "@expo/ui": "~57.0.20",
     "@stmark/contracts": "workspace:*",
     "@stmark/domain": "workspace:*",

@@ -4,10 +4,7 @@ import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-rout
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import {
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
+import { Newsreader_500Medium } from "@expo-google-fonts/newsreader";
 import { AppThemeProvider, MinistryTintProvider, serifDisplay, serifHeading, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
@@ -62,8 +59,8 @@ function Navigation() {
           // and form-sheet screens below opt back out — a large title
           // doesn't fit a short sheet or a screen with a dynamic subtitle.
           headerLargeTitle: Platform.OS === "ios",
-          headerLargeTitleStyle: { fontFamily: serifDisplay },
-          headerTitleStyle: { fontFamily: serifHeading },
+          headerLargeTitleStyle: { fontFamily: serifDisplay, color: colors.text },
+          headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
@@ -136,8 +133,7 @@ export default function RootLayout() {
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_700Bold,
-    PlayfairDisplay_600SemiBold,
+    Newsreader_500Medium,
   });
   const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);

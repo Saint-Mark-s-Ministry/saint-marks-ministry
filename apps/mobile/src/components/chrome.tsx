@@ -23,8 +23,11 @@ export function SectionStack() {
         contentStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
         headerLargeTitle: Platform.OS === "ios",
-        headerLargeTitleStyle: { fontFamily: serifDisplay },
-        headerTitleStyle: { fontFamily: serifHeading },
+        // headerTintColor above is for bar buttons/back chevrons — the
+        // design source keeps the title itself in neutral ink regardless of
+        // ministry accent, so it needs its own explicit color here.
+        headerLargeTitleStyle: { fontFamily: serifDisplay, color: colors.text },
+        headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
       }}
     />
   );
