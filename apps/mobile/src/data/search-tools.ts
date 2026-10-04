@@ -25,10 +25,16 @@ export function searchTools(
       href: primaryClass ? `/class/${primaryClass.id}` : "/(tabs)/classes",
     },
     {
+      id: "calendar",
+      title: "Calendar",
+      subtitle: "This month's lessons and attendance",
+      href: "/(tabs)/calendar",
+    },
+    {
       id: "lessons",
       title: "Weekly lessons",
       subtitle: "Plans, teachers, and resources",
-      href: "/(tabs)/lessons",
+      href: "/lessons",
     },
     {
       id: "roster",
