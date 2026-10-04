@@ -42,7 +42,7 @@ vi.mock('@/lib/swr', () => ({
 
 vi.mock('@/lib/sunday-school-class', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/sunday-school-class')>()),
-  isSessionDateToday: () => true,
+  isSessionDateToday: () => false,
 }))
 
 vi.mock('@/components/sunday-school-recent-attendance-chart', () => ({
@@ -75,7 +75,7 @@ describe('Sunday School attendance page', () => {
     })
   })
 
-  it('starts unmarked, omits Excused, and refuses to save until every child is marked', async () => {
+  it('keeps past child attendance editable, starts unmarked, and requires every child to be marked', async () => {
     const user = userEvent.setup()
     render(<SundaySchoolAttendancePage />)
 
@@ -84,6 +84,8 @@ describe('Sunday School attendance page', () => {
     expect(screen.getByRole('button', { name: 'Present' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Late' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Present' })).toBeEnabled()
+    expect(screen.queryByText(/Past attendance is read-only/i)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Save attendance' }))
 

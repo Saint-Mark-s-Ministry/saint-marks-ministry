@@ -27,7 +27,6 @@ import {
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
-  isSessionDateToday,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type {
@@ -75,7 +74,7 @@ function SundaySchoolAttendanceContent() {
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const selectedClassLevel = selectedClass?.level
-  const canEdit = (selectedClass?.canServe ?? false) && isSessionDateToday(sessionDate)
+  const canEdit = selectedClass?.canServe ?? false
   const {
     data: trendData,
     isLoading: trendLoading,
@@ -238,8 +237,6 @@ function SundaySchoolAttendanceContent() {
     return <PageLoading />
   }
 
-  const readOnlyDay = !isSessionDateToday(sessionDate)
-
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
@@ -263,12 +260,6 @@ function SundaySchoolAttendanceContent() {
         </Panel>
       ) : (
         <>
-          {readOnlyDay && (
-            <div role="status" className="rounded-lg bg-warn-tint px-4 py-2.5 text-[13px] text-warn">
-              <strong>Past attendance is read-only.</strong> Attendance can only be changed on the session date.
-            </div>
-          )}
-
           <Panel
             toolbar={
               <>
