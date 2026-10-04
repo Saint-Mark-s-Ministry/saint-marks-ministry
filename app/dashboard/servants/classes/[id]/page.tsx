@@ -14,6 +14,8 @@ import { Panel } from '@/components/ds/panel'
 import { KpiStrip } from '@/components/ds/kpi-strip'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
+import { ServantContactDialog } from '@/components/servant-contact-dialog'
+import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +29,7 @@ import {
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClass } from '@/lib/swr'
 import { getChildFullName, getLevelDisplayName } from '@/lib/sunday-school-class'
+import type { OrganizationPerson } from '@/lib/sunday-school-organization'
 import { formatDateUTC } from '@/lib/utils'
 import type {
   SundaySchoolAssignmentRow,
@@ -71,6 +74,8 @@ export default function SundaySchoolClassDetailPage() {
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [contactAssignment, setContactAssignment] = useState<SundaySchoolAssignmentRow | null>(null)
+  const [organizationUser, setOrganizationUser] = useState<OrganizationPerson | null>(null)
 
   const detail = data as ClassDetail | undefined
   const canCoordinate = detail?.canCoordinate ?? false
@@ -306,6 +311,35 @@ export default function SundaySchoolClassDetailPage() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {organizationUser && (
+          <UserOrganizationDialog
+            key={organizationUser.id}
+            user={organizationUser}
+            onClose={() => setOrganizationUser(null)}
+          />
+        )}
+
+        {contactAssignment && (
+          <ServantContactDialog
+            key={contactAssignment.userId}
+            servant={{
+              name: contactAssignment.user.name,
+              email: contactAssignment.user.email ?? '',
+              phone: contactAssignment.user.phone ?? null,
+              profileImageUrl: contactAssignment.user.profileImageUrl ?? null,
+            }}
+            onClose={() => setContactAssignment(null)}
+            onViewOrganization={() => {
+              setOrganizationUser({
+                id: contactAssignment.userId,
+                name: contactAssignment.user.name,
+                profileImageUrl: contactAssignment.user.profileImageUrl ?? null,
+              })
+              setContactAssignment(null)
+            }}
+          />
+        )}
+
         <KpiStrip
           items={[
             { label: 'Children', value: detail.children.filter((c) => c.isActive).length, hint: 'on roster' },
@@ -335,7 +369,15 @@ export default function SundaySchoolClassDetailPage() {
                     <div className="flex min-w-0 items-center gap-2.5">
                       <Initials name={assignment.user.name} imageUrl={assignment.user.profileImageUrl} />
                       <div className="flex min-w-0 flex-col leading-tight">
-                        <span className="truncate text-[13.5px] font-medium text-ink">{assignment.user.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setContactAssignment(assignment)}
+                          className="min-w-0 truncate rounded text-left text-[13.5px] font-medium text-ink hover:text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                          aria-label={`View ${assignment.user.name}'s contact information`}
+                        >
+                          {assignment.user.name}
+                          <span aria-hidden="true" className="ml-1 text-xs text-ink-3">↗</span>
+                        </button>
                         <span className="truncate text-xs text-ink-3">{assignment.user.email}</span>
                       </div>
                     </div>
