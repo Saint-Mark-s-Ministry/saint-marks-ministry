@@ -13,6 +13,8 @@ import { Initials } from '@/components/ds/person'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { LastSaved } from '@/components/ui/last-saved'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
+import { ServantContactDialog } from '@/components/servant-contact-dialog'
+import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -30,9 +32,11 @@ import {
   getTodayDateInputValue,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
+import type { OrganizationPerson } from '@/lib/sunday-school-organization'
 import type {
   SundaySchoolClass,
   SundaySchoolDashboard,
+  SundaySchoolServantAttendanceRosterEntry,
   SundaySchoolServantAttendanceResponse,
 } from '@/types/sunday-school'
 
@@ -55,6 +59,8 @@ function ServantAttendanceContent() {
   const [marks, setMarks] = useState<Record<string, SundaySchoolServantAttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [contactServant, setContactServant] = useState<SundaySchoolServantAttendanceRosterEntry | null>(null)
+  const [organizationUser, setOrganizationUser] = useState<OrganizationPerson | null>(null)
 
   useEffect(() => {
     if (status === 'authenticated' && !canOpenPage) {
@@ -205,8 +211,16 @@ function ServantAttendanceContent() {
                       <span className="flex min-w-0 items-center gap-2.5">
                         <Initials name={entry.name} imageUrl={entry.profileImageUrl} />
                         <span className="flex min-w-0 flex-col leading-tight">
-                          <span className="flex items-center gap-2">
-                            <span className="truncate text-[13.5px] font-medium text-ink">{entry.name}</span>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setContactServant(entry)}
+                              className="min-w-0 truncate rounded text-left text-[13.5px] font-medium text-ink hover:text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                              aria-label={`View ${entry.name}'s contact information`}
+                            >
+                              {entry.name}
+                              <span aria-hidden="true" className="ml-1 text-xs text-ink-3">↗</span>
+                            </button>
                             {entry.authority === 'COORDINATOR' && <StatusBadge tone="gold" dot={false}>Coordinator</StatusBadge>}
                           </span>
                           <span className="truncate text-xs text-ink-3">{entry.email}</span>
@@ -254,6 +268,30 @@ function ServantAttendanceContent() {
               className={`${selectedClass.name} servants`}
               throughDate={sessionDate}
               isLoading={trendLoading || trendRefreshing}
+            />
+          )}
+
+          {organizationUser && (
+            <UserOrganizationDialog
+              key={organizationUser.id}
+              user={organizationUser}
+              onClose={() => setOrganizationUser(null)}
+            />
+          )}
+
+          {contactServant && (
+            <ServantContactDialog
+              key={contactServant.userId}
+              servant={contactServant}
+              onClose={() => setContactServant(null)}
+              onViewOrganization={() => {
+                setOrganizationUser({
+                  id: contactServant.userId,
+                  name: contactServant.name,
+                  profileImageUrl: contactServant.profileImageUrl,
+                })
+                setContactServant(null)
+              }}
             />
           )}
         </>

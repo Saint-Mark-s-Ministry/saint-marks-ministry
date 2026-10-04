@@ -44,6 +44,8 @@ describe('UserOrganizationDialog', () => {
     expect(screen.getAllByRole('button', { name: /View Ehab Hanna's organization/ })).toHaveLength(1)
     expect(screen.getByRole('heading', { name: '6th Grade' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '7th Grade' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Middle School classes')).toHaveClass('grid-cols-1')
+    expect(screen.getByLabelText('Middle School classes')).not.toHaveClass('overflow-x-auto')
   })
 
   it('keeps a servant view focused on only that servant’s class', () => {
