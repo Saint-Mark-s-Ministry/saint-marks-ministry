@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { RoleTag, UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
@@ -148,6 +149,65 @@ describe('weekly lesson API permissions and saves', () => {
     }))
   })
 
+  it('offers every active class assignee who is eligible to serve', async () => {
+    mocks.canAssign.mockReturnValue(true)
+    mocks.lessonFindMany.mockResolvedValue([{
+      id: 'lesson-1',
+      classId: 'class-1',
+      sundayDate: new Date('2026-10-11T00:00:00.000Z'),
+      title: 'Lesson',
+      ownerId: null,
+      assignedById: null,
+      createdAt: new Date('2026-09-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-09-01T00:00:00.000Z'),
+      class: {
+        id: 'class-1',
+        name: '10th Grade',
+        level: 'GRADE_10',
+        academicYearId: 'year-1',
+        assignments: [
+          { user: { id: 'mentor-1', name: 'Mentor Servant', email: 'mentor@example.com', profileImageUrl: null } },
+          { user: { id: 'admin-1', name: 'Admin Servant', email: 'admin@example.com', profileImageUrl: null } },
+        ],
+      },
+      owner: null,
+      resources: [],
+    }])
+
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons?scope=year'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.lessons[0].eligibleOwners.map((owner: { id: string }) => owner.id)).toEqual([
+      'mentor-1',
+      'admin-1',
+    ])
+    expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        class: expect.objectContaining({
+          select: expect.objectContaining({
+            assignments: expect.objectContaining({
+              where: expect.objectContaining({
+                user: {
+                  isDisabled: false,
+                  OR: [
+                    { role: { in: [UserRole.SERVANT, UserRole.MENTOR, UserRole.SERVANT_PREP] } },
+                    {
+                      role: UserRole.SUPER_ADMIN,
+                      roleAssignments: {
+                        some: { tag: RoleTag.SUNDAY_SCHOOL_SERVANT, revokedAt: null },
+                      },
+                    },
+                  ],
+                },
+              }),
+            }),
+          }),
+        }),
+      }),
+    }))
+  })
+
   it('keeps a non-owner servant read-only', async () => {
     const response = await PATCH(patchRequest({ title: 'Changed' }), routeContext)
     expect(response.status).toBe(403)
@@ -190,6 +250,18 @@ describe('weekly lesson API permissions and saves', () => {
         classId: 'class-1',
         academicYearId: 'year-1',
         endedAt: null,
+        user: {
+          isDisabled: false,
+          OR: [
+            { role: { in: [UserRole.SERVANT, UserRole.MENTOR, UserRole.SERVANT_PREP] } },
+            {
+              role: UserRole.SUPER_ADMIN,
+              roleAssignments: {
+                some: { tag: RoleTag.SUNDAY_SCHOOL_SERVANT, revokedAt: null },
+              },
+            },
+          ],
+        },
       }),
     }))
     expect(mocks.lessonUpdate).toHaveBeenCalledWith(expect.objectContaining({
