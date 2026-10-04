@@ -18,7 +18,7 @@ import { Choice, ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const scheduleOptions = [
   { value: "upcoming", label: "Upcoming" },
@@ -28,6 +28,14 @@ const scheduleOptions = [
 ];
 
 export default function Lessons() {
+  return (
+    <MinistryTintProvider ministry="sundaySchool">
+      <LessonsScreen />
+    </MinistryTintProvider>
+  );
+}
+
+function LessonsScreen() {
   const { colors } = useAppTheme();
   const { classes } = usePortal();
   const { user } = useAuth();

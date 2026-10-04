@@ -45,6 +45,15 @@ function Tabs() {
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
+        name="calendar"
+      >
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "calendar", selected: "calendar" }}
+          md="calendar_month"
+        />
+        <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger
         name="classes"
       >
         <NativeTabs.Trigger.Icon
@@ -52,15 +61,6 @@ function Tabs() {
           md="groups"
         />
         <NativeTabs.Trigger.Label>Classes</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        name="lessons"
-      >
-        <NativeTabs.Trigger.Icon
-          sf={{ default: "book", selected: "book.fill" }}
-          md="menu_book"
-        />
-        <NativeTabs.Trigger.Label>Lessons</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="ministry"
