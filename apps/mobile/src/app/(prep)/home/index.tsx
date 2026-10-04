@@ -51,12 +51,12 @@ export default function PrepHome() {
 
   const stats = useResource<DashboardStats>(isAdminLike ? "/api/dashboard/stats" : null);
   const analytics = useResource<DashboardAnalytics>(isAdminLike ? "/api/dashboard/analytics" : null);
-  const lessons = useResource<{ data: LessonListItem[] }>(
-    isAdminLike ? "/api/lessons?forAttendance=true&limit=200" : null,
+  const lessons = useResource<LessonListItem[]>(
+    isAdminLike ? "/api/lessons?forAttendance=true" : null,
   );
 
   const today = new Date().toISOString().slice(0, 10);
-  const ordered = lessons.data?.data ?? [];
+  const ordered = lessons.data ?? [];
   const upNextIndex = ordered.findIndex((lesson) => lesson.scheduledDate.slice(0, 10) >= today);
   const upNext = upNextIndex >= 0 ? ordered[upNextIndex] : undefined;
 
