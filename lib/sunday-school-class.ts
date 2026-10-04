@@ -171,6 +171,11 @@ export function getTodayDateInputValue(date: Date = new Date()): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+/** A photo servants added, else the child's own account photo. */
+export function getChildPhotoUrl(child: { photoUrl?: string | null; user?: { profileImageUrl?: string | null } | null }): string | null {
+  return child.photoUrl ?? child.user?.profileImageUrl ?? null
+}
+
 export function getChildFullName(child: { firstName: string; lastName: string }): string {
   return `${child.firstName} ${child.lastName}`.trim()
 }

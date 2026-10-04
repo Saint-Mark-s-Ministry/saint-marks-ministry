@@ -97,6 +97,8 @@ export interface SundaySchoolChild {
   classId: string | null
   birthDate: string | null
   gender: SundaySchoolChildGender | null
+  /** Photo a servant added (most children have no account). */
+  photoUrl?: string | null
   guardianName: string | null
   guardianPhone: string | null
   guardianEmail: string | null
