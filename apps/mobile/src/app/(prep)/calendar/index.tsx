@@ -19,8 +19,8 @@ const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function PrepCalendar() {
   const { colors } = useAppTheme();
-  const resource = useResource<{ data: LessonListItem[] }>("/api/lessons?limit=200");
-  const lessons = resource.data?.data ?? [];
+  const resource = useResource<LessonListItem[]>("/api/lessons");
+  const lessons = resource.data ?? [];
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
