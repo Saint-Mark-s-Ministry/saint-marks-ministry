@@ -53,10 +53,6 @@ const light = {
   // "marker" variant the way Prep needs on a dark background.
   accentGold: "#8A6A1C",
   onGold: "#1B1817",
-  // Person-avatar monogram tone — fixed regardless of which ministry is
-  // active, since an account's identity looks the same everywhere.
-  avatar: "#9C5F6B",
-  avatarSoft: "#F3E3E6",
 };
 const dark: typeof light = {
   background: "#131211",
@@ -85,8 +81,6 @@ const dark: typeof light = {
   actionPrep: "#A3213F",
   accentGold: "#D6B062",
   onGold: "#1B1817",
-  avatar: "#E8B4C0",
-  avatarSoft: "rgba(232, 180, 192, 0.18)",
 };
 
 function withAlpha(hex: string, alpha: number) {
@@ -97,11 +91,14 @@ function withAlpha(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// The reference's serif display headings, loaded via @expo-google-fonts so no
-// font files need to be vendored by hand. Body/caption text stays the system
-// sans — only titles and section headings switch over (see components/ui.tsx).
-export const serifDisplay = "PlayfairDisplay_700Bold";
-export const serifHeading = "PlayfairDisplay_600SemiBold";
+// The reference's design source (not just the PDF export) specifies
+// Newsreader for display text — confirmed against project/iOS-Home-*.dc.html's
+// literal `font-family: 'Newsreader'` — not Playfair Display, which was a
+// guess from screenshots alone. It's used narrowly: the big page title and a
+// handful of hero numbers (e.g. "Lesson 2 of 11"), not general section
+// headings — those stay system sans at weight 600, per the same source.
+export const serifDisplay = "Newsreader_500Medium";
+export const serifHeading = "Newsreader_500Medium";
 
 export type AppearancePreference = "system" | "light" | "dark";
 type ResolvedAppearance = "light" | "dark";

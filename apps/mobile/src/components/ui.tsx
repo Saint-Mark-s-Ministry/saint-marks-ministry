@@ -23,7 +23,7 @@ import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { serifDisplay, serifHeading, useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
 import { NativeActionButton } from "./native-action-button";
 
@@ -142,14 +142,20 @@ export function Copy({
   kind = "body",
   color,
   style,
+  numberOfLines,
+  accessibilityLabel,
 }: PropsWithChildren<{
   kind?: "title" | "heading" | "body" | "caption" | "eyebrow";
   color?: string;
   style?: StyleProp<import("react-native").TextStyle>;
+  numberOfLines?: number;
+  accessibilityLabel?: string;
 }>) {
   const { colors } = useAppTheme();
   return (
     <Text
+      numberOfLines={numberOfLines}
+      accessibilityLabel={accessibilityLabel}
       style={[
         styles[kind],
         {
@@ -351,11 +357,21 @@ export function initials(name?: string | null) {
 export function InitialsAvatar({
   name,
   size = 32,
+  variant = "accent",
 }: {
   name?: string | null;
   size?: number;
+  /**
+   * "accent": the signed-in account's own avatar (header, Account screen) —
+   * tinted with the active ministry's accent, per the design source.
+   * "neutral": someone else's avatar in a list (students, mentors, people
+   * search results) — plain gray regardless of ministry, also per source.
+   */
+  variant?: "accent" | "neutral";
 }) {
   const { colors } = useAppTheme();
+  const bg = variant === "accent" ? colors.primarySoft : colors.hover;
+  const fg = variant === "accent" ? colors.primary : colors.text2;
   return (
     <View
       style={{
@@ -364,14 +380,15 @@ export function InitialsAvatar({
         borderRadius: size / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: colors.avatarSoft,
+        backgroundColor: bg,
       }}
     >
       <Text
         style={{
-          color: colors.avatar,
-          fontWeight: "700",
+          color: fg,
+          fontWeight: "600",
           fontSize: size * 0.38,
+          letterSpacing: 0.3,
         }}
       >
         {initials(name)}
@@ -565,10 +582,13 @@ export const styles = StyleSheet.create({
   title: {
     fontFamily: serifDisplay,
     fontSize: 34,
-    letterSpacing: -0.4,
-    lineHeight: 40,
+    letterSpacing: -0.5,
+    lineHeight: 36,
   },
-  heading: { fontFamily: serifHeading, fontSize: 21, letterSpacing: -0.2 },
+  // Section/card headings stay system sans at weight 600 — the design
+  // source only uses Newsreader for the page title and a few hero numbers
+  // (see theme.tsx), not general headings.
+  heading: { fontWeight: "600", fontSize: 21, letterSpacing: -0.2 },
   body: { fontSize: 16, lineHeight: 23 },
   caption: { fontSize: 13, lineHeight: 19 },
   eyebrow: {
