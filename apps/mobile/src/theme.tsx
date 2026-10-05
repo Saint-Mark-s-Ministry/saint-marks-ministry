@@ -38,7 +38,9 @@ const light = {
   success: "#1E7A4C",
   successSoft: "#E5F2EA",
   warning: "#955A00",
-  warningSoft: "#FEFCE8",
+  // Confirmed against iOS-Students-Light.dc.html's "Review" badge — the
+  // previous #FEFCE8 (pale yellow) was an unverified guess with the wrong hue.
+  warningSoft: "#FBF0DB",
   danger: "#B93A26",
   dangerSoft: "#FEF2F2",
   info: "#2D5F9A",
@@ -65,14 +67,21 @@ const dark: typeof light = {
   text: "#EEEAE6",
   text2: "#B6AFA9",
   muted: "#958E88",
+  // Confirmed against iOS-Student-detail-Dark.dc.html: every dark-mode "soft"
+  // tint is that status's own foreground color at ~0.12 alpha (avatar tile
+  // 0.11, the Active/Eligible badges 0.12, the Due badge 0.13) — not a
+  // separately-picked dark base hue at high alpha, which is what these four
+  // tokens previously guessed (e.g. warningSoft was a dark brown at 0.45).
+  // dangerSoft isn't shown on either artboard this was confirmed against;
+  // it's corrected here by the same now-proven formula, not a literal sample.
   success: "#62C08E",
-  successSoft: "rgba(98, 192, 142, 0.18)",
+  successSoft: "rgba(98, 192, 142, 0.12)",
   warning: "#E6A94F",
-  warningSoft: "rgba(113, 63, 18, 0.45)",
+  warningSoft: "rgba(230, 169, 79, 0.13)",
   danger: "#F0806F",
-  dangerSoft: "rgba(127, 29, 29, 0.45)",
+  dangerSoft: "rgba(240, 128, 111, 0.12)",
   info: "#86AEE0",
-  infoSoft: "rgba(45, 95, 154, 0.35)",
+  infoSoft: "rgba(134, 174, 224, 0.12)",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
   // Prep in dark mode splits the role: a pale rose for tint drawn straight
@@ -283,10 +292,21 @@ export function useAppTheme() {
   const { colors: base, isDark } = value;
   const isGold = ministry === "sundaySchool";
   const primary = isGold ? base.accentGold : base.accentPrep;
+  // primarySoft: confirmed exact for Prep against both
+  // iOS-Students-Light.dc.html (avatar tile, literal #F8EBEE — not a
+  // mathematical alpha blend of #800020 over white, which lands a few
+  // points off per channel) and iOS-Student-detail-Dark.dc.html (avatar
+  // tile, rgba(240,139,163,0.11) — accentPrep dark at the same ~0.12 alpha
+  // used by every other dark "soft" token, see the dark color block above).
+  // Gold's own literal soft value hasn't been confirmed by any artboard yet,
+  // so it still falls back to the same alpha formula pending a Sunday
+  // School-specific ticket.
+  const primarySoft =
+    !isGold && !isDark ? "#F8EBEE" : withAlpha(primary, isDark ? 0.12 : 0.1);
   const colors: ThemeColors = {
     ...base,
     primary,
-    primarySoft: withAlpha(primary, isDark ? 0.16 : 0.1),
+    primarySoft,
     action: isGold ? base.accentGold : base.actionPrep,
     onAction: isGold ? base.onGold : "#FFFFFF",
   };

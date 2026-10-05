@@ -547,6 +547,62 @@ export function CompactRow({
   );
 }
 
+/** The small dot+label pill used for eligibility/status/activity badges — matches the design source's status chips exactly (dot, not color-only). */
+export function StatusPill({
+  label,
+  color,
+  soft,
+}: {
+  label: string;
+  color: string;
+  soft: string;
+}) {
+  return (
+    <View style={[styles.pill, { backgroundColor: soft }]}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      <Copy kind="caption" color={color}>
+        {label}
+      </Copy>
+    </View>
+  );
+}
+
+/** The 50px circular Call/Message/Email action buttons on Student detail. */
+export function CircleIconButton({
+  ios,
+  android,
+  label,
+  onPress,
+}: {
+  ios: SFSymbol;
+  android: AndroidSymbol;
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        onPress();
+      }}
+      style={({ pressed }) => ({
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.hover,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Icon ios={ios} android={android} size={20} color={colors.text} />
+    </Pressable>
+  );
+}
+
 export function CalendarDate({ date }: { date: string }) {
   const { colors } = useAppTheme();
   const value = new Date(`${date.slice(0, 10)}T00:00:00Z`);
