@@ -160,62 +160,78 @@ export default function SundaySchoolLessonsPage() {
               }
             />
           ) : (
-            <ul className="divide-y divide-line">
-              {visibleLessons.map((lesson) => (
-                <li
-                  key={lesson.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[110px_minmax(0,1.2fr)_minmax(0,1fr)_110px_auto]"
-                >
-                  <span className="text-[13px] text-ink-2">
-                    {formatDateUTC(lesson.sundayDate, { year: undefined })}
-                    <span className="block text-xs text-ink-3 lg:hidden">{lesson.class.name}</span>
-                  </span>
-                  <span className="order-3 col-span-2 flex min-w-0 flex-col lg:order-none lg:col-span-1">
-                    <span className={`truncate text-[13.5px] font-medium ${lesson.title ? 'text-ink' : 'text-ink-3'}`}>{lesson.title || 'Not assigned'}</span>
-                    <span className="truncate text-xs text-ink-3">
-                      <span className="hidden lg:inline">{lesson.class.name} · </span>
-                      {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No owner yet'}
+            <>
+              <div className="hidden grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] gap-4 border-b border-line bg-hover/30 px-4 py-2 text-xs font-medium text-ink-3 xl:grid">
+                <span>Date</span>
+                <span>Lesson</span>
+                <span>Resources</span>
+                <span className="text-right">Status and owner</span>
+              </div>
+              <ul className="divide-y divide-line" aria-label="Lesson schedule">
+                {visibleLessons.map((lesson) => (
+                  <li
+                    key={lesson.id}
+                    className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center"
+                  >
+                    <span className="text-[13px] text-ink-2">
+                      {formatDateUTC(lesson.sundayDate, { year: undefined })}
+                      <span className="block text-xs text-ink-3 xl:hidden">{lesson.class.name}</span>
                     </span>
-                  </span>
-                  <span className="order-4 col-span-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[13px] lg:order-none lg:col-span-1">
-                    {lesson.resources.length === 0 ? (
-                      <span className="text-ink-3">No links added yet.</span>
-                    ) : (
-                      lesson.resources.map((resource) => (
-                        <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-ink hover:underline">
-                          <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                          {resource.title}
-                        </a>
-                      ))
-                    )}
-                  </span>
-                  <span className="order-2 lg:order-none">{statusBadge(lesson)}</span>
-                  <span className="order-5 col-span-2 flex flex-wrap items-center gap-2 lg:order-none lg:col-span-1 lg:justify-end">
-                    {lesson.canAssignOwner && (
-                      <select
-                        aria-label={`Owner for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}
-                        value={lesson.ownerId ?? ''}
-                        onChange={(event) => assignOwner(lesson, event.target.value)}
-                        className="h-11 max-w-44 rounded-md border border-line-strong bg-surface px-2 text-base text-ink md:h-8 md:text-[13px]"
-                      >
-                        <option value="">Unassigned</option>
-                        {lesson.eligibleOwners.map((owner) => (
-                          <option key={owner.id} value={owner.id}>
-                            {owner.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {lesson.canEdit && (
-                      <Button variant="outline" size="sm" onClick={() => openEditor(lesson)}>
-                        <Pencil />
-                        Edit lesson
-                      </Button>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <span className="flex min-w-0 flex-col">
+                      <span className={`truncate text-[13.5px] font-medium ${lesson.title ? 'text-ink' : 'text-ink-3'}`}>{lesson.title || 'Not assigned'}</span>
+                      <span className="truncate text-xs text-ink-3">
+                        <span className="hidden xl:inline">{lesson.class.name} · </span>
+                        {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No owner yet'}
+                      </span>
+                    </span>
+                    <span className="flex min-w-0 flex-col items-start gap-1.5 text-[13px] sm:col-start-2 xl:col-start-auto">
+                      {lesson.resources.length === 0 ? (
+                        <span className="text-ink-3">No links added yet.</span>
+                      ) : (
+                        lesson.resources.map((resource) => (
+                          <a
+                            key={resource.id}
+                            href={resource.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={resource.title}
+                            className="flex min-w-0 max-w-full items-center gap-1.5 text-accent-ink hover:underline"
+                          >
+                            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                            <span className="truncate">{resource.title}</span>
+                            <span className="sr-only">(opens in a new tab)</span>
+                          </a>
+                        ))
+                      )}
+                    </span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-2 sm:col-start-2 xl:col-start-auto xl:flex-nowrap xl:justify-end">
+                      <span className="flex w-[7.25rem] shrink-0 items-center">{statusBadge(lesson)}</span>
+                      {lesson.canAssignOwner && (
+                        <select
+                          aria-label={`Owner for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}
+                          value={lesson.ownerId ?? ''}
+                          onChange={(event) => assignOwner(lesson, event.target.value)}
+                          className="h-11 w-44 shrink-0 rounded-md border border-line-strong bg-surface px-2 text-base text-ink md:h-8 md:text-[13px]"
+                        >
+                          <option value="">Unassigned</option>
+                          {lesson.eligibleOwners.map((owner) => (
+                            <option key={owner.id} value={owner.id}>
+                              {owner.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {lesson.canEdit && (
+                        <Button className="w-32 shrink-0 justify-center" variant="outline" size="sm" onClick={() => openEditor(lesson)}>
+                          <Pencil />
+                          Edit lesson
+                        </Button>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </Panel>
       </div>
