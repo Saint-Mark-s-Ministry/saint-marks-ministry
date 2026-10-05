@@ -53,3 +53,59 @@ export function formatConfessionPeriod(period: ConfessionPeriod): string {
   const last = new Date(period.end.getTime() - 1);
   return `${month(period.start)}–${month(last)} ${last.getUTCFullYear()}`;
 }
+
+// --- SMM-36: the list screen's 3-way filter/grouping, built on top of the
+// period-status math above ---
+
+export type ConfessionSegment = "due" | "received" | "missing";
+
+/**
+ * Collapses the 6-value period status into the 3 segments the design
+ * source's filter shows. "na" (period ended before the student joined) is
+ * excluded entirely — they're not tracked for this period at all.
+ * "registration" (covered by their registration form, no slip needed) and
+ * "upcoming" (a future period; never the case for the one period this
+ * screen shows) both count as nothing-left-to-do, so they fold into
+ * "received" alongside an actual uploaded slip.
+ */
+export function segmentFor(status: ConfessionPeriodStatus): ConfessionSegment | null {
+  if (status === "na") return null;
+  if (status === "slip" || status === "registration") return "received";
+  if (status === "missing") return "missing";
+  return "due"; // "due" or "upcoming"
+}
+
+export function segmentCounts(statuses: ConfessionPeriodStatus[]): Record<ConfessionSegment, number> {
+  const counts: Record<ConfessionSegment, number> = { due: 0, received: 0, missing: 0 };
+  for (const status of statuses) {
+    const segment = segmentFor(status);
+    if (segment) counts[segment]++;
+  }
+  return counts;
+}
+
+export type FatherGroupable = { fatherName: string | null; status: ConfessionPeriodStatus };
+
+/** Groups rows (already filtered to a segment) by father of confession, sorted by name, "No father assigned" last. */
+export function groupByFather<T extends FatherGroupable>(rows: T[]): { father: string; rows: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = row.fatherName ?? "No father of confession assigned";
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      if (a === "No father of confession assigned") return 1;
+      if (b === "No father of confession assigned") return -1;
+      return a.localeCompare(b);
+    })
+    .map(([father, rows]) => ({ father, rows }));
+}
+
+export function daysLeft(period: ConfessionPeriod, now: Date = new Date()): number {
+  return Math.max(0, Math.ceil((period.end.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+export function periodClosed(period: ConfessionPeriod, now: Date = new Date()): boolean {
+  return period.end <= now;
+}
