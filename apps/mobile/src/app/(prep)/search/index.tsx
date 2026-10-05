@@ -1,8 +1,20 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
-import { CompactRow, Copy, Icon, ListSurface, Screen, SectionTitle } from "@/components/ui";
+import { CompactRow, Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { useAppTheme } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
+import { useResource } from "@/data/resources";
+import { canViewStudentRoster, eligibilityLabel, searchStudents } from "@/data/prep-students";
+
+type StudentAnalytics = {
+  studentId: string;
+  studentName: string;
+  yearLevel: string;
+  attendancePercentage: number | null;
+  examAverage: number | null;
+  graduationEligible: boolean;
+};
 
 type Tool = { id: string; title: string; subtitle: string; href: Href };
 const TOOLS: Tool[] = [
@@ -16,12 +28,20 @@ const TOOLS: Tool[] = [
 ];
 
 export default function PrepSearch() {
+  const { user } = useAuth();
   const { colors } = useAppTheme();
   const [query, setQuery] = useState("");
   const trimmed = query.trim().toLowerCase();
   const tools = trimmed
     ? TOOLS.filter((tool) => tool.title.toLowerCase().includes(trimmed))
     : TOOLS;
+
+  // Students search (SMM-34): the only feature area with search wired up so
+  // far — exams and lessons still fall back to "jump straight to a tool"
+  // below, per the comment this replaces.
+  const canSearchStudents = canViewStudentRoster(user?.role);
+  const students = useResource<StudentAnalytics[]>(canSearchStudents ? "/api/students/analytics/batch" : null);
+  const matchingStudents = trimmed ? searchStudents(students.data ?? [], trimmed).slice(0, 20) : [];
 
   return (
     <>
@@ -34,10 +54,42 @@ export default function PrepSearch() {
         onCancelButtonPress={() => setQuery("")}
       />
       <Screen resetOnFocus adjustForKeyboard={false}>
-        <Copy kind="caption">
-          Searching students, exams, and lessons ships with their feature
-          updates. For now, jump straight to a tool:
-        </Copy>
+        {!trimmed && (
+          <Copy kind="caption">
+            Searching exams and lessons ships with their feature updates. For now, jump straight to a tool:
+          </Copy>
+        )}
+
+        {trimmed && canSearchStudents && (
+          <View style={{ gap: 10 }}>
+            <SectionTitle title="Students" />
+            {!matchingStudents.length && (
+              <Copy kind="caption">No students match "{query.trim()}".</Copy>
+            )}
+            {!!matchingStudents.length && (
+              <ListSurface>
+                {matchingStudents.map((s, index) => (
+                  <CompactRow
+                    key={s.studentId}
+                    divider={index < matchingStudents.length - 1}
+                    title={s.studentName}
+                    subtitle={`Att ${s.attendancePercentage ?? "—"}% · Exam ${s.examAverage ?? "—"}%`}
+                    icon={<InitialsAvatar name={s.studentName} size={38} />}
+                    trailing={
+                      <StatusPill
+                        label={eligibilityLabel(s.graduationEligible)}
+                        color={s.graduationEligible ? colors.success : colors.warning}
+                        soft={s.graduationEligible ? colors.successSoft : colors.warningSoft}
+                      />
+                    }
+                    onPress={() => router.push({ pathname: "/prep-student/[id]", params: { id: s.studentId } })}
+                  />
+                ))}
+              </ListSurface>
+            )}
+          </View>
+        )}
+
         <View style={{ gap: 10 }}>
           <SectionTitle title="Tools" />
           <ListSurface>
