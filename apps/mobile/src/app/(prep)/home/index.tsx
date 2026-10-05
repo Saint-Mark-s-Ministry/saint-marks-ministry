@@ -236,7 +236,7 @@ export default function PrepHome() {
                 {!upNext.isExamDay && (
                   <Button
                     label={inProgress ? "Resume attendance" : "Take attendance"}
-                    onPress={() => router.push("/prep-attendance")}
+                    onPress={() => router.push({ pathname: "/prep-attendance", params: { lessonId: upNext.id } })}
                   />
                 )}
               </View>

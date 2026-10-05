@@ -37,10 +37,16 @@ const light = {
   muted: "#736B65", // text-3, 4.5:1 min
   success: "#1E7A4C",
   successSoft: "#E5F2EA",
+  // "Strong" fills a solid circular control (white icon on top, e.g. a
+  // selected Present/Late button) needs more contrast than the thin text
+  // accent. Light mode has no confirmed separate sample yet, so it reuses
+  // success/warning directly — see the dark block below for the confirmed one.
+  successStrong: "#1E7A4C",
   warning: "#955A00",
   // Confirmed against iOS-Students-Light.dc.html's "Review" badge — the
   // previous #FEFCE8 (pale yellow) was an unverified guess with the wrong hue.
   warningSoft: "#FBF0DB",
+  warningStrong: "#955A00",
   danger: "#B93A26",
   dangerSoft: "#FEF2F2",
   info: "#2D5F9A",
@@ -76,8 +82,14 @@ const dark: typeof light = {
   // it's corrected here by the same now-proven formula, not a literal sample.
   success: "#62C08E",
   successSoft: "rgba(98, 192, 142, 0.12)",
+  // Confirmed against iOS-Take-attendance-Dark.dc.html's selected
+  // Present/Late buttons — a distinctly more saturated solid fill than the
+  // thin `success`/`warning` text accent, needed for contrast with a white
+  // icon on top of a filled circle.
+  successStrong: "#2F8F5E",
   warning: "#E6A94F",
   warningSoft: "rgba(230, 169, 79, 0.13)",
+  warningStrong: "#B7791F",
   danger: "#F0806F",
   dangerSoft: "rgba(240, 128, 111, 0.12)",
   info: "#86AEE0",
