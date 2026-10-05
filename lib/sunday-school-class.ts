@@ -227,6 +227,40 @@ export function compareClassesByLevelAndName(
   return levelDifference || compareClassNames(left.name, right.name)
 }
 
+/**
+ * Put classes in their ministry age-group order, then in grade/section order
+ * inside each group. Classes whose grade has not been assigned to an age
+ * group stay available at the end of the list.
+ */
+export function compareClassesByAgeGroup(
+  ageGroups: Array<{ levels: SundaySchoolLevel[]; name: string }>
+) {
+  const orderedAgeGroups = [...ageGroups].sort(compareAgeGroupsByLevel)
+  const groupIndexByLevel = new Map<SundaySchoolLevel, number>()
+
+  orderedAgeGroups.forEach((group, groupIndex) => {
+    group.levels.forEach(level => groupIndexByLevel.set(level, groupIndex))
+  })
+
+  return (
+    left: { level: SundaySchoolLevel; name: string },
+    right: { level: SundaySchoolLevel; name: string }
+  ): number => {
+    const groupDifference =
+      (groupIndexByLevel.get(left.level) ?? Number.MAX_SAFE_INTEGER) -
+      (groupIndexByLevel.get(right.level) ?? Number.MAX_SAFE_INTEGER)
+
+    return groupDifference || compareClassesByLevelAndName(left, right)
+  }
+}
+
+export function sortClassesByAgeGroup<T extends { level: SundaySchoolLevel; name: string }>(
+  classes: T[],
+  ageGroups: Array<{ levels: SundaySchoolLevel[]; name: string }>
+): T[] {
+  return [...classes].sort(compareClassesByAgeGroup(ageGroups))
+}
+
 /** Age groups follow the first grade they contain; empty groups come last. */
 export function compareAgeGroupsByLevel(
   left: { levels: SundaySchoolLevel[]; name: string },

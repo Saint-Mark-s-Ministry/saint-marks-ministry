@@ -22,6 +22,7 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useSundaySchoolAgeGroups: () => ({ data: [] }),
   useSundaySchoolClasses: mocks.useClasses,
   useSundaySchoolServantAttendance: mocks.useAttendance,
   useSundaySchoolDashboard: mocks.useDashboard,

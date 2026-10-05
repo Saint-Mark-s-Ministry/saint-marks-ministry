@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
 import { Cake, CalendarDays } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -11,7 +12,7 @@ import { Panel } from '@/components/ds/panel'
 import { Initials } from '@/components/ds/person'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolBirthdays, useSundaySchoolClasses } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, useSundaySchoolBirthdays, useSundaySchoolClasses } from '@/lib/swr'
 import {
   ageOnBirthdayInYear,
   BIRTHDAY_MONTHS,
@@ -19,7 +20,7 @@ import {
   formatBirthday,
   getBirthdayParts,
 } from '@/lib/sunday-school-birthdays'
-import { getChildFullName, getChildPhotoUrl, getLevelDisplayName } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type { SundaySchoolBirthdayChild, SundaySchoolClass } from '@/types/sunday-school'
 
 const MONTH_OPTIONS = [
@@ -31,12 +32,16 @@ export default function SundaySchoolBirthdaysPage() {
   const { status } = useSundaySchoolGuard()
   const { data, error, isLoading } = useSundaySchoolBirthdays()
   const { data: classesData } = useSundaySchoolClasses()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [month, setMonth] = useState('all')
   const [classId, setClassId] = useState('all')
 
   const classes = useMemo(
-    () => (classesData as SundaySchoolClass[] | undefined) ?? [],
-    [classesData]
+    () => sortClassesByAgeGroup(
+      (classesData as SundaySchoolClass[] | undefined) ?? [],
+      (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+    ),
+    [ageGroupsData, classesData]
   )
   const childrenWithBirthdays = useMemo(
     () => [...((data as SundaySchoolBirthdayChild[] | undefined) ?? [])].sort(compareBirthdays),

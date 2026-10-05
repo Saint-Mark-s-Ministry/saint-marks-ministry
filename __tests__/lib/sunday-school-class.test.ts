@@ -3,6 +3,7 @@ import { SundaySchoolLevel } from '@prisma/client'
 import {
   compareAgeGroupsByLevel,
   compareClassNames,
+  compareClassesByAgeGroup,
   compareClassesByLevelAndName,
   LEVEL_ORDER,
   getClassMeetingDayName,
@@ -191,6 +192,29 @@ describe('Sunday School grade ordering', () => {
       'Elementary',
       'Middle School',
       'High School',
+    ])
+  })
+
+  it('sorts classes by age group before grade and section', () => {
+    const ageGroups = [
+      { name: 'High School', levels: [SundaySchoolLevel.GRADE_9, SundaySchoolLevel.GRADE_10] },
+      { name: 'Elementary', levels: [SundaySchoolLevel.PRE_K, SundaySchoolLevel.GRADE_1] },
+      { name: 'Middle School', levels: [SundaySchoolLevel.GRADE_6, SundaySchoolLevel.GRADE_7] },
+    ]
+    const classes = [
+      { name: '10th Grade', level: SundaySchoolLevel.GRADE_10 },
+      { name: '1st Grade - 2', level: SundaySchoolLevel.GRADE_1 },
+      { name: '7th Grade', level: SundaySchoolLevel.GRADE_7 },
+      { name: 'Unbanded', level: SundaySchoolLevel.GRADE_5 },
+      { name: '1st Grade - 1', level: SundaySchoolLevel.GRADE_1 },
+    ]
+
+    expect(classes.sort(compareClassesByAgeGroup(ageGroups)).map(item => item.name)).toEqual([
+      '1st Grade - 1',
+      '1st Grade - 2',
+      '7th Grade',
+      '10th Grade',
+      'Unbanded',
     ])
   })
 })

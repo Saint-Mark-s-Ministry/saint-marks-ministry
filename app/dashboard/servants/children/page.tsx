@@ -30,8 +30,9 @@ import {
   useSundaySchoolChildren,
   useSundaySchoolClasses,
   useSundaySchoolFamilies,
+  useSundaySchoolAgeGroups,
 } from '@/lib/swr'
-import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, LEVEL_ORDER, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type {
   SundaySchoolChild,
   SundaySchoolClass,
@@ -165,7 +166,11 @@ function SundaySchoolChildrenContent() {
   const searchParams = useSearchParams()
 
   const { data: classesData } = useSundaySchoolClasses()
-  const classes = useMemo(() => (classesData as SundaySchoolClass[] | undefined) ?? [], [classesData])
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
+  const classes = useMemo(() => sortClassesByAgeGroup(
+    (classesData as SundaySchoolClass[] | undefined) ?? [],
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+  ), [ageGroupsData, classesData])
   const { data: familiesData, mutate: mutateFamilies } = useSundaySchoolFamilies()
   const families = useMemo(
     () => (familiesData as SundaySchoolFamily[] | undefined) ?? [],

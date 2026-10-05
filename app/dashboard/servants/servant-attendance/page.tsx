@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { SundaySchoolServantAttendanceStatus } from '@prisma/client'
+import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/ds/page-header'
@@ -22,6 +22,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import {
   useSundaySchoolClasses,
+  useSundaySchoolAgeGroups,
   useSundaySchoolDashboard,
   useSundaySchoolServantAttendance,
 } from '@/lib/swr'
@@ -30,6 +31,7 @@ import {
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
+  sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type { OrganizationPerson } from '@/lib/sunday-school-organization'
@@ -47,11 +49,15 @@ function ServantAttendanceContent() {
   const canOpenPage = session?.user?.sundaySchool?.hasAccess ?? false
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const classes = useMemo(
-    () => ((classesData as SundaySchoolClass[] | undefined) ?? []).filter(
-      cls => cls.isActive && cls.canViewServantAttendance
+    () => sortClassesByAgeGroup(
+      ((classesData as SundaySchoolClass[] | undefined) ?? []).filter(
+        cls => cls.isActive && cls.canViewServantAttendance
+      ),
+      (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
     ),
-    [classesData]
+    [ageGroupsData, classesData]
   )
 
   const [selectedClassId, setSelectedClassId] = useState('')
