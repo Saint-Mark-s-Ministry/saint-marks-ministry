@@ -41,7 +41,14 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Used to attach a photo of a signed confession slip.",
+          "cameraPermission": "Used to photograph a signed confession slip."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
