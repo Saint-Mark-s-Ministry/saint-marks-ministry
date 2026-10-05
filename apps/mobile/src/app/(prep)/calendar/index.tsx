@@ -413,7 +413,12 @@ function EventRow({
         {showResume && (
           <Button
             label={inProgress ? `Resume attendance · ${marked} of ${roster}` : "Take attendance"}
-            onPress={() => router.push("/prep-attendance")}
+            onPress={() =>
+              router.push({
+                pathname: "/prep-attendance",
+                params: { lessonId: event.id.replace(/^lesson-/, "") },
+              })
+            }
           />
         )}
       </View>
