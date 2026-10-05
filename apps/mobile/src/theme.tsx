@@ -48,7 +48,9 @@ const light = {
   warningSoft: "#FBF0DB",
   warningStrong: "#955A00",
   danger: "#B93A26",
-  dangerSoft: "#FEF2F2",
+  // Confirmed against iOS-Registrations-Light.dc.html's "Rejected" badge —
+  // the previous #FEF2F2 (near-white pink) was an unverified guess.
+  dangerSoft: "#FBE9E5",
   info: "#2D5F9A",
   infoSoft: "#EAF1FA",
   hero: "#5C1A1A",
