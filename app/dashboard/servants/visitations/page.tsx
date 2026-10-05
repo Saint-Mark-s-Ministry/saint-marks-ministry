@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { SundaySchoolVisitationStatus } from '@prisma/client'
+import { SundaySchoolLevel, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
 import {
   LockKeyhole,
@@ -31,8 +31,8 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Textarea } from '@/components/ui/textarea'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { getLevelDisplayName } from '@/lib/sunday-school-class'
-import { useSundaySchoolVisitations } from '@/lib/swr'
+import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { useSundaySchoolAgeGroups, useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import type {
   SundaySchoolPriestNote,
@@ -45,8 +45,12 @@ const TODAY = new Date().toISOString().slice(0, 10)
 export default function SundaySchoolVisitationsPage() {
   const { status } = useSundaySchoolGuard()
   const { data, error, isLoading, mutate } = useSundaySchoolVisitations()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const response = data as SundaySchoolVisitationsResponse | undefined
-  const classes = useMemo(() => response?.classes ?? [], [response])
+  const classes = useMemo(() => sortClassesByAgeGroup(
+    response?.classes ?? [],
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+  ), [ageGroupsData, response])
 
   const [selectedClassId, setSelectedClassId] = useState('')
   const [search, setSearch] = useState('')

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolLessons } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -18,7 +18,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
+import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import { SundaySchoolLevel } from '@prisma/client'
 
 interface ResourceDraft { title: string; url: string }
 
@@ -36,6 +38,7 @@ export default function SundaySchoolLessonsPage() {
   const { session, status } = useSundaySchoolGuard()
   const lessonFilters = useMemo(() => ({ scope: 'year' as const }), [])
   const { data, error, isLoading, mutate } = useSundaySchoolLessons(lessonFilters)
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const lessons = ((data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? [])
   const [scope, setScope] = useState<'schedule' | 'mine' | 'past'>('schedule')
   const [classId, setClassId] = useState('all')
@@ -45,16 +48,16 @@ export default function SundaySchoolLessonsPage() {
   const [saving, setSaving] = useState(false)
   const today = dateOnly(new Date())
 
-  const classOptions = Array.from(
+  const classOptions = sortClassesByAgeGroup(Array.from(
     new Map(lessons.map(lesson => [lesson.class.id, lesson.class])).values()
-  ).sort((a, b) => a.name.localeCompare(b.name))
-  const manageableClasses = Array.from(
+  ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
+  const manageableClasses = sortClassesByAgeGroup(Array.from(
     new Map(
       lessons
         .filter(lesson => lesson.canEdit)
-        .map(lesson => [lesson.class.id, { id: lesson.class.id, name: lesson.class.name }])
+        .map(lesson => [lesson.class.id, lesson.class])
     ).values()
-  ).sort((a, b) => a.name.localeCompare(b.name))
+  ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
 
   const visibleLessons = lessons.filter(lesson => {
     if (classId !== 'all' && lesson.classId !== classId) return false

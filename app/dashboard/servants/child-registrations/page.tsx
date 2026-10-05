@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useChildRegistrationRequests, useSundaySchoolClasses } from '@/lib/swr'
+import { useChildRegistrationRequests, useSundaySchoolAgeGroups, useSundaySchoolClasses } from '@/lib/swr'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,7 +33,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { getLevelDisplayName } from '@/lib/sunday-school-class'
+import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { SundaySchoolLevel } from '@prisma/client'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ds/page-header'
@@ -226,11 +226,13 @@ function ApproveDialog({
   onSuccess: () => void
 }) {
   const { data: classes } = useSundaySchoolClasses()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [classId, setClassId] = useState('')
   const [isApproving, setIsApproving] = useState(false)
 
-  const matchingClasses = ((classes ?? []) as SundaySchoolClassOption[]).filter(
-    (c) => c.level === request.intendedLevel
+  const matchingClasses = sortClassesByAgeGroup(
+    ((classes ?? []) as SundaySchoolClassOption[]).filter(c => c.level === request.intendedLevel),
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   )
 
   const handleApprove = async () => {

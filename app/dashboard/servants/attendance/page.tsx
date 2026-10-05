@@ -15,7 +15,7 @@ import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import {
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
@@ -27,6 +27,7 @@ import {
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
+  sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type {
@@ -37,7 +38,7 @@ import type {
   SundaySchoolSession,
   SundaySchoolSessionAttendance,
 } from '@/types/sunday-school'
-import { AttendanceStatus } from '@prisma/client'
+import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
 import { Users } from 'lucide-react'
 
@@ -57,7 +58,11 @@ function SundaySchoolAttendanceContent() {
   const searchParams = useSearchParams()
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
-  const classes = useMemo(() => (classesData as SundaySchoolClass[] | undefined) ?? [], [classesData])
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
+  const classes = useMemo(() => sortClassesByAgeGroup(
+    (classesData as SundaySchoolClass[] | undefined) ?? [],
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+  ), [ageGroupsData, classesData])
 
   const [selectedClassId, setSelectedClassId] = useState<string>('')
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
