@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, levels, sortOrder, overseerId } = body
+    const { name, levels, sortOrder, overseerId, isElementary } = body
 
         if (overseerId !== undefined && overseerId !== null) {
           if (typeof overseerId !== 'string' || !overseerId) return NextResponse.json({ error: 'Invalid priest overseer' }, { status: 400 })
@@ -102,12 +102,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: conflict }, { status: 409 })
     }
 
+    if (isElementary) {
+      const existingElementary = await prisma.sundaySchoolAgeGroup.findFirst({
+        where: { isElementary: true, sundaySchoolYearId: null },
+        select: { id: true },
+      })
+      if (existingElementary) {
+        return NextResponse.json({ error: "Only one Elementary age group is allowed" }, { status: 409 })
+      }
+    }
+
     const created = await prisma.sundaySchoolAgeGroup.create({
       data: {
         name: String(name).trim(),
                 overseerId: overseerId ?? null,
         levels: levels as SundaySchoolLevel[],
         sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
+        isElementary: Boolean(isElementary),
       },
     })
 

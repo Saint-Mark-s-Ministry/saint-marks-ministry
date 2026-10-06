@@ -5,6 +5,7 @@ export type {
   SundaySchoolAuthority,
   SundaySchoolChildGender,
   SundaySchoolFeedbackType,
+  SundaySchoolHomeworkCompletionStatus,
   UserRole,
   RoleTag,
 } from "@prisma/client";
