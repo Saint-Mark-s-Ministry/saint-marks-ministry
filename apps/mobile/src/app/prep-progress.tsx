@@ -52,7 +52,8 @@ export default function PrepProgress() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "My progress" }} />
+      {/* The greeting below carries the title; an empty bar title avoids repeating it. */}
+      <Stack.Screen options={{ title: "" }} />
       <Screen
         refreshing={analytics.loading || analytics.refreshing}
         onRefresh={() => {
@@ -229,7 +230,7 @@ function MetricRow({
       <View style={{ padding: 16, gap: 10 }}>
         <View style={[styles.row, { justifyContent: "space-between" }]}>
           <Copy style={{ fontSize: 15, fontWeight: "500" }}>{title}</Copy>
-          <Copy style={{ fontSize: 22, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{value}</Copy>
+          <Copy style={{ fontSize: 22, lineHeight: 28, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{value}</Copy>
         </View>
         <View
           accessible
