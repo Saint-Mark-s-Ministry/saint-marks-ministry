@@ -19,6 +19,8 @@ import {
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
+import { useResource } from "@/data/resources";
+import { birthdayCaption, birthdayParts, upcomingBirthdays, type Birthday } from "@/data/sunday-school-birthdays";
 import { attendanceKey, meetingDate, usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
@@ -26,6 +28,9 @@ import { useAppTheme } from "@/theme";
 export default function Home() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  // Birthdays are class-scoped on the server. A refusal or failure hides the card.
+  const birthdays = useResource<Birthday[]>("/api/sunday-school/birthdays");
+  const birthdaysThisMonth = (birthdays.data ?? []).filter((b) => birthdayParts(b.birthDate)?.month === new Date().getUTCMonth() + 1).length;
   const {
     attendance,
     classes,
@@ -148,6 +153,30 @@ export default function Home() {
           <ListSurface>
             <RowLink title="My children" subtitle="Classes, registrations, and new children" onPress={() => router.push("/parent-children")} />
           </ListSurface>
+        )}
+
+        {!!birthdays.data?.length && (
+          <View style={{ gap: 10 }}>
+            <View style={[styles.row, { justifyContent: "space-between", paddingHorizontal: 4 }]}>
+              <Copy style={{ fontSize: 17, fontWeight: "600" }}>Birthdays</Copy>
+              <Copy kind="caption">{birthdaysThisMonth} this month</Copy>
+            </View>
+            <ListSurface>
+              {upcomingBirthdays(birthdays.data, new Date(), 3).map((b, index, all) => (
+                <View
+                  key={b.id}
+                  style={[
+                    { paddingHorizontal: 16, paddingVertical: 12, minHeight: 56, gap: 2 },
+                    index < all.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
+                  ]}
+                >
+                  <Copy style={{ fontWeight: "500" }}>{b.firstName} {b.lastName}</Copy>
+                  <Copy kind="caption">{b.class?.name ?? "No class"} · {birthdayCaption(b.birthDate, new Date())}</Copy>
+                </View>
+              ))}
+              <RowLink title="All birthdays" subtitle="Filter by month and class" onPress={() => router.push("/sunday-birthdays")} />
+            </ListSurface>
+          </View>
         )}
 
         {!!classes.length && (
