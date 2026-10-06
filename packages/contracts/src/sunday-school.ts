@@ -356,6 +356,7 @@ export interface SundaySchoolDashboard {
     classes: number;
     children: number;
     classesNeedingAttendance: number;
+    attendancePercentage: number;
   };
   standing: {
     isAdmin: boolean;

@@ -274,6 +274,10 @@ export async function GET(request: Request) {
         classes: summaries.length,
         children: summaries.reduce((sum, c) => sum + c.childCount, 0),
         classesNeedingAttendance: summaries.filter(c => !c.attendanceTakenThisWeek).length,
+        attendancePercentage: calculateAttendanceStats(
+          attendance.map(a => ({ status: a.status })),
+          attendance.length
+        ).percentage,
       },
       standing: {
         isAdmin: access.isAdmin,

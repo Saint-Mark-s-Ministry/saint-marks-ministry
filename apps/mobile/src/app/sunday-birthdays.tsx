@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
+import type { SundaySchoolDashboard } from "@stmark/contracts";
 import { Copy, ListSurface, Screen, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { AcademicYearContext } from "@/components/academic-year-context";
 import { savedLabel } from "@/data/prep-lessons";
-import { useResource } from "@/data/resources";
+import { endpoint, useResource } from "@/data/resources";
 import {
   MONTHS,
   birthdayCaption,
@@ -24,6 +26,7 @@ const FORBIDDEN = "Forbidden";
 export default function SundayBirthdays() {
   const { colors } = useAppTheme();
   const birthdays = useResource<Birthday[]>("/api/sunday-school/birthdays");
+  const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const [scope, setScope] = useState(0); // 0 = this month, 1 = all months
   const [classId, setClassId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -54,11 +57,12 @@ export default function SundayBirthdays() {
         onCancelButtonPress={() => setQuery("")}
       />
       <Screen refreshing={birthdays.loading || birthdays.refreshing} onRefresh={() => void birthdays.refresh()}>
-        <View style={{ paddingHorizontal: 4, gap: 2 }}>
+        <View style={{ paddingHorizontal: 4, gap: 6 }}>
           <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Birthdays</Copy>
           <Copy kind="caption">
             {scope === 0 ? MONTHS[thisMonth - 1] : "All months"} · {rows.length} {rows.length === 1 ? "child" : "children"}
           </Copy>
+          {dashboard.data && <AcademicYearContext dashboard={dashboard.data} />}
         </View>
 
         {denied && (
