@@ -12,6 +12,7 @@ const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
   ['/dashboard/servants/classes', 'Classes'],
   ['/dashboard/servants/feedback', 'Feedback'],
   ['/dashboard/servants/lessons', 'Lessons'],
+  ['/dashboard/servants/homework', 'Homework'],
   ['/dashboard/servants/account', 'My Account'],
   ['/dashboard/servants/roster', 'Roster'],
   ['/dashboard/servants/users', 'Users'],

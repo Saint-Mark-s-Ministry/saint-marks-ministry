@@ -18,6 +18,7 @@ import {
   Settings,
   FolderOpen,
   School,
+  NotebookPen,
   X,
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
@@ -46,7 +47,8 @@ interface NavItem {
 function getNavItemsForRole(
   role: UserRole,
   hasSundaySchool: boolean,
-  inSundaySchoolMode: boolean
+  inSundaySchoolMode: boolean,
+  hasHomeworkAccess: boolean,
 ): NavItem[] {
   if (inSundaySchoolMode && hasSundaySchool) {
     const items: NavItem[] = [
@@ -56,6 +58,10 @@ function getNavItemsForRole(
       { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
     ]
+
+    if (hasHomeworkAccess) {
+      items.splice(2, 0, { label: 'Elementary Homework', href: '/dashboard/servants/homework', icon: NotebookPen })
+    }
 
     if (canAdministerSundaySchool(role)) {
       items.push({ label: 'Users', href: '/dashboard/servants/users', icon: Users })
@@ -233,7 +239,8 @@ export function CommandPalette() {
   const navItems = getNavItemsForRole(
     session.user.role,
     session.user.sundaySchool?.hasAccess ?? false,
-    pathname.startsWith('/dashboard/servants')
+    pathname.startsWith('/dashboard/servants'),
+    session.user.sundaySchool?.hasHomeworkAccess ?? false,
   )
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'

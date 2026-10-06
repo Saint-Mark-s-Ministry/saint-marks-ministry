@@ -8,6 +8,7 @@ import { DefaultSession } from "next-auth"
 export interface SundaySchoolStanding {
   hasAccess: boolean
   isCoordinator: boolean
+  hasHomeworkAccess: boolean
 }
 
 declare module "next-auth" {

@@ -3,14 +3,17 @@
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
-import { useSundaySchoolLessons } from '@/lib/swr'
+import { useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
+import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
 
 export default function StudentClassLessonsPage() {
   const { session, status } = useAdminGuard(isStudent)
   const { data, isLoading } = useSundaySchoolLessons()
+  const { data: homeworkData } = useSundaySchoolHomework()
   const lessons = (data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   if (status === 'loading' || !session || isLoading) {
@@ -60,6 +63,8 @@ export default function StudentClassLessonsPage() {
             </CardContent>
           </Card>
         ))}
+
+        <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
       </div>
     </div>
   )

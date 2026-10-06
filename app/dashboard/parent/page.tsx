@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isParent } from '@/lib/roles'
-import { useParentChildren, useSundaySchoolLessons } from '@/lib/swr'
+import { useParentChildren, useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,8 @@ import { SundaySchoolLevel } from '@prisma/client'
 import { CheckCircle, Clock, ExternalLink, Loader2, Plus, XCircle } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
+import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
 
 interface FormData {
   firstName: string
@@ -76,6 +78,7 @@ export default function ParentDashboardPage() {
   const { session, status } = useAdminGuard(isParent)
   const { data, mutate } = useParentChildren()
   const { data: lessonData } = useSundaySchoolLessons()
+  const { data: homeworkData } = useSundaySchoolHomework()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   if (status === 'loading' || !session) {
@@ -185,6 +188,8 @@ export default function ParentDashboardPage() {
             ))}
           </CardContent>
         </Card>
+
+        <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
 
         <Card>
           <CardHeader>
