@@ -37,8 +37,11 @@ export async function GET(
     // Build lesson filter based on year level
     // Year 1 students: Only see active academic year lessons
     // Year 2 students: See lessons from all years (both Year 1 and Year 2)
+    // Cancelled lessons are hidden by default (the web page relies on that).
+    // The mobile "My lessons" screen opts in with ?includeCancelled=true so it can explain them.
+    const includeCancelled = new URL(request.url).searchParams.get('includeCancelled') === 'true'
     const lessonWhereClause: Record<string, unknown> = {
-      status: { notIn: ['CANCELLED', 'NO_CLASS'] },
+      status: { notIn: includeCancelled ? ['NO_CLASS'] : ['CANCELLED', 'NO_CLASS'] },
       isExamDay: false
     }
 
@@ -111,6 +114,7 @@ export async function GET(
       scheduledDate: lesson.scheduledDate,
       lessonNumber: lesson.lessonNumber,
       status: lesson.status,
+      cancellationReason: lesson.cancellationReason,
       examSection: lesson.examSection,
       academicYear: lesson.academicYear,
       resources: lesson.resources,

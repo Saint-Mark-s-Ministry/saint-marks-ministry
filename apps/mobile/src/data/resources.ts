@@ -131,6 +131,9 @@ export function useResource<T>(path: string | null) {
     loading: !!path && data === undefined && !entry.error,
     refreshing: manualRefreshing,
     error: data === undefined ? entry.error : undefined,
+    // Cached data is still shown after a failed refresh; `stale` says so, and `updatedAt` says when it was last loaded.
+    stale: data !== undefined && !!entry.error,
+    updatedAt: entry.updatedAt,
     refresh,
   };
 }
