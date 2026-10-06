@@ -24,6 +24,13 @@ export default tseslint.config(
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
+    // Expo config plugins are loaded by Node's own `require()` directly from
+    // app.json, outside the bundler/TS pipeline — CommonJS is the correct
+    // format here, not a style choice.
+    files: ["apps/mobile/plugins/**/*.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     plugins: {
       "@next/next": nextPlugin,
       "react-hooks": reactHooks,
