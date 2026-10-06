@@ -133,7 +133,7 @@ export default function PrepAsyncStudentDetail() {
               <>
                 <View style={{ alignItems: "center", gap: 8, paddingTop: 4 }}>
                   <InitialsAvatar name={enrollment.student.name} size={76} />
-                  <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, fontWeight: "500" }}>{enrollment.student.name}</Copy>
+                  <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{enrollment.student.name}</Copy>
                   <Copy kind="caption">{YEAR_LABELS[enrollment.yearLevel] ?? enrollment.yearLevel} · async student</Copy>
                   <View style={[styles.row, { gap: 6 }]}>
                     <StatusPill label="Async" color={colors.info} soft={colors.infoSoft} />
