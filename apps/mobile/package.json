@@ -4,14 +4,16 @@
   "private": true,
   "expo": {
     "install": {
-      "exclude": ["react"]
+      "exclude": [
+        "react"
+      ]
     }
   },
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "export": "expo export --platform ios --platform android"
   },
@@ -23,6 +25,7 @@
     "expo": "~57.0.25",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
+    "expo-document-picker": "~57.0.3",
     "expo-font": "~57.0.4",
     "expo-glass-effect": "~57.0.4",
     "expo-haptics": "~57.0.3",
