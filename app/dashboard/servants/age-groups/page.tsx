@@ -50,6 +50,7 @@ export default function SundaySchoolAgeGroupsPage() {
   const [name, setName] = useState('')
   const [overseerId, setOverseerId] = useState('')
   const [levels, setLevels] = useState<SundaySchoolLevel[]>([])
+  const [isElementary, setIsElementary] = useState(false)
   const [saving, setSaving] = useState(false)
   const [coordinatorOptions, setCoordinatorOptions] = useState<CoordinatorOption[]>([])
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState('')
@@ -107,6 +108,7 @@ export default function SundaySchoolAgeGroupsPage() {
     setName('')
     setOverseerId('')
     setLevels([])
+    setIsElementary(false)
     setSelectedCoordinatorId('')
     setDialogOpen(true)
   }
@@ -116,6 +118,7 @@ export default function SundaySchoolAgeGroupsPage() {
     setName(group.name)
     setOverseerId(group.overseerId ?? '')
     setLevels(group.levels)
+    setIsElementary(group.isElementary)
     setSelectedCoordinatorId('')
     setDialogOpen(true)
   }
@@ -137,7 +140,7 @@ export default function SundaySchoolAgeGroupsPage() {
       const response = await fetch(url, {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, levels, overseerId: overseerId || null }),
+        body: JSON.stringify({ name, levels, overseerId: overseerId || null, isElementary }),
       })
       const body = await response.json()
       if (!response.ok) {
@@ -287,6 +290,7 @@ export default function SundaySchoolAgeGroupsPage() {
                           ),
                       },
                       { label: 'Priest overseer', value: group.overseer?.name ?? <span className="text-ink-3">Not assigned</span> },
+                      { label: 'Homework', value: group.isElementary ? 'Elementary homework enabled' : 'Not enabled' },
                     ]}
                   />
                 </Panel>
@@ -448,6 +452,20 @@ export default function SundaySchoolAgeGroupsPage() {
                 })}
               </div>
             </div>
+            <label className="flex items-start gap-3 rounded-md border border-line p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-brand"
+                checked={isElementary}
+                onChange={event => setIsElementary(event.target.checked)}
+              />
+              <span>
+                <span className="block font-medium text-ink">Elementary band</span>
+                <span className="block text-xs text-ink-3">
+                  Enables the Homework workflow for every grade assigned to this band. Only one band can be Elementary.
+                </span>
+              </span>
+            </label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>

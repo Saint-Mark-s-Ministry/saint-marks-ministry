@@ -16,6 +16,7 @@ import {
   Home,
   Inbox,
   Layers,
+  NotebookPen,
   MessageSquare,
   Presentation,
   School,
@@ -65,7 +66,7 @@ export interface NavGroup {
 export interface NavUser {
   role: UserRole
   isAsyncStudent?: boolean
-  sundaySchool?: { hasAccess: boolean; isCoordinator: boolean } | null
+  sundaySchool?: { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess?: boolean } | null
 }
 
 export interface MinistryOption {
@@ -173,6 +174,9 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   const main: NavItem[] = [
     { href: '/dashboard/servants', label: 'Dashboard', icon: Home, tab: true, tabLabel: 'Home' },
     { href: '/dashboard/servants/lessons', label: 'Lessons', icon: Presentation, tab: true },
+    ...(user.sundaySchool?.hasHomeworkAccess
+      ? [{ href: '/dashboard/servants/homework', label: 'Homework', icon: NotebookPen }]
+      : []),
     { href: '/dashboard/servants/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
     { href: '/dashboard/servants/roster', label: 'Roster', icon: Users, tab: true },
     { href: '/dashboard/servants/birthdays', label: 'Birthdays', icon: Cake },

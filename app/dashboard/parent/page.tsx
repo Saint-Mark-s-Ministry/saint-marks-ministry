@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isParent } from '@/lib/roles'
-import { useParentChildren, useSundaySchoolLessons } from '@/lib/swr'
+import { useParentChildren, useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +39,8 @@ import { SundaySchoolLevel } from '@prisma/client'
 import { Loader2, Plus } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
+import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
 
 interface FormData {
   firstName: string
@@ -70,6 +72,7 @@ function ParentDashboardContent() {
   const { session, status } = useAdminGuard(isParent)
   const { data, mutate } = useParentChildren()
   const { data: lessonData } = useSundaySchoolLessons()
+  const { data: homeworkData } = useSundaySchoolHomework()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -164,6 +167,8 @@ function ParentDashboardContent() {
           </ul>
         )}
       </Panel>
+
+      <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
 
       <Panel title="Requests" description="Registration requests you’ve submitted">
         {pendingRequests.length === 0 ? (
