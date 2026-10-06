@@ -1,4 +1,4 @@
-import { Platform, Pressable, View } from "react-native";
+import { Platform, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
 import type { SundaySchoolDashboard } from "@stmark/contracts";
 import {
@@ -8,11 +8,11 @@ import {
   ListSurface,
   Screen,
   SectionTitle,
-  styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { ResourceState } from "@/components/forms";
+import { AcademicYearContext } from "@/components/academic-year-context";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { usePortal } from "@/data/portal-provider";
@@ -137,40 +137,6 @@ export default function Ministry() {
         )}
       </Screen>
     </>
-  );
-}
-
-/** Academic-year chip (SMM-28 shell); mirrors the web TopBar's year display, and opens year management. */
-function AcademicYearContext({ dashboard }: { dashboard: SundaySchoolDashboard }) {
-  const { colors } = useAppTheme();
-  const { attendanceTrend } = dashboard;
-  const yearName =
-    attendanceTrend.academicYears.find((y) => y.id === attendanceTrend.selectedAcademicYearId)
-      ?.name ?? "Current year";
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Academic year: ${yearName}. Manage academic years`}
-      onPress={() => router.push("/academic-years")}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          alignSelf: "flex-start",
-          gap: 6,
-          paddingVertical: 6,
-          paddingHorizontal: 10,
-          borderRadius: 8,
-          backgroundColor: pressed ? colors.primary : colors.primarySoft,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <Icon ios="calendar" android="calendar_month" size={14} color={colors.primary} />
-      <Copy kind="caption" color={colors.primary}>
-        {yearName}
-      </Copy>
-      <Icon ios="chevron.right" android="chevron_right" size={12} color={colors.primary} />
-    </Pressable>
   );
 }
 

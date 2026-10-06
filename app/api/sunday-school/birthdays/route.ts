@@ -17,11 +17,22 @@ export async function GET() {
     }
 
     const allowedClassIds = visibleClassFilter(access)
+    const activeYear = await prisma.academicYear.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    })
+
     const children = await prisma.sundaySchoolChild.findMany({
       where: {
         isActive: true,
         birthDate: { not: null },
-        ...(allowedClassIds ? { classId: { in: allowedClassIds } } : {}),
+        // Scoped to the active academic year's classes, not just class
+        // access — an admin/priest's "all" access otherwise spans every
+        // class ever created, across every past year.
+        class: {
+          academicYearId: activeYear?.id ?? '__no_active_academic_year__',
+          ...(allowedClassIds ? { id: { in: allowedClassIds } } : {}),
+        },
       },
       select: {
         id: true,

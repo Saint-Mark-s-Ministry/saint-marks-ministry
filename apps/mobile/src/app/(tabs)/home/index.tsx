@@ -1,6 +1,7 @@
-import { Platform, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { getLevelDisplayName } from "@stmark/domain";
+import type { SundaySchoolDashboard } from "@stmark/contracts";
 import {
   Brand,
   Button,
@@ -11,6 +12,7 @@ import {
   Copy,
   Icon,
   ListSurface,
+  readableDate,
   RowLink,
   Screen,
   SectionTitle,
@@ -18,9 +20,11 @@ import {
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
+import { AcademicYearContext } from "@/components/academic-year-context";
 import { useAuth } from "@/data/auth-provider";
-import { useResource } from "@/data/resources";
+import { endpoint, useResource } from "@/data/resources";
 import { birthdayCaption, birthdayParts, upcomingBirthdays, type Birthday } from "@/data/sunday-school-birthdays";
+import { ageGroupDestination, nearestLesson } from "@/data/sunday-school-home";
 import { attendanceKey, meetingDate, usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
@@ -31,6 +35,8 @@ export default function Home() {
   // Birthdays are class-scoped on the server. A refusal or failure hides the card.
   const birthdays = useResource<Birthday[]>("/api/sunday-school/birthdays");
   const birthdaysThisMonth = (birthdays.data ?? []).filter((b) => birthdayParts(b.birthDate)?.month === new Date().getUTCMonth() + 1).length;
+  // Already warmed by PortalProvider's prefetch — no added request in the common case.
+  const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const {
     attendance,
     classes,
@@ -40,6 +46,7 @@ export default function Home() {
     error,
     refresh,
   } = usePortal();
+  const thisWeeksLesson = nearestLesson(lessons);
   const pending = classes.filter(
     (schoolClass) =>
       schoolClass.canServe &&
@@ -49,10 +56,6 @@ export default function Home() {
   const attendanceRecorded = primaryClass
     ? !!attendance[attendanceKey(primaryClass.id, meetingDate(primaryClass))]
     : false;
-  const childCount = classes.reduce(
-    (total, schoolClass) => total + (schoolClass._count?.children ?? 0),
-    0,
-  );
 
   return (
     <>
@@ -75,6 +78,7 @@ export default function Home() {
           <ConnectionBadge />
         </View>
         <DataStatus />
+        {dashboard.data && <AcademicYearContext dashboard={dashboard.data} />}
 
         {!loading && !error && !classes.length && (
           <Card>
@@ -179,32 +183,54 @@ export default function Home() {
           </View>
         )}
 
-        {!!classes.length && (
-          <ListSurface>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                minHeight: 76,
-              }}
-            >
-              <Metric
-                value={classes.length}
-                label={classes.length === 1 ? "Class" : "Classes"}
+        {dashboard.data && (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            <KpiTile
+              label="Classes"
+              value={String(dashboard.data.totals.classes)}
+              caption={`${dashboard.data.ageGroups.length} age group${dashboard.data.ageGroups.length === 1 ? "" : "s"}`}
+              onPress={() => router.push(ageGroupDestination(dashboard.data!.standing))}
+            />
+            <KpiTile
+              label="Need attendance"
+              value={String(dashboard.data.totals.classesNeedingAttendance)}
+              caption="this week"
+              onPress={() => router.push("/(tabs)/classes")}
+            />
+            <KpiTile
+              label="Children"
+              value={String(dashboard.data.totals.children)}
+              caption="enrolled"
+              onPress={() => router.push("/roster")}
+            />
+            <KpiTile
+              label="Attendance"
+              value={`${Math.round(dashboard.data.totals.attendancePercentage)}%`}
+              caption="year to date"
+              onPress={() => router.push("/reports")}
+            />
+          </View>
+        )}
+
+        {thisWeeksLesson && (
+          <View style={{ gap: 10 }}>
+            <SectionTitle title="This week's lesson" />
+            <Card style={{ padding: 18, gap: 10 }}>
+              <Copy kind="heading">{thisWeeksLesson.title ?? "Weekly lesson"}</Copy>
+              <Copy kind="caption">
+                {thisWeeksLesson.class.name} · {readableDate(thisWeeksLesson.sundayDate)}
+              </Copy>
+              <Button
+                label="View lesson"
+                onPress={() =>
+                  router.push({
+                    pathname: "/lesson/[id]",
+                    params: { id: thisWeeksLesson.id, classId: thisWeeksLesson.classId },
+                  })
+                }
               />
-              <View
-                style={{ width: 1, height: 34, backgroundColor: colors.border }}
-              />
-              <Metric
-                value={childCount}
-                label={childCount === 1 ? "Child" : "Children"}
-              />
-              <View
-                style={{ width: 1, height: 34, backgroundColor: colors.border }}
-              />
-              <Metric value={pending.length} label="Attendance due" />
-            </View>
-          </ListSurface>
+            </Card>
+          </View>
         )}
 
         <View style={{ gap: 10 }}>
@@ -237,11 +263,39 @@ export default function Home() {
   );
 }
 
-function Metric({ value, label }: { value: number; label: string }) {
+function KpiTile({
+  label,
+  value,
+  caption,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
   return (
-    <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
-      <Copy kind="heading">{value}</Copy>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}, ${caption}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          flexBasis: "47%",
+          flexGrow: 1,
+          borderRadius: 18,
+          padding: 14,
+          gap: 4,
+          backgroundColor: pressed ? colors.primarySoft : colors.surface,
+        },
+      ]}
+    >
       <Copy kind="caption">{label}</Copy>
-    </View>
+      <Copy kind="heading" style={{ fontSize: 26, lineHeight: 30 }}>
+        {value}
+      </Copy>
+      <Copy kind="caption">{caption}</Copy>
+    </Pressable>
   );
 }
