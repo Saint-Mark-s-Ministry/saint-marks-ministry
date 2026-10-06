@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { forwardRef, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Pressable, Switch, TextInput, View } from "react-native";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { Stack } from "expo-router";
@@ -6,10 +6,12 @@ import { Button, Card, Copy, Icon, Screen } from "./ui";
 import { GlassChrome } from "./chrome";
 import { useAppTheme } from "@/theme";
 
-export function Field({ label, value, onChange, multiline = false, disabled = false, secureTextEntry = false, ...rest }: {
+export const Field = forwardRef<TextInput, {
   label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean;
   keyboardType?: "default" | "email-address" | "phone-pad" | "numeric"; placeholder?: string; secureTextEntry?: boolean;
-}) {
+  /** Shown below the input in the danger color, and announced to VoiceOver as it appears. */
+  error?: string;
+}>(function Field({ label, value, onChange, multiline = false, disabled = false, secureTextEntry = false, error, ...rest }, ref) {
   const { colors } = useAppTheme();
   const [passwordVisible, setPasswordVisible] = useState(false);
   return <View style={{ gap: 7 }}><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -22,12 +24,16 @@ export function Field({ label, value, onChange, multiline = false, disabled = fa
       onPress={() => setPasswordVisible(visible => !visible)}
     ><Copy kind="caption" color={disabled ? colors.muted : colors.primary}>{passwordVisible ? "Hide" : "Show"}</Copy></Pressable>}
   </View><TextInput
-    accessibilityLabel={label} value={value} onChangeText={onChange} editable={!disabled}
+    ref={ref}
+    accessibilityLabel={label} accessibilityHint={error} value={value} onChangeText={onChange} editable={!disabled}
     multiline={multiline} autoCapitalize={rest.keyboardType === "email-address" || secureTextEntry ? "none" : "sentences"}
     autoCorrect={!secureTextEntry} secureTextEntry={secureTextEntry && !passwordVisible} placeholderTextColor={colors.muted}
-    style={{ backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1,
-      borderRadius: 12, padding: 14, minHeight: multiline ? 100 : 50, textAlignVertical: "top", opacity: disabled ? 0.5 : 1 }} {...rest} /></View>;
-}
+    style={{ backgroundColor: colors.surface, color: colors.text,
+      borderColor: error ? colors.danger : colors.border, borderWidth: error ? 1.5 : 1,
+      borderRadius: 12, padding: 14, minHeight: multiline ? 100 : 50, textAlignVertical: "top", opacity: disabled ? 0.5 : 1 }} {...rest} />
+    {!!error && <View accessibilityLiveRegion="polite"><Copy kind="caption" color={colors.danger}>{error}</Copy></View>}
+  </View>;
+});
 export type Option = { value: string; label: string };
 export function Toggle({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return <View style={{ flexDirection: "row", gap: 14, alignItems: "center", justifyContent: "space-between" }}><Copy style={{ flex: 1 }}>{label}</Copy><Switch accessibilityLabel={label} value={value} onValueChange={onChange} disabled={disabled} /></View>;
