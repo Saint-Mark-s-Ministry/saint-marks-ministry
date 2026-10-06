@@ -35,11 +35,18 @@ const SHARED_LINKS: MinistryLink[] = [
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
 ];
 
+/** The mentor's own reduced destination set — matches the design source's 3-tab Dashboard/Mentees/Files bar, reached here rather than a role-conditional native tab bar (a bigger structural change out of this ticket's scope). */
+const MENTOR_LINKS: MinistryLink[] = [
+  { id: "mentor-dashboard", title: "Dashboard", subtitle: "Your mentees at a glance", href: "/prep-mentor-dashboard" },
+  { id: "mentees", title: "My mentees", subtitle: "Progress and notes", href: "/prep-mentees" },
+  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
+];
+
 export default function PrepMinistry() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const isAdminLike = !user || ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"].includes(user.role);
-  const links = isAdminLike ? ADMIN_LINKS : SHARED_LINKS;
+  const links = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
   return (
     <>
       <Stack.Screen
