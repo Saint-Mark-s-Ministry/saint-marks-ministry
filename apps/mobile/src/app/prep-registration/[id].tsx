@@ -105,7 +105,7 @@ export default function PrepRegistrationDetail() {
           <>
             <View style={{ alignItems: "center", gap: 8, paddingVertical: 6 }}>
               <InitialsAvatar name={submission.fullName} size={76} variant="neutral" />
-              <Copy style={{ fontSize: 28, fontWeight: "500", textAlign: "center" }}>{submission.fullName}</Copy>
+              <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "500", textAlign: "center" }}>{submission.fullName}</Copy>
               <Copy kind="caption">
                 Submitted {new Date(submission.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </Copy>

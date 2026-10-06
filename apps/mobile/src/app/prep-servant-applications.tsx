@@ -163,7 +163,7 @@ function ServantApplicationSheet({
 
         <View style={{ alignItems: "center", gap: 8 }}>
           <InitialsAvatar name={a.fullName} size={76} variant="accent" />
-          <Copy style={{ fontSize: 28, fontWeight: "500", textAlign: "center" }}>{a.fullName}</Copy>
+          <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "500", textAlign: "center" }}>{a.fullName}</Copy>
           <Copy kind="caption">
             {a.currentGrade ? `Serves ${a.currentGrade} · ` : ""}
             submitted {new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
