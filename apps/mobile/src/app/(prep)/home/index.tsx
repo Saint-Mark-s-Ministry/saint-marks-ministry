@@ -127,6 +127,7 @@ export default function PrepHome() {
         {user?.role === "STUDENT" && (
           <ListSurface>
             <RowLink title="My progress" subtitle="Attendance, exams, and what to do next" onPress={() => router.push("/prep-progress")} />
+            <RowLink title="My lessons" subtitle="Schedule, materials, and attendance" onPress={() => router.push("/prep-lessons")} />
           </ListSurface>
         )}
 
