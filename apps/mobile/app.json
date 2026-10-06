@@ -12,7 +12,18 @@
       "supportsTablet": true,
       "bundleIdentifier": "org.stmark.ministryportal",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "EXExpoAppSceneDelegate"
+              }
+            ]
+          }
+        }
       }
     },
     "android": {
@@ -48,7 +59,8 @@
           "photosPermission": "Used to attach a photo of a signed confession slip.",
           "cameraPermission": "Used to photograph a signed confession slip."
         }
-      ]
+      ],
+      "./plugins/withSceneDelegate.js"
     ],
     "experiments": {
       "typedRoutes": true
