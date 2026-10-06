@@ -5,6 +5,7 @@ import {
   Copy,
   InitialsAvatar,
   ListSurface,
+  RowLink,
   Screen,
   styles,
 } from "@/components/ui";
@@ -123,7 +124,13 @@ export default function PrepHome() {
           </Copy>
         )}
 
-        {!adminLike && (
+        {user?.role === "STUDENT" && (
+          <ListSurface>
+            <RowLink title="My progress" subtitle="Attendance, exams, and what to do next" onPress={() => router.push("/prep-progress")} />
+          </ListSurface>
+        )}
+
+        {!adminLike && user?.role !== "STUDENT" && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
             <Copy kind="heading" style={{ textAlign: "center" }}>
               {title === "Dashboard" ? "Nothing to show here yet" : "Welcome"}
