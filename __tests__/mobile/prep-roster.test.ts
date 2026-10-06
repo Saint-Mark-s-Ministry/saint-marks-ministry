@@ -14,6 +14,7 @@ import {
 } from "../../apps/mobile/src/data/prep-roster";
 
 const enrollment = (overrides: Partial<RosterEnrollment>): RosterEnrollment => ({
+  id: "e1",
   studentId: "s1",
   isActive: true,
   status: "ACTIVE",
