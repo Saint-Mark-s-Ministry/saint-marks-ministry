@@ -11,18 +11,21 @@ import {
   Copy,
   Icon,
   ListSurface,
+  RowLink,
   Screen,
   SectionTitle,
   styles,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
+import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, meetingDate, usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
 
 export default function Home() {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
   const {
     attendance,
     classes,
@@ -139,6 +142,12 @@ export default function Home() {
               />
             </Card>
           </View>
+        )}
+
+        {user?.role === "PARENT" && (
+          <ListSurface>
+            <RowLink title="My children" subtitle="Classes, registrations, and new children" onPress={() => router.push("/parent-children")} />
+          </ListSurface>
         )}
 
         {!!classes.length && (
