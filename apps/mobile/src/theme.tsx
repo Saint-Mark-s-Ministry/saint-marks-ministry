@@ -98,13 +98,22 @@ const dark: typeof light = {
   infoSoft: "rgba(134, 174, 224, 0.12)",
   hero: "#5C1A1A",
   onHero: "#FFFFFF",
-  // Prep in dark mode splits the role: a pale rose for tint drawn straight
-  // on the near-black background (tab icon/label, switcher chevron, today
-  // marker), and a deeper rose for solid button fills, which has its own
-  // contrast against the white label instead of against the page background.
-  accentPrep: "#F08BA3",
+  // The design source's own "01 Color" page labels #F08BA3/#D6B062 as the
+  // dark-mode "Prep mode · active" / "Sunday School mode" swatches (lightened
+  // for contrast on near-black, same reasoning a dark-mode palette usually
+  // applies). The user asked for these deepened anyway, past what the source
+  // specifies — this is a deliberate, requested deviation from the documented
+  // tokens, not an unverified guess: both values below are still real,
+  // sourced tokens from elsewhere in the same system, just reapplied here.
+  // accentPrep now reuses the source's own "buttons, mark" dark value
+  // (previously actionPrep-only) so icon/tint and solid fills read as the
+  // same burgundy instead of a paler accent plus a deeper button color.
+  accentPrep: "#A3213F",
   actionPrep: "#A3213F",
-  accentGold: "#D6B062",
+  // accentGold: the source's own light-mode gold (#8A6A1C) read as too dark
+  // once deepened all the way — this is the midpoint between that and the
+  // source's original dark-mode swatch (#D6B062), not a freehand guess.
+  accentGold: "#B08D3F",
   onGold: "#1B1817",
 };
 
@@ -306,14 +315,18 @@ export function useAppTheme() {
   const { colors: base, isDark } = value;
   const isGold = ministry === "sundaySchool";
   const primary = isGold ? base.accentGold : base.accentPrep;
-  // primarySoft: confirmed exact for Prep against both
+  // primarySoft: confirmed exact for Prep in light mode against
   // iOS-Students-Light.dc.html (avatar tile, literal #F8EBEE — not a
   // mathematical alpha blend of #800020 over white, which lands a few
-  // points off per channel) and iOS-Student-detail-Dark.dc.html (avatar
-  // tile, rgba(240,139,163,0.11) — accentPrep dark at the same ~0.12 alpha
-  // used by every other dark "soft" token, see the dark color block above).
-  // Gold's own literal soft value hasn't been confirmed by any artboard yet,
-  // so it still falls back to the same alpha formula pending a Sunday
+  // points off per channel). Dark Prep was confirmed exact too
+  // (rgba(240,139,163,0.11), the ~0.12-alpha formula applied to the
+  // source's own dark accentPrep) before accentPrep was deliberately
+  // deepened away from that source value per a later user request — the
+  // alpha-blend here now derives from the deepened token instead, so this
+  // is no longer a literal artboard match, just the same formula applied
+  // to the new accent. Gold's own literal soft value hasn't been confirmed
+  // by any artboard yet, so it still falls back to the same alpha formula
+  // pending a Sunday
   // School-specific ticket.
   const primarySoft =
     !isGold && !isDark ? "#F8EBEE" : withAlpha(primary, isDark ? 0.12 : 0.1);
