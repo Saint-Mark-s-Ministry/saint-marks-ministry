@@ -43,7 +43,8 @@ export default function PrepLessons() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "My lessons" }} />
+      {/* Large in-content heading below carries the title; an empty bar title avoids repeating it. */}
+      <Stack.Screen options={{ title: "" }} />
       <Stack.SearchBar
         autoCapitalize="none"
         placement="automatic"
@@ -135,7 +136,7 @@ function Tile({ label, value, caption, tone }: { label: string; value: string; c
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 22, padding: 14, gap: 6, borderWidth: 0.5, borderColor: colors.border }}>
       <Copy kind="caption" style={{ fontWeight: "500" }}>{label}</Copy>
-      <Copy style={{ fontSize: 28, fontWeight: "600", fontVariant: ["tabular-nums"], color: tone }}>{value}</Copy>
+      <Copy style={{ fontSize: 28, lineHeight: 34, fontWeight: "600", fontVariant: ["tabular-nums"], color: tone }}>{value}</Copy>
       <Copy kind="caption">{caption}</Copy>
     </View>
   );
