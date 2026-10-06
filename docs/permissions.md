@@ -298,7 +298,7 @@ The JWT carries a coarse standing so synchronous renders (the navbar switcher,
 page guards) do not need a fetch:
 
 ```typescript
-session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean }
+session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean, hasHomeworkAccess: boolean }
 ```
 
 It is recomputed on sign-in and on the periodic (~60s) token revalidation in

@@ -61,6 +61,17 @@ describe('navigationFor', () => {
     expect(hrefs('SERVANT', 'sunday-school', coordinator)).toContain('/dashboard/servants/child-registrations')
   })
 
+  it('shows Homework only with Elementary scope and keeps it out of the phone tabs', () => {
+    const elementary = { sundaySchool: { hasAccess: true, isCoordinator: false, hasHomeworkAccess: true } }
+    const older = { sundaySchool: { hasAccess: true, isCoordinator: false, hasHomeworkAccess: false } }
+    expect(hrefs('SERVANT', 'sunday-school', elementary)).toContain('/dashboard/servants/homework')
+    expect(hrefs('SERVANT', 'sunday-school', older)).not.toContain('/dashboard/servants/homework')
+    const homework = navigationFor({ role: 'SERVANT', ...elementary }, 'sunday-school')
+      .flatMap(group => group.items)
+      .find(item => item.href === '/dashboard/servants/homework')
+    expect(homework?.tab).not.toBe(true)
+  })
+
   it('gives parents their own nav, not the admin one', () => {
     const links = hrefs('PARENT', 'sunday-school')
     expect(links).toContain('/dashboard/parent')

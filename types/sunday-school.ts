@@ -5,6 +5,7 @@ import {
   SundaySchoolFeedbackStatus,
   SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
+  SundaySchoolHomeworkCompletionStatus,
   SundaySchoolLevel,
   SundaySchoolServantAttendanceStatus,
   SundaySchoolVisitationStatus,
@@ -40,6 +41,7 @@ export interface SundaySchoolAgeGroup {
   levels: SundaySchoolLevel[]
   sortOrder: number
   isActive: boolean
+  isElementary: boolean
   canCoordinate?: boolean
   assignments?: SundaySchoolAssignmentRow[]
 }
@@ -155,6 +157,49 @@ export interface SundaySchoolWeeklyLesson {
 
 export interface SundaySchoolWeeklyLessonsResponse {
   lessons: SundaySchoolWeeklyLesson[]
+}
+
+export type SundaySchoolHomeworkDisplayStatus = SundaySchoolHomeworkCompletionStatus | 'NOT_RECORDED'
+
+export interface SundaySchoolHomeworkResource {
+  id: string
+  title: string
+  url: string
+  sortOrder: number
+}
+
+export interface SundaySchoolHomeworkWeek {
+  weeklyLessonId: string
+  assignedDate: string
+  dueDate: string
+  class: SundaySchoolClassRef
+  homework: null | {
+    id: string
+    title: string
+    instructions: string | null
+    archivedAt: string | null
+    resources: SundaySchoolHomeworkResource[]
+    completions: Array<{
+      childId: string
+      child: { id: string; firstName: string; lastName: string }
+      status: SundaySchoolHomeworkCompletionStatus
+      updatedAt: string
+    }>
+    summary: {
+      completed: number
+      notCompleted: number
+      notRecorded: number
+      completionRate: number | null
+    }
+  }
+}
+
+export interface SundaySchoolHomeworkResponse {
+  eligible: boolean
+  canManage: boolean
+  classes: Array<SundaySchoolClassRef & { canEdit: boolean }>
+  roster: Array<{ id: string; firstName: string; lastName: string; classId?: string | null }>
+  weeks: SundaySchoolHomeworkWeek[]
 }
 
 export interface SundaySchoolVisitationRecord {

@@ -2,7 +2,7 @@
 
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
-import { useSundaySchoolLessons } from '@/lib/swr'
+import { useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
@@ -10,10 +10,13 @@ import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { ResourceLink } from '@/components/ds/resource-link'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
+import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
 
 export default function StudentClassLessonsPage() {
   const { session, status } = useAdminGuard(isStudent)
   const { data, isLoading } = useSundaySchoolLessons()
+  const { data: homeworkData } = useSundaySchoolHomework()
   const lessons = (data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   if (status === 'loading' || !session || isLoading) return <PageLoading />
@@ -53,6 +56,8 @@ export default function StudentClassLessonsPage() {
           ))}
         </div>
       )}
+
+      <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
     </div>
   )
 }
