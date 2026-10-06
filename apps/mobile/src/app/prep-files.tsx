@@ -1,110 +1,151 @@
 import { useState } from "react";
-import { Linking, Pressable, View } from "react-native";
-import { Copy, Icon, ListSurface, styles } from "@/components/ui";
-import { Page } from "@/components/forms";
+import { Pressable, View } from "react-native";
+import { router, Stack } from "expo-router";
+import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
+import { ResourceState } from "@/components/forms";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
+import {
+  ROOT_FOLDER,
+  fileSubtitle,
+  regularSectionTitle,
+  searchFiles,
+  sortByRecent,
+  splitFolders,
+  type DriveFile,
+} from "@/data/prep-files";
 
-// Mirrors lib/drive-folders.ts on the web — same public (non-secret) IDs,
-// just duplicated here since mobile can't import from the Next.js app's lib/.
-const ROOT_FOLDER = { id: "0ByflSbu6LLHWZVR1aDg2WjBHQ1E", name: "Files", resourceKey: "0-CMdz-90PDFKBVc8EaqffCw" };
-const FOLDER_MIME = "application/vnd.google-apps.folder";
-
-type DriveFile = {
-  id: string;
-  name: string;
-  mimeType: string;
-  webViewLink?: string;
-  modifiedTime?: string;
-  size?: string;
-};
-
-function formatSize(bytes?: string) {
-  if (!bytes) return "";
-  const n = Number(bytes);
-  if (Number.isNaN(n)) return "";
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
+type FolderCrumb = { id: string; name: string; resourceKey?: string };
 
 export default function PrepFiles() {
   const { colors } = useAppTheme();
-  const [stack, setStack] = useState<{ id: string; name: string; resourceKey?: string }[]>([ROOT_FOLDER]);
+  const [stack, setStack] = useState<FolderCrumb[]>([ROOT_FOLDER]);
+  const [search, setSearch] = useState("");
   const current = stack[stack.length - 1];
+
   const resource = useResource<{ files: DriveFile[] }>(
     `/api/drive?folderId=${encodeURIComponent(current.id)}${current.resourceKey ? `&resourceKey=${encodeURIComponent(current.resourceKey)}` : ""}`,
   );
-  const files = resource.data?.files ?? [];
-  const folders = files.filter((f) => f.mimeType === FOLDER_MIME);
-  const regular = files.filter((f) => f.mimeType !== FOLDER_MIME);
+  const offline = resource.error === "Could not reach the server. Check your connection and try again.";
+
+  const all = resource.data?.files ?? [];
+  const { folders, regular } = splitFolders(all);
+  const recent = sortByRecent(regular);
+  const filteredFolders = searchFiles(folders, search);
+  const filteredRecent = searchFiles(recent, search);
+
+  function openFolder(f: DriveFile) {
+    setSearch("");
+    setStack((s) => [...s, { id: f.id, name: f.name }]);
+  }
+
+  function openFile(f: DriveFile) {
+    router.push({
+      pathname: "/prep-file-preview",
+      params: {
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        webViewLink: f.webViewLink ?? "",
+        size: f.size ?? "",
+      },
+    });
+  }
 
   return (
-    <Page title={current.name} loading={resource.loading} error={resource.error} refresh={() => void resource.refresh()}>
-      <Copy kind="caption">Program recordings and materials</Copy>
-      {stack.length > 1 && (
-        <Pressable accessibilityRole="button" onPress={() => setStack((s) => s.slice(0, -1))}>
-          <Copy kind="caption" color={colors.primary}>
-            ← Back to {stack[stack.length - 2].name}
-          </Copy>
-        </Pressable>
-      )}
+    <>
+      <Stack.Screen
+        options={{
+          title: current.name,
+          headerLeft: () => (stack.length > 1 ? <BackToParent name={stack[stack.length - 2].name} onPress={() => setStack((s) => s.slice(0, -1))} /> : <MinistrySwitcherHeaderLeft ministry="prep" />),
+        }}
+      />
+      <Stack.SearchBar
+        autoCapitalize="none"
+        placement="automatic"
+        placeholder="Search files"
+        onChangeText={(event) => setSearch(event.nativeEvent.text)}
+      />
+      <Screen refreshing={resource.loading} onRefresh={() => void resource.refresh()}>
+        <Copy kind="caption">Program recordings and materials</Copy>
 
-      {!!folders.length && (
-        <>
-          <Copy kind="heading">Folders</Copy>
-          <ListSurface>
-            {folders.map((f, index) => (
-              <Row
-                key={f.id}
-                icon="folder"
-                title={f.name}
-                subtitle={undefined}
-                divider={index < folders.length - 1}
-                onPress={() => setStack((s) => [...s, { id: f.id, name: f.name, resourceKey: undefined }])}
-              />
-            ))}
-          </ListSurface>
-        </>
-      )}
+        {offline && (
+          <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>
+            <Copy style={{ fontWeight: "600" }} color={colors.danger}>You're offline</Copy>
+            <Copy kind="caption">Showing the last data we had. Pull down to try again once you're back online.</Copy>
+          </View>
+        )}
+        {!offline && <ResourceState loading={resource.loading} error={resource.error} retry={() => void resource.refresh()} />}
 
-      {!!regular.length && (
-        <>
-          <Copy kind="heading">Files</Copy>
-          <ListSurface>
-            {regular.map((f, index) => (
-              <Row
-                key={f.id}
-                icon="doc"
-                title={f.name}
-                subtitle={formatSize(f.size)}
-                divider={index < regular.length - 1}
-                onPress={() => {
-                  if (f.webViewLink) void Linking.openURL(f.webViewLink).catch(() => undefined);
-                }}
-              />
-            ))}
-          </ListSurface>
-        </>
-      )}
+        {resource.data && !filteredFolders.length && !filteredRecent.length && (
+          <Copy>{search ? `No files match "${search}".` : "This folder is empty."}</Copy>
+        )}
 
-      {resource.data && !files.length && <Copy kind="caption">This folder is empty.</Copy>}
-    </Page>
+        {!!filteredFolders.length && (
+          <View style={{ gap: 10 }}>
+            <Copy style={{ fontSize: 17, fontWeight: "600" }}>Folders</Copy>
+            <ListSurface>
+              {filteredFolders.map((f, index) => (
+                <FolderRow key={f.id} file={f} divider={index < filteredFolders.length - 1} onPress={() => openFolder(f)} />
+              ))}
+            </ListSurface>
+          </View>
+        )}
+
+        {!!filteredRecent.length && (
+          <View style={{ gap: 10 }}>
+            <Copy style={{ fontSize: 17, fontWeight: "600" }}>{regularSectionTitle(!!filteredFolders.length)}</Copy>
+            <ListSurface>
+              {filteredRecent.map((f, index) => (
+                <FileRow key={f.id} file={f} divider={index < filteredRecent.length - 1} onPress={() => openFile(f)} />
+              ))}
+            </ListSurface>
+          </View>
+        )}
+      </Screen>
+    </>
   );
 }
 
-function Row({
-  icon,
-  title,
-  subtitle,
-  divider,
-  onPress,
-}: {
-  icon: "folder" | "doc";
-  title: string;
-  subtitle?: string;
-  divider: boolean;
-  onPress: () => void;
-}) {
+function BackToParent({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Back to ${name}`} hitSlop={10} onPress={onPress}>
+      <Icon ios="chevron.left" android="chevron_left" size={22} />
+    </Pressable>
+  );
+}
+
+function FolderRow({ file, divider, onPress }: { file: DriveFile; divider: boolean; onPress: () => void }) {
+  const { colors } = useAppTheme();
+  // Gold tile, confirmed exact from the design source (same token as the
+  // Roster mentor-avatar gold — a deliberate neutral accent for folders,
+  // independent of Prep's own maroon primary).
+  const count = useResource<{ files: DriveFile[] }>(`/api/drive?folderId=${encodeURIComponent(file.id)}`);
+  const itemCount = count.data?.files.length;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.compactRow,
+        divider && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
+        { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+      ]}
+    >
+      <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#F6EFDD" }}>
+        <Icon ios="folder.fill" android="folder" size={17} color="#8A6A1C" />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Copy style={{ fontWeight: "500" }} numberOfLines={1}>{file.name}</Copy>
+        <Copy kind="caption" numberOfLines={1}>{itemCount === undefined ? " " : `${itemCount} ${itemCount === 1 ? "item" : "items"}`}</Copy>
+      </View>
+      <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+function FileRow({ file, divider, onPress }: { file: DriveFile; divider: boolean; onPress: () => void }) {
   const { colors } = useAppTheme();
   return (
     <Pressable
@@ -116,10 +157,12 @@ function Row({
         { backgroundColor: pressed ? colors.primarySoft : "transparent" },
       ]}
     >
-      <Icon ios={icon === "folder" ? "folder.fill" : "doc.fill"} android={icon === "folder" ? "folder" : "description"} size={20} />
+      <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}>
+        <Icon ios="doc.fill" android="description" size={17} color={colors.text2} />
+      </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Copy style={{ fontWeight: "600" }}>{title}</Copy>
-        {!!subtitle && <Copy kind="caption">{subtitle}</Copy>}
+        <Copy style={{ fontWeight: "500" }} numberOfLines={1}>{file.name}</Copy>
+        <Copy kind="caption" numberOfLines={1}>{fileSubtitle(file)}</Copy>
       </View>
       <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
     </Pressable>
