@@ -6,6 +6,7 @@ import { isValidLevel } from '@/lib/sunday-school-class'
 import { notifyChildRegistrationSubmitted } from '@/lib/notifications'
 import { RegistrationStatus, SundaySchoolChildGender, UserRole } from '@prisma/client'
 import { normalizeOptionalEmail } from '@/lib/email'
+import { findOwnDuplicate, normalizePhone, parseBirthDate } from '@/lib/parent-registration'
 
 // POST /api/parent/children/register
 // Auth: PARENT only. Creates a pending ChildRegistrationRequest — the real
@@ -45,11 +46,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid gender' }, { status: 400 })
     }
 
-    const parsedBirthDate = new Date(birthDate)
-    if (isNaN(parsedBirthDate.getTime())) {
+    const parsedBirthDate = parseBirthDate(birthDate)
+    if (!parsedBirthDate) {
       return NextResponse.json(
-        { error: 'Invalid birth date' },
+        { error: "Enter a real birth date that isn't in the future." },
         { status: 400 }
+      )
+    }
+
+    const phone = normalizePhone(guardianPhone)
+    if (!phone) {
+      return NextResponse.json(
+        { error: 'Enter a guardian phone number with 7 to 15 digits.' },
+        { status: 400 }
+      )
+    }
+
+    const duplicate = await findOwnDuplicate(user.id, String(firstName), String(lastName), parsedBirthDate)
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error: duplicate === 'linked'
+            ? 'This child is already linked to your family.'
+            : 'A registration for this child is already waiting for review.',
+          code: 'DUPLICATE_CHILD',
+        },
+        { status: 409 }
       )
     }
 
@@ -63,7 +85,7 @@ export async function POST(req: NextRequest) {
         gender: gender || null,
         intendedLevel,
         guardianName: guardianName || user.name,
-        guardianPhone: guardianPhone || '',
+        guardianPhone: phone,
         guardianEmail: normalizeOptionalEmail(guardianEmail || user.email),
         notes: notes || null,
       },
