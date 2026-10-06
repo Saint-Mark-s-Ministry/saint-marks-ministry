@@ -128,6 +128,7 @@ export default function PrepHome() {
           <ListSurface>
             <RowLink title="My progress" subtitle="Attendance, exams, and what to do next" onPress={() => router.push("/prep-progress")} />
             <RowLink title="My lessons" subtitle="Schedule, materials, and attendance" onPress={() => router.push("/prep-lessons")} />
+            <RowLink title="Serving code" subtitle="Log your Sunday School serving week" onPress={() => router.push("/prep-serving")} />
           </ListSurface>
         )}
 
