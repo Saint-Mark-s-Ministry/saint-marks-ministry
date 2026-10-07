@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   marksForRoster,
+  resolveAttendanceNote,
+  restPresent,
   rosterProgress,
   sameMarks,
   shiftWeek,
@@ -55,6 +57,31 @@ describe("mobile attendance drafts", () => {
     ).toBe(true);
     expect(sameMarks(["a"], { a: "PRESENT" }, { a: "ABSENT" })).toBe(false);
     expect(sameMarks(["a"], { a: "PRESENT" }, {})).toBe(false);
+  });
+
+  it("fills only the unmarked roster members, (SMM-50 bulk present, happy path)", () => {
+    expect(restPresent(["a", "b", "c"], { a: "ABSENT" })).toEqual({
+      a: "ABSENT",
+      b: "PRESENT",
+      c: "PRESENT",
+    });
+  });
+
+  it("never overwrites an existing mark, even a full roster (highest-risk path)", () => {
+    const fullyMarked: AttendanceMarks = { a: "ABSENT", b: "LATE", c: "EXCUSED" };
+    expect(restPresent(["a", "b", "c"], fullyMarked)).toEqual(fullyMarked);
+    expect(restPresent([], {})).toEqual({});
+  });
+
+  it("prefers a freshly-typed note over the record's existing one (SMM-50, happy path)", () => {
+    expect(resolveAttendanceNote("Old note", "New note")).toBe("New note");
+    expect(resolveAttendanceNote("Old note", "")).toBe("");
+  });
+
+  it("keeps the existing note (or null) when nothing was typed this session (highest-risk path)", () => {
+    expect(resolveAttendanceNote("Old note", undefined)).toBe("Old note");
+    expect(resolveAttendanceNote(null, undefined)).toBeNull();
+    expect(resolveAttendanceNote(undefined, undefined)).toBeNull();
   });
 
   it.each([

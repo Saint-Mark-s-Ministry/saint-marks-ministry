@@ -19,7 +19,7 @@ import {
   toDateInputValue,
 } from "@stmark/domain";
 import { api } from "./auth-provider";
-import { rosterProgress, type AttendanceMarks } from "./attendance-draft";
+import { resolveAttendanceNote, rosterProgress, type AttendanceMarks } from "./attendance-draft";
 import {
   clearResourceCache,
   invalidateResourceCache,
@@ -68,6 +68,7 @@ type PortalState = {
     date: string,
     loaded: SundaySchoolSessionAttendance,
     marks: AttendanceMarks,
+    notes?: Record<string, string | null>,
   ) => Promise<SundaySchoolSessionAttendance>;
   markRead: (id: string) => Promise<void>;
 };
@@ -202,6 +203,9 @@ export function PortalProvider({ children }: PropsWithChildren) {
     date: string,
     loaded: SundaySchoolSessionAttendance,
     marks: AttendanceMarks,
+    // A note typed this session for a child, keyed by childId. Any child not
+    // in this map keeps whatever note the record already had.
+    notes: Record<string, string | null> = {},
   ) {
     if (!classes.find((cls) => cls.id === classId)?.canServe)
       throw new Error("You have read-only access to this class.");
@@ -225,7 +229,7 @@ export function PortalProvider({ children }: PropsWithChildren) {
         records: loaded.roster.map((child) => ({
           childId: child.id,
           status: marks[child.id],
-          notes: child.attendance?.notes ?? null,
+          notes: resolveAttendanceNote(child.attendance?.notes, notes[child.id]),
         })),
       }),
     );
