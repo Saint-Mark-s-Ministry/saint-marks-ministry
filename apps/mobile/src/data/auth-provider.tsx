@@ -22,7 +22,7 @@ export const dataLabel =
   process.env.EXPO_PUBLIC_DATA_LABEL ||
   (__DEV__ ? "Local database" : "Ministry portal");
 // Namespace credentials by origin so changing servers never reuses another session.
-const storageKey = `stmark.session.${Array.from(apiOrigin)
+const storageKey = `stmark.session.${Array.from<string>(apiOrigin)
   .map((c) => c.charCodeAt(0).toString(16))
   .join("")}`;
 export const api = apiOrigin
