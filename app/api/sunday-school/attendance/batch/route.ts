@@ -4,7 +4,6 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { canServeClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 import { AttendanceStatus } from "@prisma/client"
-import { isSessionDateToday } from "@/lib/sunday-school-class"
 
 // Sunday School mode: save a whole class's child attendance for one session.
 // Modeled on /api/attendance/batch, minus the prep-only concerns (conduct
@@ -53,12 +52,6 @@ export async function POST(request: Request) {
     const access = await getSundaySchoolAccess(user, session.class.academicYearId)
     if (!canServeClass(access, session.classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-    if (!isSessionDateToday(session.date)) {
-      return NextResponse.json(
-        { error: "Attendance can only be recorded on the session date" },
-        { status: 400 }
-      )
     }
 
     for (const record of records) {
