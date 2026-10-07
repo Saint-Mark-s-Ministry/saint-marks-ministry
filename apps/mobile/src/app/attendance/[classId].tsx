@@ -11,7 +11,6 @@ import type {
 } from "@stmark/contracts";
 import {
   getChildFullName,
-  isSessionDateToday,
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
 } from "@stmark/domain";
@@ -71,7 +70,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const cls = classes.find((item) => item.id === classId)!;
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [date, setDate] = useState(() => initialDate && validDate(initialDate) && initialDate <= new Date().toISOString().slice(0, 10) ? initialDate : meetingDate(cls));
+  const [date, setDate] = useState(() => initialDate && validDate(initialDate) ? initialDate : meetingDate(cls));
   const [loaded, setLoaded] = useState<{
     date: string;
     value: SundaySchoolSessionAttendance;
@@ -148,7 +147,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const ids = roster.map((child) => child.id);
   const progress = rosterProgress(ids, marks);
   const dirty = !sameMarks(ids, marks, serverMarks);
-  const canEdit = !!current && !!cls.canServe && !saving && isSessionDateToday(date);
+  // Editable for any week, not just today's session — the server no longer
+  // enforces a same-day window either (app/api/sunday-school/sessions and
+  // .../attendance/batch both dropped their own isSessionDateToday checks,
+  // a deliberate policy change, not an oversight).
+  const canEdit = !!current && !!cls.canServe && !saving;
   const canSave = canEdit && progress.complete && dirty;
 
   // A note typed this session, kept local to this device and separate from the
@@ -195,14 +198,13 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     );
   }
 
+  // Short enough to never overflow the bottom bar's Save button.
   const saveLabel = saving
     ? "Saving…"
     : !cls.canServe
-      ? "Read-only access"
-      : !isSessionDateToday(date)
-        ? "Past attendance is read-only"
+      ? "Read-only"
       : saved && !dirty
-        ? "Attendance saved"
+        ? "Saved"
         : "Save";
 
   async function save() {
@@ -269,7 +271,12 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        // "automatic" placement assumes a large title to dock under; with
+        // headerLargeTitle disabled on this work screen, it had nothing to
+        // anchor to and rendered detached near the bottom of the screen,
+        // overlapping the floating save bar. "stacked" forces its own fixed
+        // bar directly under the compact nav bar instead, every time.
+        placement="stacked"
         placeholder="Find a child"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
@@ -297,26 +304,15 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Next week"
-              accessibilityState={{
-                disabled: saving || date >= meetingDate(cls),
-              }}
-              disabled={saving || date >= meetingDate(cls)}
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
               onPress={() => setDate(shiftWeek(date, 1))}
-              style={{
-                padding: 12,
-                minHeight: 48,
-                opacity: date >= meetingDate(cls) ? 0.3 : 1,
-              }}
+              style={{ padding: 12, minHeight: 48 }}
             >
               <Icon ios="chevron.right" android="chevron_right" size={20} />
             </Pressable>
           </View>
         </GlassChrome>
-        {!isSessionDateToday(date) && (
-          <Copy kind="caption" color={colors.warning}>
-            Attendance can only be changed on the session date.
-          </Copy>
-        )}
         {lastWeekSummary && (
           <Copy kind="caption">
             Last week: {lastWeekSummary.present} of {lastWeekSummary.total} present
@@ -400,10 +396,33 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
 
       {!!roster.length && (
         <View style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 18 }}>
-          <GlassChrome interactive style={{ borderRadius: 32, padding: 8, paddingLeft: 18 }}>
+          {/* "Glass belongs to controls. Content cards always use an opaque
+              surface" (chrome.tsx's own rule) — this bar's two solid-colored
+              action buttons are content, not ambient chrome, so it gets the
+              same opaque surface a Card does, not a translucent GlassChrome
+              (which otherwise washed the buttons' own fill colors out). */}
+          <View
+            style={{
+              borderRadius: 32,
+              padding: 8,
+              paddingLeft: 18,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              shadowColor: "#000",
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            }}
+          >
             <View style={[styles.row, { gap: 10 }]}>
-              <View style={{ flex: 1 }} accessibilityLiveRegion="polite">
-                <Copy kind="caption">{roster.length - progress.marked} children left</Copy>
+              <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+                {/* Shortened from the artboard's "N children left" — with two
+                    buttons alongside it in the same bar, the fuller wording
+                    had no room and truncated unreadably; "children" is
+                    already established by every other label on this screen. */}
+                <Copy kind="caption" numberOfLines={1}>{roster.length - progress.marked} left</Copy>
               </View>
               <BarButton
                 label="Mark rest present"
@@ -412,7 +431,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
               />
               <BarButton label={saveLabel} primary disabled={!canSave} onPress={() => void save()} />
             </View>
-          </GlassChrome>
+          </View>
         </View>
       )}
     </View>
@@ -453,12 +472,18 @@ function BarButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       style={({ pressed }) => ({
+        flexShrink: 1,
         height: 48,
         paddingHorizontal: 16,
         borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: primary ? colors.primary : colors.hover,
+        // The secondary fill alone reads too close to this bar's own
+        // surface color to stand out — a border gives it a clear edge,
+        // the same way roster.tsx's FilterChip defines itself.
+        borderWidth: primary ? 0 : 1,
+        borderColor: colors.border,
         opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
       })}
       onPress={onPress}
