@@ -159,6 +159,24 @@ describe('Sunday School class detail API', () => {
     }))
   })
 
+  it('requests each session\'s per-child attendance statuses, not just the server count (SMM-53)', async () => {
+    await GET(
+      new Request('http://localhost/api/sunday-school/classes/class-1'),
+      { params: Promise.resolve({ id: 'class-1' }) }
+    )
+
+    expect(mocks.findClass).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        sessions: expect.objectContaining({
+          include: expect.objectContaining({
+            _count: { select: { attendance: true } },
+            attendance: { select: { status: true } },
+          }),
+        }),
+      }),
+    }))
+  })
+
   it('trims and updates a class name for a coordinator', async () => {
     const response = await PATCH(
       new Request('http://localhost/api/sunday-school/classes/class-1', {

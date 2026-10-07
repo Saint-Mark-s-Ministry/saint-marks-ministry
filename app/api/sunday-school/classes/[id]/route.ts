@@ -45,7 +45,11 @@ export async function GET(
           orderBy: { date: "desc" },
           include: {
             taker: { select: { id: true, name: true } },
+            // _count is kept for the web dashboard's own "N marked" display;
+            // the mobile app's "N of M present" line (SMM-53) needs the real
+            // per-child statuses, not just how many marks exist.
             _count: { select: { attendance: true } },
+            attendance: { select: { status: true } },
           },
         },
         weeklyLessons: {
