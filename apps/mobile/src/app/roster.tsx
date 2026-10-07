@@ -168,30 +168,37 @@ export default function Roster() {
 
         {!!filtered.length && (
           <ListSurface>
-            {filtered.map((child, index, arr) => (
-              <Pressable
-                key={child.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
-                onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
-                style={({ pressed }) => [
-                  { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 62 },
-                  index < arr.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
-                  { backgroundColor: pressed ? colors.primarySoft : "transparent" },
-                ]}
-              >
-                <InitialsAvatar name={`${child.firstName} ${child.lastName}`} variant="accent" />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
-                  <Copy kind="caption" numberOfLines={1}>
-                    {[genderLabel(child.gender), child.birthDate ? `born ${birthMonthYear(child.birthDate)}` : null, !child.isActive ? "Inactive" : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Copy>
-                </View>
-                <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
-              </Pressable>
-            ))}
+            {filtered.map((child, index, arr) => {
+              const subtitle = [
+                genderLabel(child.gender),
+                child.birthDate ? `born ${birthMonthYear(child.birthDate)}` : null,
+                !child.isActive ? "Inactive" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <Pressable
+                  key={child.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
+                  onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
+                  style={({ pressed }) => [
+                    { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 62 },
+                    index < arr.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
+                    { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                  ]}
+                >
+                  <InitialsAvatar name={`${child.firstName} ${child.lastName}`} variant="accent" />
+                  <View style={{ flex: 1, gap: 1, justifyContent: "center" }}>
+                    <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
+                    {/* An empty caption still renders a blank line, taller than the name alone —
+                        that extra height is what pushed the name up off-center against the avatar. */}
+                    {!!subtitle && <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>}
+                  </View>
+                  <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
+                </Pressable>
+              );
+            })}
           </ListSurface>
         )}
       </Screen>
