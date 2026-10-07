@@ -260,6 +260,8 @@ export interface SundaySchoolSession {
   class?: SundaySchoolClassRef;
   taker?: { id: string; name: string } | null;
   _count?: { attendance: number };
+  // Only present on the Sunday School class-detail response (SMM-53).
+  attendance?: { status: AttendanceStatus }[];
 }
 
 export interface SundaySchoolRosterEntry {
