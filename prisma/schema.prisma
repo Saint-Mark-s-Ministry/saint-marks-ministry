@@ -223,6 +223,13 @@ enum SundaySchoolVisitationStatus {
   NOT_DONE
 }
 
+enum SundaySchoolPhoneCallOutcome {
+  CONNECTED
+  LEFT_VOICEMAIL
+  NO_ANSWER
+  OTHER
+}
+
 enum SundaySchoolFeedbackStatus {
   OPEN
   PLANNED
@@ -325,6 +332,7 @@ model User {
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
   recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[] @relation("RecordedSundaySchoolServantAttendance")
   recordedSundaySchoolVisitations       SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
+  sundaySchoolPhoneCalls                SundaySchoolPhoneCall[]         @relation("SundaySchoolPhoneCallCaller")
   authoredSundaySchoolPriestNotes       SundaySchoolPriestNote[]        @relation("SundaySchoolPriestNoteAuthor")
   submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
   sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
@@ -893,6 +901,7 @@ model SundaySchoolClass {
   weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
   visitations               SundaySchoolVisitation[]
+  phoneCalls                SundaySchoolPhoneCall[]
 
   @@unique([name, academicYearId])
   @@unique([sundaySchoolYearId, level, sectionName])
@@ -1010,6 +1019,7 @@ model SundaySchoolChild {
   user                User?                         @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
   visitations         SundaySchoolVisitation[]
+  phoneCalls          SundaySchoolPhoneCall[]
   guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
@@ -1229,6 +1239,28 @@ model SundaySchoolVisitation {
   @@index([enrollmentId, createdAt])
   @@index([placementId, createdAt])
   @@index([status])
+}
+
+// A call is follow-up contact, not an in-person visitation. Keep the class
+// on the record so its history can be limited to the viewer's class scope.
+model SundaySchoolPhoneCall {
+  id         String                       @id @default(cuid())
+  classId    String
+  childId    String
+  callerId   String?
+  callerName String
+  calledAt   DateTime                     @db.Date
+  outcome    SundaySchoolPhoneCallOutcome
+  note       String                       @db.VarChar(500)
+  createdAt  DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime                     @updatedAt @db.Timestamptz(3)
+
+  class  SundaySchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child  SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Cascade)
+  caller User?             @relation("SundaySchoolPhoneCallCaller", fields: [callerId], references: [id], onDelete: SetNull)
+
+  @@index([classId, calledAt])
+  @@index([childId, calledAt])
 }
 
 // Confidential pastoral notes are deliberately separate from visitation
