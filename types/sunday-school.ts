@@ -7,6 +7,7 @@ import {
   SundaySchoolFeedbackVoteType,
   SundaySchoolHomeworkCompletionStatus,
   SundaySchoolLevel,
+  SundaySchoolPhoneCallOutcome,
   SundaySchoolServantAttendanceStatus,
   SundaySchoolVisitationStatus,
 } from '@prisma/client'
@@ -212,6 +213,15 @@ export interface SundaySchoolVisitationRecord {
   recorder: { id: string; name: string } | null
 }
 
+export interface SundaySchoolPhoneCallRecord {
+  id: string
+  calledAt: string
+  outcome: SundaySchoolPhoneCallOutcome
+  note: string
+  callerName: string
+  createdAt: string
+}
+
 export interface SundaySchoolPriestNote {
   id: string
   visitationId: string
@@ -232,6 +242,7 @@ export interface SundaySchoolVisitationChild {
   firstName: string
   lastName: string
   visitations: SundaySchoolVisitationRecord[]
+  phoneCalls: SundaySchoolPhoneCallRecord[]
 }
 
 export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
