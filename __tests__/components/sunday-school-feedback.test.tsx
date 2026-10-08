@@ -38,6 +38,8 @@ function makeResponse(
         title: 'Add lesson reminders',
         description: 'Send a reminder before class.',
         status: SundaySchoolFeedbackStatus.OPEN,
+        teamResponse: null,
+        teamRespondedAt: null,
         createdAt: '2026-09-01T12:00:00.000Z',
         updatedAt: '2026-09-01T12:00:00.000Z',
         submitter: { id: 'author-1', name: 'Sunday Servant', profileImageUrl: null },
@@ -231,5 +233,47 @@ describe('Sunday School feedback page', () => {
       expect.objectContaining({ method: 'PATCH' })
     ))
     expect(mocks.mutate).toHaveBeenCalled()
+  })
+
+  it('shows a reply as Development Team without revealing the admin and lets moderators edit it', async () => {
+    const response = makeResponse({ viewer: { canSubmit: true, canModerate: true } })
+    response.ideas[0] = {
+      ...response.ideas[0],
+      teamResponse: 'We are reviewing this request.',
+      teamRespondedAt: '2026-09-02T12:00:00.000Z',
+    }
+    mocks.useSundaySchoolFeedback.mockReturnValue({
+      data: response,
+      error: null,
+      isLoading: false,
+      mutate: mocks.mutate,
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ id: 'idea-1' }),
+    }))
+    const user = userEvent.setup()
+    render(<SundaySchoolFeedbackPage />)
+
+    expect(screen.getByText('Development Team')).toBeInTheDocument()
+    expect(screen.getByText('We are reviewing this request.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit reply' }))
+    expect(screen.getByLabelText('Response')).toHaveValue('We are reviewing this request.')
+    await user.clear(screen.getByLabelText('Response'))
+    await user.type(screen.getByLabelText('Response'), 'This is now planned.')
+    await user.click(screen.getByRole('button', { name: 'Publish response' }))
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      '/api/sunday-school/feedback/idea-1/response',
+      expect.objectContaining({ method: 'PUT' })
+    ))
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+      response: 'This is now planned.',
+    })
+  })
+
+  it('does not offer a reply action to non-moderators', () => {
+    render(<SundaySchoolFeedbackPage />)
+    expect(screen.queryByRole('button', { name: 'Reply' })).not.toBeInTheDocument()
   })
 })

@@ -332,6 +332,7 @@ model User {
   recordedSundaySchoolVisitations       SundaySchoolVisitation[]         @relation("RecordedSundaySchoolVisitations")
   authoredSundaySchoolPriestNotes       SundaySchoolPriestNote[]         @relation("SundaySchoolPriestNoteAuthor")
   submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("SubmittedSundaySchoolFeedback")
+  respondedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("RespondedSundaySchoolFeedback")
   sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]       @relation("SundaySchoolFeedbackVotes")
   ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonOwner")
   assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonAssigner")
@@ -1337,17 +1338,21 @@ model SundaySchoolPriestNote {
 // Product ideas for the Sunday School side of the application. These are
 // intentionally global rather than scoped to a class or academic year.
 model SundaySchoolFeedbackIdea {
-  id            String                     @id @default(cuid())
-  type          SundaySchoolFeedbackType   @default(IDEA)
-  title         String
-  description   String?                    @db.Text
-  status        SundaySchoolFeedbackStatus @default(OPEN)
-  submittedById String?
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
+  id                String                     @id @default(cuid())
+  type              SundaySchoolFeedbackType   @default(IDEA)
+  title             String
+  description       String?                    @db.Text
+  status            SundaySchoolFeedbackStatus @default(OPEN)
+  submittedById     String?
+  teamResponse      String?                    @db.Text
+  teamRespondedAt   DateTime?                  @db.Timestamptz(3)
+  teamRespondedById String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
-  submitter User?                      @relation("SubmittedSundaySchoolFeedback", fields: [submittedById], references: [id], onDelete: SetNull)
-  votes     SundaySchoolFeedbackVote[]
+  submitter     User?                      @relation("SubmittedSundaySchoolFeedback", fields: [submittedById], references: [id], onDelete: SetNull)
+  teamResponder User?                      @relation("RespondedSundaySchoolFeedback", fields: [teamRespondedById], references: [id], onDelete: SetNull)
+  votes         SundaySchoolFeedbackVote[]
 
   @@index([status, createdAt])
   @@index([submittedById])

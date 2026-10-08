@@ -268,6 +268,10 @@ rule. Priests may edit or delete only their own open ideas and never receive
 moderation authority; changing idea statuses or deleting another person's idea
 remains `SUPER_ADMIN`-only. All feedback routes still call
 `getSundaySchoolAccess` and refuse users who cannot enter Sunday School.
+Only `SUPER_ADMIN` may publish, edit, or remove the single official response
+on an idea. Everyone who can view feedback sees it attributed to the
+“Development Team”; the responding admin's ID is retained in the database
+for accountability but is never included in feedback API responses.
 
 ---
 
