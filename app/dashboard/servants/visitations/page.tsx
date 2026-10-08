@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { SundaySchoolVisitationStatus } from '@prisma/client'
+import { SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
 import {
   CalendarCheck,
@@ -9,6 +9,7 @@ import {
   ClipboardList,
   LockKeyhole,
   MessageSquareText,
+  Phone,
   Search,
 } from 'lucide-react'
 import { PageHeader } from '@/components/admin/page-header'
@@ -39,6 +40,12 @@ import type {
 } from '@/types/sunday-school'
 
 const TODAY = new Date().toISOString().slice(0, 10)
+const CALL_OUTCOME_LABELS: Record<SundaySchoolPhoneCallOutcome, string> = {
+  CONNECTED: 'Connected',
+  LEFT_VOICEMAIL: 'Left voicemail',
+  NO_ANSWER: 'No answer',
+  OTHER: 'Other',
+}
 
 export default function SundaySchoolVisitationsPage() {
   const { status } = useSundaySchoolGuard()
@@ -55,6 +62,12 @@ export default function SundaySchoolVisitationsPage() {
   const [visitedAt, setVisitedAt] = useState(TODAY)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [calledAt, setCalledAt] = useState(TODAY)
+  const [callOutcome, setCallOutcome] = useState<SundaySchoolPhoneCallOutcome>(
+    SundaySchoolPhoneCallOutcome.CONNECTED
+  )
+  const [callNote, setCallNote] = useState('')
+  const [savingCall, setSavingCall] = useState(false)
   const [priestNotes, setPriestNotes] = useState<SundaySchoolPriestNote[]>([])
   const [confidentialNote, setConfidentialNote] = useState('')
   const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
@@ -90,6 +103,9 @@ export default function SundaySchoolVisitationsPage() {
     setVisitationStatus(SundaySchoolVisitationStatus.DONE)
     setVisitedAt(TODAY)
     setNotes('')
+    setCalledAt(TODAY)
+    setCallOutcome(SundaySchoolPhoneCallOutcome.CONNECTED)
+    setCallNote('')
     setPriestNotes([])
     setConfidentialNote('')
   }
@@ -160,6 +176,36 @@ export default function SundaySchoolVisitationsPage() {
     }
   }
 
+  const handleSaveCall = async () => {
+    if (!selectedChild) return
+
+    setSavingCall(true)
+    try {
+      const res = await fetch('/api/sunday-school/phone-calls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: selectedChild.id,
+          calledAt,
+          outcome: callOutcome,
+          note: callNote,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to save the phone call')
+      }
+
+      await mutate()
+      setCallNote('')
+      toast.success('Phone call logged')
+    } catch (saveError: unknown) {
+      toast.error(saveError instanceof Error ? saveError.message : 'Failed to save the phone call')
+    } finally {
+      setSavingCall(false)
+    }
+  }
+
   if (status === 'loading' || isLoading) {
     return <PageLoading />
   }
@@ -169,13 +215,13 @@ export default function SundaySchoolVisitationsPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Visitations"
-          description="Track visitations and follow-up notes for every child in your Sunday School classes."
+          description="Track visitations and phone call follow-up for every child in your Sunday School classes."
         />
 
         {response?.standing.readOnly && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-            You have read-only access to ministry records. You can review visitation status and
-            notes for every class{isPriest ? ' and add confidential priest notes.' : '.'}
+            You have read-only access to ministry records. You can review visitations and phone calls for every class
+            {isPriest ? ' and add confidential priest notes.' : '.'}
           </div>
         )}
 
@@ -261,6 +307,7 @@ export default function SundaySchoolVisitationsPage() {
                     {visibleChildren.map(child => {
                       const latest = child.visitations[0]
                       const isDone = latest?.status === SundaySchoolVisitationStatus.DONE
+                      const latestCall = child.phoneCalls[0]
 
                       return (
                         <div
@@ -300,6 +347,12 @@ export default function SundaySchoolVisitationsPage() {
                                 {latest.notes}
                               </p>
                             )}
+                            {child.phoneCalls.length > 0 && (
+                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
+                                <Phone className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                                {child.phoneCalls.length} {child.phoneCalls.length === 1 ? 'call' : 'calls'} logged · Latest: {CALL_OUTCOME_LABELS[latestCall.outcome]}
+                              </p>
+                            )}
                           </div>
                           <Button
                             variant="outline"
@@ -308,7 +361,7 @@ export default function SundaySchoolVisitationsPage() {
                             className="shrink-0 self-start sm:self-auto"
                           >
                             <MessageSquareText className="mr-1 h-4 w-4" />
-                            {child.visitations.length > 0 ? 'View history' : 'Add visitation'}
+                            {child.visitations.length > 0 || child.phoneCalls.length > 0 ? 'View history' : 'Add visitation'}
                           </Button>
                         </div>
                       )
@@ -330,12 +383,73 @@ export default function SundaySchoolVisitationsPage() {
                 : 'Visitation history'}
             </DialogTitle>
             <DialogDescription>
-              Each entry keeps its own status, note, date, and author.
+              Phone calls and in-person visits have separate histories.
             </DialogDescription>
           </DialogHeader>
 
           {selectedChild && (
             <div className="space-y-6">
+              {selectedClass?.canEdit && (
+                <div className="space-y-4 rounded-lg border bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
+                  <h3 className="flex items-center gap-2 font-medium"><Phone className="h-4 w-4" /> Log a phone call</h3>
+                  <p className="text-sm text-ink-3">Record follow-up after an absence without changing visitation status. You will be listed as the caller.</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="call-date">Date called</Label>
+                      <Input id="call-date" type="date" value={calledAt} max={TODAY} onChange={event => setCalledAt(event.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="call-outcome">Outcome</Label>
+                      <select
+                        id="call-outcome"
+                        value={callOutcome}
+                        onChange={event => setCallOutcome(event.target.value as SundaySchoolPhoneCallOutcome)}
+                        className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        {Object.values(SundaySchoolPhoneCallOutcome).map(value => (
+                          <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="call-note">Call note</Label>
+                    <Textarea
+                      id="call-note"
+                      value={callNote}
+                      onChange={event => setCallNote(event.target.value)}
+                      placeholder="Summarize the conversation or next follow-up step…"
+                      rows={3}
+                      maxLength={500}
+                    />
+                    <p className="text-right text-xs text-gray-500">{callNote.length}/500</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveCall} disabled={savingCall || !calledAt || !callNote.trim()}>
+                      {savingCall ? 'Saving…' : 'Log call'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <h3 className="font-medium">Phone call history</h3>
+                {selectedChild.phoneCalls.length === 0 ? (
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-gray-500">No phone calls have been logged for this child.</p>
+                ) : selectedChild.phoneCalls.map(call => (
+                  <div key={call.id} className="rounded-lg border p-4 dark:border-gray-800">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Badge variant="secondary">{CALL_OUTCOME_LABELS[call.outcome]}</Badge>
+                      <span className="text-xs text-gray-500">
+                        {formatDateUTC(call.calledAt, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <p className="mt-3 whitespace-pre-wrap text-sm">{call.note}</p>
+                    <p className="mt-3 text-xs text-gray-500">Called by {call.callerName}</p>
+                  </div>
+                ))}
+              </div>
+
               {selectedClass?.canEdit && (
                 <div className="space-y-4 rounded-lg border bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
                   <h3 className="font-medium">New visitation entry</h3>
@@ -413,7 +527,7 @@ export default function SundaySchoolVisitationsPage() {
               )}
 
               <div className="space-y-3">
-                <h3 className="font-medium">History</h3>
+                <h3 className="font-medium">Visitation history</h3>
                 {selectedChild.visitations.length === 0 ? (
                   <p className="rounded-lg border border-dashed p-4 text-sm text-gray-500">
                     No visitations have been recorded for this child.
