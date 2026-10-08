@@ -254,6 +254,8 @@ export interface SundaySchoolFeedbackIdea {
   title: string
   description: string | null
   status: SundaySchoolFeedbackStatus
+  teamResponse: string | null
+  teamRespondedAt: string | null
   createdAt: string
   updatedAt: string
   submitter: {
