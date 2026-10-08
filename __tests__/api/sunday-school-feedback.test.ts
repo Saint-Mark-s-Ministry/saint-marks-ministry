@@ -48,6 +48,10 @@ import {
   PATCH,
 } from '@/app/api/sunday-school/feedback/[id]/route'
 import { PUT } from '@/app/api/sunday-school/feedback/[id]/vote/route'
+import {
+  PUT as PUT_RESPONSE,
+  DELETE as DELETE_RESPONSE,
+} from '@/app/api/sunday-school/feedback/[id]/response/route'
 
 const participantAccess = {
   isAdmin: false,
@@ -192,6 +196,43 @@ describe('Sunday School feedback API permissions', () => {
     expect(adminResponse.status).toBe(200)
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
       data: { status: SundaySchoolFeedbackStatus.PLANNED },
+    }))
+  })
+
+  it('allows only SUPER_ADMIN to publish a Development Team response', async () => {
+    const makeRequest = (response: unknown) => new Request('http://localhost/idea-1/response', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response }),
+    })
+    expect((await PUT_RESPONSE(makeRequest('Thanks for the idea'), routeContext)).status).toBe(403)
+    expect(mocks.update).not.toHaveBeenCalled()
+
+    mocks.requireAuth.mockResolvedValue({ id: 'admin-1', role: 'SUPER_ADMIN' })
+    mocks.getSundaySchoolAccess.mockResolvedValue(adminAccess)
+    expect((await PUT_RESPONSE(makeRequest('   '), routeContext)).status).toBe(400)
+    expect((await PUT_RESPONSE(makeRequest('x'.repeat(2001)), routeContext)).status).toBe(400)
+    expect((await PUT_RESPONSE(makeRequest('Thanks for the idea'), routeContext)).status).toBe(200)
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        teamResponse: 'Thanks for the idea',
+        teamRespondedById: 'admin-1',
+        teamRespondedAt: expect.any(Date),
+      }),
+    }))
+  })
+
+  it('lets only SUPER_ADMIN remove a team response', async () => {
+    const request = new Request('http://localhost/idea-1/response', { method: 'DELETE' })
+    expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(403)
+    mocks.getSundaySchoolAccess.mockResolvedValue(adminAccess)
+    expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(200)
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: {
+        teamResponse: null,
+        teamRespondedAt: null,
+        teamRespondedById: null,
+      },
     }))
   })
 

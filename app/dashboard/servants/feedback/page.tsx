@@ -11,6 +11,7 @@ import {
   ArrowBigUp,
   Bug,
   Lightbulb,
+  MessageSquareReply,
   Pencil,
   Plus,
   Trash2,
@@ -46,7 +47,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import {
   FEEDBACK_DESCRIPTION_MAX_LENGTH,
+  FEEDBACK_TEAM_RESPONSE_MAX_LENGTH,
   FEEDBACK_TITLE_MAX_LENGTH,
+  sortFeedbackIdeas,
 } from '@/lib/sunday-school-feedback'
 import { useSundaySchoolFeedback } from '@/lib/swr'
 import { cn } from '@/lib/utils'
@@ -213,6 +216,10 @@ export default function SundaySchoolFeedbackPage() {
   const [statusSavingIdeaId, setStatusSavingIdeaId] = useState<string | null>(null)
   const [deleteIdea, setDeleteIdea] = useState<SundaySchoolFeedbackIdea | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [replyIdea, setReplyIdea] = useState<SundaySchoolFeedbackIdea | null>(null)
+  const [teamResponse, setTeamResponse] = useState('')
+  const [replySaving, setReplySaving] = useState(false)
+  const [view, setView] = useState<'top' | 'new' | 'IDEA' | 'PROBLEM'>('top')
 
   const openCreateDialog = () => {
     setEditingIdea(null)
@@ -332,7 +339,62 @@ export default function SundaySchoolFeedbackPage() {
     }
   }
 
+  const openReplyDialog = (idea: SundaySchoolFeedbackIdea) => {
+    setReplyIdea(idea)
+    setTeamResponse(idea.teamResponse ?? '')
+  }
+
+  const handleReply = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!replyIdea) return
+    setReplySaving(true)
+    try {
+      const res = await fetch(`/api/sunday-school/feedback/${replyIdea.id}/response`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: teamResponse }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Failed to save the response')
+      setReplyIdea(null)
+      setTeamResponse('')
+      await mutate()
+      toast.success('Development Team response published')
+    } catch (replyError: unknown) {
+      toast.error(replyError instanceof Error ? replyError.message : 'Failed to save the response')
+    } finally {
+      setReplySaving(false)
+    }
+  }
+
+  const handleRemoveReply = async () => {
+    if (!replyIdea) return
+    setReplySaving(true)
+    try {
+      const res = await fetch(`/api/sunday-school/feedback/${replyIdea.id}/response`, {
+        method: 'DELETE',
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Failed to remove the response')
+      setReplyIdea(null)
+      setTeamResponse('')
+      await mutate()
+      toast.success('Development Team response removed')
+    } catch (replyError: unknown) {
+      toast.error(replyError instanceof Error ? replyError.message : 'Failed to remove the response')
+    } finally {
+      setReplySaving(false)
+    }
+  }
+
   if (sessionStatus === 'loading' || isLoading) return <PageLoading />
+
+  const ideas = sortFeedbackIdeas(
+    (response?.ideas ?? []).filter((idea) =>
+      view === 'IDEA' || view === 'PROBLEM' ? idea.type === view : true
+    ),
+    view === 'new' ? 'NEWEST' : 'TOP'
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
@@ -412,6 +474,12 @@ export default function SundaySchoolFeedbackPage() {
                             ))}
                           </select>
                         )}
+                        {response?.viewer.canModerate && (
+                          <Button type="button" size="sm" variant="outline" onClick={() => openReplyDialog(idea)}>
+                            <MessageSquareReply className="h-4 w-4" />
+                            {idea.teamResponse ? 'Edit reply' : 'Reply'}
+                          </Button>
+                        )}
                         {idea.canEdit && (
                           <Button
                             type="button"
@@ -451,6 +519,19 @@ export default function SundaySchoolFeedbackPage() {
                           <span>Voting closed</span>
                         )}
                     </div>
+                    {idea.teamResponse && (
+                      <div className="mt-2 rounded-lg border border-line bg-raised px-3 py-2.5">
+                        <p className="text-xs font-semibold text-ink">
+                          Development Team
+                          {idea.teamRespondedAt && (
+                            <span className="ml-2 font-normal text-ink-3">
+                              · {formatSubmittedDate(idea.teamRespondedAt)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-1 text-[13px] whitespace-pre-wrap break-words text-ink-2">{idea.teamResponse}</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -544,6 +625,47 @@ export default function SundaySchoolFeedbackPage() {
               </Button>
               <Button type="submit" disabled={saving || title.trim().length < 3}>
                 {saving ? 'Saving…' : editingIdea ? 'Save changes' : 'Submit feedback'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(replyIdea)} onOpenChange={open => !open && setReplyIdea(null)}>
+        <DialogContent>
+          <form onSubmit={handleReply} className="space-y-5">
+            <DialogHeader>
+              <DialogTitle>{replyIdea?.teamResponse ? 'Edit team response' : 'Respond to feedback'}</DialogTitle>
+              <DialogDescription>
+                This response is visible to everyone on the feedback page as “Development Team”.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-team-response">Response</Label>
+              <Textarea
+                id="feedback-team-response"
+                value={teamResponse}
+                onChange={event => setTeamResponse(event.target.value)}
+                maxLength={FEEDBACK_TEAM_RESPONSE_MAX_LENGTH}
+                rows={6}
+                placeholder="Share an update or answer this feedback…"
+                required
+              />
+              <p className="text-right text-xs text-ink-3">
+                {teamResponse.length}/{FEEDBACK_TEAM_RESPONSE_MAX_LENGTH}
+              </p>
+            </div>
+            <DialogFooter>
+              {replyIdea?.teamResponse && (
+                <Button type="button" variant="destructive" disabled={replySaving} onClick={handleRemoveReply}>
+                  Remove response
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={() => setReplyIdea(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={replySaving || !teamResponse.trim()}>
+                {replySaving ? 'Saving…' : 'Publish response'}
               </Button>
             </DialogFooter>
           </form>
