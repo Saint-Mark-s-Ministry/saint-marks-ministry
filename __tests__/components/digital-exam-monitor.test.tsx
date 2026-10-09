@@ -16,15 +16,16 @@ beforeEach(() => {
     ] } }],
   }
 })
-describe('detailed proctor dashboard', () => {
-  it('shows saved answer details separately from interruption guidance', () => {
+describe('compact proctor dashboard', () => {
+  it('keeps saved choices and compact interruption logs', () => {
     render(<DigitalExamMonitor examId="exam" />)
     const feed = screen.getByRole('heading', { name: 'Recent saved answers' }).closest('section')!
     expect(within(feed).getByText('Test Student')).toBeInTheDocument()
-    expect(within(feed).getByText('Question 12: saved C')).toBeInTheDocument()
-    expect(feed).toHaveTextContent('not a correctness check')
+    expect(within(feed).getByText('Question 12: chose C')).toBeInTheDocument()
+    expect(feed).not.toHaveTextContent('Next step:')
+    expect(feed).not.toHaveTextContent('Device time')
     expect(screen.getByText('Answering paused — proctor clearance required')).toBeInTheDocument()
-    expect(screen.getAllByText(/cannot confirm a text reply/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Exam lost focus').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'Unlock student' })).toBeEnabled()
   })
   it('explains why unlocking is unavailable while the page is hidden or contact stale', () => {
