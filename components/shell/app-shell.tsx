@@ -11,6 +11,7 @@ import {
   prepHome,
   resolveMinistry,
 } from '@/lib/navigation'
+import { useDigitalExams } from '@/lib/swr'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
 import { MobileAppBar, MobileTabBar } from './mobile-nav'
@@ -33,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const router = useRouter()
+  const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user.role === 'STUDENT')
   const [rail, setRail] = useState(false)
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const ministry = resolveMinistry(user, pathname)
-  const groups = navigationFor(user, ministry)
+  const groups = navigationFor(user, ministry).map(group => ({ ...group, items: group.items.filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length) }))
   const page = currentNavLabel(groups, pathname)
   const roleLabel = `${getRoleDisplayName(user.role)}${user.isAsyncStudent ? ' · Async' : ''}`
   const shellUser = { name: user.name, role: user.role, roleLabel, imageUrl: user.profileImageUrl ?? user.image }

@@ -15,7 +15,7 @@ export async function GET(_request: Request, { params }: Context) {
     const sheet = await prisma.digitalExamSheet.findUnique({ where: { examId: id } })
     const safeSheet = sheet ? { state: sheet.state, choiceCounts: sheet.choiceCounts, openedAt: sheet.openedAt, closedAt: sheet.closedAt, releasedAt: sheet.releasedAt } : null
     if (!access.staff) {
-      if (!sheet || sheet.state === 'DRAFT') throw new Error('Not found')
+      if (!sheet || sheet.state !== 'OPEN') throw new Error('Not found')
       const attempt = await prisma.digitalExamAttempt.findUnique({ where: { examId_studentId: { examId: id, studentId: access.user.id } } })
       return NextResponse.json({ exam, sheet: safeSheet, attempt: publicAttempt(attempt, !!sheet.releasedAt) }, { headers: { 'Cache-Control': 'no-store' } })
     }

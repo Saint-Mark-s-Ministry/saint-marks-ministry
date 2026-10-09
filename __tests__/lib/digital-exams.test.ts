@@ -20,6 +20,15 @@ describe('digital exam rules', () => {
     expect(validAnswer(49, '', counts)).toBe(true)
     for (const q of [-1, 50, 0.5, '0']) expect(validAnswer(q, 'A', counts)).toBe(false)
   })
+  it('supports up to eight choices and rejects answers outside each question range', () => {
+    const counts = Array(50).fill(4); counts[7] = 8
+    const key = Array(50).fill('A'); key[7] = 'H'
+    expect(validateConfiguration(counts, key).answerKey[7]).toBe('H')
+    expect(validAnswer(7, 'H', counts)).toBe(true)
+    expect(validAnswer(0, 'H', counts)).toBe(false)
+    expect(validAnswer(7, 'I', counts)).toBe(false)
+    for (const count of [3, 9, 4.5]) { counts[7] = count; expect(() => validateConfiguration(counts, key)).toThrow('four and eight') }
+  })
   it('grades blanks as incorrect with equal weights', () => {
     expect(gradeAnswers(['A', '', 'C', 'D'], ['A', 'B', 'B', 'D'])).toBe(2)
   })

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
   push: vi.fn(),
+  openExams: [] as { id: string }[],
   user: {} as Record<string, unknown>,
   status: 'authenticated' as 'authenticated' | 'loading' | 'unauthenticated',
 }))
@@ -33,6 +34,7 @@ vi.mock('@/components/annual-mentor-reminder-banner', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
 }))
 
@@ -47,6 +49,7 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
     mocks.push.mockClear()
+    mocks.openExams = []
     mocks.user = {
       id: 'priest-1',
       name: 'Rev. Fr. Daniel Abdel-Maseih',
@@ -54,6 +57,19 @@ describe('AppShell', () => {
       profileImageUrl: null,
       sundaySchool: { hasAccess: true, isCoordinator: false },
     }
+  })
+
+  it('shows the student exam link only while an eligible exam is open', () => {
+    mocks.pathname = '/dashboard/student'
+    mocks.user = { id: 'student-1', name: 'Student', role: UserRole.STUDENT }
+    const { rerender } = render(<AppShell>page</AppShell>)
+    expect(within(sidebar()).queryByRole('link', { name: 'Exam answer sheets' })).not.toBeInTheDocument()
+    mocks.openExams = [{ id: 'open-exam' }]
+    rerender(<AppShell>page</AppShell>)
+    expect(within(sidebar()).getByRole('link', { name: 'Exam answer sheets' })).toHaveAttribute('href', '/dashboard/student/exams')
+    mocks.openExams = []
+    rerender(<AppShell>page</AppShell>)
+    expect(within(sidebar()).queryByRole('link', { name: 'Exam answer sheets' })).not.toBeInTheDocument()
   })
 
   it('offers priests the read-only servant attendance page in Sunday School mode', () => {

@@ -9,6 +9,7 @@ vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: async () => ({ 
 vi.mock('@/lib/exam-realtime', () => ({ publishExamChange: vi.fn(), examPusher: () => null }))
 import { mutateExam } from '@/lib/digital-exam-service'
 import { GET } from '@/app/api/digital-exams/[id]/route'
+import { GET as listExams } from '@/app/api/digital-exams/route'
 
 const enabled = process.env.DIGITAL_EXAM_INTEGRATION === '1'
 const db = new PrismaClient()
@@ -37,8 +38,8 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     await db.digitalExamSheet.deleteMany({ where: { examId: fixture.examId } })
     await db.examScore.deleteMany({ where: { examId: fixture.examId } })
     await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { isActive: true, yearLevel: 'YEAR_1' } })
-    const counts = Array(50).fill(4); counts[0] = 5
-    const key = Array(50).fill('A'); key[0] = 'E'
+    const counts = Array(50).fill(4); counts[0] = 5; counts[7] = 8
+    const key = Array(50).fill('A'); key[0] = 'E'; key[7] = 'H'
     await admin('configure', { choiceCounts: counts, answerKey: key }); await admin('open')
   }, 30000)
   afterAll(async () => {
@@ -63,9 +64,37 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     await admin('close'); await admin('release')
     const score = await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })
     expect(score.percentage).toBe(2); expect(score.originalScore).toBe(2)
-    expect((await (await get()).json()).attempt.correctCount).toBe(1)
+    expect((await get()).status).toBe(404)
     await admin('release')
     expect(await db.examScore.count({ where: { examId: fixture.examId } })).toBe(1)
+  }, 30000)
+  it('saves and grades an eighth choice without exposing the answer key', async () => {
+    await act('start')
+    await act('save', { question: 7, answer: 'H', revision: 0 })
+    await act('submit', { revision: 1 })
+    const view = await (await get()).json()
+    expect(view.sheet.choiceCounts[7]).toBe(8)
+    expect(view).not.toHaveProperty('answerKey')
+    expect(view.attempt).not.toHaveProperty('correctCount')
+    await admin('close'); await admin('release')
+    expect((await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).percentage).toBe(2)
+  }, 30000)
+  it('shows student answer sheets only during proctoring, including direct links', async () => {
+    const listed = async () => (await (await listExams()).json()).exams.some((e: { id: string }) => e.id === fixture.examId)
+    expect(await listed()).toBe(true)
+    expect((await get()).status).toBe(200)
+    await act('start')
+    await admin('close')
+    expect(await listed()).toBe(false)
+    expect((await get()).status).toBe(404)
+    await admin('open')
+    expect(await listed()).toBe(true)
+    const view = await (await get()).json()
+    expect(view.attempt.state).toBe('SUBMITTED')
+    expect(view).not.toHaveProperty('answerKey')
+    await admin('close'); await admin('release')
+    expect(await listed()).toBe(false)
+    expect((await get()).status).toBe(404)
   }, 30000)
   it('persists tab pause, deduplicates events, and only allows proctor unlock after return', async () => {
     await act('start')

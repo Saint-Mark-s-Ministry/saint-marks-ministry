@@ -9,7 +9,7 @@ export async function GET() {
     if (!staff && (!enrollment?.isActive || enrollment.status !== 'ACTIVE')) return NextResponse.json({ exams: [] })
     const exams = await prisma.exam.findMany({
       where: staff ? {} : {
-        digitalSheet: { state: { not: 'DRAFT' } },
+        digitalSheet: { state: 'OPEN' },
         yearLevel: { in: [enrollment!.yearLevel, 'BOTH'] },
         academicYear: enrollment!.academicYear ? { startDate: { gte: enrollment!.academicYear.startDate } } : { isActive: true },
       },
