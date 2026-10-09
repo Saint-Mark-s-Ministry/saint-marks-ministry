@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { toast } from 'sonner'
@@ -201,8 +202,8 @@ function ApplicationDetail({
         <KeyValueList
           items={[
             { label: 'Name', value: application.fullName },
-            { label: 'Email', value: application.email },
-            { label: 'Phone', value: <span className="font-mono text-xs">{application.phone}</span> },
+            { label: 'Email', value: <ContactLink kind="email" value={application.email} name={application.fullName} label="applicant email" /> },
+            { label: 'Phone', value: <ContactLink kind="phone" value={application.phone} name={application.fullName} label="applicant phone number" className="font-mono text-xs" /> },
             { label: 'Grade served', value: application.currentGrade || <span className="text-ink-3">Not provided</span> },
             { label: 'Submitted', value: fmt(application.createdAt) },
           ]}

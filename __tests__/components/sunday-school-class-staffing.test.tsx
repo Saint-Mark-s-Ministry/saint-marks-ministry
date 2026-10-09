@@ -158,14 +158,18 @@ describe('Sunday School class staffing', () => {
       name: "View Next Coordinator's contact information",
     }))
 
-    expect(screen.getByRole('link', { name: 'next@example.com' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: /Contact options for servant's email/ }))
+    expect(await screen.findByRole('menuitem', { name: 'Send Email' })).toHaveAttribute(
       'href',
       'mailto:next@example.com'
     )
-    expect(screen.getByRole('link', { name: '555-0101' })).toHaveAttribute(
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: /Contact options for servant's phone number/ }))
+    expect(await screen.findByRole('menuitem', { name: 'Call' })).toHaveAttribute(
       'href',
-      'tel:555-0101'
+      'tel:5550101'
     )
+    await user.keyboard('{Escape}')
 
     await user.click(screen.getByRole('button', { name: 'View organization' }))
     expect(screen.getByRole('dialog')).toHaveTextContent('Organization for Next Coordinator')

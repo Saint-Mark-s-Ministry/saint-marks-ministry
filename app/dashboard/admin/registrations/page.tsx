@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -374,8 +375,8 @@ function SubmissionDetail({
           <img src={submission.profileImageUrl} alt={`${submission.fullName}'s profile`} className="size-16 rounded-full border border-line object-cover" />
         )}
         {section('Personal information', [
-          { label: 'Email', value: submission.email },
-          { label: 'Phone', value: <span className="font-mono text-xs">{submission.phone}</span> },
+          { label: 'Email', value: <ContactLink kind="email" value={submission.email} name={submission.fullName} label="applicant email" /> },
+          { label: 'Phone', value: <ContactLink kind="phone" value={submission.phone} name={submission.fullName} label="applicant phone number" className="font-mono text-xs" /> },
           { label: 'Date of birth', value: fmt(submission.dateOfBirth) },
           { label: 'Grade', value: getGradeDisplayName(submission.grade) },
         ])}
@@ -389,8 +390,8 @@ function SubmissionDetail({
         ])}
         {section('Mentor servant', [
           { label: 'Name', value: submission.mentorName || <span className="text-ink-3">Not provided</span> },
-          { label: 'Phone', value: submission.mentorPhone || <span className="text-ink-3">Not provided</span> },
-          { label: 'Email', value: submission.mentorEmail || <span className="text-ink-3">Not provided</span> },
+          { label: 'Phone', value: submission.mentorPhone ? <ContactLink kind="phone" value={submission.mentorPhone} name={submission.mentorName} label="mentor servant's phone number" /> : <span className="text-ink-3">Not provided</span> },
+          { label: 'Email', value: submission.mentorEmail ? <ContactLink kind="email" value={submission.mentorEmail} name={submission.mentorName} label="mentor servant's email" /> : <span className="text-ink-3">Not provided</span> },
         ])}
         {section('Approval form', [
           {

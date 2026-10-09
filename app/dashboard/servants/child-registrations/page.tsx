@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useChildRegistrationRequests, useSundaySchoolAgeGroups, useSundaySchoolClasses } from '@/lib/swr'
 import { Button } from '@/components/ui/button'
@@ -130,7 +131,7 @@ export default function ChildRegistrationsPage() {
                         </span>
                         <span className="text-xs text-ink-3">
                           {request.gender === 'MALE' ? 'Boy' : request.gender === 'FEMALE' ? 'Girl' : 'Gender not given'} · Guardian {request.submittedBy.name} ·{' '}
-                          {request.submittedBy.email}
+                          <ContactLink kind="email" value={request.submittedBy.email} name={request.submittedBy.name} label="guardian's email" />
                         </span>
                         {request.notes && <span className="text-[13px] text-ink-2">Notes: {request.notes}</span>}
                       </div>
@@ -296,8 +297,8 @@ function ApproveDialog({
           </div>
           <div className="text-sm text-gray-600 space-y-1 border-t pt-3">
             <div>Guardian: {request.guardianName}</div>
-            <div>Phone: {request.guardianPhone}</div>
-            {request.guardianEmail && <div>Email: {request.guardianEmail}</div>}
+            <div>Phone: <ContactLink kind="phone" value={request.guardianPhone} name={request.guardianName} label="guardian's phone number" /></div>
+            {request.guardianEmail && <div>Email: <ContactLink kind="email" value={request.guardianEmail} name={request.guardianName} label="guardian's email" /></div>}
           </div>
         </div>
         <DialogFooter>

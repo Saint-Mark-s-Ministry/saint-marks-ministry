@@ -16,6 +16,7 @@ import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
 import { ChildPhotoField } from '@/components/sunday-school-child-photo'
+import { ContactLink } from '@/components/contact-link'
 import { FilterSelect } from '@/components/ui/filter-select'
 import {
   Dialog,
@@ -39,7 +40,7 @@ import type {
   SundaySchoolFamily,
 } from '@/types/sunday-school'
 import { SundaySchoolChildGender, SundaySchoolLevel } from '@prisma/client'
-import { Check, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
 import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
 
@@ -112,53 +113,6 @@ function familyFormFields(family?: SundaySchoolFamily | null) {
     fatherPhone: family?.fatherPhone ?? '',
     fatherEmail: family?.fatherEmail ?? '',
   }
-}
-
-function CopyableValue({
-  value,
-  label,
-  className = '',
-}: {
-  value: string
-  label: string
-  className?: string
-}) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
-    } catch {
-      toast.error(`Could not copy ${label.toLowerCase()}`)
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={`Copy ${label}`}
-      title={`Copy ${label}`}
-      className={`group -mx-2 inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-        copied
-          ? 'bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-300'
-          : 'hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100'
-      } ${className}`}
-    >
-      <span className="min-w-0 break-words">{value}</span>
-      {copied && (
-        <span
-          aria-live="polite"
-          className="inline-flex shrink-0 items-center gap-1 text-xs text-green-600 dark:text-green-400"
-        >
-          <Check className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200" />
-          <span className="animate-in fade-in slide-in-from-left-1 duration-200">Copied</span>
-        </span>
-      )}
-    </button>
-  )
 }
 
 function SundaySchoolChildrenContent() {
@@ -435,7 +389,7 @@ function SundaySchoolChildrenContent() {
                     <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
                       {child.cellPhone && (
                         <span className="mb-0.5 flex flex-wrap items-center gap-x-1">
-                          Child: <CopyableValue value={child.cellPhone} label="child's cell number" className="py-0.5" />
+                          Child: <ContactLink kind="phone" value={child.cellPhone} name={getChildFullName(child)} label="child's cell number" />
                         </span>
                       )}
                       {child.family ? (
@@ -446,7 +400,7 @@ function SundaySchoolChildrenContent() {
                               {child.family.motherPhone && (
                                 <>
                                   <span aria-hidden>·</span>
-                                  <CopyableValue value={child.family.motherPhone} label="mother's phone number" className="py-0.5" />
+                                  <ContactLink kind="phone" value={child.family.motherPhone} name={child.family.motherName} label="mother's phone number" />
                                 </>
                               )}
                             </span>
@@ -457,7 +411,7 @@ function SundaySchoolChildrenContent() {
                               {child.family.fatherPhone && (
                                 <>
                                   <span aria-hidden>·</span>
-                                  <CopyableValue value={child.family.fatherPhone} label="father's phone number" className="py-0.5" />
+                                  <ContactLink kind="phone" value={child.family.fatherPhone} name={child.family.fatherName} label="father's phone number" />
                                 </>
                               )}
                             </span>
@@ -479,7 +433,7 @@ function SundaySchoolChildrenContent() {
                           {child.guardianPhone && (
                             <>
                               <span aria-hidden>·</span>
-                              <CopyableValue value={child.guardianPhone} label="guardian's phone number" className="py-0.5" />
+                              <ContactLink kind="phone" value={child.guardianPhone} name={child.guardianName} label="guardian's phone number" />
                             </>
                           )}
                         </span>
@@ -502,7 +456,7 @@ function SundaySchoolChildrenContent() {
                       {child.user ? (
                         <span className="flex flex-wrap items-center gap-1.5">
                           <StatusBadge tone="ok">Linked</StatusBadge>
-                          <CopyableValue value={child.user.email} label="student email" className="py-0.5 text-xs" />
+                          <ContactLink kind="email" value={child.user.email} name={getChildFullName(child)} label="student email" className="text-xs" />
                         </span>
                       ) : (
                         <StatusBadge tone="neutral">No account</StatusBadge>
@@ -883,11 +837,14 @@ function SundaySchoolChildrenContent() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">Home address</p>
                       {viewingFamily.homeAddress ? (
-                        <CopyableValue
-                          value={viewingFamily.homeAddress}
-                          label="home address"
-                          className="mt-1 text-sm text-gray-600 sm:whitespace-nowrap dark:text-gray-400"
-                        />
+                        <div className="mt-1 text-sm">
+                          <ContactLink
+                            kind="address"
+                            value={viewingFamily.homeAddress}
+                            name={getFamilyDisplayName(viewingFamily)}
+                            label="home address"
+                          />
+                        </div>
                       ) : (
                         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                           No address added yet.
@@ -904,15 +861,17 @@ function SundaySchoolChildrenContent() {
                       <p>{viewingFamily.motherName || 'Not added'}</p>
                       {viewingFamily.motherPhone && (
                         <div>
-                          <CopyableValue
+                          <ContactLink
+                            kind="phone"
                             value={viewingFamily.motherPhone}
+                            name={viewingFamily.motherName}
                             label="mother's phone number"
                           />
                         </div>
                       )}
                       {viewingFamily.motherEmail && (
                         <div>
-                          <CopyableValue value={viewingFamily.motherEmail} label="mother's email" />
+                          <ContactLink kind="email" value={viewingFamily.motherEmail} name={viewingFamily.motherName} label="mother's email" />
                         </div>
                       )}
                     </div>
@@ -923,15 +882,17 @@ function SundaySchoolChildrenContent() {
                       <p>{viewingFamily.fatherName || 'Not added'}</p>
                       {viewingFamily.fatherPhone && (
                         <div>
-                          <CopyableValue
+                          <ContactLink
+                            kind="phone"
                             value={viewingFamily.fatherPhone}
+                            name={viewingFamily.fatherName}
                             label="father's phone number"
                           />
                         </div>
                       )}
                       {viewingFamily.fatherEmail && (
                         <div>
-                          <CopyableValue value={viewingFamily.fatherEmail} label="father's email" />
+                          <ContactLink kind="email" value={viewingFamily.fatherEmail} name={viewingFamily.fatherName} label="father's email" />
                         </div>
                       )}
                     </div>

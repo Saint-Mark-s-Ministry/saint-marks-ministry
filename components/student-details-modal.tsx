@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -726,11 +727,11 @@ export function StudentDetailsModal({
                       </div>
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-gray-600">Email</span>
-                        <span className="font-medium">{studentEmail || '-'}</span>
+                        {studentEmail ? <ContactLink kind="email" value={studentEmail} name={studentName} label="student email" className="font-medium" /> : <span className="font-medium">-</span>}
                       </div>
                       <div className="flex justify-between py-2 border-b">
                         <span className="text-gray-600">Phone</span>
-                        <span className="font-medium">{studentPhone || '-'}</span>
+                        {studentPhone ? <ContactLink kind="phone" value={studentPhone} name={studentName} label="student phone number" className="font-medium" /> : <span className="font-medium">-</span>}
                       </div>
                     </div>
                   )}
