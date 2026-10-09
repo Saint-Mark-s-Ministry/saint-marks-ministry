@@ -57,7 +57,7 @@ export function MinistrySwitcher({
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className={cn(
           'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md text-left outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent-ink',
