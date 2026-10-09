@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Button } from '@/components/ui/button'
@@ -857,8 +858,8 @@ function StudentsManagementContent() {
               </div>
               <KeyValueList
                 items={[
-                  { label: 'Email', value: preview.email || '—' },
-                  { label: 'Phone', value: preview.phone ? <span className="font-mono text-xs">{preview.phone}</span> : '—' },
+                  { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
+                  { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
                   { label: 'Mentor', value: preview.enrollments?.[0]?.mentor?.name ?? <span className="text-ink-3">Not assigned</span> },
                   { label: 'Program', value: preview.enrollments?.[0]?.isAsyncStudent ? 'Async' : 'In person' },
                   ...(previewAnalytics && previewAnalytics.conductDismissalCount > 0

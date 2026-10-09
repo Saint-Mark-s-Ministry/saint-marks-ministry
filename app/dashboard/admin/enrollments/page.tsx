@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -598,7 +599,7 @@ export default function EnrollmentsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm">{father.name}</div>
                       {father.church && <div className="text-xs text-gray-500">{father.church}</div>}
-                      {father.phone && <div className="text-xs text-gray-400">{father.phone}</div>}
+                      {father.phone && <div className="text-xs"><ContactLink kind="phone" value={father.phone} name={father.name} label="father of confession's phone number" /></div>}
                       <div className="text-xs text-maroon-600 mt-1">{father._count?.students || 0} students</div>
                     </div>
                     {canEdit && (

@@ -1,6 +1,7 @@
 'use client'
 
-import { Mail, Network, Phone } from 'lucide-react'
+import { Network, Phone } from 'lucide-react'
+import { ContactLink } from '@/components/contact-link'
 import { Initials } from '@/components/ds/person'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+
+const TILE_CLASS_NAME =
+  'mx-0 flex w-full gap-3 rounded-lg border border-line px-3 py-3 text-sm text-ink hover:no-underline [&>svg]:size-4 [&>svg]:text-ink-3 [&>svg]:opacity-100'
 
 interface ServantContact {
   name: string
@@ -41,21 +45,9 @@ export function ServantContactDialog({
         </DialogHeader>
 
         <div className="space-y-2">
-          <a
-            href={`mailto:${servant.email}`}
-            className="flex min-w-0 items-center gap-3 rounded-lg border border-line px-3 py-3 text-sm transition hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          >
-            <Mail className="size-4 shrink-0 text-ink-3" />
-            <span className="min-w-0 break-all">{servant.email}</span>
-          </a>
+          <ContactLink kind="email" value={servant.email} name={servant.name} label="servant's email" className={TILE_CLASS_NAME} />
           {servant.phone ? (
-            <a
-              href={`tel:${servant.phone}`}
-              className="flex min-w-0 items-center gap-3 rounded-lg border border-line px-3 py-3 text-sm transition hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              <Phone className="size-4 shrink-0 text-ink-3" />
-              <span>{servant.phone}</span>
-            </a>
+            <ContactLink kind="phone" value={servant.phone} name={servant.name} label="servant's phone number" className={TILE_CLASS_NAME} />
           ) : (
             <div className="flex items-center gap-3 rounded-lg border border-dashed border-line px-3 py-3 text-sm text-ink-3">
               <Phone className="size-4 shrink-0" />

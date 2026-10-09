@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useRouter } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
@@ -281,8 +282,8 @@ export default function StudentDashboard() {
                     value: enrollment.mentor ? (
                       <span className="flex flex-col">
                         {enrollment.mentor.name}
-                        {enrollment.mentor.email && <a href={`mailto:${enrollment.mentor.email}`} className="text-xs text-accent-ink">{enrollment.mentor.email}</a>}
-                        {enrollment.mentor.phone && <a href={`tel:${enrollment.mentor.phone}`} className="font-mono text-xs text-accent-ink">{enrollment.mentor.phone}</a>}
+                        {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
+                        {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
                       </span>
                     ) : (
                       <span className="text-ink-3">Not assigned yet</span>
@@ -295,7 +296,7 @@ export default function StudentDashboard() {
                         {enrollment.fatherOfConfession.name}
                         {enrollment.fatherOfConfession.church && <span className="text-xs text-ink-3">{enrollment.fatherOfConfession.church}</span>}
                         {enrollment.fatherOfConfession.phone && (
-                          <a href={`tel:${enrollment.fatherOfConfession.phone}`} className="font-mono text-xs text-accent-ink">{enrollment.fatherOfConfession.phone}</a>
+                          <ContactLink kind="phone" value={enrollment.fatherOfConfession.phone} name={enrollment.fatherOfConfession.name} label="father of confession's phone number" className="w-fit font-mono text-xs" />
                         )}
                       </span>
                     ) : (
