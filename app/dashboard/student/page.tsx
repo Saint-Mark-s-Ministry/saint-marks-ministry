@@ -167,6 +167,9 @@ export default function StudentDashboard() {
               <BookOpen />
               My lessons
             </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard/student/makeup-exams')}>
+              Makeup exams
+            </Button>
             {isAsync && (
               <Button onClick={() => router.push('/dashboard/student/attendance-slip')}>
                 <Printer />

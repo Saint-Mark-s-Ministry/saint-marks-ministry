@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { MakeupExamBookings } from '@/components/makeup-exam-bookings'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isAdmin, canManageExams } from "@/lib/roles"
@@ -570,6 +571,8 @@ function ExamsPageContent() {
           )
         }
       />
+
+      <MakeupExamBookings staff />
 
       <Panel
         toolbar={

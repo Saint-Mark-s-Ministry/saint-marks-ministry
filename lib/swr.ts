@@ -311,3 +311,7 @@ export function useExams(academicYearId?: string | null, options?: SWRConfigurat
     { ...defaultSWRConfig, ...options }
   )
 }
+
+export function useMakeupExams(enabled = true) {
+  return useSWR(enabled ? '/api/makeup-exams' : null, fetcher, defaultSWRConfig)
+}

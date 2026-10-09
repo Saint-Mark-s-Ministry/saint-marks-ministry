@@ -78,6 +78,7 @@ function getNavItemsForRole(
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
       { label: 'My Lessons', href: '/dashboard/student/lessons', icon: BookOpen },
+      { label: 'Makeup Exams', href: '/dashboard/student/makeup-exams', icon: GraduationCap },
       { label: 'Class Lessons', href: '/dashboard/student/class-lessons', icon: School },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
