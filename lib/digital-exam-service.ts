@@ -125,6 +125,13 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
       attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { state: 'PAUSED', pausedAt: new Date(), revision: { increment: 1 } } })
       await record(tx, attempt.id, 'CONTACT_LOST', user.id)
     }
+    if (input.visible === false && action !== 'events' && attempt.state !== 'SUBMITTED') {
+      if (attempt.state === 'ACTIVE') {
+        await record(tx, attempt.id, 'HIDDEN_RECOVERY', user.id)
+        attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { state: 'PAUSED', pausedAt: new Date(), revision: { increment: 1 } } })
+      }
+      attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { pageVisible: false } })
+    }
     if (action === 'events') {
       if (!Array.isArray(input.events) || input.events.length < 1 || input.events.length > 100) throw new ExamError('Send between one and 100 activity events.')
       for (const item of input.events) {
@@ -150,13 +157,6 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
         attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { answers, revision: { increment: 1 } } })
       } else attempt = await finalize(tx, attempt, sheet, user.id)
     } else if (action !== 'start' && action !== 'heartbeat') throw new ExamError('Unknown exam action.')
-    if (input.visible === false && attempt.state !== 'SUBMITTED') {
-      if (attempt.state === 'ACTIVE') {
-        await record(tx, attempt.id, 'HIDDEN_RECOVERY', user.id)
-        attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { state: 'PAUSED', pausedAt: new Date(), revision: { increment: 1 } } })
-      }
-      attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { pageVisible: false } })
-    }
     attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { lastSeenAt: new Date() } })
     return { attempt: publicAttempt(attempt, !!sheet.releasedAt), examState: sheet.state }
   })

@@ -127,6 +127,12 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(await db.digitalExamAttempt.count({ where: { examId: fixture.examId, studentId: fixture.otherId } })).toBe(0)
     identity.tag = 'SUNDAY_SCHOOL_SERVANT'; expect((await get()).status).toBe(403)
   }, 30000)
+  it('blocks an answer request reporting a hidden tab before saving it', async () => {
+    await act('start')
+    expect(await act('save', { question: 0, answer: 'E', revision: 0, visible: false })).toHaveProperty('blocked', true)
+    const attempt = await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })
+    expect(attempt.state).toBe('PAUSED'); expect(attempt.answers[0]).toBe('')
+  }, 30000)
   it('does not overwrite existing paper grades when releasing results', async () => {
     await act('start'); await act('submit', { revision: 0 }); await admin('close')
     await db.examScore.create({ data: { examId: fixture.examId, studentId: fixture.studentId, score: 90, percentage: 90 } })
