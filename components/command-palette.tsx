@@ -113,6 +113,7 @@ function getNavItemsForRole(
     { label: 'Attendance', href: '/dashboard/admin/attendance', icon: ClipboardCheck },
     { label: 'Students', href: '/dashboard/admin/students', icon: Users },
     { label: 'Exams', href: '/dashboard/admin/exams', icon: GraduationCap },
+    { label: 'Exam Monitoring', href: '/dashboard/admin/exam-monitoring', icon: ClipboardCheck },
     { label: 'Curriculum', href: '/dashboard/admin/curriculum', icon: BookOpen },
     { label: 'Mentees', href: '/dashboard/admin/mentees', icon: UserCheck },
     { label: 'Confession', href: '/dashboard/admin/confession', icon: FileText },

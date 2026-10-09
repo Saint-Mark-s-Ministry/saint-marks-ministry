@@ -130,6 +130,7 @@ describe('active state', () => {
   it('labels the breadcrumb from the most specific match', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
     expect(currentNavLabel(groups, '/dashboard/admin/exams')).toBe('Exams')
+    expect(currentNavLabel(groups, '/dashboard/admin/exam-monitoring')).toBe('Exam Monitoring')
     expect(currentNavLabel(groups, '/dashboard/admin')).toBe('Dashboard')
   })
 })

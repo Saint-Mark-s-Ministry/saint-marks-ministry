@@ -354,7 +354,7 @@ function ExamsPageContent() {
   const deleteExam = async (examId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent opening the exam for scoring
 
-    if (!confirm('Are you sure you want to delete this exam? This will also delete all associated scores.')) {
+    if (!confirm('Are you sure you want to delete this exam? Only exams without saved grades or student attempts can be deleted.')) {
       return
     }
 
@@ -577,14 +577,15 @@ function ExamsPageContent() {
       <PageHeader
         title="Exams"
         meta={['Create exams and enter scores', `${exams.length} exams`, `${totalScores} scores`, lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
-        actions={
-          canEdit && (
+        actions={<>
+          <Button variant="outline" asChild><Link href="/dashboard/admin/exam-monitoring">Exam Monitoring</Link></Button>
+          {canEdit && (
             <Button onClick={() => setShowCreateExam(true)}>
               <Plus />
               Create exam
             </Button>
-          )
-        }
+          )}
+        </>}
       />
 
       <MakeupExamBookings staff />

@@ -9,6 +9,7 @@ vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: async () => ({ 
 vi.mock('@/lib/exam-realtime', () => ({ publishExamChange: vi.fn(), examPusher: () => null }))
 import { mutateExam } from '@/lib/digital-exam-service'
 import { GET } from '@/app/api/digital-exams/[id]/route'
+import { DELETE as deleteExam } from '@/app/api/exams/[id]/route'
 import { GET as listExams } from '@/app/api/digital-exams/route'
 
 const enabled = process.env.DIGITAL_EXAM_INTEGRATION === '1'
@@ -64,7 +65,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     await admin('close'); await admin('release')
     const score = await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })
     expect(score.percentage).toBe(2); expect(score.originalScore).toBe(2)
-    expect((await get()).status).toBe(404)
+    expect((await get()).status).toBe(403)
     await admin('release')
     expect(await db.examScore.count({ where: { examId: fixture.examId } })).toBe(1)
   }, 30000)
@@ -94,7 +95,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(view).not.toHaveProperty('answerKey')
     await admin('close'); await admin('release')
     expect(await listed()).toBe(false)
-    expect((await get()).status).toBe(404)
+    expect((await get()).status).toBe(403)
   }, 30000)
   it('persists tab pause, deduplicates events, and only allows proctor unlock after return', async () => {
     await act('start')
@@ -161,6 +162,79 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(await act('save', { question: 0, answer: 'E', revision: 0, visible: false })).toHaveProperty('blocked', true)
     const attempt = await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })
     expect(attempt.state).toBe('PAUSED'); expect(attempt.answers[0]).toBe('')
+  }, 30000)
+  it('excludes already graded students, including zero scores, and preserves completed history', async () => {
+    const grade = await db.examScore.create({ data: { examId: fixture.examId, studentId: fixture.studentId, score: 0, percentage: 0 } })
+    expect((await (await listExams()).json()).exams.some((e: { id: string }) => e.id === fixture.examId)).toBe(false)
+    expect((await get()).status).toBe(403)
+    await expect(act('start')).rejects.toThrow('Forbidden')
+    identity.tag = 'SERVANTS_PREP_SERVANT'
+    const view = await (await get()).json()
+    expect(view.roster.some((row: { student: { id: string } }) => row.student.id === fixture.studentId)).toBe(false)
+    expect(view.roster.some((row: { student: { id: string } }) => row.student.id === fixture.otherId)).toBe(true)
+    expect(await db.examScore.findUnique({ where: { id: grade.id } })).toEqual(grade)
+    await db.examScore.delete({ where: { id: grade.id } })
+    await act('start'); await act('submit', { revision: 0 }); await admin('close'); await admin('release')
+    const completed = await (await get()).json()
+    expect(completed.roster.some((row: { student: { id: string } }) => row.student.id === fixture.studentId)).toBe(false)
+    expect(completed.hasAttempts).toBe(true)
+    const history = completed.completedHistory.find((row: { student: { id: string } }) => row.student.id === fixture.studentId)
+    expect(history.events.map((event: { kind: string }) => event.kind)).toContain('SUBMITTED')
+  }, 30000)
+  it('resets an empty test opening while preserving the key and every paper grade', async () => {
+    await db.examScore.create({ data: { examId: fixture.examId, studentId: fixture.studentId, score: 90, percentage: 90 } })
+    const grades = await db.examScore.findMany({ where: { examId: fixture.examId } })
+    const before = await db.digitalExamSheet.findUniqueOrThrow({ where: { examId: fixture.examId } })
+    await admin('reset')
+    const after = await db.digitalExamSheet.findUniqueOrThrow({ where: { examId: fixture.examId } })
+    expect(after.state).toBe('DRAFT'); expect(after.openedAt).toBeNull(); expect(after.closedAt).toBeNull()
+    expect(after.answerKey).toEqual(before.answerKey); expect(after.choiceCounts).toEqual(before.choiceCounts)
+    expect(await db.examScore.findMany({ where: { examId: fixture.examId } })).toEqual(grades)
+    expect((await get()).status).toBe(403)
+    await admin('configure', { choiceCounts: before.choiceCounts, answerKey: before.answerKey })
+    await admin('open')
+    expect((await get()).status).toBe(403)
+  }, 30000)
+  it('blocks resets after a student joins and for priests or students', async () => {
+    await expect(act('reset')).rejects.toThrow('Forbidden')
+    await expect(mutateExam(fixture.examId, { action: 'reset' }, { ...staff, manage: false })).rejects.toThrow('Forbidden')
+    await act('start')
+    await expect(admin('reset')).rejects.toThrow('student has joined')
+    await act('submit', { revision: 0 }); await admin('close')
+    await expect(admin('reset')).rejects.toThrow('student has joined')
+    await admin('release')
+    await expect(admin('reset')).rejects.toThrow('Released exams')
+  }, 30000)
+  it('serializes starting and resetting so a joined attempt is never erased', async () => {
+    await Promise.allSettled([act('start'), admin('reset')])
+    const sheet = await db.digitalExamSheet.findUniqueOrThrow({ where: { examId: fixture.examId } })
+    const attempts = await db.digitalExamAttempt.count({ where: { examId: fixture.examId } })
+    expect(sheet.state === 'OPEN' ? attempts === 1 : sheet.state === 'DRAFT' && attempts === 0).toBe(true)
+  }, 30000)
+  it('protects saved scores and digital attempts against full exam deletion', async () => {
+    const remove = () => deleteExam(new Request('http://localhost', { method: 'DELETE' }), { params: Promise.resolve({ id: fixture.examId }) })
+    expect((await remove()).status).toBe(403)
+    identity.tag = 'PRIEST'; identity.readOnly = true
+    expect((await remove()).status).toBe(403)
+    identity.tag = 'SERVANTS_PREP_SERVANT'; identity.readOnly = false
+    await db.examScore.create({ data: { examId: fixture.examId, studentId: fixture.studentId, score: 90, percentage: 90 } })
+    const grade = await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })
+    expect((await remove()).status).toBe(409)
+    expect(await db.examScore.findUnique({ where: { id: grade.id } })).toEqual(grade)
+    await db.examScore.delete({ where: { id: grade.id } })
+    await act('start')
+    expect((await remove()).status).toBe(409)
+    expect(await db.digitalExamAttempt.count({ where: { examId: fixture.examId } })).toBe(1)
+  }, 30000)
+  it('allows deleting an empty test exam', async () => {
+    const source = await db.exam.findUniqueOrThrow({ where: { id: fixture.examId } })
+    const empty = await db.exam.create({ data: { academicYearId: source.academicYearId, examSectionId: source.examSectionId, examDate: new Date(), yearLevel: 'YEAR_1', totalPoints: 100 } })
+    try {
+      identity.tag = 'SERVANTS_PREP_SERVANT'
+      const response = await deleteExam(new Request('http://localhost', { method: 'DELETE' }), { params: Promise.resolve({ id: empty.id }) })
+      expect(response.status).toBe(200)
+      expect(await db.exam.findUnique({ where: { id: empty.id } })).toBeNull()
+    } finally { await db.exam.deleteMany({ where: { id: empty.id } }) }
   }, 30000)
   it('does not overwrite existing paper grades when releasing results', async () => {
     await act('start'); await act('submit', { revision: 0 }); await admin('close')

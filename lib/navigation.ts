@@ -146,6 +146,7 @@ function prepAdminNav(role: UserRole): NavGroup[] {
         { href: '/dashboard/admin/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
         { href: '/dashboard/admin/students', label: 'Students', icon: Users, tab: true },
         { href: '/dashboard/admin/exams', label: 'Exams', icon: FileText },
+        { href: '/dashboard/admin/exam-monitoring', label: 'Exam Monitoring', icon: Activity },
         { href: '/dashboard/admin/curriculum', label: 'Curriculum', icon: BookOpen },
         { href: '/dashboard/admin/confession', label: 'Confession', icon: Cross, tab: true },
         { href: '/dashboard/admin/mentees', label: 'Mentees', icon: UserCheck },

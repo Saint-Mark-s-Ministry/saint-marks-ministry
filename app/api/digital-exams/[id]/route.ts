@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: Context) {
       const attempt = await prisma.digitalExamAttempt.findUnique({ where: { examId_studentId: { examId: id, studentId: access.user.id } } })
       return NextResponse.json({ exam, sheet: safeSheet, attempt: publicAttempt(attempt, !!sheet.releasedAt) }, { headers: { 'Cache-Control': 'no-store' } })
     }
-    const [enrollments, attempts] = await Promise.all([
+    const [enrollments, attempts, scores] = await Promise.all([
       prisma.studentEnrollment.findMany({
         where: { isActive: true, status: 'ACTIVE', yearLevel: exam.yearLevel === 'BOTH' ? undefined : exam.yearLevel,
           OR: [{ academicYear: { startDate: { lte: exam.academicYear.startDate } } }, ...(exam.academicYear.isActive ? [{ academicYearId: null }] : [])],
@@ -28,10 +28,14 @@ export async function GET(_request: Request, { params }: Context) {
         select: { student: { select: { id: true, name: true } } },
       }),
       prisma.digitalExamAttempt.findMany({ where: { examId: id }, include: { student: { select: { id: true, name: true } }, events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, createdAt: true, clientAt: true, actorId: true } } } }),
+      prisma.examScore.findMany({ where: { examId: id }, select: { studentId: true } }),
     ])
-    const roster = new Map(enrollments.map(e => [e.student.id, { student: e.student, eligible: true }]))
-    for (const attempt of attempts) if (!roster.has(attempt.studentId)) roster.set(attempt.studentId, { student: attempt.student, eligible: false })
+    const graded = new Set(scores.map(score => score.studentId))
+    const roster = new Map(enrollments.filter(e => !graded.has(e.student.id)).map(e => [e.student.id, { student: e.student, eligible: true }]))
+    for (const attempt of attempts) if (!graded.has(attempt.studentId) && !roster.has(attempt.studentId)) roster.set(attempt.studentId, { student: attempt.student, eligible: false })
     return NextResponse.json({ exam, sheet: safeSheet, answerKey: access.manage ? sheet?.answerKey : undefined, canManage: access.manage, realtimeConfigured: !!examPusher(),
+      hasAttempts: attempts.length > 0,
+      completedHistory: attempts.filter(attempt => graded.has(attempt.studentId)).map(attempt => ({ student: attempt.student, events: attempt.events })),
       roster: [...roster.values()].map(row => {
         const attempt = attempts.find(a => a.studentId === row.student.id)
         return { ...row, attempt: attempt ? { ...publicAttempt(attempt, true), stale: staleContact(attempt.lastSeenAt), events: attempt.events, answeredCount: attempt.answers.filter(Boolean).length } : null }

@@ -125,3 +125,7 @@ The dashboard cannot identify another tab's contents, detect another device, or
 prove cheating. Use activity flags for proctor review.
 
 Student navigation and direct answer sheet access are available only while an eligible exam is OPEN. Closing hides access, including submitted attempts. Released grades remain in My Progress; students never receive the answer key. Question choices can be configured from four to eight (A–D through A–H).
+
+Leaders and priests can open **Exam Monitoring** from the sidebar, search by exam or academic year, filter by proctoring status, and enter each live dashboard. Priests have read-only access. **Reset test opening** returns an unreleased sheet to draft only if nobody has joined, preserving its key and every saved grade. Full exam deletion is blocked when grades or digital attempts exist.
+
+Students with an existing score for the exam are excluded from the proctor roster and cannot start another digital attempt or see its student link. This includes zero scores and paper makeup scores. Existing digital activity remains available under Past digital activity, without putting graded students back in the proctor roster.
