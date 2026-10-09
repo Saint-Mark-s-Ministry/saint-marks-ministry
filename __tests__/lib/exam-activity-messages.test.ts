@@ -4,15 +4,15 @@ import type { ExamActivity } from '@/lib/digital-exam-types'
 const event = (kind: string): ExamActivity => ({ id: kind, kind, createdAt: '2026-10-09T20:00:00Z', clientAt: null, actorId: 'student' })
 describe('proctor activity messaging', () => {
   it('distinguishes focus, visibility, and contact reports without identifying an app', () => {
-    expect(examActivityMessage('BLUR').detail).toContain('cannot confirm a text reply')
-    expect(examActivityMessage('HIDDEN').detail).toContain('does not identify which occurred')
-    expect(examActivityMessage('CONTACT_LOST').detail).toContain('does not establish')
-    expect(examActivityMessage('FOCUS').detail).toContain('does not clear')
+    expect(examActivityMessage('BLUR').title).toBe('Exam lost focus')
+    expect(examActivityMessage('HIDDEN').title).toBe('Exam page hidden')
+    expect(examActivityMessage('CONTACT_LOST').title).toBe('Contact lost for over 30 seconds')
+    expect(examActivityMessage('FOCUS').title).toBe('Exam regained focus')
   })
   it('identifies saved answers and clears without claiming correctness', () => {
     const saved = examActivityMessage('ANSWER_SAVED', { questionNumber: 12, answerChoice: 'C' })
-    expect(saved.title).toBe('Question 12: saved C')
-    expect(saved.detail).toContain('not a correctness check')
+    expect(saved.title).toBe('Question 12: chose C')
+    expect(saved).not.toHaveProperty('detail')
     expect(examActivityMessage('ANSWER_SAVED', { questionNumber: 12, answerChoice: '' }).title).toBe('Question 12: answer cleared')
     expect(examActivityMessage('ANSWER_SAVED', { questionNumber: 51, answerChoice: 'I' }).title).toBe('Answer saved')
   })

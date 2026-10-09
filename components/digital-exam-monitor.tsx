@@ -54,7 +54,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
       if (!PAUSE_ALERT_KINDS.has(event.kind)) continue
       const message = examActivityMessage(event.kind, event)
       setAlerts(previous => [{ event, name: event.name, studentId: event.studentId }, ...previous].slice(0, 8))
-      toast.warning(`${event.name}: ${message.title}`, { description: `${message.detail} ${message.nextStep}` })
+      toast.warning(`${event.name}: ${message.title}`)
       if (sound && audio.current) {
         const oscillator = audio.current.createOscillator(); const gain = audio.current.createGain()
         gain.gain.setValueAtTime(0.12, audio.current.currentTime); oscillator.frequency.value = 740
@@ -97,7 +97,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
           return <div key={alert.event.id} className="mt-3 border-t border-warn/20 pt-3"><p className="mb-2 text-sm font-semibold">{alert.name} · Current status: {current?.state === 'PAUSED' ? 'Paused — proctor clearance required' : current?.state === 'SUBMITTED' ? 'Submitted — answers final' : current?.state === 'ACTIVE' ? 'Answering' : 'Not on the current roster'}</p><ExamActivityDetail event={alert.event} /></div>
         })}</div>}
       </Panel>
-      <Panel title="Recent saved answers" description="Confirmed server saves, updated with monitoring. Answer changes appear here without departure sounds or warning popups.">
+      <Panel title="Recent saved answers" description="Student choices confirmed by saved answers.">
         {savedAnswers.length === 0 ? <p className="p-4 text-sm text-ink-3">No answer changes have been saved yet.</p> : <ul className="divide-y divide-line">{savedAnswers.map(({ event, name }) => <li key={event.id} className="p-4"><p className="mb-2 text-sm font-semibold">{name}</p><ExamActivityDetail event={event} /></li>)}</ul>}
       </Panel>
       <Panel title="Students" description="A stale connection means no contact for more than 30 seconds. Students must return and reconnect before unlocking.">
@@ -107,9 +107,9 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
           return <li key={row.student.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium">{row.student.name}{!row.eligible && <span className="ml-2 text-xs text-ink-3">Historical attempt</span>}</p><p className="mt-1 text-sm text-ink-3">{attempt?.retakeReady ? 'Retake approved · Not started' : attempt ? `${attempt.state === 'SUBMITTED' ? 'Submitted' : attempt.state === 'PAUSED' ? 'Paused' : 'Answering'} · ${attempt.answeredCount}/50 answered${attempt.state !== 'SUBMITTED' && attempt.stale ? ' · Connection stale' : ''}` : 'Not started'}</p>{attempt && <p className="mt-1 text-xs text-ink-3">Last contact: {new Date(attempt.lastSeenAt).toLocaleTimeString()}{attempt.submittedAt ? ` · Submitted ${new Date(attempt.submittedAt).toLocaleTimeString()} · ${attempt.correctCount}/50` : ''}</p>}</div>{manage && !attempt?.retakeReady && attempt?.state === 'PAUSED' && <Button size="sm" variant="outline" disabled={busy || attempt.stale || attempt.pageVisible === false || sheet.state !== 'OPEN'} onClick={() => void action('unlock', { attemptId: attempt.id })}>Unlock student</Button>}</div>
             {!attempt?.retakeReady && attempt?.state === 'PAUSED' && <div className="mt-3 rounded-md border border-warn/30 bg-warn/10 p-3"><p className="text-sm font-semibold">Answering paused — proctor clearance required</p>{(() => {
               const event = latestPauseActivity(attempt.events)
-              return event ? <div className="mt-2"><ExamActivityDetail event={event} /></div> : <p className="mt-1 text-sm">Review the activity history and speak with the student before unlocking.</p>
-            })()}<p className="mt-2 text-sm font-medium">{sheet.state !== 'OPEN' ? 'The exam is closed. This attempt cannot be unlocked.' : attempt.stale ? 'Waiting for contact: have the student reconnect and stay on the exam page before unlocking.' : attempt.pageVisible === false ? 'Waiting for return: the latest report says the exam page is hidden. Have the student return before unlocking.' : 'The device is connected and the page is visible. Confirm the student has returned focus to the exam and review the interruption before selecting Unlock student.'}</p>{!manage && <p className="mt-1 text-sm">An exam leader must unlock this student. Your monitoring access is read-only.</p>}</div>}
-            {!attempt?.retakeReady && attempt?.state !== 'SUBMITTED' && attempt?.stale && <p className="mt-2 text-sm text-warn">No contact for more than 30 seconds. This is a connection warning, not confirmation that the student left the tab.</p>}
+              return event ? <div className="mt-2"><ExamActivityDetail event={event} /></div> : <p className="mt-1 text-sm">Review the interruption before unlocking.</p>
+            })()}<p className="mt-2 text-sm font-medium">{sheet.state !== 'OPEN' ? 'Exam closed.' : attempt.stale ? 'Waiting for contact: student must reconnect.' : attempt.pageVisible === false ? 'Waiting for return: exam page is hidden.' : 'Student connected. Review before unlocking.'}</p>{!manage && <p className="mt-1 text-sm">An exam leader must unlock. Your monitoring access is read-only.</p>}</div>}
+            {!attempt?.retakeReady && attempt?.state !== 'SUBMITTED' && attempt?.stale && <p className="mt-2 text-sm text-warn">No contact for more than 30 seconds.</p>}
             {attempt && <details className="mt-3 text-sm"><summary className="cursor-pointer text-ink-3">Activity history ({attempt.events.length})</summary><ol className="mt-2 space-y-1 border-l border-line pl-3">{attempt.events.map(event => <li key={event.id} className="border-b border-line py-2 last:border-0"><ExamActivityDetail event={event} /></li>)}</ol></details>}
           </li>
         })}</ul>
