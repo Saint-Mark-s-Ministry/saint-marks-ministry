@@ -1,7 +1,7 @@
 import { makeupToday } from '@/lib/makeup-exams'
 
-export function effectiveExamResult(originalPercentage: number | null, makeupPercentages: number[], examTotalPoints: number) {
-  const percentage = Math.max(originalPercentage ?? 0, ...makeupPercentages)
+export function effectiveExamResult(originalPercentage: number | null, makeupPercentages: number[], examTotalPoints: number, digitalRetakePercentage?: number | null) {
+  const percentage = Math.max(originalPercentage ?? 0, digitalRetakePercentage ?? 0, ...makeupPercentages)
   return { percentage, score: percentage * examTotalPoints / 100 }
 }
 

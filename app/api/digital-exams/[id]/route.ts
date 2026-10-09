@@ -15,9 +15,9 @@ export async function GET(_request: Request, { params }: Context) {
     const sheet = await prisma.digitalExamSheet.findUnique({ where: { examId: id } })
     const safeSheet = sheet ? { state: sheet.state, choiceCounts: sheet.choiceCounts, openedAt: sheet.openedAt, closedAt: sheet.closedAt, releasedAt: sheet.releasedAt } : null
     if (!access.staff) {
-      if (!sheet || sheet.state !== 'OPEN') throw new Error('Not found')
+      if (!sheet || sheet.state !== 'OPEN' || (sheet.releasedAt && !await prisma.digitalExamAttempt.findFirst({ where: { examId: id, studentId: access.user.id, attemptNumber: { gt: 1 } }, select: { id: true } }))) throw new Error('Not found')
       const attempt = await prisma.digitalExamAttempt.findUnique({ where: { examId_studentId: { examId: id, studentId: access.user.id } } })
-      return NextResponse.json({ exam, sheet: safeSheet, attempt: publicAttempt(attempt, !!sheet.releasedAt) }, { headers: { 'Cache-Control': 'no-store' } })
+      return NextResponse.json({ exam, sheet: safeSheet, attempt: publicAttempt(attempt, !!attempt?.resultReleasedAt) }, { headers: { 'Cache-Control': 'no-store' } })
     }
     const [enrollments, attempts, scores] = await Promise.all([
       prisma.studentEnrollment.findMany({
@@ -27,18 +27,27 @@ export async function GET(_request: Request, { params }: Context) {
         },
         select: { student: { select: { id: true, name: true } } },
       }),
-      prisma.digitalExamAttempt.findMany({ where: { examId: id }, include: { student: { select: { id: true, name: true } }, events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, createdAt: true, clientAt: true, actorId: true } } } }),
+      prisma.digitalExamAttempt.findMany({ where: { examId: id }, include: { archives: { orderBy: { attemptNumber: 'asc' } }, student: { select: { id: true, name: true } }, events: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, createdAt: true, clientAt: true, actorId: true, attemptNumber: true, questionNumber: true, answerChoice: true, destinationPath: true } } } }),
       prisma.examScore.findMany({ where: { examId: id }, select: { studentId: true } }),
     ])
     const graded = new Set(scores.map(score => score.studentId))
-    const roster = new Map(enrollments.filter(e => !graded.has(e.student.id)).map(e => [e.student.id, { student: e.student, eligible: true }]))
-    for (const attempt of attempts) if (!graded.has(attempt.studentId) && !roster.has(attempt.studentId)) roster.set(attempt.studentId, { student: attempt.student, eligible: false })
+    const currentEligible = (studentId: string) => {
+      const attempt = attempts.find(a => a.studentId === studentId)
+      return attempt?.attemptNumber && attempt.attemptNumber > 1 && !attempt.resultReleasedAt || !sheet?.releasedAt && !graded.has(studentId)
+    }
+    const roster = new Map(enrollments.filter(e => currentEligible(e.student.id)).map(e => [e.student.id, { student: e.student, eligible: true }]))
+    for (const attempt of attempts) if (currentEligible(attempt.studentId) && !roster.has(attempt.studentId)) roster.set(attempt.studentId, { student: attempt.student, eligible: false })
     return NextResponse.json({ exam, sheet: safeSheet, answerKey: access.manage ? sheet?.answerKey : undefined, canManage: access.manage, realtimeConfigured: !!examPusher(),
       hasAttempts: attempts.length > 0,
-      completedHistory: attempts.filter(attempt => graded.has(attempt.studentId)).map(attempt => ({ student: attempt.student, events: attempt.events })),
+      pendingResults: attempts.filter(a => a.state === 'SUBMITTED' && !a.resultReleasedAt).length,
+      retakeCandidates: access.manage ? enrollments.filter(e => { const a = attempts.find(a => a.studentId === e.student.id); return (!a || a.state === 'SUBMITTED') && (graded.has(e.student.id) || a?.state === 'SUBMITTED') }).map(e => e.student) : undefined,
+      completedHistory: attempts.flatMap(attempt => [
+        ...attempt.archives.map(archive => ({ student: attempt.student, attemptNumber: archive.attemptNumber, snapshot: archive.snapshot, events: attempt.events.filter(e => e.attemptNumber === archive.attemptNumber) })),
+        ...(attempt.resultReleasedAt || graded.has(attempt.studentId) && attempt.attemptNumber === 1 ? [{ student: attempt.student, attemptNumber: attempt.attemptNumber, snapshot: publicAttempt(attempt, true), events: attempt.events.filter(e => e.attemptNumber === attempt.attemptNumber) }] : []),
+      ]),
       roster: [...roster.values()].map(row => {
         const attempt = attempts.find(a => a.studentId === row.student.id)
-        return { ...row, attempt: attempt ? { ...publicAttempt(attempt, true), stale: staleContact(attempt.lastSeenAt), events: attempt.events, answeredCount: attempt.answers.filter(Boolean).length } : null }
+        return { ...row, attempt: attempt ? { ...publicAttempt(attempt, true), stale: staleContact(attempt.lastSeenAt), pageVisible: attempt.pageVisible, events: attempt.events.filter(e => e.attemptNumber === attempt.attemptNumber), answeredCount: attempt.answers.filter(Boolean).length } : null }
       }),
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) { return examApiError(error) }
