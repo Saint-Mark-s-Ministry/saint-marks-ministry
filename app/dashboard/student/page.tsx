@@ -302,10 +302,10 @@ export default function StudentDashboard() {
                       <span className="text-ink-3">Not set</span>
                     ),
                   },
-                  {
+                  ...(isAsync ? [{
                     label: 'Sunday School',
-                    value: isAsync ? (assignment ? `Serving · ${assignment.academicYear.name}` : 'Not assigned yet') : <span className="text-ink-3">Not required · in-person student</span>,
-                  },
+                    value: assignment ? `Serving · ${assignment.academicYear.name}` : 'Not assigned yet',
+                  }] : []),
                 ]}
               />
             </div>
