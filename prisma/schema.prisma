@@ -305,6 +305,7 @@ model User {
   attendanceRecords    AttendanceRecord[]
   attendanceRecordedBy AttendanceRecord[]  @relation("RecordedBy")
   makeupExamBookings   MakeupExamBooking[]
+  digitalExamAttempts  DigitalExamAttempt[]
   examScores           ExamScore[]
   makeupScoresGradedBy MakeupExamScore[] @relation("MakeupGradedBy")
   examScoresGradedBy   ExamScore[]         @relation("GradedBy")
@@ -662,6 +663,7 @@ model Exam {
   examSection  ExamSection  @relation(fields: [examSectionId], references: [id])
   scores       ExamScore[]
   makeupBookings MakeupExamBooking[]
+  digitalSheet DigitalExamSheet?
 
   @@index([academicYearId])
   @@index([examSectionId])
@@ -1896,4 +1898,65 @@ model MakeupExamScore {
 
   @@index([examScoreId])
   @@index([gradedBy])
+}
+
+
+enum DigitalExamState {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum DigitalAttemptState {
+  ACTIVE
+  PAUSED
+  SUBMITTED
+}
+
+// Private answer keys and grades never enter legacy score queries until release.
+model DigitalExamSheet {
+  examId String @id
+  state DigitalExamState @default(DRAFT)
+  choiceCounts Int[]
+  answerKey String[]
+  openedAt DateTime?
+  closedAt DateTime?
+  releasedAt DateTime?
+  createdAt DateTime @default(now())
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  attempts DigitalExamAttempt[]
+}
+
+model DigitalExamAttempt {
+  id String @id @default(cuid())
+  examId String
+  studentId String
+  state DigitalAttemptState @default(ACTIVE)
+  answers String[]
+  sessionHash String
+  pageVisible Boolean @default(true)
+  revision Int @default(0)
+  startedAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  pausedAt DateTime?
+  submittedAt DateTime?
+  correctCount Int?
+  sheet DigitalExamSheet @relation(fields: [examId], references: [examId], onDelete: Cascade)
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  events DigitalExamEvent[]
+  @@unique([examId, studentId])
+  @@index([examId, state])
+}
+
+model DigitalExamEvent {
+  id String @id @default(cuid())
+  attemptId String
+  kind String
+  actorId String
+  clientEventId String?
+  clientAt DateTime?
+  createdAt DateTime @default(now())
+  attempt DigitalExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  @@unique([attemptId, clientEventId])
+  @@index([attemptId, createdAt])
 }
