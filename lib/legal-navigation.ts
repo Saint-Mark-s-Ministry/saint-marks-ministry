@@ -27,6 +27,7 @@ const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
   ['/dashboard/admin/settings', 'Settings'],
   ['/dashboard/admin/mentees', 'Mentees'],
   ['/dashboard/admin/exams', 'Exams'],
+  ['/dashboard/admin/exam-monitoring', 'Exam Monitoring'],
   ['/dashboard/admin/users', 'Users'],
   ['/dashboard/admin/activity', 'Activity'],
   ['/dashboard/admin', 'Dashboard'],

@@ -27,7 +27,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
   const [busy, setBusy] = useState(false)
   const [sound, setSound] = useState(false)
   const [live, setLive] = useState(false)
-  const [confirm, setConfirm] = useState<'close' | 'release' | null>(null)
+  const [confirm, setConfirm] = useState<'close' | 'release' | 'reset' | null>(null)
   const [alerts, setAlerts] = useState<string[]>([])
   const seen = useRef<Set<string> | null>(null)
   const audio = useRef<AudioContext | null>(null)
@@ -67,7 +67,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
       const response = await fetch(`/api/digital-exams/${examId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: name, ...payload }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Could not update the exam.')
-      toast.success(name === 'configure' ? 'Answer sheet setup saved' : name === 'unlock' ? 'Student unlocked' : name === 'release' ? 'Results released' : name === 'open' ? 'Exam opened' : 'Exam closed and saved answers submitted')
+      toast.success(name === 'reset' ? 'Test opening reset; answer key and grades preserved' : name === 'configure' ? 'Answer sheet setup saved' : name === 'unlock' ? 'Student unlocked' : name === 'release' ? 'Results released' : name === 'open' ? 'Exam opened' : 'Exam closed and saved answers submitted')
       await mutate()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update the exam.') }
     finally { setBusy(false); setConfirm(null) }
@@ -81,8 +81,9 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
   const paused = roster.filter(r => r.attempt?.state === 'PAUSED').length
   const submitted = roster.filter(r => r.attempt?.state === 'SUBMITTED').length
   return <div className="flex flex-col gap-5">
-    <PageHeader title={data.exam.examSection.displayName} meta={['Original exam monitoring', formatDateUTC(data.exam.examDate), sheet?.state ?? 'Not configured']} back={{ href: '/dashboard/admin/exams', label: 'Exams' }} actions={manage && sheet && <>{sheet.state !== 'OPEN' && !sheet.releasedAt && <Button disabled={busy} onClick={() => void action('open')}>Open exam</Button>}{sheet.state === 'OPEN' && <Button variant="outline" disabled={busy} onClick={() => setConfirm('close')}>Close exam</Button>}{sheet.state === 'CLOSED' && !sheet.releasedAt && <Button disabled={busy} onClick={() => setConfirm('release')}>Release results</Button>}</>} />
+    <PageHeader title={data.exam.examSection.displayName} meta={['Original exam monitoring', formatDateUTC(data.exam.examDate), sheet?.state ?? 'Not configured']} back={{ href: '/dashboard/admin/exam-monitoring', label: 'Exam Monitoring' }} actions={manage && sheet && <>{sheet.state !== 'OPEN' && !sheet.releasedAt && <Button disabled={busy} onClick={() => void action('open')}>Open exam</Button>}{sheet.state === 'OPEN' && <Button variant="outline" disabled={busy} onClick={() => setConfirm('close')}>Close exam</Button>}{sheet.state === 'CLOSED' && !sheet.releasedAt && <Button disabled={busy} onClick={() => setConfirm('release')}>Release results</Button>}</>} />
     {manage && !sheet?.openedAt && <Configuration key={`${sheet?.choiceCounts.join('')}:${data.answerKey?.join('')}`} view={data} busy={busy} save={(choiceCounts, answerKey) => void action('configure', { choiceCounts, answerKey })} />}
+    {manage && sheet?.openedAt && !sheet.releasedAt && !data.hasAttempts && <Panel title="Opened only for testing?" bodyClassName="p-4"><p className="mb-3 text-sm">Nobody has joined. Reset the test opening to hide the answer sheet from students and return it to draft. The answer key and all existing grades are preserved.</p><Button variant="outline" disabled={busy} onClick={() => setConfirm('reset')}>Reset test opening</Button></Panel>}
     {!manage && !sheet && <Panel bodyClassName="p-4">An exam leader has not configured an answer sheet yet.</Panel>}
     {sheet && <>
       <Panel title="Live monitoring" description="Activity flags support proctor review; they do not establish cheating." actions={<Button variant="outline" size="sm" onClick={() => { if (!sound) { audio.current ??= new AudioContext(); void audio.current.resume() } setSound(!sound) }}>{sound ? 'Mute alert sound' : 'Enable alert sound'}</Button>} bodyClassName="p-4">
@@ -100,6 +101,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
         })}</ul>
       </Panel>
     </>}
-    <Dialog open={!!confirm} onOpenChange={open => { if (!open) setConfirm(null) }}><DialogContent><DialogHeader><DialogTitle>{confirm === 'close' ? 'Close and finalize this exam?' : 'Release exam results?'}</DialogTitle><DialogDescription>{confirm === 'close' ? 'All started attempts will be submitted using saved answers. Blanks count as incorrect. Unsaved answers on student devices cannot be included. Submitted attempts cannot reopen.' : 'Grades will become visible to students and feed existing exam averages. This action does not change paper makeup grades.'}</DialogDescription></DialogHeader><div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button><Button disabled={busy} onClick={() => confirm && void action(confirm)}>{busy ? 'Saving…' : confirm === 'close' ? 'Close and submit saved answers' : 'Release results'}</Button></div></DialogContent></Dialog>
+    {!!data.completedHistory?.length && <Panel title="Past digital activity" bodyClassName="p-4"><details><summary className="cursor-pointer text-sm text-ink-3">View preserved activity history ({data.completedHistory.length} graded attempts)</summary><div className="mt-3 space-y-4">{data.completedHistory.map(row => <div key={row.student.id}><p className="text-sm font-medium">{row.student.name}</p><ol className="mt-2 space-y-1 border-l border-line pl-3">{row.events.map(event => <li key={event.id} className="text-sm"><time className="mr-2 text-xs text-ink-3">{new Date(event.createdAt).toLocaleString()}</time>{eventLabel[event.kind] ?? event.kind}</li>)}</ol></div>)}</div></details></Panel>}
+    <Dialog open={!!confirm} onOpenChange={open => { if (!open) setConfirm(null) }}><DialogContent><DialogHeader><DialogTitle>{confirm === 'reset' ? 'Reset this test opening?' : confirm === 'close' ? 'Close and finalize this exam?' : 'Release exam results?'}</DialogTitle><DialogDescription>{confirm === 'reset' ? 'This returns the answer sheet to draft and hides it from students. The answer key and all saved grades are preserved. Reset is blocked if any student has joined.' : confirm === 'close' ? 'All started attempts will be submitted using saved answers. Blanks count as incorrect. Unsaved answers on student devices cannot be included. Submitted attempts cannot reopen.' : 'Grades will become visible to students and feed existing exam averages. This action does not change paper makeup grades.'}</DialogDescription></DialogHeader><div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button><Button disabled={busy} onClick={() => confirm && void action(confirm)}>{busy ? 'Saving…' : confirm === 'reset' ? 'Reset test opening' : confirm === 'close' ? 'Close and submit saved answers' : 'Release results'}</Button></div></DialogContent></Dialog>
   </div>
 }

@@ -9,6 +9,8 @@ export interface DigitalExamView {
   sheet: { state: 'DRAFT' | 'OPEN' | 'CLOSED'; choiceCounts: number[]; openedAt: string | null; closedAt: string | null; releasedAt: string | null } | null
   attempt?: ExamAttemptView | null
   answerKey?: string[]; canManage?: boolean; realtimeConfigured?: boolean
+  hasAttempts?: boolean
+  completedHistory?: { student: { id: string; name: string }; events: ExamActivity[] }[]
   roster?: { student: { id: string; name: string }; eligible: boolean; attempt: (ExamAttemptView & { stale: boolean; answeredCount: number; events: ExamActivity[] }) | null }[]
 }
 export interface DigitalExamList { exams: (DigitalExamView['exam'] & { digitalSheet: { state: string; releasedAt: string | null; attempts: { state: string }[] } | null })[] }

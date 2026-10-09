@@ -25,7 +25,8 @@ export function publicAttempt(attempt: DigitalExamAttempt | null, released = fal
   return { id: attempt.id, state: attempt.state, answers: attempt.answers, revision: attempt.revision, startedAt: attempt.startedAt, lastSeenAt: attempt.lastSeenAt, pausedAt: attempt.pausedAt, submittedAt: attempt.submittedAt, ...(released ? { correctCount: attempt.correctCount, percentage: (attempt.correctCount ?? 0) * 2 } : {}) }
 }
 export const examSummarySelect = { id: true, examDate: true, yearLevel: true, totalPoints: true, academicYear: { select: { name: true } }, examSection: { select: { displayName: true } } } as const
-export async function eligibleForExam(db: Tx | typeof prisma, studentId: string, exam: Pick<Exam, 'academicYearId' | 'yearLevel'>) {
+export async function eligibleForExam(db: Tx | typeof prisma, studentId: string, exam: Pick<Exam, 'id' | 'academicYearId' | 'yearLevel'>) {
+  if (await db.examScore.findUnique({ where: { examId_studentId: { examId: exam.id, studentId } }, select: { id: true } })) return false
   const enrollment = await db.studentEnrollment.findUnique({ where: { studentId }, select: { isActive: true, status: true, yearLevel: true, academicYear: { select: { startDate: true } } } })
   if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || !eligibleYear(enrollment.yearLevel, exam.yearLevel)) return false
   const year = await db.academicYear.findUnique({ where: { id: exam.academicYearId }, select: { startDate: true, isActive: true } })
@@ -57,7 +58,7 @@ export function sessionHash(token: unknown) {
 export async function mutateExam(examId: string, input: Record<string, unknown>, access: Awaited<ReturnType<typeof examAccess>>) {
   const { user, manage, student } = access
   const action = input.action
-  const staffAction = ['configure', 'open', 'close', 'unlock', 'release'].includes(String(action))
+  const staffAction = ['configure', 'open', 'close', 'unlock', 'release', 'reset'].includes(String(action))
   if (staffAction ? !manage : !student) throw new Error('Forbidden')
   const result = await lockedExam(examId, async (tx, exam, sheet) => {
     if (action === 'configure') {
@@ -67,6 +68,12 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
       return { success: true }
     }
     if (!sheet) throw new ExamError('Set up the answer sheet first.', 409)
+    if (action === 'reset') {
+      if (sheet.releasedAt) throw new ExamError('Released exams cannot be reset.', 409)
+      if (await tx.digitalExamAttempt.count({ where: { examId } })) throw new ExamError('A student has joined this exam. Close it normally; attempts cannot be reset.', 409)
+      await tx.digitalExamSheet.update({ where: { examId }, data: { state: 'DRAFT', openedAt: null, closedAt: null } })
+      return { success: true }
+    }
     if (action === 'open') {
       if (sheet.releasedAt) throw new ExamError('Released exams cannot reopen.', 409)
       validateConfiguration(sheet.choiceCounts, sheet.answerKey)
