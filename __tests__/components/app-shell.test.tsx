@@ -89,6 +89,7 @@ describe('AppShell', () => {
     render(<AppShell>page</AppShell>)
     await userEvent.click(within(sidebar()).getByRole('button', { name: /Switch ministry/ }))
     const menu = await screen.findByRole('menu')
+    expect(document.body).not.toHaveAttribute('data-scroll-locked')
     expect(within(menu).getByRole('menuitem', { name: /Sunday School/ })).toHaveAttribute('href', '/dashboard/servants')
     expect(within(menu).getByRole('menuitem', { name: /Servants Prep/ })).toHaveAttribute('href', '/dashboard/admin')
   })
