@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { MinistrySwitcher } from './ministry-switcher'
 import { ThemeButton } from './theme-button'
 import { UserMenuItems } from './user-menu'
+import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 export function openCommandPalette() {
   window.dispatchEvent(new CustomEvent('open-command-palette'))
@@ -88,6 +89,8 @@ export function Sidebar({
   user: { name?: string | null; role: UserRole; roleLabel: string; imageUrl?: string | null }
   rail: boolean
 }) {
+  const shortcutModifier = useShortcutModifier()
+
   return (
     <aside
       data-sidebar
@@ -105,13 +108,15 @@ export function Sidebar({
         type="button"
         onClick={openCommandPalette}
         className="sidebar-search flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[13px] text-ink-3 hover:border-line-strong"
-        aria-label="Search (⌘K)"
+        aria-label={`Search${shortcutModifier ? ` (${shortcutModifier}K)` : ''}`}
       >
         <Search className="size-[15px] shrink-0" strokeWidth={1.75} aria-hidden />
         <span className="sidebar-label">Search</span>
-        <kbd className="sidebar-label ml-auto rounded-[4px] border border-line-strong px-[5px] font-mono text-[11px] leading-[14px]">
-          ⌘K
-        </kbd>
+        {shortcutModifier && (
+          <kbd className="sidebar-label ml-auto rounded-[4px] border border-line-strong px-[5px] font-mono text-[11px] leading-[14px]">
+            {shortcutModifier}K
+          </kbd>
+        )}
       </button>
 
       {/* Only the nav scrolls, so the account row stays in view on short screens. */}

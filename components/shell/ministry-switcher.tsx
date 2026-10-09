@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import {
@@ -14,6 +14,7 @@ import type { Ministry, MinistryOption } from '@/lib/navigation'
 import { MINISTRY_NAMES } from '@/lib/navigation'
 import { MinistryMark } from './ministry-mark'
 import { cn } from '@/lib/utils'
+import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 /**
  * Lists only the ministries this person can open; with one, it is a plain
@@ -35,11 +36,7 @@ export function MinistrySwitcher({
   // Controlled so it closes once the new ministry renders; the shell stays mounted
   // across navigation, and an uncontrolled menu could stay open over the new page.
   const [open, setOpen] = useState(false)
-  const shortcutModifier = useSyncExternalStore(
-    () => () => {},
-    () => (/Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? '⌘' : 'Ctrl+'),
-    () => null
-  )
+  const shortcutModifier = useShortcutModifier()
   useEffect(() => setOpen(false), [current])
 
   const label = (
