@@ -150,7 +150,7 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
         const date = typeof e.at === 'string' ? new Date(e.at) : null
         await tx.digitalExamEvent.create({ data: { attemptId: attempt.id, actorId: user.id, kind: String(e.kind), clientEventId: e.id, clientAt: date && !Number.isNaN(date.getTime()) ? date : null } })
         if (e.kind === 'HIDDEN' || e.kind === 'RETURNED') attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { pageVisible: e.kind === 'RETURNED' } })
-        if (['HIDDEN', 'OFFLINE', 'RECONNECTED'].includes(String(e.kind))) {
+        if (['HIDDEN', 'BLUR', 'OFFLINE', 'RECONNECTED'].includes(String(e.kind))) {
           attempt = await tx.digitalExamAttempt.update({ where: { id: attempt.id }, data: { state: 'PAUSED', pausedAt: new Date(), revision: { increment: 1 } } })
         }
       }

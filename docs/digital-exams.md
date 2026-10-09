@@ -13,9 +13,9 @@ when students may begin. Opening is not restricted by the scheduled exam date an
 Monitoring shows the eligible roster, started attempts, progress, last contact,
 paused attempts, submissions, and a durable activity history. Enable alert sound
 using the dashboard button; browsers require that user gesture for audio.
-Hidden-tab reports pause an attempt. Focus loss is logged separately without
-pausing. A proctor may unlock a paused attempt once the student has returned to
-the page and reconnected. Refreshing never clears a server pause.
+Hidden-tab and window focus-loss reports both pause an attempt and alert the proctor.
+Focus loss remains a separate event from page visibility. A proctor may unlock a paused attempt once the student has returned to
+the page and reconnected. Refreshing or regaining focus never clears a server pause.
 
 Closing finalizes all started attempts, including paused attempts, using only
 answers already saved on the server. Unanswered questions are incorrect. A
@@ -131,3 +131,5 @@ Leaders and priests can open **Exam Monitoring** from the sidebar, search by exa
 Students with an existing score for the exam are excluded from the proctor roster and cannot start another digital attempt or see its student link. This includes zero scores and paper makeup scores. Existing digital activity remains available under Past digital activity, without putting graded students back in the proctor roster.
 
 Student selections use the colored brand fill with white, bold letters. During an open, started attempt, the page requests a screen wake lock on supported browsers and releases it on submission, closure, or navigation away. Availability and release status are shown to the student. Low power or browser restrictions may prevent this. Phone locking still triggers normal visibility monitoring and proctor clearance; browsers do not reliably distinguish it from leaving the exam.
+
+Window focus loss now pauses answering immediately and persists through refresh and focus return. The proctor sees a focus-loss alert and must explicitly unlock. Notification quick replies are caught only if iOS reports focus loss or page hiding; overlays that produce neither signal cannot be reliably detected. Address-bar interactions or other benign focus changes may also pause the exam. Students are prompted to enable Do Not Disturb before starting.

@@ -19,7 +19,7 @@ beforeEach(() => {
   fetcher = vi.fn(async (_url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body))
     if (!online) throw new TypeError('Network unavailable')
-    if (body.action === 'events') { eventLog.push(...body.events); if (body.events.some((e: { kind: string }) => ['HIDDEN','OFFLINE','RECONNECTED'].includes(e.kind))) stored = { ...stored, state: 'PAUSED', revision: stored.revision + 1 } }
+    if (body.action === 'events') { eventLog.push(...body.events); if (body.events.some((e: { kind: string }) => ['HIDDEN','BLUR','OFFLINE','RECONNECTED'].includes(e.kind))) stored = { ...stored, state: 'PAUSED', revision: stored.revision + 1 } }
     if (body.action === 'save' && stored.state === 'ACTIVE') { const answers = [...stored.answers]; answers[body.question] = body.answer; stored = { ...stored, answers, revision: stored.revision + 1 } }
     if (body.action === 'submit') stored = { ...stored, state: 'SUBMITTED', revision: stored.revision + 1, submittedAt: '2026-10-09T20:00:00Z' }
     return { ok: true, json: async () => ({ attempt: structuredClone(stored), examState: 'OPEN' }) }
@@ -47,12 +47,17 @@ describe('exam browser controls', () => {
     await act(async () => { hidden = false; document.dispatchEvent(new Event('visibilitychange')) })
     expect(result.current.paused).toBe(true)
   })
-  it('records focus loss without pausing the answer sheet', async () => {
+  it('pauses immediately on window focus loss and requires clearance after returning', async () => {
     const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
     await act(async () => result.current.start())
-    await act(async () => window.dispatchEvent(new Event('blur')))
-    expect(eventLog.some(e => e.kind === 'BLUR')).toBe(true)
-    expect(result.current.paused).toBe(false)
+    act(() => window.dispatchEvent(new Event('blur')))
+    expect(result.current.paused).toBe(true)
+    act(() => result.current.choose(0, 'A'))
+    expect(result.current.answers[0]).toBe('')
+    await waitFor(() => expect(eventLog.some(e => e.kind === 'BLUR')).toBe(true))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(eventLog.some(e => e.kind === 'FOCUS')).toBe(true)
+    expect(result.current.paused).toBe(true)
   })
   it('preserves queued answers on connection loss and requires clearance on recovery', async () => {
     const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
