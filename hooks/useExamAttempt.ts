@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AttemptResponse, DigitalExamView, ExamAttemptView } from '@/lib/digital-exam-types'
+import { safeExamDestination } from '@/lib/digital-exams'
 import type { ClientEventKind } from '@/lib/digital-exams'
 
-type PendingEvent = { id: string; kind: ClientEventKind; at: string }
-type Draft = { answers: Record<string, string>; events: PendingEvent[] }
+type PendingEvent = { id: string; kind: ClientEventKind; at: string; destinationPath?: string }
+type Draft = { attemptNumber?: number; answers: Record<string, string>; events: PendingEvent[] }
 export function useExamAttempt(examId: string, userId: string, view?: DigitalExamView, refresh?: () => Promise<unknown>) {
   const [attempt, setAttempt] = useState<ExamAttemptView | null>(null)
   const [started, setStarted] = useState(false)
@@ -32,9 +33,15 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
   }, [storageKey])
   const apply = useCallback((next: ExamAttemptView) => {
     if (current.current && next.revision < current.current.revision) return
+    if (current.current && (next.attemptNumber ?? 1) !== (current.current.attemptNumber ?? 1)) {
+      own.current = false; setStarted(false); releaseLock.current?.(); releaseLock.current = null
+    }
+    if ((next.attemptNumber ?? 1) !== (draft.current.attemptNumber ?? 1)) {
+      draft.current = { attemptNumber: next.attemptNumber, answers: {}, events: [] }; persist()
+    }
     current.current = next; setAttempt(next)
     if (next.state === 'SUBMITTED') {
-      draft.current = { answers: {}, events: [] }; persist(); setPendingCount(0)
+      draft.current = { attemptNumber: next.attemptNumber, answers: {}, events: [] }; persist(); setPendingCount(0)
       releaseLock.current?.(); releaseLock.current = null
     }
     if (!draft.current.events.length && next.state === 'ACTIVE' && navigator.onLine && !document.hidden) {
@@ -61,7 +68,7 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
   }, [post, persist])
   const event = useCallback((kind: ClientEventKind) => {
     if (!own.current || current.current?.state === 'SUBMITTED') return
-    if (['HIDDEN', 'BLUR', 'OFFLINE', 'RECONNECTED'].includes(kind)) { paused.current = true; setLocallyPaused(true) }
+    if (['HIDDEN', 'BLUR', 'OFFLINE', 'RECONNECTED', 'SITE_NAVIGATION'].includes(kind)) { paused.current = true; setLocallyPaused(true) }
     draft.current.events.push({ id: crypto.randomUUID(), kind, at: new Date().toISOString() }); persist()
     void flushEvents()
   }, [persist, flushEvents])
@@ -110,7 +117,26 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
       window.removeEventListener('pagehide', pagehide)
     }
   }, [started, event, post, flushEvents, flushAnswers])
-  useEffect(() => () => { own.current = false; releaseLock.current?.() }, [])
+  const navigationReporter = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    navigationReporter.current = () => {
+      const destinationPath = safeExamDestination(window.location.pathname)
+      if (!own.current || current.current?.state === 'SUBMITTED' || !destinationPath) return
+      const navigation: PendingEvent = { id: crypto.randomUUID(), kind: 'SITE_NAVIGATION', at: new Date().toISOString(), destinationPath }
+      paused.current = true
+      draft.current.events.push(navigation); persist()
+      // Send even if another event batch is in flight. Retry IDs prevent duplicates;
+      // the durable local draft also retries this report when the student returns.
+      void post({ action: 'events', events: [navigation] }).catch(() => {})
+    }
+  }, [post, persist])
+  useEffect(() => {
+    const initialPath = window.location.pathname
+    return () => {
+      if (window.location.pathname !== initialPath) navigationReporter.current?.()
+      own.current = false; releaseLock.current?.()
+    }
+  }, [])
   async function start() {
     setBusy(true); setMessage('')
     try {

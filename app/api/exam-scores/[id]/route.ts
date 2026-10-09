@@ -14,7 +14,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (!record) throw new Error('Not found')
       if (body.score > record.exam.totalPoints) return null
       const originalPercentage = body.score / record.exam.totalPoints * 100
-      const effective = effectiveExamResult(originalPercentage, record.makeupScores.map(attempt => attempt.percentage), record.exam.totalPoints)
+      const effective = effectiveExamResult(originalPercentage, record.makeupScores.map(attempt => attempt.percentage), record.exam.totalPoints, record.digitalRetakePercentage)
       return tx.examScore.update({ where: { id }, data: { originalScore: body.score, originalPercentage, ...effective, gradedBy: user.id, ...(body.notes !== undefined ? { notes: body.notes || null } : {}) }, include: { student: { select: { id: true, name: true } } } })
     })
     if (!result) return NextResponse.json({ error: 'Score cannot exceed the exam total points.' }, { status: 400 })

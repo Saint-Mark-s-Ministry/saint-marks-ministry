@@ -63,7 +63,7 @@ async function save(request: Request, { params }: Context, editing: boolean) {
         ? await tx.makeupExamScore.update({ where: { id: input.attemptId }, data })
         : await tx.makeupExamScore.create({ data: { ...data, examScoreId: record.id } })
       const attempts = await tx.makeupExamScore.findMany({ where: { examScoreId: record.id }, select: { percentage: true } })
-      const effective = effectiveExamResult(record.originalPercentage, attempts.map(row => row.percentage), exam.totalPoints)
+      const effective = effectiveExamResult(record.originalPercentage, attempts.map(row => row.percentage), exam.totalPoints, record.digitalRetakePercentage)
       await tx.examScore.update({ where: { id: record.id }, data: effective })
       return attempt
     })

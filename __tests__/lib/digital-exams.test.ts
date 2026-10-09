@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RoleTag } from '@prisma/client'
-import { canAnswer, eligibleYear, examPermissions, gradeAnswers, staleContact, validAnswer, validateConfiguration } from '@/lib/digital-exams'
+import { canAnswer, eligibleYear, examPermissions, gradeAnswers, safeExamDestination, staleContact, validAnswer, validateConfiguration } from '@/lib/digital-exams'
 import type { AuthorizationContext } from '@/lib/authorization'
 const context = (tags: RoleTag[], readOnly = false, disabled = false): AuthorizationContext => ({ userId: 'user', roleTags: new Set(tags), readOnly, disabled, sundaySchoolYearId: null, prepStudentScope: { kind: 'none' }, sundaySchoolClassScope: { kind: 'none' }, guardianChildScope: { kind: 'none' }, ownSundaySchoolChildId: null })
 
@@ -27,7 +27,18 @@ describe('digital exam rules', () => {
     expect(validAnswer(7, 'H', counts)).toBe(true)
     expect(validAnswer(0, 'H', counts)).toBe(false)
     expect(validAnswer(7, 'I', counts)).toBe(false)
-    for (const count of [3, 9, 4.5]) { counts[7] = count; expect(() => validateConfiguration(counts, key)).toThrow('four and eight') }
+    for (const count of [1, 9, 4.5]) { counts[7] = count; expect(() => validateConfiguration(counts, key)).toThrow('two and eight') }
+  })
+  it('supports true/false and three-choice questions without accepting extra bubbles', () => {
+    const counts = Array(50).fill(4); counts[0] = 2; counts[1] = 3
+    const key = Array(50).fill('A'); key[0] = 'B'; key[1] = 'C'
+    expect(validateConfiguration(counts, key).choiceCounts.slice(0, 2)).toEqual([2, 3])
+    expect(validAnswer(0, 'C', counts)).toBe(false)
+    expect(validAnswer(1, 'D', counts)).toBe(false)
+  })
+  it('keeps navigation reports to site paths and omits queries and fragments', () => {
+    expect(safeExamDestination('/dashboard/files?token=private#details')).toBe('/dashboard/files')
+    for (const path of ['https://other.example', '//other.example', '/api/profile', '/dashboard/../settings', '/dashboard/' + 'a'.repeat(200)]) expect(safeExamDestination(path)).toBeNull()
   })
   it('grades blanks as incorrect with equal weights', () => {
     expect(gradeAnswers(['A', '', 'C', 'D'], ['A', 'B', 'B', 'D'])).toBe(2)

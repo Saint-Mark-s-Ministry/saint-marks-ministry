@@ -100,6 +100,19 @@ describe('makeup score API', () => {
     expect((await patchOriginal(request({ score: 45 }), params)).status).toBe(200)
     expect(mocks.updateRecord.mock.calls[0][0].data).toMatchObject({ originalScore: 45, originalPercentage: 45, score: 80, percentage: 80 })
   })
+  it('retains released digital retakes when correcting original and paper makeup grades', async () => {
+    mocks.record.mockResolvedValue({ ...record, digitalRetakePercentage: 90, makeupScores: [{ id: 'attempt', percentage: 80 }] })
+    expect((await patchOriginal(request({ score: 45 }), params)).status).toBe(200)
+    expect(mocks.updateRecord.mock.calls[0][0].data).toMatchObject({ originalPercentage: 45, percentage: 90, score: 90 })
+    mocks.updateRecord.mockClear()
+    mocks.attempts.mockResolvedValue([{ percentage: 40 }])
+    expect((await PATCH(request({ ...input, score: 40, attemptId: 'attempt' }), params)).status).toBe(200)
+    expect(mocks.updateRecord.mock.calls[0][0].data).toEqual({ percentage: 90, score: 90 })
+  })
+  it('rejects an original grade exceeding the total before changing any score', async () => {
+    expect((await patchOriginal(request({ score: 101 }), params)).status).toBe(400)
+    expect(mocks.updateRecord).not.toHaveBeenCalled()
+  })
   it('retries serialization conflicts rather than losing a concurrent grade', async () => {
     mocks.transaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('Conflict', { code: 'P2034', clientVersion: '6.19.3' }))
     expect((await POST(request(input), params)).status).toBe(201)

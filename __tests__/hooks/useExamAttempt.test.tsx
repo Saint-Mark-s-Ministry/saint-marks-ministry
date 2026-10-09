@@ -19,7 +19,7 @@ beforeEach(() => {
   fetcher = vi.fn(async (_url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body))
     if (!online) throw new TypeError('Network unavailable')
-    if (body.action === 'events') { eventLog.push(...body.events); if (body.events.some((e: { kind: string }) => ['HIDDEN','BLUR','OFFLINE','RECONNECTED'].includes(e.kind))) stored = { ...stored, state: 'PAUSED', revision: stored.revision + 1 } }
+    if (body.action === 'events') { eventLog.push(...body.events); if (body.events.some((e: { kind: string }) => ['HIDDEN','BLUR','OFFLINE','RECONNECTED','SITE_NAVIGATION'].includes(e.kind))) stored = { ...stored, state: 'PAUSED', revision: stored.revision + 1 } }
     if (body.action === 'save' && stored.state === 'ACTIVE') { const answers = [...stored.answers]; answers[body.question] = body.answer; stored = { ...stored, answers, revision: stored.revision + 1 } }
     if (body.action === 'submit') stored = { ...stored, state: 'SUBMITTED', revision: stored.revision + 1, submittedAt: '2026-10-09T20:00:00Z' }
     return { ok: true, json: async () => ({ attempt: structuredClone(stored), examState: 'OPEN' }) }
@@ -59,6 +59,18 @@ describe('exam browser controls', () => {
     expect(eventLog.some(e => e.kind === 'FOCUS')).toBe(true)
     expect(result.current.paused).toBe(true)
   })
+  it('reports internal page navigation and keeps the report for recovery', async () => {
+    window.history.replaceState(null, '', '/dashboard/student/exams/exam')
+    const { result, unmount } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    window.history.pushState(null, '', '/dashboard/files?private=ignored')
+    unmount()
+    await waitFor(() => expect(eventLog.some(e => e.kind === 'SITE_NAVIGATION')).toBe(true))
+    const saved = JSON.parse(localStorage.getItem('digital-exam:student:exam')!)
+    expect(saved.events.find((e: { kind: string }) => e.kind === 'SITE_NAVIGATION').destinationPath).toBe('/dashboard/files')
+    expect(stored.state).toBe('PAUSED')
+    window.history.replaceState(null, '', '/')
+  })
   it('preserves queued answers on connection loss and requires clearance on recovery', async () => {
     const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
     await act(async () => result.current.start())
@@ -81,4 +93,26 @@ describe('exam browser controls', () => {
     expect(result.current.answers[0]).toBe('')
     expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).answers).toEqual({})
   })
+  it('discards pending answers and events from an earlier attempt version before starting a retake', async () => {
+    localStorage.setItem('digital-exam:student:exam', JSON.stringify({ answers: { '0': 'E' }, events: [{ id: crypto.randomUUID(), kind: 'HIDDEN', at: new Date().toISOString() }] }))
+    stored = { ...stored, attemptNumber: 2, revision: 4 }
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    expect(result.current.answers[0]).toBe('')
+    expect(result.current.pendingCount).toBe(0)
+    expect(eventLog).toEqual([])
+    expect(result.current.paused).toBe(false)
+  })
+
+  it('returns an existing browser session to the start screen when a leader approves a new version', async () => {
+    stored = { ...stored, attemptNumber: 1, state: 'SUBMITTED' }
+    const { result, rerender } = renderHook(({ examView }) => useExamAttempt('exam', 'student', examView), { initialProps: { examView: view } })
+    await act(async () => result.current.start())
+    expect(result.current.started).toBe(true)
+    const approved = { ...stored, state: 'PAUSED' as const, attemptNumber: 2, retakeReady: true, revision: 1 }
+    rerender({ examView: { ...view, attempt: approved } })
+    await waitFor(() => expect(result.current.started).toBe(false))
+    expect(result.current.answers.every(answer => answer === '')).toBe(true)
+  })
+
 })

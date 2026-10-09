@@ -7,6 +7,10 @@ describe('makeup exam scoring', () => {
     expect(effectiveExamResult(55, [40], 100)).toEqual({ score: 55, percentage: 55 })
     expect(effectiveExamResult(null, [0], 100)).toEqual({ score: 0, percentage: 0 })
   })
+  it('preserves a released digital retake when paper results are corrected', () => {
+    expect(effectiveExamResult(50, [60], 100, 90)).toEqual({ score: 90, percentage: 90 })
+    expect(effectiveExamResult(50, [95], 100, 90)).toEqual({ score: 95, percentage: 95 })
+  })
   it('normalizes different makeup totals to the original exam scale', () => {
     expect(effectiveExamResult(50, [80], 50)).toEqual({ score: 40, percentage: 80 })
   })

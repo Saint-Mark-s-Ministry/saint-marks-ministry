@@ -10,7 +10,7 @@ export async function GET() {
     const exams = await prisma.exam.findMany({
       where: staff ? {} : {
         digitalSheet: { state: 'OPEN' },
-        scores: { none: { studentId: user.id } },
+        OR: [{ digitalSheet: { releasedAt: null }, scores: { none: { studentId: user.id } } }, { digitalSheet: { attempts: { some: { studentId: user.id, attemptNumber: { gt: 1 }, resultReleasedAt: null } } } }],
         yearLevel: { in: [enrollment!.yearLevel, 'BOTH'] },
         academicYear: enrollment!.academicYear ? { startDate: { gte: enrollment!.academicYear.startDate } } : { isActive: true },
       },

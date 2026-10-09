@@ -678,6 +678,7 @@ model ExamScore {
   percentage Float
   originalScore Float?
   originalPercentage Float?
+  digitalRetakePercentage Float? // Highest released digital retake; retained during paper grade corrections
   notes      String?  @db.Text
   gradedBy   String?
   gradedAt   DateTime @default(now())
@@ -1941,6 +1942,10 @@ model DigitalExamAttempt {
   pausedAt DateTime?
   submittedAt DateTime?
   correctCount Int?
+  attemptNumber Int @default(1)
+  retakeReady Boolean @default(false)
+  resultReleasedAt DateTime?
+  archives DigitalExamAttemptArchive[]
   sheet DigitalExamSheet @relation(fields: [examId], references: [examId], onDelete: Cascade)
   student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
   events DigitalExamEvent[]
@@ -1952,11 +1957,27 @@ model DigitalExamEvent {
   id String @id @default(cuid())
   attemptId String
   kind String
+  attemptNumber Int @default(1)
   actorId String
   clientEventId String?
+  questionNumber Int?
+  answerChoice String?
+  destinationPath String?
   clientAt DateTime?
   createdAt DateTime @default(now())
   attempt DigitalExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   @@unique([attemptId, clientEventId])
   @@index([attemptId, createdAt])
+}
+
+// Immutable prior submissions, retained when a leader approves an individual retake.
+model DigitalExamAttemptArchive {
+  id String @id @default(cuid())
+  attemptId String
+  attemptNumber Int
+  snapshot Json
+  approvedBy String
+  archivedAt DateTime @default(now())
+  attempt DigitalExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  @@unique([attemptId, attemptNumber])
 }

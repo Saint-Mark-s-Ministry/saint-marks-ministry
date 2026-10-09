@@ -23,7 +23,7 @@ const states: Record<string, { label: string; tone: Tone; order: number }> = {
   CLOSED: { label: 'Closed', tone: 'warn', order: 3 },
   RELEASED: { label: 'Results released', tone: 'neutral', order: 4 },
 }
-const examState = (exam: Exam) => exam.digitalSheet?.releasedAt ? 'RELEASED' : exam.digitalSheet?.state ?? 'UNCONFIGURED'
+const examState = (exam: Exam) => exam.digitalSheet?.state === 'CLOSED' && exam.digitalSheet.releasedAt ? 'RELEASED' : exam.digitalSheet?.state ?? 'UNCONFIGURED'
 const yearLabels: Record<string, string> = { YEAR_1: 'Year 1', YEAR_2: 'Year 2', BOTH: 'Both years' }
 
 export default function ExamMonitoringPage() {
