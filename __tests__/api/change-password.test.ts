@@ -77,6 +77,21 @@ describe('change password API', () => {
     })
   })
 
+  it('returns Sunday School for a mentor who serves there without Prep leadership', async () => {
+    mocks.requireAuth.mockResolvedValue({
+      id: 'mentor-1',
+      role: 'MENTOR',
+      sundaySchool: { hasAccess: true },
+      ministryMembership: { sundaySchoolServant: true, servantsPrepLeader: false },
+    })
+    mocks.findUnique.mockResolvedValue({ id: 'mentor-1', password: 'old-hash' })
+
+    const response = await POST(request({ currentPassword: 'Welcome123!', newPassword: 'NewPassword123!' }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ destination: '/dashboard/servants' })
+  })
+
   it('does not change the password when the current password is wrong', async () => {
     mocks.compare.mockResolvedValue(false)
 

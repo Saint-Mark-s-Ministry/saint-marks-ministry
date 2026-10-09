@@ -98,7 +98,7 @@ export default function ChangePasswordPage() {
 
       const destination = typeof data.destination === 'string'
         ? data.destination
-        : defaultDashboardPath(session?.user?.role)
+        : defaultDashboardPath(session?.user)
       router.replace(destination)
       router.refresh()
     } catch (error: unknown) {

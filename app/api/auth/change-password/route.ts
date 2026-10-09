@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: "Password updated successfully",
-      destination: defaultDashboardPath(user.role),
+      destination: defaultDashboardPath(user),
     })
   } catch (error: unknown) {
     return NextResponse.json(

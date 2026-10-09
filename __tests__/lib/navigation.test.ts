@@ -96,6 +96,17 @@ describe('ministries', () => {
     expect(availableMinistries({ role: 'STUDENT', ...servesSS })).toHaveLength(1)
   })
 
+  it('puts Sunday School first for a servant without Prep leadership', () => {
+    const user = {
+      role: 'MENTOR' as const,
+      ...servesSS,
+      ministryMembership: { sundaySchoolServant: true, servantsPrepLeader: false },
+    }
+    expect(availableMinistries(user).map((ministry) => ministry.id)).toEqual(['sunday-school', 'prep'])
+    expect(resolveMinistry(user, '/settings')).toBe('sunday-school')
+    expect(resolveMinistry(user, '/dashboard/mentor')).toBe('prep')
+  })
+
   it('keeps single-ministry users in their ministry on shared pages', () => {
     expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/settings')).toBe('sunday-school')
     expect(resolveMinistry({ role: 'PARENT' }, '/settings')).toBe('sunday-school')

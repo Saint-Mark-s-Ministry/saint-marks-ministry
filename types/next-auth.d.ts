@@ -11,6 +11,11 @@ export interface SundaySchoolStanding {
   hasHomeworkAccess: boolean
 }
 
+export interface MinistryMembership {
+  sundaySchoolServant: boolean
+  servantsPrepLeader: boolean
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -19,6 +24,7 @@ declare module "next-auth" {
       mustChangePassword: boolean
       isAsyncStudent: boolean
       sundaySchool: SundaySchoolStanding
+      ministryMembership: MinistryMembership
       profileImageUrl?: string | null
     } & DefaultSession["user"]
     // Read-only View as mode. user.* is the effective identity while this
@@ -38,6 +44,7 @@ declare module "next-auth" {
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding
+    ministryMembership?: MinistryMembership
     profileImageUrl?: string | null
   }
 }
@@ -50,6 +57,7 @@ declare module "next-auth/jwt" {
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding
+    ministryMembership?: MinistryMembership
     profileImageUrl?: string | null
     validatedAt?: number
     invalidated?: boolean

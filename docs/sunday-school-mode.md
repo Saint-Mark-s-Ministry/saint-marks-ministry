@@ -226,10 +226,12 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
-`components/navbar.tsx` shows a **mode switcher** between Servants Prep and
-Sunday School for anyone with a foot in both — which is how a `SERVANT_PREP`
-or `MENTOR` who also serves moves between them. A `SERVANT` has only one mode
-and sees no switcher.
+The app shell shows a **mode switcher** between Servants Prep and Sunday School
+for anyone with access to both. A Sunday School servant without an active
+Servants Prep Leader tag opens Sunday School by default, including when their
+legacy role is `MENTOR` or `SUPER_ADMIN`. Servants Prep leaders keep Prep as
+their default. The switcher still gives access to the other ministry. A
+`SERVANT` has only one mode and sees no switcher.
 
 Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
 student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
@@ -318,8 +320,8 @@ Worth exercising when changing this area:
    and gets 403 from the API — the regression this model exists to prevent.
 2. Assigning that same person to a class gives them access and the mode
    switcher, without changing their role.
-3. Assigning a **`MENTOR`** keeps their mentor dashboard and adds Sunday School
-   to the mode switcher; their primary role does not change.
+3. Assigning a **`MENTOR`** keeps their mentor dashboard available in the mode
+   switcher, but opens Sunday School by default; their primary role does not change.
 4. A **band coordinator** sees every class in their band and none outside it,
    and can create a class at their levels but not others.
 5. A **class coordinator** can staff their class but cannot create or delete one.
