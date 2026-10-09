@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserRole } from '@prisma/client'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
@@ -41,6 +41,8 @@ import { AppShell } from '@/components/shell/app-shell'
 const sidebar = () => screen.getByRole('complementary', { name: 'Main' })
 
 describe('AppShell', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   beforeEach(() => {
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
@@ -100,10 +102,19 @@ describe('AppShell', () => {
     mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
     render(<AppShell>page</AppShell>)
 
+    expect(within(sidebar()).getByRole('button', { name: 'Search (Ctrl+K)' })).toHaveTextContent('Ctrl+K')
+
     await userEvent.click(within(sidebar()).getByRole('button', { name: /Switch ministry/ }))
     const shortcut = within(await screen.findByRole('menu')).getByText('Ctrl+2')
 
     expect(shortcut).toHaveClass('hidden', 'md:inline')
+  })
+
+  it('shows the Command shortcut for Search on Mac', () => {
+    vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('MacIntel')
+    render(<AppShell>page</AppShell>)
+
+    expect(within(sidebar()).getByRole('button', { name: 'Search (⌘K)' })).toHaveTextContent('⌘K')
   })
 
   it('closes the ministry menu once the other ministry renders', async () => {

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
+import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 interface SearchUser {
   id: string
@@ -133,6 +134,7 @@ function getNavItemsForRole(
 }
 
 export function CommandPalette() {
+  const shortcutModifier = useShortcutModifier()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [students, setStudents] = useState<SearchUser[]>([])
@@ -381,9 +383,11 @@ export function CommandPalette() {
                 {'  '}
                 <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">↵</kbd> select
               </span>
-              <span>
-                <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">⌘K</kbd> to toggle
-              </span>
+              {shortcutModifier && (
+                <span className="hidden md:inline">
+                  <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">{shortcutModifier}K</kbd> to toggle
+                </span>
+              )}
             </div>
           </Command>
         </DialogPrimitive.Content>
