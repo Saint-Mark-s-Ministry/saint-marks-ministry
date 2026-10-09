@@ -735,12 +735,23 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Radix locks the body while a modal is open. The root already owns the
-     stable scrollbar gutter, so only remove Radix's width compensation here;
-     making the body scrollable too would create a second scrollbar. */
+  /* The root owns the desktop scrollbar and its stable gutter. Remove Radix's
+     body width compensation so opening a modal does not shift the page. */
   html body[data-scroll-locked] {
     margin-right: 0 !important;
     padding-right: 0 !important;
+  }
+
+  @media (min-width: 768px) {
+    /* Radix adds overflow:hidden to body, which makes it the sticky sidebar's
+       scroll container even though the root is the element that scrolled.
+       Clip the body without creating a scroll container, and lock the root. */
+    html:has(body[data-scroll-locked]) {
+      overflow-y: hidden;
+    }
+    html body[data-scroll-locked] {
+      overflow: clip !important;
+    }
   }
 
 }

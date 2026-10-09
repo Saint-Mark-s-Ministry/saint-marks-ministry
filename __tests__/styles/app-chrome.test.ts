@@ -9,13 +9,14 @@ const adminSettingsPage = readFileSync(
 )
 
 describe('global app chrome styles', () => {
-  it('keeps the desktop scrollbar gutter stable while overlays are open', () => {
+  it('keeps the desktop gutter and sticky sidebar stable while overlays lock scrolling', () => {
     expect(globalStyles).toMatch(/html\s*{[\s\S]*?overflow-y:\s*scroll;[\s\S]*?scrollbar-gutter:\s*stable;/)
     const lockedBodyRule = globalStyles.match(/html body\[data-scroll-locked\]\s*{([^}]*)}/)?.[1]
 
     expect(lockedBodyRule).toContain('margin-right: 0 !important;')
     expect(lockedBodyRule).toContain('padding-right: 0 !important;')
-    expect(lockedBodyRule).not.toContain('overflow')
+    expect(globalStyles).toMatch(/html:has\(body\[data-scroll-locked\]\)\s*{\s*overflow-y:\s*hidden;/)
+    expect(globalStyles).toMatch(/html body\[data-scroll-locked\]\s*{\s*overflow:\s*clip !important;/)
   })
 
   it('uses the shared app canvas behind top-level dashboard pages', () => {
