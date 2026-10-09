@@ -352,3 +352,14 @@ re-deriving anything: list and detail responses carry `canServe`,
 
 When you add a permission, add its denial cases too — a test that only proves
 the happy path does not protect anything.
+
+## Digital original-exam answer sheets
+
+`/api/digital-exams` resolves the current database authorization context. Prep
+leaders and super admins configure, open, close, unlock, and release results.
+Priests may read monitoring but never write. Active prep students access only
+their own eligible original-exam attempts; mentor and Sunday School-only tags
+grant no exam-monitoring access. Paper makeup workflows remain separate.
+
+See [digital-exams.md](digital-exams.md) for eligibility, state controls,
+private grades, free live-alert setup, and deployment verification.

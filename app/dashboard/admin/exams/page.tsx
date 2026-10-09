@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { refreshMakeupExamScores } from '@/lib/swr'
 import { MakeupExamScores } from '@/components/makeup-exam-scores'
 import { MakeupExamBookings } from '@/components/makeup-exam-bookings'
@@ -642,6 +643,7 @@ function ExamsPageContent() {
                     )}
                   </span>
                   <span className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" asChild><Link href={`/dashboard/admin/exams/${exam.id}/monitor`}>Answer sheet</Link></Button>
                     <Button variant="outline" size="sm" onClick={() => openEnterScores(exam)}>
                       <PencilLine />
                       {canEdit ? 'Enter scores' : 'View scores'}
