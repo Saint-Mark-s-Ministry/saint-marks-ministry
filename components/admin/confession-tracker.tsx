@@ -146,7 +146,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
     <EmptyState message={rows.length === 0 ? 'No active students this year.' : 'No students match these filters.'} />
   ) : (
     <div className="w-full overflow-x-auto">
-      <table className="min-w-max border-collapse text-[13px] text-ink">
+      <table className="w-full min-w-max border-collapse text-[13px] text-ink">
         <thead className="bg-raised">
           <tr className="border-b border-line text-left text-xs text-ink-3">
             {!enrollment && (

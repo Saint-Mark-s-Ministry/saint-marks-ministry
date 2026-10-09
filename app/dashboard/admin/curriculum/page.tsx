@@ -580,7 +580,7 @@ export default function CurriculumPage() {
                       <th scope="col" className="w-36 px-2 font-medium">Speaker</th>
                       <th scope="col" className="w-40 px-2 font-medium">Section</th>
                       <th scope="col" className="w-14 px-2 text-center font-medium">Exam</th>
-                      <th scope="col" className="w-28 px-2 text-center font-medium">Status</th>
+                      <th scope="col" className="w-36 px-2 text-center font-medium">Status</th>
                       <th scope="col" className="w-24"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>

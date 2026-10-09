@@ -165,37 +165,39 @@ export function SortableRow({
         {/* Status + Attendance */}
         <td className="p-2 text-center">
           <div className="flex items-center justify-center gap-1">
-            {canEdit ? (
-              <select
-                value={currentStatus}
-                onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
-                className={`h-7 rounded-md border px-1 text-xs font-medium ${
-                  currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
-                  currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
-                  currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
-                  'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                }`}
-              >
-                <option value="SCHEDULED">Scheduled</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
-                <option value="NO_CLASS">No Class</option>
-              </select>
-            ) : (
-              <Badge
-                className={`text-xs ${
-                  currentStatus === 'COMPLETED' ? 'bg-green-500' :
-                  currentStatus === 'CANCELLED' ? 'bg-red-500' :
-                  currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
-                  'bg-maroon-600'
-                }`}
-              >
-                {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
-              </Badge>
-            )}
-            {hasAttendance && (
-              <span className="text-xs text-gray-500">{lesson._count.attendanceRecords}</span>
-            )}
+            <div className="w-24 shrink-0 text-left">
+              {canEdit ? (
+                <select
+                  value={currentStatus}
+                  onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
+                  className={`h-7 w-full rounded-md border px-1 text-xs font-medium ${
+                    currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
+                    currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
+                    currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
+                    'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                  }`}
+                >
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                  <option value="NO_CLASS">No Class</option>
+                </select>
+              ) : (
+                <Badge
+                  className={`text-xs ${
+                    currentStatus === 'COMPLETED' ? 'bg-green-500' :
+                    currentStatus === 'CANCELLED' ? 'bg-red-500' :
+                    currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
+                    'bg-maroon-600'
+                  }`}
+                >
+                  {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
+                </Badge>
+              )}
+            </div>
+            <span className="w-5 shrink-0 text-left text-xs text-gray-500">
+              {hasAttendance ? lesson._count.attendanceRecords : ''}
+            </span>
           </div>
         </td>
         {/* Actions */}
