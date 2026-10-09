@@ -61,7 +61,7 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
   }, [post, persist])
   const event = useCallback((kind: ClientEventKind) => {
     if (!own.current || current.current?.state === 'SUBMITTED') return
-    if (['HIDDEN', 'OFFLINE', 'RECONNECTED'].includes(kind)) { paused.current = true; setLocallyPaused(true) }
+    if (['HIDDEN', 'BLUR', 'OFFLINE', 'RECONNECTED'].includes(kind)) { paused.current = true; setLocallyPaused(true) }
     draft.current.events.push({ id: crypto.randomUUID(), kind, at: new Date().toISOString() }); persist()
     void flushEvents()
   }, [persist, flushEvents])

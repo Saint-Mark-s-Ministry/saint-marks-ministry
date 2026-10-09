@@ -113,6 +113,26 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(await db.digitalExamEvent.count({ where: { attemptId: attempt.id, kind: 'HIDDEN' } })).toBe(1)
     await act('save', { question: 0, answer: 'E', revision: resumed.revision })
   }, 30000)
+  it('persists focus-loss pauses on a visible page without auto-unlocking on focus return', async () => {
+    await act('start')
+    const event = { id: randomUUID(), kind: 'BLUR', at: new Date().toISOString() }
+    await act('events', { events: [event], visible: true })
+    let attempt = await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })
+    expect(attempt.state).toBe('PAUSED')
+    expect(attempt.pageVisible).toBe(true)
+    expect(await act('save', { question: 0, answer: 'E', revision: attempt.revision })).toHaveProperty('blocked', true)
+    await act('events', { events: [{ id: randomUUID(), kind: 'FOCUS' }], visible: true })
+    expect((await db.digitalExamAttempt.findUniqueOrThrow({ where: { id: attempt.id } })).state).toBe('PAUSED')
+    await admin('unlock', { attemptId: attempt.id })
+    await act('events', { events: [event] })
+    attempt = await db.digitalExamAttempt.findUniqueOrThrow({ where: { id: attempt.id } })
+    expect(attempt.state).toBe('ACTIVE')
+    expect(await db.digitalExamEvent.count({ where: { attemptId: attempt.id, kind: 'BLUR' } })).toBe(1)
+    await act('save', { question: 0, answer: 'E', revision: attempt.revision })
+    identity.tag = 'SERVANTS_PREP_SERVANT'
+    const view = await (await get()).json()
+    expect(view.roster.find((row: { student: { id: string } }) => row.student.id === fixture.studentId).attempt.events.some((e: { kind: string }) => e.kind === 'BLUR')).toBe(true)
+  }, 30000)
   it('detects stale contact and persists the pause even when an answer is blocked', async () => {
     await act('start')
     await db.digitalExamAttempt.updateMany({ where: { examId: fixture.examId }, data: { lastSeenAt: new Date(Date.now() - 31000) } })

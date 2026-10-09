@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ANSWER_CHOICES } from '@/lib/digital-exams'
 import { formatDateUTC } from '@/lib/utils'
 
-const eventLabel: Record<string, string> = { STARTED: 'Started exam', HIDDEN: 'Left exam tab', HIDDEN_RECOVERY: 'Hidden tab detected', RETURNED: 'Returned to exam tab', BLUR: 'Window lost focus', FOCUS: 'Window regained focus', OFFLINE: 'Lost internet connection', RECONNECTED: 'Reconnected — clearance required', CONTACT_LOST: 'Contact lost — clearance required', SESSION_RECOVERY: 'Recovered answering session', UNLOCKED: 'Unlocked by proctor', SUBMITTED: 'Submitted final answers', CLOSED_BY_PROCTOR: 'Finalized when exam closed' }
-const departureKinds = new Set(['HIDDEN', 'HIDDEN_RECOVERY', 'OFFLINE', 'CONTACT_LOST', 'SESSION_RECOVERY', 'RECONNECTED'])
+const eventLabel: Record<string, string> = { STARTED: 'Started exam', HIDDEN: 'Left exam tab', HIDDEN_RECOVERY: 'Hidden tab detected', RETURNED: 'Returned to exam tab', BLUR: 'Exam lost focus — clearance required', FOCUS: 'Window regained focus', OFFLINE: 'Lost internet connection', RECONNECTED: 'Reconnected — clearance required', CONTACT_LOST: 'Contact lost — clearance required', SESSION_RECOVERY: 'Recovered answering session', UNLOCKED: 'Unlocked by proctor', SUBMITTED: 'Submitted final answers', CLOSED_BY_PROCTOR: 'Finalized when exam closed' }
+const departureKinds = new Set(['HIDDEN', 'BLUR', 'HIDDEN_RECOVERY', 'OFFLINE', 'CONTACT_LOST', 'SESSION_RECOVERY', 'RECONNECTED'])
 function Configuration({ view, save, busy }: { view: DigitalExamView; save: (counts: number[], key: string[]) => void; busy: boolean }) {
   const [counts, setCounts] = useState(view.sheet?.choiceCounts ?? Array(50).fill(4))
   const [key, setKey] = useState(view.answerKey ?? Array(50).fill(''))
