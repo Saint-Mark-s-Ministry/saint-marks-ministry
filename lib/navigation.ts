@@ -211,6 +211,7 @@ export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
             { href: '/dashboard/student', label: 'My progress', icon: Home, tab: true, tabLabel: 'Progress' },
             { href: '/dashboard/student/lessons', label: 'My lessons', icon: BookOpen, tab: true, tabLabel: 'Lessons' },
             { href: '/dashboard/student/class-lessons', label: 'Class lessons', icon: Presentation, tab: true, tabLabel: 'Class' },
+            { href: '/dashboard/student/makeup-exams', label: 'Makeup exams', icon: CalendarCheck },
             { href: '/dashboard/files', label: 'Files', icon: Folder, tab: true },
           ],
         },

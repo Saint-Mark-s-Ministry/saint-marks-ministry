@@ -69,6 +69,15 @@ Two rules that hold in both directions:
 - **`SERVANT_PREP` has no Sunday School permission.** Running the prep program
   confers nothing in the other mode.
 
+Active Servants Prep students may create, reschedule, and cancel their own
+makeup exam bookings through `/api/makeup-exams`. This self-service exception
+does not grant exam or score editing. The route resolves current role tags
+from the database, filters eligible failed or missed exams to the student's program
+years and enrollment academic years (the active academic year when the
+starting year is unknown), and ignores client-supplied student identities.
+Only prep administrators and priests can read the full booking list; mentors
+and Sunday School-only participants have no access to it.
+
 `PRIEST` is read-only **everywhere**. When adding a write path, confirm it is
 excluded.
 
