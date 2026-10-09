@@ -19,7 +19,7 @@ export default function DashboardPage() {
         return
       }
 
-      router.replace(defaultDashboardPath(session?.user?.role))
+      router.replace(defaultDashboardPath(session?.user))
     }
   }, [status, session, router])
 

@@ -121,7 +121,7 @@ export function ViewAsMode() {
       if (!switchingViewedUser) rememberViewAsReturnPath()
       // A full navigation to the viewed account's home: staying on this page would
       // refetch it as that account (403s) and keep data cached for the admin.
-      replaceBrowserLocation(defaultDashboardPath(updated.user.role))
+      replaceBrowserLocation(defaultDashboardPath(updated.user))
     } finally {
       setBusy(false)
     }
@@ -139,7 +139,7 @@ export function ViewAsMode() {
       // clears data cached for the viewed user and prevents Next.js from
       // restoring the target user's old route during the identity change.
       replaceBrowserLocation(
-        consumeViewAsReturnPath(defaultDashboardPath(updated.user.role))
+        consumeViewAsReturnPath(defaultDashboardPath(updated.user))
       )
     } finally {
       setBusy(false)

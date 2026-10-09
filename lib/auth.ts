@@ -13,15 +13,32 @@ import { normalizeEmail } from "./email"
 import { classBelongsToElementaryBand } from "./sunday-school-homework"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
-  let isAsyncStudent = false
-  if (user.role === UserRole.STUDENT) {
-    const enrollment = await prisma.studentEnrollment.findUnique({
-      where: { studentId: user.id },
-      select: { isAsyncStudent: true }
-    })
-    isAsyncStudent = enrollment?.isAsyncStudent ?? false
+  const [enrollment, roleAssignments] = await Promise.all([
+    user.role === UserRole.STUDENT
+      ? prisma.studentEnrollment.findUnique({
+          where: { studentId: user.id },
+          select: { isAsyncStudent: true },
+        })
+      : Promise.resolve(null),
+    prisma.userRoleAssignment.findMany({
+      where: {
+        userId: user.id,
+        revokedAt: null,
+        tag: { in: [RoleTag.SUNDAY_SCHOOL_SERVANT, RoleTag.SERVANTS_PREP_SERVANT] },
+      },
+      select: { tag: true },
+    }),
+  ])
+  const tags = new Set(roleAssignments.map(assignment => assignment.tag))
+  const ministryMembership = {
+    sundaySchoolServant: tags.has(RoleTag.SUNDAY_SCHOOL_SERVANT),
+    servantsPrepLeader: tags.has(RoleTag.SERVANTS_PREP_SERVANT),
   }
-  return { isAsyncStudent, sundaySchool: await getSundaySchoolStanding(user) }
+  return {
+    isAsyncStudent: enrollment?.isAsyncStudent ?? false,
+    sundaySchool: await getSundaySchoolStanding(user, ministryMembership.sundaySchoolServant),
+    ministryMembership,
+  }
 }
 
 /**
@@ -31,20 +48,12 @@ async function getUserSessionData(user: { id: string; role: UserRole }) {
  * re-derived from the database on every request (lib/sunday-school-access.ts),
  * so a stale token can at worst show or hide a nav entry for up to a minute.
  */
-async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
+async function getSundaySchoolStanding(user: { id: string; role: UserRole }, isSundaySchoolServant: boolean) {
   if (seesAllSundaySchoolClasses(user.role)) {
     return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN, hasHomeworkAccess: true }
   }
 
-  const [participantGrant, assignments, elementaryBands] = await Promise.all([
-    prisma.userRoleAssignment.findFirst({
-      where: {
-        userId: user.id,
-        tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
-        revokedAt: null,
-      },
-      select: { id: true },
-    }),
+  const [assignments, elementaryBands] = await Promise.all([
     prisma.sundaySchoolServantAssignment.findMany({
       where: { userId: user.id, academicYear: { isActive: true }, endedAt: null },
       select: { authority: true, classId: true, ageGroupId: true }
@@ -68,7 +77,7 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
   ) || directClasses.some(cls => classBelongsToElementaryBand(cls, elementaryBands))
 
   return {
-    hasAccess: participantGrant !== null || assignments.length > 0,
+    hasAccess: isSundaySchoolServant || assignments.length > 0,
     isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR),
     hasHomeworkAccess,
   }
@@ -129,7 +138,7 @@ async function applyUserToToken(
   user: NonNullable<Awaited<ReturnType<typeof loadAuthUser>>>,
   options: { suppressPasswordChange?: boolean } = {}
 ) {
-  const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
+  const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(user)
   token.id = user.id
   token.role = user.role
   token.authVersion = user.authVersion
@@ -138,6 +147,7 @@ async function applyUserToToken(
   token.mustChangePassword = options.suppressPasswordChange ? false : user.mustChangePassword
   token.isAsyncStudent = isAsyncStudent
   token.sundaySchool = sundaySchool
+  token.ministryMembership = ministryMembership
   token.profileImageUrl = user.profileImageUrl ?? null
   token.validatedAt = Date.now()
   token.invalidated = undefined
@@ -276,7 +286,7 @@ export const authOptions: NextAuthOptions = {
         // Successful login - reset rate limit
         await resetLoginRateLimit(normalizedEmail)
 
-        const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
+        const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(user)
 
         await recordAuditEvent({
           actorUserId: user.id,
@@ -296,6 +306,7 @@ export const authOptions: NextAuthOptions = {
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
           sundaySchool,
+          ministryMembership,
           profileImageUrl: user.profileImageUrl,
         }
       }
@@ -349,6 +360,7 @@ export const authOptions: NextAuthOptions = {
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
         token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false, hasHomeworkAccess: false }
+        token.ministryMembership = user.ministryMembership
         token.profileImageUrl = user.profileImageUrl ?? null
         token.validatedAt = Date.now()
       }
@@ -360,13 +372,14 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (dbUser) {
-          const { isAsyncStudent, sundaySchool } = await getUserSessionData(dbUser)
+          const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(dbUser)
           token.id = dbUser.id
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
           token.isAsyncStudent = isAsyncStudent
           token.sundaySchool = sundaySchool
+          token.ministryMembership = ministryMembership
           token.profileImageUrl = dbUser.profileImageUrl ?? null
           token.validatedAt = Date.now()
         }
@@ -469,22 +482,16 @@ export const authOptions: NextAuthOptions = {
           await applyUserToToken(token, target, { suppressPasswordChange: true })
         }
       } else if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
-        const [dbUser, enrollment] = await Promise.all([
-          prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              id: true,
-              role: true,
-              authVersion: true,
-              isDisabled: true,
-              mustChangePassword: true,
-            }
-          }),
-          prisma.studentEnrollment.findUnique({
-            where: { studentId: token.id as string },
-            select: { isAsyncStudent: true }
-          }),
-        ])
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            id: true,
+            role: true,
+            authVersion: true,
+            isDisabled: true,
+            mustChangePassword: true,
+          }
+        })
 
         if (
           !dbUser ||
@@ -496,9 +503,11 @@ export const authOptions: NextAuthOptions = {
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
-          // Pick up async status changes made by a servant without a re-login
-          token.isAsyncStudent = dbUser.role === UserRole.STUDENT && !!enrollment?.isAsyncStudent
-          token.sundaySchool = await getSundaySchoolStanding(dbUser)
+          // Pick up ministry and async-status changes without a re-login.
+          const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(dbUser)
+          token.isAsyncStudent = isAsyncStudent
+          token.sundaySchool = sundaySchool
+          token.ministryMembership = ministryMembership
           token.validatedAt = Date.now()
         }
       }
@@ -520,6 +529,10 @@ export const authOptions: NextAuthOptions = {
         session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
         session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess: boolean } | undefined)
           ?? { hasAccess: false, isCoordinator: false, hasHomeworkAccess: false }
+        session.user.ministryMembership = token.ministryMembership ?? {
+          sundaySchoolServant: false,
+          servantsPrepLeader: false,
+        }
       }
       // Surface View as state without exposing any authority-changing input.
       if (token.originalId) {

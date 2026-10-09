@@ -35,6 +35,7 @@ import {
   canViewRegistrations,
   isAdmin,
 } from '@/lib/roles'
+import { defaultDashboardPath, type DashboardUser } from '@/lib/dashboard-navigation'
 
 /**
  * The app shell's navigation, by ministry and role.
@@ -63,8 +64,7 @@ export interface NavGroup {
   items: NavItem[]
 }
 
-export interface NavUser {
-  role: UserRole
+export interface NavUser extends DashboardUser {
   isAsyncStudent?: boolean
   sundaySchool?: { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess?: boolean } | null
 }
@@ -98,8 +98,8 @@ export function prepHome(role: UserRole): string {
 
 /**
  * The ministries this person can open, in switcher order. With one, the
- * switcher becomes a plain label. Prep leaders and mentors who also serve
- * Sunday School get both; a SERVANT and a PARENT have only one.
+ * switcher becomes a plain label. People with both modes see their default
+ * first; a SERVANT and a PARENT have only one.
  */
 export function availableMinistries(user: NavUser): MinistryOption[] {
   const hasSundaySchool = user.sundaySchool?.hasAccess ?? false
@@ -111,18 +111,21 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
     return [{ id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/parent' }]
   }
   if (hasSundaySchool && (isAdmin(user.role) || user.role === 'MENTOR')) {
-    return [prep, { id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/servants' }]
+    const sundaySchool: MinistryOption = { id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/servants' }
+    return defaultDashboardPath(user) === sundaySchool.href ? [sundaySchool, prep] : [prep, sundaySchool]
   }
   return [prep]
 }
 
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
- * shared pages (/settings, /dashboard/files); someone with both follows the path.
+ * shared pages; someone with both follows the path and uses their default on
+ * account settings.
  */
 export function resolveMinistry(user: NavUser, pathname: string): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
+  if (pathname === '/settings' || pathname === '/dashboard') return options[0].id
   return ministryForPath(pathname)
 }
 

@@ -303,9 +303,10 @@ page guards) do not need a fetch:
 
 ```typescript
 session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean, hasHomeworkAccess: boolean }
+session.user.ministryMembership // { sundaySchoolServant: boolean, servantsPrepLeader: boolean }
 ```
 
-It is recomputed on sign-in and on the periodic (~60s) token revalidation in
+These are recomputed on sign-in and on the periodic (~60s) token revalidation in
 `lib/auth.ts`. Assignment changes therefore take effect within about a minute
 for navigation purposes — and immediately for anything the server enforces.
 
