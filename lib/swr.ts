@@ -325,7 +325,7 @@ export function refreshMakeupExamScores(examId: string) {
 }
 
 export function useDigitalExams(enabled = true) {
-  return useSWR<import('@/lib/digital-exam-types').DigitalExamList>(enabled ? '/api/digital-exams' : null, fetcher, { ...defaultSWRConfig, refreshInterval: 10000 })
+  return useSWR<import('@/lib/digital-exam-types').DigitalExamList>(enabled ? '/api/digital-exams' : null, fetcher, { ...defaultSWRConfig, refreshInterval: 2000 })
 }
 export function useDigitalExam(examId: string, enabled = true) {
   return useSWR<import('@/lib/digital-exam-types').DigitalExamView>(enabled ? `/api/digital-exams/${examId}` : null, fetcher, { ...defaultSWRConfig, dedupingInterval: 500, refreshInterval: 2000, refreshWhenHidden: false })

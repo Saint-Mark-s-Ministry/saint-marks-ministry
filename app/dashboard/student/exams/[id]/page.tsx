@@ -1,4 +1,6 @@
 'use client'
+import Link from 'next/link'
+import { ANSWER_CHOICES } from '@/lib/digital-exams'
 import { use, useState } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useExamAttempt } from '@/hooks/useExamAttempt'
@@ -17,7 +19,7 @@ export default function ExamAnswerPage({ params }: { params: Promise<{ id: strin
   const [confirmedNotice, setConfirmedNotice] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   if (status !== 'authenticated' || !session || !isStudent(session.user.role)) return null
-  if (error) return <p role="alert">Could not load this exam. Return to the exam list or refresh.</p>
+  if (error) return <Panel title="Exam unavailable" bodyClassName="p-5"><p>This answer sheet is available only while your proctor has the exam open. Released grades appear in My Progress.</p><Button variant="outline" asChild className="mt-4"><Link href="/dashboard/student">My Progress</Link></Button></Panel>
   if (!data) return <p>Loading exam…</p>
   const attempt = control.attempt ?? data.attempt
   const submitted = attempt?.state === 'SUBMITTED'
@@ -38,7 +40,7 @@ export default function ExamAnswerPage({ params }: { params: Promise<{ id: strin
     : <>
       {(control.paused || control.offline) && <div role="alert" className="rounded-lg border border-warn/30 bg-warn/10 p-4"><p className="font-semibold">{control.offline ? 'Connection lost' : 'Answer sheet paused'}</p><p className="mt-1 text-sm">Your answers are preserved. Stay on this tab, reconnect if needed, and ask your proctor to unlock your exam.</p></div>}
       <Panel title="Answer sheet" description={`${answered}/50 answered`} actions={<span role="status" className="text-xs text-ink-3">{control.pendingCount ? `${control.pendingCount} answer(s) waiting to save` : 'All answers saved'}</span>} bodyClassName="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
-        {control.answers.map((answer, question) => <fieldset key={question} disabled={disabled} className="flex items-center justify-between gap-2 border-b border-line px-4 py-3"><legend className="sr-only">Question {question + 1}</legend><span aria-hidden className="w-7 text-sm font-semibold tabular-nums">{question + 1}</span><div className="flex gap-1.5">{'ABCDE'.slice(0, data.sheet?.choiceCounts[question] ?? 4).split('').map(choice => <label key={choice} className="cursor-pointer"><input className="peer sr-only" type="radio" name={`question-${question}`} aria-label={`Question ${question + 1}, answer ${choice}`} checked={answer === choice} onChange={() => control.choose(question, choice)} /><span className="flex size-9 items-center justify-center rounded-full border border-line text-sm peer-checked:border-accent peer-checked:bg-accent peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60">{choice}</span></label>)}</div><button type="button" aria-label={`Clear question ${question + 1}`} disabled={disabled || !answer} onClick={() => control.choose(question, '')} className="text-xs text-ink-3 disabled:opacity-30">Clear</button></fieldset>)}
+        {control.answers.map((answer, question) => <fieldset key={question} disabled={disabled} className="flex items-center justify-between gap-2 border-b border-line px-4 py-3"><legend className="sr-only">Question {question + 1}</legend><span aria-hidden className="w-7 text-sm font-semibold tabular-nums">{question + 1}</span><div className="flex flex-wrap gap-1.5">{ANSWER_CHOICES.slice(0, data.sheet?.choiceCounts[question] ?? 4).split('').map(choice => <label key={choice} className="cursor-pointer"><input className="peer sr-only" type="radio" name={`question-${question}`} aria-label={`Question ${question + 1}, answer ${choice}`} checked={answer === choice} onChange={() => control.choose(question, choice)} /><span className="flex size-9 items-center justify-center rounded-full border border-line text-sm peer-checked:border-accent peer-checked:bg-accent peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-60">{choice}</span></label>)}</div><button type="button" aria-label={`Clear question ${question + 1}`} disabled={disabled || !answer} onClick={() => control.choose(question, '')} className="text-xs text-ink-3 disabled:opacity-30">Clear</button></fieldset>)}
       </Panel>
       <div className="flex items-center justify-end"><Button disabled={disabled || control.pendingCount > 0} onClick={() => setConfirmSubmit(true)}>Submit exam</Button></div>
     </>}

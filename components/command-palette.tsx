@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
+import { useDigitalExams } from '@/lib/swr'
 import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 interface SearchUser {
@@ -143,6 +144,7 @@ export function CommandPalette() {
   const [lessons, setLessons] = useState<SearchLesson[]>([])
   const [loading, setLoading] = useState(false)
   const { data: session } = useSession()
+  const { data: openExams } = useDigitalExams(session?.user.role === 'STUDENT')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -248,7 +250,7 @@ export function CommandPalette() {
     session.user.sundaySchool?.hasAccess ?? false,
     pathname.startsWith('/dashboard/servants'),
     session.user.sundaySchool?.hasHomeworkAccess ?? false,
-  )
+  ).filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'
   const studentHref = (id: string) =>

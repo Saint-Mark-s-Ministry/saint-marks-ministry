@@ -7,8 +7,8 @@ booking and score-entry routes are unchanged.
 ## Leaders
 
 Open **Exams → Answer sheet** on an existing exam. Enter the 50-answer key and
-choose A–D or A–E separately for each question, then save setup. Open the exam
-when students may begin. Choices and the answer key lock on first opening.
+choose A–D through A–H separately for each question, then save setup. Open the exam
+when students may begin. Opening is not restricted by the scheduled exam date and makes the sheet available to all eligible students. Choices and the answer key lock on first opening.
 
 Monitoring shows the eligible roster, started attempts, progress, last contact,
 paused attempts, submissions, and a durable activity history. Enable alert sound
@@ -123,3 +123,5 @@ Monitoring depends on browser-reported signals and working connectivity. Alerts
 are near-immediate while connected; offline/suspended devices may delay them.
 The dashboard cannot identify another tab's contents, detect another device, or
 prove cheating. Use activity flags for proctor review.
+
+Student navigation and direct answer sheet access are available only while an eligible exam is OPEN. Closing hides access, including submitted attempts. Released grades remain in My Progress; students never receive the answer key. Question choices can be configured from four to eight (A–D through A–H).
