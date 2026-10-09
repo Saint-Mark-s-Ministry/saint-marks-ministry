@@ -1,109 +1,23 @@
-import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { requireAuth } from "@/lib/auth-helpers"
-import { canManageExams } from "@/lib/roles"
+import { NextResponse } from 'next/server'
+import { handleApiError } from '@/lib/api-utils'
+import { effectiveExamResult } from '@/lib/makeup-scores'
+import { examScoreTransaction, requireExamScoreWriter } from '@/lib/exam-score-service'
 
-
-// PATCH /api/exam-scores/[id] - Update an exam score (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await requireAuth()
-
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exam scores
-    if (!canManageExams(user.role)) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
+    const user = await requireExamScoreWriter()
     const { id } = await params
-    const body = await request.json()
-    const { score, notes } = body
-
-    if (score === undefined) {
-      return NextResponse.json(
-        { error: "Score is required" },
-        { status: 400 }
-      )
-    }
-
-    // Validate score is a number
-    if (typeof score !== 'number' || isNaN(score)) {
-      return NextResponse.json(
-        { error: "Score must be a valid number" },
-        { status: 400 }
-      )
-    }
-
-    // Validate score is not negative
-    if (score < 0) {
-      return NextResponse.json(
-        { error: "Score cannot be negative" },
-        { status: 400 }
-      )
-    }
-
-    // Get the exam score with exam details
-    const examScore = await prisma.examScore.findUnique({
-      where: { id },
-      include: {
-        exam: true
-      }
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body.score !== 'number' || !Number.isFinite(body.score) || body.score < 0 || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string')) return NextResponse.json({ error: 'Enter a valid nonnegative score and text notes.' }, { status: 400 })
+    const result = await examScoreTransaction(async tx => {
+      const record = await tx.examScore.findUnique({ where: { id }, include: { exam: true, makeupScores: true } })
+      if (!record) throw new Error('Not found')
+      if (body.score > record.exam.totalPoints) return null
+      const originalPercentage = body.score / record.exam.totalPoints * 100
+      const effective = effectiveExamResult(originalPercentage, record.makeupScores.map(attempt => attempt.percentage), record.exam.totalPoints)
+      return tx.examScore.update({ where: { id }, data: { originalScore: body.score, originalPercentage, ...effective, gradedBy: user.id, ...(body.notes !== undefined ? { notes: body.notes || null } : {}) }, include: { student: { select: { id: true, name: true } } } })
     })
-
-    if (!examScore) {
-      return NextResponse.json(
-        { error: "Exam score not found" },
-        { status: 404 }
-      )
-    }
-
-    // Validate score doesn't exceed total points
-    if (score > examScore.exam.totalPoints) {
-      return NextResponse.json(
-        { error: `Score cannot exceed total points (${examScore.exam.totalPoints})` },
-        { status: 400 }
-      )
-    }
-
-    const percentage = (score / examScore.exam.totalPoints) * 100
-
-    const updateData: {
-      score: number
-      percentage: number
-      gradedBy: string
-      notes?: string | null
-    } = {
-      score,
-      percentage,
-      gradedBy: user.id,
-    }
-
-    if (notes !== undefined) {
-      updateData.notes = notes || null
-    }
-
-    const updatedScore = await prisma.examScore.update({
-      where: { id },
-      data: updateData,
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      }
-    })
-
-    return NextResponse.json(updatedScore)
-  } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update exam score" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
-  }
+    if (!result) return NextResponse.json({ error: 'Score cannot exceed the exam total points.' }, { status: 400 })
+    return NextResponse.json(result)
+  } catch (error) { return handleApiError(error) }
 }

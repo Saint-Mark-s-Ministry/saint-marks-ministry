@@ -78,6 +78,12 @@ starting year is unknown), and ignores client-supplied student identities.
 Only prep administrators and priests can read the full booking list; mentors
 and Sunday School-only participants have no access to it.
 
+Original grade writes and `/api/exams/[id]/makeup-scores` resolve current
+role tags from the database. Only `SUPER_ADMIN` and
+`SERVANTS_PREP_SERVANT` may record or correct grades. Priests may read makeup
+history; students, mentors, and Sunday School-only servants cannot reach the
+makeup grading endpoint. Disabled accounts cannot grade.
+
 `PRIEST` is read-only **everywhere**. When adding a write path, confirm it is
 excluded.
 

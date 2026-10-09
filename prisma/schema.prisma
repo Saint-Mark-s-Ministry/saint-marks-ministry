@@ -306,6 +306,7 @@ model User {
   attendanceRecordedBy AttendanceRecord[]  @relation("RecordedBy")
   makeupExamBookings   MakeupExamBooking[]
   examScores           ExamScore[]
+  makeupScoresGradedBy MakeupExamScore[] @relation("MakeupGradedBy")
   examScoresGradedBy   ExamScore[]         @relation("GradedBy")
   lessonsCreated       Lesson[]            @relation("CreatedBy")
   studentNotes         StudentNote[]       @relation("StudentNotes")
@@ -671,8 +672,10 @@ model ExamScore {
   id         String   @id @default(cuid())
   examId     String
   studentId  String
-  score      Float
+  score      Float // Effective best score; used by existing analytics
   percentage Float
+  originalScore Float?
+  originalPercentage Float?
   notes      String?  @db.Text
   gradedBy   String?
   gradedAt   DateTime @default(now())
@@ -682,6 +685,7 @@ model ExamScore {
   exam    Exam  @relation(fields: [examId], references: [id], onDelete: Cascade)
   student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   grader  User? @relation("GradedBy", fields: [gradedBy], references: [id], onDelete: SetNull)
+  makeupScores MakeupExamScore[]
 
   @@unique([examId, studentId])
   @@index([examId])
@@ -1872,4 +1876,24 @@ model MakeupExamBooking {
   @@unique([studentId, examId])
   @@index([scheduledDate])
   @@index([examId])
+}
+
+model MakeupExamScore {
+  id          String @id @default(cuid())
+  examScoreId String
+  version     Int
+  score       Float
+  totalPoints Int
+  percentage  Float
+  takenDate   DateTime @db.Date
+  notes       String? @db.Text
+  gradedBy    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  examScore ExamScore @relation(fields: [examScoreId], references: [id], onDelete: Cascade)
+  grader User? @relation("MakeupGradedBy", fields: [gradedBy], references: [id], onDelete: SetNull)
+
+  @@index([examScoreId])
+  @@index([gradedBy])
 }

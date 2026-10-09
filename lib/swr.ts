@@ -1,4 +1,4 @@
-import useSWR, { SWRConfiguration } from 'swr'
+import useSWR, { SWRConfiguration, mutate } from 'swr'
 
 // Default fetcher for SWR
 export const fetcher = async (url: string) => {
@@ -314,4 +314,12 @@ export function useExams(academicYearId?: string | null, options?: SWRConfigurat
 
 export function useMakeupExams(enabled = true) {
   return useSWR(enabled ? '/api/makeup-exams' : null, fetcher, defaultSWRConfig)
+}
+
+export function useMakeupExamScores(examId: string) {
+  return useSWR(`/api/exams/${examId}/makeup-scores`, fetcher, defaultSWRConfig)
+}
+
+export function refreshMakeupExamScores(examId: string) {
+  return mutate(`/api/exams/${examId}/makeup-scores`)
 }

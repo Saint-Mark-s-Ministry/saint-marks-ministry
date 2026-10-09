@@ -1,6 +1,8 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { refreshMakeupExamScores } from '@/lib/swr'
+import { MakeupExamScores } from '@/components/makeup-exam-scores'
 import { MakeupExamBookings } from '@/components/makeup-exam-bookings'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -53,6 +55,8 @@ interface ExamScore {
   id: string
   score: number
   percentage: number
+  originalScore: number | null
+  originalPercentage: number | null
   notes?: string
   student: {
     id: string
@@ -221,6 +225,7 @@ function ExamsPageContent() {
 
     try {
       const res = await fetch(`/api/exams/${exam.id}/scores`)
+      if (!res.ok) throw new Error('Unable to load exam scores.')
       const scoresData = await res.json()
 
       const scoresMap = new Map()
@@ -229,7 +234,7 @@ function ExamsPageContent() {
 
       scoresData.forEach((score: ExamScore) => {
         scoresMap.set(score.student.id, score)
-        enteredScoresMap.set(score.student.id, score.score)
+        if (score.originalScore !== null) enteredScoresMap.set(score.student.id, score.originalScore)
         if (score.notes) {
           notesMap.set(score.student.id, score.notes)
         }
@@ -297,7 +302,12 @@ function ExamsPageContent() {
         }
       })
 
-      await Promise.all(scorePromises)
+      const responses = await Promise.all(scorePromises)
+      const failed = responses.find(response => !response.ok)
+      if (failed) {
+        const result = await failed.json().catch(() => ({}))
+        throw new Error(result.error || 'Unable to save exam scores.')
+      }
 
       const now = new Date()
       setLastSaved(now)
@@ -315,7 +325,7 @@ function ExamsPageContent() {
 
       scoresData.forEach((score: ExamScore) => {
         existingScoresMap.set(score.student.id, score)
-        enteredScoresMap.set(score.student.id, score.score)
+        if (score.originalScore !== null) enteredScoresMap.set(score.student.id, score.originalScore)
         if (score.notes) {
           notesMap.set(score.student.id, score.notes)
         }
@@ -324,6 +334,7 @@ function ExamsPageContent() {
       setExistingScores(existingScoresMap)
       setScores(enteredScoresMap)
       setNotes(notesMap)
+      await refreshMakeupExamScores(selectedExam.id)
 
       // Update exam count locally without full refetch
       setExams(exams.map(exam =>
@@ -418,7 +429,7 @@ function ExamsPageContent() {
   const missingCount = eligibleStudents.filter((st) => !scores.has(st.id)).length
   const unsaved = eligibleStudents.some((st) => {
     const prev = existingScores.get(st.id)
-    return scores.get(st.id) !== prev?.score || (notes.get(st.id) || '') !== (prev?.notes || '')
+    return scores.get(st.id) !== (prev?.originalScore ?? undefined) || (notes.get(st.id) || '') !== (prev?.notes || '')
   })
 
   if (selectedExam) {
@@ -427,7 +438,7 @@ function ExamsPageContent() {
       <div className="flex min-w-0 flex-col gap-5">
         <PageHeader
           title={title}
-          meta={['Enter exam scores', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+          meta={['Original and makeup exam scores', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
           actions={
             <Button variant="outline" onClick={() => setSelectedExam(null)}>
               <ChevronLeft />
@@ -454,6 +465,7 @@ function ExamsPageContent() {
         />
 
         <Panel
+          title="Original exam scores"
           toolbar={
             <>
               <Segmented
@@ -489,7 +501,7 @@ function ExamsPageContent() {
                 const percentage = score !== undefined ? (score / selectedExam.totalPoints) * 100 : null
                 const isMentee = student.enrollments.some((e) => e.mentorId === session?.user?.id)
                 const prev = existingScores.get(student.id)
-                const dirty = score !== prev?.score || (notes.get(student.id) || '') !== (prev?.notes || '')
+                const dirty = score !== (prev?.originalScore ?? undefined) || (notes.get(student.id) || '') !== (prev?.notes || '')
                 return (
                   <li key={student.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 md:table-row md:border-t md:border-line md:p-0">
                     <span className="md:table-cell md:h-[52px] md:px-3 md:align-middle">
@@ -541,6 +553,8 @@ function ExamsPageContent() {
             </ul>
           )}
         </Panel>
+
+        <MakeupExamScores key={selectedExam.id} examId={selectedExam.id} canEdit={!!canEdit} originalUnsaved={unsaved} onSaved={() => openEnterScores(selectedExam)} />
 
         {canEdit && (
           <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
