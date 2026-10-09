@@ -76,6 +76,7 @@ account access through a dated relationship.
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
 | `SundaySchoolServantAttendance` | `sessionId`, `servantId`, binary `status`, `recordedBy`. Unique on `(sessionId, servantId)`. |
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
+| `SundaySchoolPhoneCall` | A dated, class-scoped follow-up call for a child, with outcome, concise note, and a snapshot of the authenticated caller's name. It does not change visitation status. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
@@ -176,6 +177,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
 | `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
 | `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
+| `phone-calls` | POST | People who serve the child's active class may log a call; `PRIEST` remains read-only. Calls are returned in the scoped `visitations` GET response. |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
@@ -220,7 +222,7 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
 | `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
-| `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
+| `visitations/page.tsx` | Per-child visitation status and separate dated phone-call follow-up history across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 

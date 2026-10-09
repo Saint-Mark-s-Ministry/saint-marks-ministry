@@ -57,6 +57,7 @@ export async function DELETE(
                   select: {
                     attendance: true,
                     visitations: true,
+                    phoneCalls: true,
                     guardians: true,
                     rosterImportRows: true,
                   },
@@ -93,6 +94,7 @@ export async function DELETE(
         child.enrollments[0]?.id === row.enrollmentId &&
         child._count.attendance === 0 &&
         child._count.visitations === 0 &&
+        child._count.phoneCalls === 0 &&
         child._count.guardians === 0 &&
         child._count.rosterImportRows === 1
     })

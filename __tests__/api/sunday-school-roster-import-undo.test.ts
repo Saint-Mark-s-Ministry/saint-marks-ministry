@@ -43,6 +43,7 @@ function importedChild(overrides: Record<string, unknown> = {}) {
     _count: {
       attendance: 0,
       visitations: 0,
+      phoneCalls: 0,
       guardians: 0,
       rosterImportRows: 1,
     },
@@ -123,6 +124,7 @@ describe('Sunday School roster CSV import undo API', () => {
       _count: {
         attendance: 1,
         visitations: 0,
+        phoneCalls: 0,
         guardians: 0,
         rosterImportRows: 1,
       },
@@ -139,6 +141,27 @@ describe('Sunday School roster CSV import undo API', () => {
       protectedRows: 1,
       protectedStudents: [{ rowNumber: 2, name: 'Jane Doe' }],
     })
+    expect(mocks.deleteChild).not.toHaveBeenCalled()
+  })
+
+  it('keeps an imported child once a follow-up call has been logged', async () => {
+    mocks.findImport.mockResolvedValue(rosterImport(importedChild({
+      _count: {
+        attendance: 0,
+        visitations: 0,
+        phoneCalls: 1,
+        guardians: 0,
+        rosterImportRows: 1,
+      },
+    })))
+    mocks.countRows.mockResolvedValue(1)
+
+    const response = await DELETE(new Request('http://localhost'), {
+      params: Promise.resolve({ id: 'import-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ removedRows: 0, protectedRows: 1 })
     expect(mocks.deleteChild).not.toHaveBeenCalled()
   })
 

@@ -50,7 +50,7 @@ export function PrivacyPageContent() {
               <p>
                 Sunday School records may include a child&apos;s name, date of birth, cell number where appropriate,
                 father-of-confession information, grade or level, class and yearly enrollment, attendance,
-                visitation status, guardian contact information and relationship, servant assignments and
+                visitation status, phone call follow-up dates, outcomes, callers and notes, guardian contact information and relationship, servant assignments and
                 attendance, lesson plans, registrations, feedback, related notes, and
                 confidential pastoral notes restricted to their authors and clergy with active Priest access.
                 Roster imports may also record source filename, row outcomes, and import history.

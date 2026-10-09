@@ -5,6 +5,7 @@ import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-cla
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -62,11 +63,8 @@ interface User {
   }
 }
 
-interface UsersPageProps {
-  sundaySchoolMode?: boolean
-}
-
-export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) {
+export default function UsersPage() {
+  const sundaySchoolMode = usePathname().startsWith('/dashboard/servants/users')
   const [organizationUser, setOrganizationUser] = useState<User | null>(null)
   const [classAssignmentUser, setClassAssignmentUser] = useState<User | null>(null)
   const { session, status } = useAdminGuard(canManageAllUsers)
