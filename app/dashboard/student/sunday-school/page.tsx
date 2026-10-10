@@ -152,7 +152,7 @@ export default function SundaySchoolPage() {
 
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Sunday School" meta={['Track your weekly Sunday School serving']} back={{ href: '/dashboard/student', label: 'My progress' }} />
 
       {!progress || progress.assignments.length === 0 ? (

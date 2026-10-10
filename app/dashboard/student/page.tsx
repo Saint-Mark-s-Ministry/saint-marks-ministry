@@ -124,7 +124,7 @@ export default function StudentDashboard() {
 
   if (!analytics) {
     return (
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
         <PageHeader title={`Hi${session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}`} meta={['Servants Prep']} />
         <Panel>
           <EmptyState title="No enrollment yet" message="You aren’t enrolled in the current academic year. If you think that’s a mistake, contact a Servants Prep servant." />
@@ -158,7 +158,7 @@ export default function StudentDashboard() {
     analytics.sundaySchool?.assignments[0]
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title={`Hi, ${firstName}`}
         meta={[`Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}`, isAsync ? 'Async student' : 'Servants Prep', academicYearName.replace('-', '–')]}

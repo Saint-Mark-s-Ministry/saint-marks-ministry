@@ -150,7 +150,7 @@ export default function AdminDashboard() {
   const agendaDays = nextDays(14)
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="content-reveal flex flex-col gap-5">
       <PageHeader
         title="Dashboard"
         meta={['Servants Prep', yearLabel ? `${yearLabel} academic year` : null]}

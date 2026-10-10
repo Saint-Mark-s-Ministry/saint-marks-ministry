@@ -131,7 +131,7 @@ export default function SundaySchoolDashboardPage() {
     .filter(([, band]) => band.classes.length > 0)
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Sunday School"
         meta={[dashboard?.attendanceTrend?.academicYears.find((y) => y.id === dashboard.attendanceTrend.selectedAcademicYearId)?.name.replace('-', '–'), 'St. Mark Coptic Orthodox Church']}

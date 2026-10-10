@@ -146,7 +146,7 @@ export default function SundaySchoolClassesPage() {
   )
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Classes"

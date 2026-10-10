@@ -109,7 +109,7 @@ export default function SundaySchoolLessonsPage() {
   if (status === 'loading' || isLoading) return <PageLoading />
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Lessons"

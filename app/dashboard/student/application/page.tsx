@@ -146,7 +146,7 @@ export default function CompleteApplicationPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
         <PageHeader
           title={annualMentorRequired ? 'Confirm your mentor' : 'Application'}
           meta={[annualMentorRequired

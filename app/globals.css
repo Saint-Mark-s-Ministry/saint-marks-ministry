@@ -213,6 +213,27 @@
   }
 }
 
+/* Animate newly mounted content, including data that arrives after navigation.
+   Opacity alone keeps fixed dialogs and sticky headers in their usual position.
+   No fill mode: content stays visible once the animation ends or is disabled. */
+@keyframes loaded-content-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .content-reveal {
+    animation: loaded-content-in 240ms ease-out;
+  }
+
+  /* Rows can mount later than their page when a roster or filter finishes loading.
+     Animate their arrival together, without a delay per row on large tables. */
+  .content-reveal tbody > tr,
+  .content-reveal ul.divide-y > li {
+    animation: loaded-content-in 180ms ease-out;
+  }
+}
+
 @keyframes feedback-vote-pop-up {
   0% {
     transform: translateY(2px) scale(0.72);

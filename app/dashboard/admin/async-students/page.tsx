@@ -30,7 +30,7 @@ export default function AsyncStudentsPage() {
   const readOnly = isReadOnlyAdmin(role)
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Async students"
         meta={['Signed attendance slips and Sunday School serving assignments']}

@@ -384,7 +384,7 @@ export default function EnrollmentsPage() {
   )
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Student roster"
         meta={['Enrollment, mentors and fathers of confession', activeYear?.name.replace('-', '–')]}

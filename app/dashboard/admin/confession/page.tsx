@@ -14,7 +14,7 @@ export default function ConfessionPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Confession" meta={['Father of confession sign-offs', 'two-month periods']} />
       <ConfessionTracker canEdit={canManageData(session.user.role)} />
     </div>

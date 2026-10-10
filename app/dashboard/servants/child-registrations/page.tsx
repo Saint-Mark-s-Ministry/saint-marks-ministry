@@ -99,7 +99,7 @@ export default function ChildRegistrationsPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader title="Child registration requests" meta={['Review and place parent-submitted requests', 'levels you coordinate']} />
 

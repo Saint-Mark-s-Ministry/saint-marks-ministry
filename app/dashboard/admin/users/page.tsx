@@ -539,7 +539,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="space-y-5">
         <PageHeader
           title="Users"

@@ -65,7 +65,7 @@ export default function ServantApplicationsPage() {
   const selected = all.find((a) => a.id === selectedId) ?? null
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Servant applications" meta={['Review Sunday School servant sign-up applications']} />
 
       <SplitView>
