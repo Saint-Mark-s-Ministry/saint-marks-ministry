@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import { Brand, Button, Card, Copy, Screen } from "@/components/ui";
 import { apiOrigin, useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -151,6 +152,18 @@ export default function SignIn() {
               Your classes and permissions come from the connected portal.
               Attendance saves there securely.
             </Copy>
+            {/* The chooser/entry flow this ticket (SMM-61) adds — the public
+                Registration/Parent/Servant sign-up screens, now real,
+                addressable routes (see app/_layout.tsx's new AuthStack). */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="New here? Get started"
+              onPress={() => router.push("/registration")}
+            >
+              <Copy style={{ textAlign: "center", fontWeight: "500" }} color={colors.primary}>
+                New here? Get started
+              </Copy>
+            </Pressable>
           </>
         )}
       </Screen>
