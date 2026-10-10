@@ -1,11 +1,17 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DigitalExamView } from '@/lib/digital-exam-types'
 const mocks = vi.hoisted(() => ({ data: null as DigitalExamView | null, mutate: vi.fn() }))
 vi.mock('@/lib/swr', () => ({ useDigitalExam: () => ({ data: mocks.data, mutate: mocks.mutate }) }))
 vi.mock('sonner', () => ({ toast: { warning: vi.fn(), success: vi.fn(), error: vi.fn() } }))
 import { DigitalExamMonitor } from '@/components/digital-exam-monitor'
+const player = { paused: true, currentTime: 0, volume: 1, preload: '', play: vi.fn(), pause: vi.fn() }
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 beforeEach(() => {
+  player.paused = true; player.currentTime = 0; player.play.mockReset(); player.pause.mockReset()
+  player.play.mockImplementation(() => { player.paused = false; return Promise.resolve() })
+  player.pause.mockImplementation(() => { player.paused = true })
+  vi.stubGlobal('Audio', vi.fn(function () { return player }))
   mocks.data = {
     exam: { id: 'exam', examDate: '2026-07-17', yearLevel: 'BOTH', totalPoints: 100, academicYear: { name: '2025-2026' }, examSection: { displayName: 'Comparative Theology' } },
     sheet: { state: 'OPEN', choiceCounts: Array(50).fill(4), openedAt: '2026-10-09T20:00:00Z', closedAt: null, releasedAt: null },
@@ -52,6 +58,51 @@ describe('compact proctor dashboard', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
     fireEvent.click(screen.getByRole('button', { name: 'Set ready to open' }))
     expect(screen.getByRole('dialog')).toHaveTextContent('Locked choices, the answer key, grades, submissions and retake approvals are preserved')
+  })
+
+  it('previews the donkey sound, alerts on new departures without overlap, and mutes immediately', async () => {
+    const { rerender, unmount } = render(<DigitalExamMonitor examId="exam" />)
+    expect(player.play).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
+    expect(Audio).toHaveBeenCalledWith('/sounds/donkey-bray.mp3')
+    expect(player.volume).toBe(0.5)
+    expect(player.play).toHaveBeenCalledTimes(1)
+    const addDeparture = (id: string) => {
+      mocks.data = structuredClone(mocks.data)
+      mocks.data!.roster![0].attempt!.events.push({ id, kind: 'HIDDEN', actorId: 'student', createdAt: '2026-10-09T20:00:20Z', clientAt: null })
+      rerender(<DigitalExamMonitor examId="exam" />)
+    }
+    addDeparture('during-preview')
+    expect(player.play).toHaveBeenCalledTimes(1)
+    player.paused = true
+    addDeparture('new-departure')
+    await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
+    player.currentTime = 2
+    fireEvent.click(screen.getByRole('button', { name: 'Mute donkey sound' }))
+    expect(player.pause).toHaveBeenCalled()
+    expect(player.currentTime).toBe(0)
+    addDeparture('muted-departure')
+    expect(player.play).toHaveBeenCalledTimes(2)
+    unmount()
+    expect(player.pause).toHaveBeenCalledTimes(2)
+  })
+  it('keeps answer changes and already-seen departures silent', () => {
+    const { rerender } = render(<DigitalExamMonitor examId="exam" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
+    player.paused = true
+    mocks.data = structuredClone(mocks.data)
+    mocks.data!.roster![0].attempt!.events.push({ id: 'new-answer', kind: 'ANSWER_SAVED', actorId: 'student', questionNumber: 13, answerChoice: 'D', createdAt: '2026-10-09T20:00:20Z', clientAt: null })
+    rerender(<DigitalExamMonitor examId="exam" />)
+    expect(player.play).toHaveBeenCalledTimes(1)
+    mocks.data = structuredClone(mocks.data)
+    rerender(<DigitalExamMonitor examId="exam" />)
+    expect(player.play).toHaveBeenCalledTimes(1)
+  })
+  it('allows sound to be enabled again if browser playback fails', async () => {
+    player.play.mockRejectedValueOnce(new Error('Playback unavailable'))
+    render(<DigitalExamMonitor examId="exam" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Enable donkey sound' })).toBeInTheDocument())
   })
 
 })

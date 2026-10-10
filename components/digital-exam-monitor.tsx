@@ -31,7 +31,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
   const [retake, setRetake] = useState<{ id: string; name: string } | null>(null)
   const [alerts, setAlerts] = useState<{ event: ExamActivity; name: string; studentId: string }[]>([])
   const seen = useRef<Set<string> | null>(null)
-  const audio = useRef<AudioContext | null>(null)
+  const audio = useRef<HTMLAudioElement | null>(null)
   const hasSheet = !!data?.sheet
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_PUSHER_KEY; const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER
@@ -55,14 +55,31 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
       const message = examActivityMessage(event.kind, event)
       setAlerts(previous => [{ event, name: event.name, studentId: event.studentId }, ...previous].slice(0, 8))
       toast.warning(`${event.name}: ${message.title}`)
-      if (sound && audio.current) {
-        const oscillator = audio.current.createOscillator(); const gain = audio.current.createGain()
-        gain.gain.setValueAtTime(0.12, audio.current.currentTime); oscillator.frequency.value = 740
-        oscillator.connect(gain); gain.connect(audio.current.destination); oscillator.start(); oscillator.stop(audio.current.currentTime + 0.18)
+      if (sound && audio.current?.paused) {
+        audio.current.currentTime = 0
+        void audio.current.play().catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+          setSound(false)
+          toast.error('Could not play the alert. Enable donkey sound again to retry.')
+        })
       }
     }
   }, [data?.roster, sound])
-  useEffect(() => () => { void audio.current?.close() }, [])
+  useEffect(() => () => { audio.current?.pause() }, [])
+  function toggleSound() {
+    if (sound) { audio.current?.pause(); if (audio.current) audio.current.currentTime = 0; setSound(false); return }
+    audio.current ??= new Audio('/sounds/donkey-bray.mp3')
+    audio.current.preload = 'auto'
+    audio.current.volume = 0.5
+    audio.current.currentTime = 0
+    setSound(true)
+    // Preview within the user gesture also enables subsequent browser playback.
+    void audio.current.play().catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setSound(false)
+      toast.error('Could not play the alert. Enable donkey sound again to retry.')
+    })
+  }
   async function action(name: string, payload: Record<string, unknown> = {}) {
     setBusy(true)
     try {
@@ -89,7 +106,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
     {manage && sheet?.openedAt && !sheet.releasedAt && !data.hasAttempts && <Panel title="Opened only for testing?" bodyClassName="p-4"><p className="mb-3 text-sm">Nobody has joined. Reset the test opening to hide the answer sheet from students and return it to draft. The answer key and all existing grades are preserved.</p><Button variant="outline" disabled={busy} onClick={() => setConfirm('reset')}>Reset test opening</Button></Panel>}
     {!manage && !sheet && <Panel bodyClassName="p-4">An exam leader has not configured an answer sheet yet.</Panel>}
     {sheet && <>
-      <Panel title="Live monitoring" description="Activity flags support proctor review; they do not establish cheating." actions={<Button variant="outline" size="sm" onClick={() => { if (!sound) { audio.current ??= new AudioContext(); void audio.current.resume() } setSound(!sound) }}>{sound ? 'Mute alert sound' : 'Enable alert sound'}</Button>} bodyClassName="p-4">
+      <Panel title="Live monitoring" description="Activity flags support proctor review; they do not establish cheating." actions={<Button variant="outline" size="sm" onClick={toggleSound}>{sound ? 'Mute donkey sound' : 'Enable donkey sound'}</Button>} bodyClassName="p-4">
         <div className="flex flex-wrap gap-5 text-sm"><span>{started}/{roster.filter(r => r.eligible).length} started</span><span>{paused} paused</span><span>{submitted} submitted</span><span className={live ? 'text-ok' : 'text-ink-3'}>{live ? 'Live alerts connected · Refresh backup active' : 'Monitoring refreshes every 2 seconds'}</span></div>
         {sheet.releasedAt && <p className="mt-3 text-sm text-ok">Results released {new Date(sheet.releasedAt).toLocaleString()}</p>}
         {alerts.length > 0 && <div role="log" aria-live="polite" className="mt-4 rounded-md border border-warn/30 bg-warn/10 p-3"><div className="mb-2 flex justify-between"><strong className="text-sm">Recent alerts</strong><button className="text-xs underline" onClick={() => setAlerts([])}>Dismiss</button></div>{alerts.map(alert => {
