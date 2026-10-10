@@ -79,7 +79,7 @@ describe('compact proctor dashboard', () => {
     vi.mocked(Math.random).mockReturnValue(0.75)
     addDeparture('new-departure')
     await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
-    expect(player).toHaveProperty('src', '/sounds/oh-no.wav')
+    expect(player).toHaveProperty('src', '/sounds/oh-no-natural.wav')
     player.currentTime = 2
     fireEvent.click(screen.getByRole('button', { name: 'Mute alert sound' }))
     expect(player.pause).toHaveBeenCalled()
