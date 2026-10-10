@@ -8,7 +8,7 @@ import { DigitalExamMonitor } from '@/components/digital-exam-monitor'
 const player = { paused: true, currentTime: 0, volume: 1, preload: '', play: vi.fn(), pause: vi.fn() }
 afterEach(() => { vi.restoreAllMocks(); cleanup(); vi.unstubAllGlobals() })
 beforeEach(() => {
-  vi.spyOn(Math, 'random').mockReturnValue(0.25)
+  vi.spyOn(Math, 'random').mockReturnValue(0.1)
   player.paused = true; player.currentTime = 0; player.play.mockReset(); player.pause.mockReset()
   player.play.mockImplementation(() => { player.paused = false; return Promise.resolve() })
   player.pause.mockImplementation(() => { player.paused = true })
@@ -65,7 +65,7 @@ describe('compact proctor dashboard', () => {
     const { rerender, unmount } = render(<DigitalExamMonitor examId="exam" />)
     expect(player.play).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Enable alert sound' }))
-    expect(Audio).toHaveBeenCalledWith('/sounds/egyptian-uh-oh.wav')
+    expect(Audio).toHaveBeenCalledWith('/sounds/egyptian-english-uh-oh.wav')
     expect(player.volume).toBe(1)
     expect(player.play).toHaveBeenCalledTimes(1)
     const addDeparture = (id: string) => {
@@ -76,10 +76,10 @@ describe('compact proctor dashboard', () => {
     addDeparture('during-preview')
     expect(player.play).toHaveBeenCalledTimes(1)
     player.paused = true
-    vi.mocked(Math.random).mockReturnValue(0.75)
+    vi.mocked(Math.random).mockReturnValue(0.4)
     addDeparture('new-departure')
     await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
-    expect(player).toHaveProperty('src', '/sounds/egyptian-alalalala.wav')
+    expect(player).toHaveProperty('src', '/sounds/egyptian-english-alalalala.wav')
     player.currentTime = 2
     fireEvent.click(screen.getByRole('button', { name: 'Mute alert sound' }))
     expect(player.pause).toHaveBeenCalled()
