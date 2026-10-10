@@ -3,7 +3,7 @@ import { Alert, Pressable, TextInput, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { MenuView } from "@expo/ui/community/menu";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
-import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, styles } from "@/components/ui";
+import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
 import { GlassChrome } from "@/components/chrome";
 import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
@@ -84,7 +84,7 @@ export default function PrepExamScores() {
       delete next[studentId];
       return next;
     });
-    if (value == null) return; // cleared/empty — nothing to save
+    if ((value === null || value === undefined)) return; // cleared/empty — nothing to save
     const existing = serverScoreByStudent.get(studentId);
     setSavingIds((prev) => new Set(prev).add(studentId));
     void (async () => {
@@ -217,7 +217,7 @@ export default function PrepExamScores() {
                 {visibleRows.map((row, index) => {
                   const value = valueFor(row.studentId, row.server);
                   const error = rowErrors[row.studentId];
-                  const tone = row.score != null ? scoreTone(row.score, "exam") : "neutral";
+                  const tone = (row.score !== null && row.score !== undefined) ? scoreTone(row.score, "exam") : "neutral";
                   const toneColor = tone === "success" ? colors.success : tone === "warning" ? colors.warning : tone === "danger" ? colors.danger : colors.muted;
                   return (
                     <View
@@ -231,7 +231,7 @@ export default function PrepExamScores() {
                       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
                         <Copy numberOfLines={1}>{row.name}</Copy>
                         <Copy kind="caption" color={error ? colors.danger : toneColor}>
-                          {error ?? (row.score != null ? `${Math.round((row.score / exam.totalPoints) * 1000) / 10}%` : "Not entered")}
+                          {error ?? ((row.score !== null && row.score !== undefined) ? `${Math.round((row.score / exam.totalPoints) * 1000) / 10}%` : "Not entered")}
                         </Copy>
                       </View>
                       <TextInput

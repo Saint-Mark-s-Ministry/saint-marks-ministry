@@ -67,7 +67,7 @@ export type ScoreRosterSegment = "all" | "notEntered" | "mentees";
 export type ScoreRow = { studentId: string; score: number | null; mentorId?: string | null };
 
 export function filterScoreRoster<T extends ScoreRow>(rows: T[], segment: ScoreRosterSegment, viewerId?: string): T[] {
-  if (segment === "notEntered") return rows.filter((r) => r.score == null);
+  if (segment === "notEntered") return rows.filter((r) => (r.score === null || r.score === undefined));
   if (segment === "mentees") return rows.filter((r) => r.mentorId === viewerId);
   return rows;
 }
@@ -75,7 +75,7 @@ export function filterScoreRoster<T extends ScoreRow>(rows: T[], segment: ScoreR
 export function scoreRosterCounts(rows: ScoreRow[], viewerId?: string) {
   return {
     all: rows.length,
-    notEntered: rows.filter((r) => r.score == null).length,
+    notEntered: rows.filter((r) => (r.score === null || r.score === undefined)).length,
     mentees: rows.filter((r) => r.mentorId === viewerId).length,
   };
 }

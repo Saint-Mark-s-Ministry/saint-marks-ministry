@@ -264,7 +264,6 @@ export default function PrepConfession() {
 function StudentRow({
   enrollment,
   status,
-  slip,
   divider,
   canUpload,
   onUpload,
