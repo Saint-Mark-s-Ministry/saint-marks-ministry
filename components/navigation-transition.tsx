@@ -1,20 +1,15 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LoadingStatus } from '@/components/ui/loading-status'
 import { isLegalPath, LEGAL_RETURN_PATH_KEY } from '@/lib/legal-navigation'
 
-const EXIT_DURATION_MS = 120
 const ENTER_DURATION_MS = 200
 
 export function NavigationTransition() {
   const pathname = usePathname()
   const router = useRouter()
   const previousPathname = useRef(pathname)
-  const navigating = useRef(false)
-  const [pending, setPending] = useState(false)
-  const navigateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cleanupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -22,12 +17,8 @@ export function NavigationTransition() {
 
     if (previousPathname.current === pathname) return
     previousPathname.current = pathname
-    navigating.current = false
-    setPending(false)
 
     if (cleanupTimer.current) clearTimeout(cleanupTimer.current)
-
-    root.classList.remove('page-transition-out')
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       root.classList.remove('page-transition-in')
@@ -80,42 +71,19 @@ export function NavigationTransition() {
         )
       }
 
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
+      // Navigate immediately and leave the current screen visible until Next.js
+      // shows the destination's loading fallback or content.
       event.preventDefault()
-      if (navigating.current) return
-      navigating.current = true
-      setPending(true)
-
-      const root = document.documentElement
-      root.classList.remove('page-transition-in')
-      root.classList.add('page-transition-out')
-
-      navigateTimer.current = setTimeout(() => {
-        router.push(`${nextLocation}${destination.hash}`)
-
-        // Recover gracefully if a navigation is interrupted or rejected.
-        cleanupTimer.current = setTimeout(() => {
-          root.classList.remove('page-transition-out')
-          navigating.current = false
-          setPending(false)
-        }, 2000)
-      }, EXIT_DURATION_MS)
+      router.push(`${nextLocation}${destination.hash}`)
     }
 
     document.addEventListener('click', handleClick, true)
     return () => {
       document.removeEventListener('click', handleClick, true)
-      if (navigateTimer.current) clearTimeout(navigateTimer.current)
       if (cleanupTimer.current) clearTimeout(cleanupTimer.current)
-      document.documentElement.classList.remove('page-transition-in', 'page-transition-out')
+      document.documentElement.classList.remove('page-transition-in')
     }
   }, [router])
 
-  return pending ? (
-    <LoadingStatus
-      label="Loading page…"
-      className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full border border-line bg-surface px-4 py-2.5 shadow-lg md:bottom-6 print:hidden"
-    />
-  ) : null
+  return null
 }
