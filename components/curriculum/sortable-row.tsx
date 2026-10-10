@@ -140,7 +140,7 @@ export function SortableRow({
                 />
                 <span>Exam</span>
               </label>
-            ) : currentIsExamDay && <Badge variant="outline" className="text-[10px] border-pink-300 text-pink-700 dark:text-pink-200">Exam</Badge>}
+            ) : currentIsExamDay && <Badge variant="outline" className={styles.examBadge}>Exam</Badge>}
           </div>
         </td>
         <td>
