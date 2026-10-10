@@ -17,7 +17,7 @@ beforeEach(() => {
 })
 
 describe('user contact book configuration', () => {
-  it('renders synchronized desktop and mobile switches and saves through the dedicated endpoint', async () => {
+  it('renders synchronized desktop and mobile checkboxes and saves through the dedicated endpoint', async () => {
     const user = userEvent.setup()
     const target = { id: 'target', name: 'Mariam', email: 'mariam@example.com', role: 'STUDENT', phone: null, roleAssignments: [{ tag: RoleTag.SERVANTS_PREP_STUDENT }], canAccessContactBook: false }
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => ({
@@ -26,23 +26,25 @@ describe('user contact book configuration', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<UsersPage />)
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    const switches = screen.getAllByRole('switch', { name: 'Allow contact book access' })
+    const switches = screen.getAllByRole('checkbox', { name: 'Allow contact book access' })
     expect(switches).toHaveLength(2)
     await user.click(switches[0])
-    expect(switches[1]).toHaveAttribute('aria-checked', 'true')
+    expect(switches[1]).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/admin/users/target/contact-book-access', expect.objectContaining({ method: 'PUT', body: JSON.stringify({ canAccessContactBook: true }) })))
     const profileCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
     expect(JSON.parse(profileCall![1]!.body as string)).not.toHaveProperty('canAccessContactBook')
   })
 
-  it('refreshes the super admin’s own navigation after saving access', async () => {
+  it('does not show or save a redundant access checkbox for super admins', async () => {
     const target = { id: 'admin', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN', roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }], canAccessContactBook: false }
-    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => ({ ok: true, json: async () => init?.method ? target : [target] })))
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => ({ ok: true, json: async () => init?.method ? target : [target] }))
+    vi.stubGlobal('fetch', fetchMock)
     render(<UsersPage />)
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
-    fireEvent.click(screen.getAllByRole('switch')[0])
+    expect(screen.queryByRole('checkbox', { name: 'Allow contact book access' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
-    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledWith({ refreshContactBook: true }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/users/admin', expect.objectContaining({ method: 'PATCH' })))
+    expect(fetchMock.mock.calls.some(([url]) => url.includes('contact-book-access'))).toBe(false)
   })
 })

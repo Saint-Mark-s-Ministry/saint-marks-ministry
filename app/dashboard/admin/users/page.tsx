@@ -240,7 +240,7 @@ export default function UsersPage() {
         }
       }
 
-      if (isSuperAdmin && formData.canAccessContactBook !== (editingUser.canAccessContactBook ?? false)) {
+      if (isSuperAdmin && !formData.roleTags.includes(RoleTag.SUPER_ADMIN) && formData.canAccessContactBook !== (editingUser.canAccessContactBook ?? false)) {
         const accessResponse = await fetch(`/api/admin/users/${editingUser.id}/contact-book-access`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -845,7 +845,7 @@ export default function UsersPage() {
                                       )}
                                     </div>
                                   </div>
-                                  {isSuperAdmin && (
+                                  {isSuperAdmin && !formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
                                     <ContactBookAccessSwitch
                                       checked={formData.canAccessContactBook}
                                       onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
@@ -1030,7 +1030,7 @@ export default function UsersPage() {
                               </div>
                             )}
                           </div>
-                          {isSuperAdmin && (
+                          {isSuperAdmin && !formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
                             <ContactBookAccessSwitch
                               checked={formData.canAccessContactBook}
                               onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}

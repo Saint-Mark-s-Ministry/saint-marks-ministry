@@ -291,10 +291,10 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
   return best?.label ?? null
 }
 
-/** Shared directory access is independent of ministry roles and assignments. */
+/** Explicit directory grants supplement existing Super Admin access. */
 export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   const groups = ministryNavigationFor(user, ministry)
-  if (user.canAccessContactBook) {
+  if (user.role === 'SUPER_ADMIN' || user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }
   return groups

@@ -9,24 +9,21 @@ export function ContactBookAccessSwitch({ checked, onChange, disabled = false }:
 }) {
   const id = useId()
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface p-3">
-      <div>
-        <label id={`${id}-label`} htmlFor={id} className="text-sm font-medium text-ink">Allow contact book access</label>
-        <p id={`${id}-description`} className="text-xs text-ink-3">Can view all app users’ names, emails, and phone numbers.</p>
-      </div>
-      <button
+    <label htmlFor={id} className={`inline-flex w-fit max-w-full items-start gap-2 py-2 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+      <input
         id={id}
-        type="button"
-        role="switch"
-        aria-checked={checked}
+        type="checkbox"
+        checked={checked}
         aria-labelledby={`${id}-label`}
         aria-describedby={`${id}-description`}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 ${checked ? 'bg-brand' : 'bg-ink-3'}`}
-      >
-        <span className={`size-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-      </button>
-    </div>
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 accent-maroon-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      />
+      <span className="min-w-0">
+        <span id={`${id}-label`} className="block text-sm font-medium text-ink">Allow contact book access</span>
+        <span id={`${id}-description`} className="block text-xs text-ink-3">Can view all app users’ names, emails, and phone numbers.</span>
+      </span>
+    </label>
   )
 }
