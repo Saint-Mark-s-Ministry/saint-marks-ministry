@@ -291,10 +291,10 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
   return best?.label ?? null
 }
 
-/** Explicit directory grants supplement existing Super Admin access. */
+/** Super Admins use Users; the directory is for explicitly approved other users. */
 export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   const groups = ministryNavigationFor(user, ministry)
-  if (user.role === 'SUPER_ADMIN' || user.canAccessContactBook) {
+  if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }
   return groups

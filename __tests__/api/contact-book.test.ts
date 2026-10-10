@@ -58,7 +58,7 @@ describe('contact book reads', () => {
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
-  it.each(Object.values(UserRole))('allows an explicitly enabled %s without ministry assignments', async role => {
+  it.each(Object.values(UserRole).filter(role => role !== UserRole.SUPER_ADMIN))('allows an explicitly enabled %s without ministry assignments', async role => {
     mocks.auth.mockResolvedValue({ id: 'actor', role })
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
     const response = await GET(new Request('https://example.test/api/contact-book'))
@@ -71,9 +71,10 @@ describe('contact book reads', () => {
     }))
   })
 
-  it('allows a current super admin without the directory flag', async () => {
-    mocks.findUser.mockResolvedValue(principal({ roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(200)
+  it.each([false, true])('denies a current super admin with stored directory flag %s', async canAccessContactBook => {
+    mocks.findUser.mockResolvedValue(principal({ canAccessContactBook, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
+    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it('denies a disabled super admin even with a current admin grant', async () => {
