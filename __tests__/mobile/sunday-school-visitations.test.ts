@@ -19,7 +19,7 @@ function record(overrides: Partial<SundaySchoolVisitationChild["visitations"][nu
   return { id: "v1", status: "DONE", visitedAt: "2026-09-12", notes: null, createdAt: "2026-09-12T00:00:00.000Z", updatedAt: "2026-09-12T00:00:00.000Z", recorder: null, ...overrides };
 }
 function child(overrides: Partial<SundaySchoolVisitationChild> = {}): SundaySchoolVisitationChild {
-  return { id: "c1", firstName: "Mariam", lastName: "A", visitations: [], ...overrides };
+  return { id: "c1", firstName: "Mariam", lastName: "A", visitations: [], phoneCalls: [], ...overrides };
 }
 function cls(overrides: Partial<SundaySchoolVisitationClass> = {}): SundaySchoolVisitationClass {
   return { id: "cls1", name: "Grade 3 Girls", level: "GRADE_3" as never, canEdit: true, children: [], ...overrides };

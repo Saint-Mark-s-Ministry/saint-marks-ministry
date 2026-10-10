@@ -22,6 +22,7 @@ import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attend
 import { useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
 import { MinistryTintProvider } from "@/theme";
+import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
 
 const STATUSES: { value: AttendanceStatus; label: string }[] = [
   { value: "PRESENT", label: "Present" },
@@ -83,6 +84,12 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const [groupByGender, setGroupByGender] = useState(false);
   const [query, setQuery] = useState("");
   const [lastWeekSummary, setLastWeekSummary] = useState<{ present: number; total: number } | null>(null);
+  // "Make the call action easy to find during child follow-up" (SMM-76):
+  // the absent-child shortcut, routed into the same phone-call sheet and
+  // authorization check (canEdit, == canServeClass) as the Visitation child
+  // screen's own call action.
+  const [callChild, setCallChild] = useState<{ id: string; name: string } | null>(null);
+  const callDraftKey = user && callChild ? `stmark.phone-call-draft.${user.id}.${callChild.id}` : null;
 
   useEffect(() => {
     let active = true;
@@ -385,6 +392,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
                       divider={index < group.entries.length - 1}
                       onSetStatus={(status) => setDraft(classId, date, { ...marks, [child.id]: status })}
                       onEditNote={() => editNote(child.id, getChildFullName(child))}
+                      onLogCall={() => setCallChild({ id: child.id, name: getChildFullName(child) })}
                     />
                   ))}
                 </View>
@@ -433,6 +441,18 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             </View>
           </View>
         </View>
+      )}
+
+      {callChild && (
+        <PhoneCallEntrySheet
+          childId={callChild.id}
+          childName={callChild.name}
+          draftKey={callDraftKey}
+          onClose={() => setCallChild(null)}
+          onSaved={async () => {
+            setCallChild(null);
+          }}
+        />
       )}
     </View>
   );
@@ -505,6 +525,7 @@ function RosterRow({
   divider,
   onSetStatus,
   onEditNote,
+  onLogCall,
 }: {
   name: string;
   note?: string;
@@ -515,6 +536,7 @@ function RosterRow({
   divider: boolean;
   onSetStatus: (status: AttendanceStatus) => void;
   onEditNote: () => void;
+  onLogCall: () => void;
 }) {
   const { colors } = useAppTheme();
   const fillFor = (value: AttendanceStatus) => {
@@ -552,6 +574,16 @@ function RosterRow({
             takes a line of height, pushing the name off-center against its row. */}
         {!!note && <Copy kind="caption" numberOfLines={1}>{note}</Copy>}
       </Pressable>
+      {status === "ABSENT" && canEdit && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Log a call for ${name}`}
+          onPress={onLogCall}
+          style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}
+        >
+          <Icon ios="phone" android="call" size={16} color={colors.text2} />
+        </Pressable>
+      )}
       <View style={{ flexDirection: "row", gap: 4 }}>
         {STATUSES.map((item) => {
           const selected = status === item.value;
