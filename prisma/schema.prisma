@@ -259,6 +259,11 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+  // Only ChildRegistrationRequest uses this value today — a reviewer sending
+  // a request back to the parent for more info/changes, without rejecting
+  // it outright. Shared here (rather than a dedicated enum) since the column
+  // itself is already this shared type across all three registration models.
+  CHANGES_REQUESTED
 }
 
 enum StudentGrade {
