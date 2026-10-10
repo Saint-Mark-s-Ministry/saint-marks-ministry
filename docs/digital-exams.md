@@ -13,7 +13,7 @@ when students may begin. Opening is not restricted by the scheduled exam date an
 Monitoring shows the eligible roster, started attempts, progress, last contact,
 paused attempts, submissions, and a durable activity history. Enable alert sound
 using the dashboard button; it previews one of the alert clips to enable browser playback.
-New pause alerts randomly play a locally bundled “Uh-oh!” or deep “Oh, noooooo” at full playback volume. Repeated
+New pause alerts randomly play a locally bundled “Uh-oh!” or naturally spoken “Oh, no!” at full playback volume. Repeated
 reports are deduplicated, clips do not overlap, and answer saves are silent.
 Sound is off by default and can be muted immediately. The recording is CC0
 from Freesound; provenance is in public/sounds/README.md.
@@ -157,4 +157,4 @@ The additive 20261009210000 migration adds retake state, per-attempt release dat
 
 **Set ready to open** hides a previously opened exam until the leader opens it again. It preserves locked configuration, grades, submitted attempts, and pending individual approvals. Started attempts must first be finalized by closing. The 20261009210500 migration also stores the highest released digital retake on ExamScore, so later original/paper makeup grade corrections continue to retain it. No existing grades are changed by this migration.
 
-Alerts play only on the proctor dashboard. Each audible alert independently chooses “Uh-oh!” or a low, deep “Oh, noooooo” with equal probability, at full playback volume. Student devices remain silent on departure, return and resume. The former student sound setting is retained in the database for compatibility but has no playback effect or dashboard control. This change requires no database migration and does not alter scores or pause behavior.
+Alerts play only on the proctor dashboard. Each audible alert independently chooses “Uh-oh!” or a naturally spoken “Oh, no!” with equal probability, at full playback volume. Student devices remain silent on departure, return and resume. The former student sound setting is retained in the database for compatibility but has no playback effect or dashboard control. This change requires no database migration and does not alter scores or pause behavior.
