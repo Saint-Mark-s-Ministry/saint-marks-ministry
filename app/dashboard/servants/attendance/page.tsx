@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FilterSelect } from '@/components/ui/filter-select'
-import { LastSaved } from '@/components/ui/last-saved'
+import { SundaySchoolAttendanceSaveBar } from '@/components/sunday-school-attendance-save-bar'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
@@ -111,7 +111,7 @@ function SundaySchoolAttendanceContent() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Take attendance"
-        meta={['Marks save automatically; Save attendance also marks anyone left unmarked absent', lastSaved && !pendingCount ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        meta="Marks save automatically; Save attendance also marks anyone left unmarked absent"
         actions={
           selectedClassId && (
             <Button asChild variant="outline">
@@ -130,17 +130,6 @@ function SundaySchoolAttendanceContent() {
         </Panel>
       ) : (
         <>
-          {canEdit && (pendingCount > 0 || editor.storageError || editor.removedCount > 0) && (
-            <div role="status" className="rounded-lg border border-line bg-surface p-4 text-sm text-ink-2">
-              {editor.storageError
-                ? 'This browser could not store or clear the local draft. Keep this page open until you save successfully; refreshing may lose changes or restore an older draft.'
-                : pendingCount > 0 ? `${editor.recovered ? 'Recovered draft. ' : ''}${pendingCount} marks kept on this device, pending save to the church.` : null}
-              {editor.recovered && ' Review the marks, then resume saving when connected.'}
-              {editor.removedCount > 0 && ` ${editor.removedCount} draft marks belong to children no longer on this roster and will not be submitted.`}
-              {editor.recovered && pendingCount > 0 && <Button variant="outline" className="ml-3" disabled={saving} onClick={() => void editor.save(false)}>Resume saving marks</Button>}
-            </div>
-          )}
-          {editor.saveError && <p role="alert" className="text-sm text-danger">{editor.saveError}. Attendance has not been confirmed saved. Your marks are kept on this page. Reconnect to retry. <Button variant="outline" disabled={saving} onClick={() => void editor.save(false)}>Retry pending marks</Button> <Button variant="outline" disabled={saving} onClick={editor.retryLoad}>Reload roster and recover marks</Button></p>}
           <Panel
             toolbar={
               <>
@@ -232,17 +221,31 @@ function SundaySchoolAttendanceContent() {
           </Panel>
 
           {canEdit && attendance && attendance.roster.length > 0 && (
-            <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
-              <p className="tabular text-[13px] text-ink-2" aria-live="polite">
-                <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} here
-                {unmarkedCount > 0 && <span className="ml-2 text-ink-3">· {unmarkedCount} not marked will be saved as absent</span>}
-              </p>
-              <span role="status" className="text-xs text-ink-3">{saving ? 'Saving marks…' : pendingCount ? `${pendingCount} pending` : lastSaved ? 'All entered marks saved to the church' : 'No changes yet'}</span>
-              <Button onClick={handleSave} disabled={saving || loadingSession || !session?.user?.id} className="ml-auto">
-                {saving ? 'Saving…' : 'Save attendance'}
-              </Button>
+            <SundaySchoolAttendanceSaveBar
+              presentCount={presentCount}
+              rosterCount={attendance.roster.length}
+              unmarkedCount={unmarkedCount}
+              pendingCount={pendingCount}
+              saving={saving}
+              lastSaved={lastSaved}
+              saveError={Boolean(editor.saveError)}
+              recovered={editor.recovered}
+              disabled={saving || loadingSession || !session?.user?.id}
+              onSave={handleSave}
+            />
+          )}
+
+          {canEdit && (editor.recovered || editor.storageError || editor.removedCount > 0) && (
+            <div role="status" className="rounded-lg border border-line bg-surface p-4 text-sm text-ink-2">
+              {editor.storageError
+                ? 'This browser could not store or clear the local draft. Keep this page open until you save successfully; refreshing may lose changes or restore an older draft.'
+                : pendingCount > 0 ? `${editor.recovered ? 'Recovered draft. ' : ''}${pendingCount} marks kept on this device, pending save to the church.` : null}
+              {editor.recovered && ' Review the marks, then resume saving when connected.'}
+              {editor.removedCount > 0 && ` ${editor.removedCount} draft marks belong to children no longer on this roster and will not be submitted.`}
+              {editor.recovered && pendingCount > 0 && <Button variant="outline" className="ml-3" disabled={saving} onClick={() => void editor.save(false)}>Resume saving marks</Button>}
             </div>
           )}
+          {editor.saveError && <p role="alert" className="text-sm text-danger">{editor.saveError}. Attendance has not been confirmed saved. Your marks are kept on this page. Reconnect to retry. <Button variant="outline" disabled={saving} onClick={() => void editor.save(false)}>Retry pending marks</Button> <Button variant="outline" disabled={saving} onClick={editor.retryLoad}>Reload roster and recover marks</Button></p>}
 
           {selectedClass && (
             <SundaySchoolRecentAttendanceChart
