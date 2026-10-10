@@ -27,11 +27,11 @@ function StudentTiles({ roster, select, fit = false }: { roster: StudentRow[]; s
       const paused = !waiting && attempt.state === 'PAUSED'
       const stale = !waiting && !submitted && attempt.stale
       const status = waiting ? attempt?.retakeReady ? 'Retake ready' : 'Not started' : submitted ? 'Submitted' : paused ? 'Paused' : 'Answering'
-      const color = paused ? 'border-bad/50 bg-bad/10' : stale ? 'border-warn/50 bg-warn/10' : submitted ? 'border-ok/40 bg-ok/10' : !waiting ? 'border-brand/40 bg-brand/5' : 'border-line bg-surface'
+      const color = paused ? 'border-bad bg-bad/20 ring-1 ring-bad/40' : stale ? 'border-warn/50 bg-warn/10' : submitted ? 'border-ok/40 bg-ok/10' : !waiting ? 'border-brand/40 bg-brand/5' : 'border-line bg-surface'
       const latestAnswer = attempt && !waiting ? [...attempt.events].filter(event => event.kind === 'ANSWER_SAVED').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).at(0) : undefined
       return <li key={row.student.id} className="min-w-0"><button type="button" aria-label={`View ${row.student.name}: ${status}${stale ? ', connection stale' : ''}`} onClick={() => select(row.student.id)} className={`flex h-full min-h-[92px] w-full flex-col justify-center gap-1 rounded-lg border p-2.5 text-left transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${color}`}>
         <span className="line-clamp-2 text-sm font-semibold leading-tight" title={row.student.name}>{row.student.name}</span>
-        <span className="text-xs font-medium">{status}{stale ? ' · No contact' : ''}</span>
+        <span className={`text-xs font-semibold ${paused ? 'text-bad' : ''}`}>{paused ? 'Needs unlock' : status}{stale ? ' · No contact' : ''}</span>
         <span className="text-xs tabular-nums text-ink-3">{waiting ? '0' : attempt.answeredCount}/50 answered</span>
         {latestAnswer && <span className="truncate text-[11px] text-ink-3">Q{latestAnswer.questionNumber}: chose {latestAnswer.answerChoice}</span>}
         {!row.eligible && <span className="text-[11px] text-ink-3">Historical attempt</span>}

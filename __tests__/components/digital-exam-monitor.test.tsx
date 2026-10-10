@@ -26,6 +26,7 @@ beforeEach(() => {
 describe('compact proctor dashboard', () => {
   it('keeps saved choices and compact interruption logs', () => {
     render(<DigitalExamMonitor examId="exam" />)
+    expect(screen.getByRole('button', { name: 'View Test Student: Paused' })).toHaveTextContent('Needs unlock')
     const feed = screen.getByText('Recent saved answers').closest('details')!
     fireEvent.click(screen.getByText('Recent saved answers'))
     expect(within(feed).getByText('Test Student')).toBeInTheDocument()
