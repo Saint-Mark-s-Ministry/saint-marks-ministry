@@ -71,6 +71,17 @@ describe('contact book reads', () => {
     }))
   })
 
+  it('allows a current super admin without the directory flag', async () => {
+    mocks.findUser.mockResolvedValue(principal({ roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
+    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(200)
+  })
+
+  it('denies a disabled super admin even with a current admin grant', async () => {
+    mocks.findUser.mockResolvedValue(principal({ isDisabled: true, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
+    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect(mocks.findContacts).not.toHaveBeenCalled()
+  })
+
   it('denies disabled users even with permission', async () => {
     mocks.findUser.mockResolvedValue(principal({ isDisabled: true, canAccessContactBook: true }))
     expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)

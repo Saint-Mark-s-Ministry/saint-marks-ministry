@@ -368,14 +368,15 @@ private grades, free live-alert setup, and deployment verification.
 ## Contact book
 
 `User.canAccessContactBook` is an independent per-user permission, defaulting
-to `false` for every account, including Super Admins. An active account with
-this flag may read the names, emails, and phone numbers of all app users
+to `false` for every account. Active Super Admins have automatic directory access;
+other active accounts need this flag to read the names, emails, and phone
+numbers of all app users
 (including disabled directory entries). It grants no user-management or ministry
 record access, and includes no separate child or family records.
 
 `/dashboard/contact-book` and `GET /api/contact-book` resolve the current
-`AuthorizationContext` from the database. Disabled accounts and accounts without
-the flag are denied regardless of JWT claims, role tags, or assignments.
+`AuthorizationContext` from the database. Disabled accounts are always denied.
+Other accounts need either a current Super Admin grant or the explicit flag; JWT claims alone cannot grant access.
 The JWT flag only renders the navigation link and refreshes within the normal
 session revalidation window. API revocation is immediate; the open directory
 revalidates on focus, reconnect, and every minute and hides contacts on denial.
@@ -383,8 +384,10 @@ revalidates on focus, reconnect, and every minute and hides contacts on denial.
 Only an active Super Admin without a Priest tag may change this flag via
 `PUT /api/admin/users/[id]/contact-book-access`. View as writes and ordinary
 profile-update attempts are rejected. Grants and revocations are recorded with
-the actor and target in the same transaction as the update. A Super Admin may
-grant or revoke their own contact-book access.
+the actor and target in the same transaction as the update. The Users
+configuration uses a compact checkbox for non-super-admin targets;
+Super Admins do not need this checkbox.
 
 Deploy the additive `20261010120000_add_contact_book_access` migration explicitly
-before deploying this code; builds never apply it. No existing user is opted in.
+before deploying this code; builds never apply it. This follow-up changes no
+database schema or stored permission grants.

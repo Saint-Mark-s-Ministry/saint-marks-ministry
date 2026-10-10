@@ -1,3 +1,4 @@
+import { RoleTag } from '@prisma/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ session: vi.fn(), context: vi.fn() }))
@@ -11,7 +12,7 @@ import ContactBookPage from '@/app/dashboard/contact-book/page'
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.session.mockResolvedValue({ user: { id: 'viewer', role: 'SUPER_ADMIN', canAccessContactBook: true } })
-  mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: false })
+  mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: false, roleTags: new Set() })
 })
 
 describe('server contact book page guard', () => {
@@ -24,14 +25,18 @@ describe('server contact book page guard', () => {
     await expect(ContactBookPage()).rejects.toThrow('redirect:/dashboard')
   })
   it('redirects disabled users even with permission', async () => {
-    mocks.context.mockResolvedValue({ disabled: true, canAccessContactBook: true })
+    mocks.context.mockResolvedValue({ disabled: true, canAccessContactBook: true, roleTags: new Set([RoleTag.SUPER_ADMIN]) })
     await expect(ContactBookPage()).rejects.toThrow('redirect:/dashboard')
   })
   it('allows a currently enabled user even when the session flag is stale', async () => {
     mocks.session.mockResolvedValue({ user: { id: 'viewer', role: 'SERVANT', canAccessContactBook: false } })
-    mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: true })
+    mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: true, roleTags: new Set() })
     expect(await ContactBookPage()).toBeTruthy()
     expect(mocks.context).toHaveBeenCalledWith('viewer')
+  })
+  it('allows an active database super admin without an explicit grant', async () => {
+    mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: false, roleTags: new Set([RoleTag.SUPER_ADMIN]) })
+    expect(await ContactBookPage()).toBeTruthy()
   })
   it('honors the password-change gate', async () => {
     mocks.session.mockResolvedValue({ user: { id: 'viewer', mustChangePassword: true } })

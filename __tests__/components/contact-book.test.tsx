@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), session: vi.fn() }))
 vi.mock('@/lib/swr', () => ({ useContactBook: mocks.hook }))
@@ -70,19 +71,21 @@ describe('ContactBook', () => {
 })
 
 describe('ContactBookAccessSwitch', () => {
-  it('is labelled and changes through its switch without submitting the form', () => {
+  it('is labelled and changes through its checkbox without submitting the form', () => {
     const onChange = vi.fn()
     render(<ContactBookAccessSwitch checked={false} onChange={onChange} />)
-    const toggle = screen.getByRole('switch', { name: 'Allow contact book access' })
-    expect(toggle).toHaveAttribute('aria-checked', 'false')
-    expect(toggle).toHaveAttribute('type', 'button')
+    const toggle = screen.getByRole('checkbox', { name: 'Allow contact book access' })
+    expect(toggle).not.toBeChecked()
+    expect(toggle).toHaveAttribute('type', 'checkbox')
     fireEvent.click(toggle)
     expect(onChange).toHaveBeenCalledWith(true)
   })
-  it('cannot change access in View as', () => {
+  it('cannot change access in View as', async () => {
+    const user = userEvent.setup()
     const onChange = vi.fn()
     render(<ContactBookAccessSwitch checked onChange={onChange} disabled />)
-    fireEvent.click(screen.getByRole('switch'))
+    expect(screen.getByRole('checkbox')).toBeDisabled()
+    await user.click(screen.getByRole('checkbox'))
     expect(onChange).not.toHaveBeenCalled()
   })
 })

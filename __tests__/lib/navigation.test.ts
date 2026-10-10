@@ -17,7 +17,7 @@ const servesSS = { sundaySchool: { hasAccess: true, isCoordinator: false } }
 describe('navigationFor', () => {
   it('gives a super admin every prep destination, grouped', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
-    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace'])
+    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Directory'])
     expect(hrefs('SUPER_ADMIN', 'prep', noSS)).toEqual(
       expect.arrayContaining([
         '/dashboard/admin/users',
@@ -137,12 +137,17 @@ describe('active state', () => {
 
 
 describe('contact book navigation', () => {
-  it('requires explicit permission in both ministries for every role', () => {
-    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'SERVANT', 'PARENT'] as UserRole[]) {
+  it('requires explicit permission in both ministries for non-admin roles', () => {
+    for (const role of ['PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'SERVANT', 'PARENT'] as UserRole[]) {
       for (const ministry of ['prep', 'sunday-school'] as const) {
         expect(hrefs(role, ministry, servesSS)).not.toContain('/dashboard/contact-book')
         expect(hrefs(role, ministry, { ...servesSS, canAccessContactBook: true })).toContain('/dashboard/contact-book')
       }
+    }
+  })
+  it('always shows the contact book to super admins in both ministries', () => {
+    for (const ministry of ['prep', 'sunday-school'] as const) {
+      expect(hrefs('SUPER_ADMIN', ministry, servesSS)).toContain('/dashboard/contact-book')
     }
   })
   it('uses the default ministry for the shared contact book page', () => {
