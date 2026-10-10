@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import { PageLoading } from '@/components/ui/page-loading'
 import { useSearchParams, useRouter } from 'next/navigation'
 
 function previewUrl(id: string, mimeType: string): string {
@@ -25,7 +26,7 @@ function FilePreview() {
 
   if (!id) {
     router.replace('/dashboard/files')
-    return null
+    return <PageLoading />
   }
 
   return (
@@ -89,7 +90,7 @@ function FilePreview() {
 
 export default function FilePreviewPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <FilePreview />
     </Suspense>
   )

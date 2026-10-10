@@ -1,4 +1,6 @@
 'use client'
+
+import { PageLoading } from '@/components/ui/page-loading'
 import Link from 'next/link'
 import { ANSWER_CHOICES } from '@/lib/digital-exams'
 import { use, useState } from 'react'
@@ -20,7 +22,7 @@ export default function ExamAnswerPage({ params }: { params: Promise<{ id: strin
   const [confirmedNotice, setConfirmedNotice] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const screenAwake = useExamScreenAwake(status === 'authenticated' && !!session && isStudent(session.user.role) && !error && control.started && data?.sheet?.state === 'OPEN' && (control.attempt ?? data.attempt)?.state !== 'SUBMITTED')
-  if (status !== 'authenticated' || !session || !isStudent(session.user.role)) return null
+  if (status !== 'authenticated' || !session || !isStudent(session.user.role)) return <PageLoading />
   if (error) return <Panel title="Exam unavailable" bodyClassName="p-5"><p>This answer sheet is available only while your proctor has the exam open. Released grades appear in My Progress.</p><Button variant="outline" asChild className="mt-4"><Link href="/dashboard/student">My Progress</Link></Button></Panel>
   if (!data) return <p>Loading exam…</p>
   const attempt = control.attempt ?? data.attempt

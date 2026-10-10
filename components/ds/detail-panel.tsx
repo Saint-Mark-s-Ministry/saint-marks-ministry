@@ -1,22 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import { X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 function useIsWide(query = '(min-width: 1280px)') {
-  const [wide, setWide] = useState(false)
-  useEffect(() => {
+  const subscribe = useCallback((notify: () => void) => {
     const mq = window.matchMedia?.(query)
-    if (!mq) return
-    const sync = () => setWide(mq.matches)
-    sync()
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
+    if (!mq) return () => {}
+    mq.addEventListener('change', notify)
+    return () => mq.removeEventListener('change', notify)
   }, [query])
-  return wide
+  const getSnapshot = useCallback(() => window.matchMedia?.(query).matches ?? false, [query])
+  return useSyncExternalStore(subscribe, getSnapshot, () => false)
 }
 
 interface DetailPanelProps {
@@ -61,9 +59,11 @@ export function DetailPanel({ open, onClose, title, label, header, footer, child
     return (
       <aside
         aria-label={label ?? (typeof title === 'string' ? title : 'Details')}
-        className="sticky top-[68px] flex max-h-[calc(100vh-88px)] w-[360px] shrink-0 animate-in flex-col self-start overflow-hidden rounded-lg border border-line bg-surface fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none"
+        className="detail-panel-desktop sticky top-[68px] w-[360px] shrink-0 self-start overflow-hidden rounded-lg"
       >
-        {body}
+        <div className="flex max-h-[calc(100vh-88px)] w-[360px] flex-col overflow-hidden rounded-lg border border-line bg-surface">
+          {body}
+        </div>
       </aside>
     )
   }
