@@ -2,12 +2,12 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   TextInput,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import { Brand, Button, Card, Copy, Screen, StatusPill } from "@/components/ui";
 import { apiOrigin, useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -159,13 +159,18 @@ export default function SignIn() {
               <Button label="Retry connection" secondary onPress={() => void (connectionError ? retry() : submit())} />
             )}
 
+            {/* The chooser/entry flow SMM-61 adds — the public
+                Registration/Parent/Servant sign-up screens, now real,
+                addressable routes (see app/_layout.tsx's AuthStack). */}
             <View style={{ alignItems: "center", gap: 10, paddingTop: 6 }}>
-              <Copy kind="caption">New here?</Copy>
-              <Pressable onPress={() => void Linking.openURL(`${apiOrigin}/signup/parent`)}>
-                <Copy style={{ fontWeight: "500" }} color={colors.primary}>Register your child for Sunday School</Copy>
-              </Pressable>
-              <Pressable onPress={() => void Linking.openURL(`${apiOrigin}/signup/servant`)}>
-                <Copy style={{ fontWeight: "500" }} color={colors.primary}>Sign up as a Sunday School servant</Copy>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="New here? Get started"
+                onPress={() => router.push("/registration")}
+              >
+                <Copy style={{ textAlign: "center", fontWeight: "500" }} color={colors.primary}>
+                  New here? Get started
+                </Copy>
               </Pressable>
               <Copy kind="caption" style={{ textAlign: "center", paddingTop: 6 }}>
                 Can't sign in? Contact your ministry coordinator or admin.
