@@ -13,7 +13,7 @@ function Example() {
   return <><NavigationTransition /><a href="/dashboard/servants">Sunday School</a></>
 }
 
-describe('navigation loading feedback', () => {
+describe('navigation transitions', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mocks.pathname = '/dashboard/admin'
@@ -27,22 +27,24 @@ describe('navigation loading feedback', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows feedback while outgoing content is hidden and removes it on arrival', () => {
+  it('navigates immediately without hiding the current page or showing a floating status', () => {
     const { rerender } = render(<Example />)
     fireEvent.click(screen.getByRole('link'))
-    expect(document.documentElement).toHaveClass('page-transition-out')
-    expect(screen.getByRole('status')).toHaveTextContent('Loading page…')
-    act(() => { vi.advanceTimersByTime(120) })
+    expect(document.documentElement).not.toHaveClass('page-transition-out')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(mocks.router.push).toHaveBeenCalledWith('/dashboard/servants')
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
 
     mocks.pathname = '/dashboard/servants'
     rerender(<Example />)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(document.documentElement).not.toHaveClass('page-transition-out')
+    expect(document.documentElement).toHaveClass('page-transition-in')
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(document.documentElement).not.toHaveClass('page-transition-in')
   })
 
-  it('restores content and dismisses feedback when navigation does not complete', () => {
+  it('keeps the current screen visible throughout a slow navigation', () => {
     render(<Example />)
     fireEvent.click(screen.getByRole('link'))
     act(() => { vi.advanceTimersByTime(2120) })
