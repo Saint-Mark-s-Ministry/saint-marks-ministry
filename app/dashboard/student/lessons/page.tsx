@@ -229,7 +229,7 @@ export default function StudentLessonsPage() {
         </Panel>
 
         {selected && (
-          <DetailPanel open onClose={() => setExpandedLesson(null)} title={`Lesson ${selected.lessonNumber} · ${selected.title}`}>
+          <DetailPanel recordKey={selected.id} open onClose={() => setExpandedLesson(null)} title={`Lesson ${selected.lessonNumber} · ${selected.title}`}>
             <div className="flex flex-col gap-4">
               <KeyValueList
                 items={[

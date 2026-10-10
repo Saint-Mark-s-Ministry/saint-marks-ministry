@@ -180,6 +180,7 @@ function ApplicationDetail({
 
   return (
     <DetailPanel
+      recordKey={application.id}
       open
       onClose={onClose}
       label={`Servant application from ${application.fullName}`}

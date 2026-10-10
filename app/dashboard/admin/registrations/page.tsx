@@ -335,6 +335,7 @@ function SubmissionDetail({
 
   return (
     <DetailPanel
+      recordKey={submission.id}
       open
       onClose={onClose}
       label={`Registration from ${submission.fullName}`}
