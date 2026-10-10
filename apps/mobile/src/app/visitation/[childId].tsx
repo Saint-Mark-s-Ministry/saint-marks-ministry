@@ -9,7 +9,9 @@ import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { shortMonthDay } from "@/data/sunday-school-classes";
 import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
+import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
 import { VisitationEntrySheet } from "@/components/visitation-entry-sheet";
+import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
 import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
@@ -40,6 +42,9 @@ function VisitationChildScreen() {
 
   const [entryOpen, setEntryOpen] = useState(false);
   const draftKey = user ? `stmark.visitation-draft.${user.id}.${childId}` : null;
+
+  const [callOpen, setCallOpen] = useState(false);
+  const callDraftKey = user ? `stmark.phone-call-draft.${user.id}.${childId}` : null;
 
   const latest = child?.visitations[0] ?? null;
 
@@ -124,6 +129,47 @@ function VisitationChildScreen() {
               </ListSurface>
             </View>
 
+            <View style={{ gap: 10 }}>
+              <SectionTitle title="Phone calls" />
+              <ListSurface>
+                {!child.phoneCalls.length && (
+                  <View style={{ padding: 14 }}>
+                    <Copy kind="caption">No calls logged yet.</Copy>
+                  </View>
+                )}
+                {child.phoneCalls.map((call, index, arr) => (
+                  <View key={call.id}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 60 }}>
+                      <View
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 8,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: call.outcome === "CONNECTED" ? colors.successSoft : colors.hover,
+                        }}
+                      >
+                        <Icon
+                          ios="phone"
+                          android="call"
+                          size={16}
+                          color={call.outcome === "CONNECTED" ? colors.success : colors.text2}
+                        />
+                      </View>
+                      <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
+                        <Copy numberOfLines={1} style={{ fontWeight: "500" }}>
+                          {callOutcomeLabel(call.outcome)} · {shortMonthDay(call.calledAt)}
+                        </Copy>
+                        <Copy kind="caption" numberOfLines={1}>{call.note} — {call.callerName}</Copy>
+                      </View>
+                    </View>
+                    {index < arr.length - 1 && <View style={{ height: 0.5, marginLeft: 58, backgroundColor: colors.border }} />}
+                  </View>
+                ))}
+              </ListSurface>
+            </View>
+
             <ListSurface>
               <Pressable
                 accessibilityRole="button"
@@ -181,9 +227,24 @@ function VisitationChildScreen() {
             shadowOffset: { width: 0, height: 4 },
           }}
         >
-          <Copy kind="caption" style={{ flex: 1 }}>
-            {child.visitations.length} {child.visitations.length === 1 ? "entry" : "entries"}
+          <Copy kind="caption" numberOfLines={1} style={{ flex: 1 }}>
+            {child.visitations.length} {child.visitations.length === 1 ? "visit" : "visits"} · {child.phoneCalls.length} {child.phoneCalls.length === 1 ? "call" : "calls"}
           </Copy>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log a call"
+            onPress={() => setCallOpen(true)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: colors.hover,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon ios="phone" android="call" size={18} color={colors.text} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="New visitation entry"
@@ -213,6 +274,19 @@ function VisitationChildScreen() {
           onSaved={async () => {
             setEntryOpen(false);
             await Promise.all([resource.refresh(), portal.refresh()]);
+          }}
+        />
+      )}
+
+      {callOpen && child && (
+        <PhoneCallEntrySheet
+          childId={child.id}
+          childName={`${child.firstName} ${child.lastName}`}
+          draftKey={callDraftKey}
+          onClose={() => setCallOpen(false)}
+          onSaved={async () => {
+            setCallOpen(false);
+            await resource.refresh();
           }}
         />
       )}
