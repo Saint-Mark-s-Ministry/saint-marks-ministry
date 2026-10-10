@@ -27,9 +27,15 @@ export async function POST(
     const body = await req.json()
     const { action, note, classId } = body
 
-    if (!action || !['approve', 'reject'].includes(action)) {
+    if (!action || !['approve', 'reject', 'request_changes'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be "approve" or "reject"' },
+        { error: 'Invalid action. Must be "approve", "reject", or "request_changes"' },
+        { status: 400 }
+      )
+    }
+    if (action === 'request_changes' && !note?.trim()) {
+      return NextResponse.json(
+        { error: 'A note is required so the submitter knows what to change.' },
         { status: 400 }
       )
     }
@@ -42,9 +48,17 @@ export async function POST(
       return NextResponse.json({ error: 'Registration request not found' }, { status: 404 })
     }
 
-    if (registrationRequest.status !== RegistrationStatus.PENDING) {
+    // A changes-requested request stays reviewable: there's no in-app
+    // resubmission flow yet, so a coordinator who hears back from the parent
+    // out of band (phone, in person) still needs to act on the same request
+    // rather than it being stuck forever. Flagged as a known gap in the PR.
+    const reviewableStatuses: RegistrationStatus[] = [
+      RegistrationStatus.PENDING,
+      RegistrationStatus.CHANGES_REQUESTED,
+    ]
+    if (!reviewableStatuses.includes(registrationRequest.status)) {
       return NextResponse.json(
-        { error: 'Only pending requests can be reviewed' },
+        { error: 'Only pending or changes-requested requests can be reviewed' },
         { status: 400 }
       )
     }
@@ -223,14 +237,21 @@ export async function POST(
         message: 'Registration request approved successfully',
       })
     } else {
+      // reject or request_changes — neither creates a child or touches
+      // placement, so both share one authorization/update shape.
       const access = await getSundaySchoolAccess(user)
       if (!canReviewChildRegistrationAtLevel(access, registrationRequest.intendedLevel)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
+      const nextStatus =
+        action === 'request_changes'
+          ? RegistrationStatus.CHANGES_REQUESTED
+          : RegistrationStatus.REJECTED
+
       const updatedRequest = await prisma.childRegistrationRequest.update({
         where: { id },
         data: {
-          status: RegistrationStatus.REJECTED,
+          status: nextStatus,
           reviewedBy: user.id,
           reviewedAt: new Date(),
           reviewNote: note || null,
@@ -239,13 +260,17 @@ export async function POST(
 
       notifyChildRegistrationReviewed({
         userId: registrationRequest.submittedByUserId,
-        status: 'REJECTED',
+        status: nextStatus,
         childName: `${registrationRequest.firstName} ${registrationRequest.lastName}`,
+        note,
       }).catch(() => {})
 
       return NextResponse.json({
         request: updatedRequest,
-        message: 'Registration request rejected',
+        message:
+          action === 'request_changes'
+            ? 'Changes requested from the submitter'
+            : 'Registration request rejected',
       })
     }
   } catch (error: unknown) {

@@ -4,7 +4,11 @@ export type {
   SundaySchoolLevel,
   SundaySchoolAuthority,
   SundaySchoolChildGender,
+  SundaySchoolFeedbackStatus,
   SundaySchoolFeedbackType,
+  SundaySchoolFeedbackVoteType,
+  SundaySchoolPhoneCallOutcome,
+  SundaySchoolHomeworkCompletionStatus,
   UserRole,
   RoleTag,
 } from "@prisma/client";

@@ -313,11 +313,11 @@ async function main() {
     if (existing) {
       await prisma.sundaySchoolAgeGroup.update({
         where: { id: existing.id },
-        data: { sortOrder: group.sortOrder, levels: [...group.levels] },
+        data: { sortOrder: group.sortOrder, levels: [...group.levels], isElementary: group.name === 'Elementary' },
       })
     } else {
       await prisma.sundaySchoolAgeGroup.create({
-        data: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels] },
+        data: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels], isElementary: group.name === 'Elementary' },
       })
     }
   }

@@ -167,6 +167,21 @@ export function useSundaySchoolLessons(
   })
 }
 
+export function useSundaySchoolHomework(
+  classId?: string,
+  includeArchived = false,
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (classId) params.set('classId', classId)
+  if (includeArchived) params.set('includeArchived', 'true')
+  const query = params.toString()
+  return useSWR(`/api/sunday-school/homework${query ? `?${query}` : ''}`, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
 export function useSundaySchoolChildren(classId?: string, options?: SWRConfiguration) {
   const url = classId
     ? `/api/sunday-school/children?classId=${classId}`

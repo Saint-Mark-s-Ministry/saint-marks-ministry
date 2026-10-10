@@ -223,6 +223,18 @@ enum SundaySchoolVisitationStatus {
   NOT_DONE
 }
 
+enum SundaySchoolPhoneCallOutcome {
+  CONNECTED
+  LEFT_VOICEMAIL
+  NO_ANSWER
+  OTHER
+}
+
+enum SundaySchoolHomeworkCompletionStatus {
+  COMPLETED
+  NOT_COMPLETED
+}
+
 enum SundaySchoolFeedbackStatus {
   OPEN
   PLANNED
@@ -252,6 +264,11 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+  // Only ChildRegistrationRequest uses this value today — a reviewer sending
+  // a request back to the parent for more info/changes, without rejecting
+  // it outright. Shared here (rather than a dedicated enum) since the column
+  // itself is already this shared type across all three registration models.
+  CHANGES_REQUESTED
 }
 
 enum StudentGrade {
@@ -316,21 +333,26 @@ model User {
   markedSundaySchoolLogs  SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
 
   // Sunday School mode relations (the Sunday School class itself)
-  overseenSundaySchoolAgeGroups         SundaySchoolAgeGroup[]          @relation("SundaySchoolPriestOverseer")
-  sundaySchoolServing                   SundaySchoolServantAssignment[] @relation("SundaySchoolServantAssignments")
-  assignedSundaySchoolServants          SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
-  endedSundaySchoolServantAssignments   SundaySchoolServantAssignment[] @relation("EndedSundaySchoolServantAssignments")
-  takenSundaySchoolSessions             SundaySchoolSession[]           @relation("TakenSundaySchoolSessions")
-  recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]   @relation("RecordedSundaySchoolAttendance")
-  sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
-  recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[] @relation("RecordedSundaySchoolServantAttendance")
-  recordedSundaySchoolVisitations       SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
-  authoredSundaySchoolPriestNotes       SundaySchoolPriestNote[]        @relation("SundaySchoolPriestNoteAuthor")
-  submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
-  sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
-  ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]      @relation("SundaySchoolWeeklyLessonOwner")
-  assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]      @relation("SundaySchoolWeeklyLessonAssigner")
-  linkedSundaySchoolChild               SundaySchoolChild?              @relation("SundaySchoolChildAccount")
+  overseenSundaySchoolAgeGroups         SundaySchoolAgeGroup[]           @relation("SundaySchoolPriestOverseer")
+  sundaySchoolServing                   SundaySchoolServantAssignment[]  @relation("SundaySchoolServantAssignments")
+  assignedSundaySchoolServants          SundaySchoolServantAssignment[]  @relation("AssignedSundaySchoolServantAssignments")
+  endedSundaySchoolServantAssignments   SundaySchoolServantAssignment[]  @relation("EndedSundaySchoolServantAssignments")
+  takenSundaySchoolSessions             SundaySchoolSession[]            @relation("TakenSundaySchoolSessions")
+  recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]    @relation("RecordedSundaySchoolAttendance")
+  sundaySchoolServantAttendance         SundaySchoolServantAttendance[]  @relation("SundaySchoolServantAttendance")
+  recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[]  @relation("RecordedSundaySchoolServantAttendance")
+  recordedSundaySchoolVisitations       SundaySchoolVisitation[]         @relation("RecordedSundaySchoolVisitations")
+  sundaySchoolPhoneCalls                SundaySchoolPhoneCall[]          @relation("SundaySchoolPhoneCallCaller")
+  authoredSundaySchoolPriestNotes       SundaySchoolPriestNote[]         @relation("SundaySchoolPriestNoteAuthor")
+  submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("SubmittedSundaySchoolFeedback")
+  respondedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("RespondedSundaySchoolFeedback")
+  sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]       @relation("SundaySchoolFeedbackVotes")
+  ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonOwner")
+  assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonAssigner")
+  createdSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkCreator")
+  updatedSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkUpdater")
+  recordedSundaySchoolHomework          SundaySchoolHomeworkCompletion[] @relation("RecordedSundaySchoolHomework")
+  linkedSundaySchoolChild               SundaySchoolChild?               @relation("SundaySchoolChildAccount")
 
   // Registration relations
   createdInviteCodes      InviteCode[]              @relation("InviteCodeCreator")
@@ -893,6 +915,7 @@ model SundaySchoolClass {
   weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
   visitations               SundaySchoolVisitation[]
+  phoneCalls                SundaySchoolPhoneCall[]
 
   @@unique([name, academicYearId])
   @@unique([sundaySchoolYearId, level, sectionName])
@@ -914,6 +937,7 @@ model SundaySchoolAgeGroup {
   sortOrder          Int                      @default(0)
   status             SundaySchoolRecordStatus @default(ACTIVE)
   isActive           Boolean                  @default(true)
+  isElementary       Boolean                  @default(false)
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 
@@ -1005,13 +1029,15 @@ model SundaySchoolChild {
   updatedAt     DateTime                 @updatedAt
 
   // Relations
-  class               SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
-  family              SundaySchoolFamily?           @relation(fields: [familyId], references: [id], onDelete: SetNull)
-  user                User?                         @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
+  class               SundaySchoolClass?               @relation(fields: [classId], references: [id], onDelete: SetNull)
+  family              SundaySchoolFamily?              @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  user                User?                            @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
+  homeworkCompletions SundaySchoolHomeworkCompletion[]
   visitations         SundaySchoolVisitation[]
-  guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
-  registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
+  phoneCalls          SundaySchoolPhoneCall[]
+  guardians           SundaySchoolChildGuardian[]      @relation("ChildGuardians")
+  registrationRequest ChildRegistrationRequest?        @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
   rosterImportRows    SundaySchoolRosterImportRow[]
 
@@ -1116,10 +1142,67 @@ model SundaySchoolWeeklyLesson {
   owner     User?                              @relation("SundaySchoolWeeklyLessonOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   assigner  User?                              @relation("SundaySchoolWeeklyLessonAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
   resources SundaySchoolWeeklyLessonResource[]
+  homework  SundaySchoolHomework?
 
   @@unique([classId, sundayDate])
   @@index([sundayDate])
   @@index([ownerId, sundayDate])
+}
+
+model SundaySchoolHomework {
+  id             String    @id @default(cuid())
+  weeklyLessonId String    @unique
+  title          String
+  instructions   String?   @db.Text
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  weeklyLesson SundaySchoolWeeklyLesson         @relation(fields: [weeklyLessonId], references: [id], onDelete: Cascade)
+  createdBy    User?                            @relation("SundaySchoolHomeworkCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                            @relation("SundaySchoolHomeworkUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  resources    SundaySchoolHomeworkResource[]
+  completions  SundaySchoolHomeworkCompletion[]
+
+  @@index([archivedAt])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model SundaySchoolHomeworkResource {
+  id         String   @id @default(cuid())
+  homeworkId String
+  title      String
+  url        String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  homework SundaySchoolHomework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, sortOrder])
+  @@index([homeworkId])
+}
+
+model SundaySchoolHomeworkCompletion {
+  id           String                               @id @default(cuid())
+  homeworkId   String
+  childId      String
+  status       SundaySchoolHomeworkCompletionStatus
+  recordedById String?
+  createdAt    DateTime                             @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime                             @updatedAt @db.Timestamptz(3)
+
+  homework   SundaySchoolHomework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  child      SundaySchoolChild    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  recordedBy User?                @relation("RecordedSundaySchoolHomework", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([homeworkId, childId])
+  @@index([childId])
+  @@index([status])
+  @@index([recordedById])
 }
 
 model SundaySchoolWeeklyLessonResource {
@@ -1231,6 +1314,28 @@ model SundaySchoolVisitation {
   @@index([status])
 }
 
+// A call is follow-up contact, not an in-person visitation. Keep the class
+// on the record so its history can be limited to the viewer's class scope.
+model SundaySchoolPhoneCall {
+  id         String                       @id @default(cuid())
+  classId    String
+  childId    String
+  callerId   String?
+  callerName String
+  calledAt   DateTime                     @db.Date
+  outcome    SundaySchoolPhoneCallOutcome
+  note       String                       @db.VarChar(500)
+  createdAt  DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime                     @updatedAt @db.Timestamptz(3)
+
+  class  SundaySchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child  SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Cascade)
+  caller User?             @relation("SundaySchoolPhoneCallCaller", fields: [callerId], references: [id], onDelete: SetNull)
+
+  @@index([classId, calledAt])
+  @@index([childId, calledAt])
+}
+
 // Confidential pastoral notes are deliberately separate from visitation
 // notes so they can never be included accidentally by the general visitation
 // API. Only the author and users with an active PRIEST role tag may read them.
@@ -1252,17 +1357,21 @@ model SundaySchoolPriestNote {
 // Product ideas for the Sunday School side of the application. These are
 // intentionally global rather than scoped to a class or academic year.
 model SundaySchoolFeedbackIdea {
-  id            String                     @id @default(cuid())
-  type          SundaySchoolFeedbackType   @default(IDEA)
-  title         String
-  description   String?                    @db.Text
-  status        SundaySchoolFeedbackStatus @default(OPEN)
-  submittedById String?
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
+  id                String                     @id @default(cuid())
+  type              SundaySchoolFeedbackType   @default(IDEA)
+  title             String
+  description       String?                    @db.Text
+  status            SundaySchoolFeedbackStatus @default(OPEN)
+  submittedById     String?
+  teamResponse      String?                    @db.Text
+  teamRespondedAt   DateTime?                  @db.Timestamptz(3)
+  teamRespondedById String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
-  submitter User?                      @relation("SubmittedSundaySchoolFeedback", fields: [submittedById], references: [id], onDelete: SetNull)
-  votes     SundaySchoolFeedbackVote[]
+  submitter     User?                      @relation("SubmittedSundaySchoolFeedback", fields: [submittedById], references: [id], onDelete: SetNull)
+  teamResponder User?                      @relation("RespondedSundaySchoolFeedback", fields: [teamRespondedById], references: [id], onDelete: SetNull)
+  votes         SundaySchoolFeedbackVote[]
 
   @@index([status, createdAt])
   @@index([submittedById])
@@ -1403,10 +1512,10 @@ model ServantApplication {
   availability String? @db.Text // Legacy compatibility column; no longer collected.
   motivation   String? @db.Text // Stores current grade until the contract migration.
 
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  reviewNote      String?   @db.Text
-  createdUserId   String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?   @db.Text
+  createdUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

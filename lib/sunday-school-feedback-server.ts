@@ -18,6 +18,8 @@ export const feedbackIdeaSelect = {
   title: true,
   description: true,
   status: true,
+  teamResponse: true,
+  teamRespondedAt: true,
   submittedById: true,
   createdAt: true,
   updatedAt: true,
@@ -32,6 +34,8 @@ export interface FeedbackIdeaRecord {
   title: string
   description: string | null
   status: SundaySchoolFeedbackStatus
+  teamResponse: string | null
+  teamRespondedAt: Date | null
   submittedById: string | null
   createdAt: Date
   updatedAt: Date
@@ -82,6 +86,8 @@ export async function serializeFeedbackIdeas(
       title: idea.title,
       description: idea.description,
       status: idea.status,
+      teamResponse: idea.teamResponse,
+      teamRespondedAt: idea.teamRespondedAt?.toISOString() ?? null,
       createdAt: idea.createdAt.toISOString(),
       updatedAt: idea.updatedAt.toISOString(),
       submitter: idea.submitter,
