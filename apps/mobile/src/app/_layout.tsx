@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -138,6 +138,39 @@ function AuthenticatedApp() {
   const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);
   const finishSplash = useCallback(() => setShowSplash(false), []);
+
+  // Preserve the intended deep link across sign-in (SMM-59): while signed
+  // out, there's no <Stack> mounted at all to receive one, so capture it —
+  // both a cold-start URL and one opened while already sitting on the sign-
+  // in screen — and replay it once the real navigator exists, rather than
+  // silently losing it the moment Navigation remounts at its default route.
+  const pendingUrl = useRef<string | null>(null);
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (user) return;
+    let active = true;
+    void Linking.getInitialURL().then((url) => {
+      if (active && url) pendingUrl.current = url;
+    });
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      pendingUrl.current = url;
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [user]);
+  useEffect(() => {
+    const justSignedIn = !!user && !wasSignedIn.current;
+    wasSignedIn.current = !!user;
+    if (!justSignedIn || !pendingUrl.current) return;
+    const url = pendingUrl.current;
+    pendingUrl.current = null;
+    // Navigation's own <Stack> mounts this same render pass; give it one
+    // tick to exist before replaying the link through it.
+    const timeout = setTimeout(() => void Linking.openURL(url), 50);
+    return () => clearTimeout(timeout);
+  }, [user]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#5C1A1A" }}>
