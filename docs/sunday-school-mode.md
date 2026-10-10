@@ -358,3 +358,30 @@ After pulling this change, run `bun db:generate` and apply the Prisma schema to
 a local database or isolated Neon branch with `bun db:push`. The additive schema
 change is the overseer column, index, and foreign key. Production schema changes
 remain an explicit, separately reviewed deployment step.
+
+## Elementary servants meetings
+
+The Elementary dashboard band includes **Servants meetings**, visible to every
+servant assigned to an Elementary class, the band coordinators, super admins,
+and priests. Other bands cannot view that roster. Only the band's coordinators
+and super admins can create sessions or save attendance; priests remain read-only.
+
+Sessions are created on demand with **Add meeting**, a date, and an optional
+title. They have no weekly recurrence and do not reuse weekly class sessions.
+One session is allowed per band/year/date; repeat creation opens the existing
+session. Future sessions can be planned, but attendance opens on the meeting
+date. Coordinators may record or correct past meetings. Each servant must be
+explicitly marked present or absent before saving.
+
+`SundaySchoolServantsMeeting` stores the session and
+`SundaySchoolMeetingAttendance` stores one mark per meeting/servant. The roster
+combines active direct class assignments in the band and band assignments,
+deduplicates users, and retains saved attendees after assignments end. During
+the compatibility phase, sessions use the active legacy academic year, matching
+the existing dashboard and staffing resolver. No database is changed by a build;
+apply the committed migration explicitly during deployment.
+
+`/api/sunday-school/servants-meetings`: GET lists sessions or loads the selected
+session; POST creates an explicit session; PUT saves attendance transactionally.
+Every request resolves database authorization and band visibility. Opening the
+section never creates a session or attendance marks.

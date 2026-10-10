@@ -335,6 +335,8 @@ model User {
   sundaySchoolServing                   SundaySchoolServantAssignment[]  @relation("SundaySchoolServantAssignments")
   assignedSundaySchoolServants          SundaySchoolServantAssignment[]  @relation("AssignedSundaySchoolServantAssignments")
   endedSundaySchoolServantAssignments   SundaySchoolServantAssignment[]  @relation("EndedSundaySchoolServantAssignments")
+  sundaySchoolMeetingAttendance SundaySchoolMeetingAttendance[] @relation("SundaySchoolMeetingAttendee")
+  recordedSundaySchoolMeetingAttendance SundaySchoolMeetingAttendance[] @relation("SundaySchoolMeetingRecorder")
   takenSundaySchoolSessions             SundaySchoolSession[]            @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]    @relation("RecordedSundaySchoolAttendance")
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[]  @relation("SundaySchoolServantAttendance")
@@ -472,6 +474,7 @@ model AcademicYear {
   enrollments                    StudentEnrollment[]             @relation("EnrollmentYear")
   graduatedEnrollments           StudentEnrollment[]             @relation("GraduationYear")
   sundaySchoolAssignments        SundaySchoolAssignment[]
+  sundaySchoolServantsMeetings SundaySchoolServantsMeeting[]
   sundaySchoolClasses            SundaySchoolClass[]
   sundaySchoolServantAssignments SundaySchoolServantAssignment[]
   annualMentorInformation        AnnualMentorInformation[]
@@ -960,6 +963,7 @@ model SundaySchoolAgeGroup {
   sundaySchoolYear SundaySchoolYear?               @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
   assignments      SundaySchoolServantAssignment[]
   levelRows        SundaySchoolAgeGroupLevel[]
+  servantsMeetings SundaySchoolServantsMeeting[]
 
   @@unique([sundaySchoolYearId, name])
   @@unique([id, sundaySchoolYearId])
@@ -1981,4 +1985,40 @@ model DigitalExamAttemptArchive {
   archivedAt DateTime @default(now())
   attempt DigitalExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   @@unique([attemptId, attemptNumber])
+}
+
+// Created explicitly, independent from weekly class sessions.
+model SundaySchoolServantsMeeting {
+  id             String @id @default(cuid())
+  ageGroupId     String
+  academicYearId String
+  date           DateTime @db.Date
+  title          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  ageGroup     SundaySchoolAgeGroup @relation(fields: [ageGroupId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  attendance   SundaySchoolMeetingAttendance[]
+
+  @@unique([ageGroupId, academicYearId, date], map: "ss_servants_meeting_group_year_date")
+  @@index([academicYearId])
+}
+
+model SundaySchoolMeetingAttendance {
+  id         String @id @default(cuid())
+  meetingId  String
+  servantId  String
+  status     SundaySchoolServantAttendanceStatus
+  recordedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  meeting  SundaySchoolServantsMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  servant  User @relation("SundaySchoolMeetingAttendee", fields: [servantId], references: [id], onDelete: Cascade)
+  recorder User? @relation("SundaySchoolMeetingRecorder", fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, servantId])
+  @@index([servantId])
+  @@index([recordedBy])
 }
