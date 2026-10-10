@@ -26,11 +26,13 @@ beforeEach(() => {
 describe('compact proctor dashboard', () => {
   it('keeps saved choices and compact interruption logs', () => {
     render(<DigitalExamMonitor examId="exam" />)
-    const feed = screen.getByRole('heading', { name: 'Recent saved answers' }).closest('section')!
+    const feed = screen.getByText('Recent saved answers').closest('details')!
+    fireEvent.click(screen.getByText('Recent saved answers'))
     expect(within(feed).getByText('Test Student')).toBeInTheDocument()
     expect(within(feed).getByText('Question 12: chose C')).toBeInTheDocument()
     expect(feed).not.toHaveTextContent('Next step:')
     expect(feed).not.toHaveTextContent('Device time')
+    fireEvent.click(screen.getByRole('button', { name: 'View Test Student: Paused' }))
     expect(screen.getByText('Answering paused — proctor clearance required')).toBeInTheDocument()
     expect(screen.getAllByText('Exam lost focus').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'Unlock student' })).toBeEnabled()
@@ -38,6 +40,7 @@ describe('compact proctor dashboard', () => {
   it('explains why unlocking is unavailable while the page is hidden or contact stale', () => {
     mocks.data!.roster![0].attempt!.pageVisible = false
     const { rerender } = render(<DigitalExamMonitor examId="exam" />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Test Student: Paused' }))
     expect(screen.getByRole('button', { name: 'Unlock student' })).toBeDisabled()
     expect(screen.getByText(/Waiting for return:/)).toBeInTheDocument()
     mocks.data = structuredClone(mocks.data)
@@ -45,11 +48,40 @@ describe('compact proctor dashboard', () => {
     rerender(<DigitalExamMonitor examId="exam" />)
     expect(screen.getByText(/Waiting for contact:/)).toBeInTheDocument()
   })
-  it('shows priests the reason and asks an Servants Prep servant to unlock', () => {
+  it('shows priests the reason and asks a Servants Prep servant to unlock', () => {
     mocks.data!.canManage = false
     render(<DigitalExamMonitor examId="exam" />)
+    fireEvent.click(screen.getByRole('button', { name: 'View Test Student: Paused' }))
     expect(screen.queryByRole('button', { name: 'Unlock student' })).not.toBeInTheDocument()
     expect(screen.getByText(/Your monitoring access is read-only/)).toBeInTheDocument()
+  })
+  it('shows a large roster as compact cards and keeps live details current', () => {
+    const original = mocks.data!.roster![0]
+    mocks.data!.roster = Array.from({ length: 48 }, (_, i) => ({ ...structuredClone(original), student: { id: `student-${i}`, name: `Student ${i + 1}` } }))
+    const { rerender } = render(<DigitalExamMonitor examId="exam" />)
+    expect(screen.getAllByRole('button', { name: /^View Student/ })).toHaveLength(48)
+    expect(screen.queryByText('Answering paused — proctor clearance required')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Unlock student' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'View Student 24: Paused' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Student 24')
+    mocks.data = structuredClone(mocks.data)
+    mocks.data!.roster![23].attempt!.state = 'ACTIVE'
+    mocks.data!.roster![23].attempt!.answeredCount = 17
+    rerender(<DigitalExamMonitor examId="exam" />)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Answering · 17/50 answered')
+    expect(screen.queryByRole('button', { name: 'Unlock student' })).not.toBeInTheDocument()
+  })
+  it('opens a screen-sized overview and details without losing the overview', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    render(<DigitalExamMonitor examId="exam" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fit to screen' }))
+    const overview = screen.getByRole('dialog')
+    expect(overview).toHaveTextContent('Student overview · 1')
+    fireEvent.click(within(overview).getByRole('button', { name: 'View Test Student: Paused' }))
+    const detail = screen.getByRole('dialog', { name: 'Test Student' })
+    expect(within(detail).getByRole('button', { name: 'Unlock student' })).toBeEnabled()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Close' }))
+    expect(screen.getByRole('dialog', { name: 'Student overview · 1' })).toBeInTheDocument()
   })
   it('offers an explicit individual retake and ready-to-open confirmation', () => {
     mocks.data!.retakeCandidates = [{ id: 'student', name: 'Test Student' }]
