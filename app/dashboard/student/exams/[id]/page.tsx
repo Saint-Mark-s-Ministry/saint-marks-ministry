@@ -29,7 +29,7 @@ export default function ExamAnswerPage({ params }: { params: Promise<{ id: strin
   const answered = control.answers.filter(Boolean).length
   const disabled = control.busy || control.paused || control.offline || closed || submitted || !control.started
   return <div className="flex flex-col gap-5">
-    <PageHeader title={data.exam.examSection.displayName} meta={['50 questions', 'Original exam']} back={{ href: '/dashboard/student/exams', label: 'Exam answer sheets' }} />
+    <PageHeader title={data.exam.examSection.displayName} meta={['50 questions', 'Original exam']} back={{ href: '/dashboard/student/exams', label: 'Live Exam' }} />
     {control.message && <p role="alert" className="rounded-lg border border-line p-4 text-bad">{control.message}</p>}
     {submitted ? <Panel title="Exam submitted" bodyClassName="p-5"><p>Your answers are final. This answer sheet cannot be reopened.</p><p className="mt-2 text-sm text-ink-3">{typeof attempt?.correctCount === 'number' ? `Result: ${attempt?.correctCount ?? 0}/50 (${attempt?.percentage ?? 0}%).` : 'Your result will appear after leaders release the grades.'}</p>{attempt?.submittedAt && <p className="mt-2 text-sm text-ink-3">Submitted {new Date(attempt.submittedAt).toLocaleString()}</p>}</Panel>
     : closed ? <Panel title="Exam closed" bodyClassName="p-5"><p>The proctor has closed this exam. Started attempts are finalized using their saved answers.</p></Panel>

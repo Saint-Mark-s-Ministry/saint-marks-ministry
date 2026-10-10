@@ -63,13 +63,13 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/student'
     mocks.user = { id: 'student-1', name: 'Student', role: UserRole.STUDENT }
     const { rerender } = render(<AppShell>page</AppShell>)
-    expect(within(sidebar()).queryByRole('link', { name: 'Exam answer sheets' })).not.toBeInTheDocument()
+    expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
     mocks.openExams = [{ id: 'open-exam' }]
     rerender(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: 'Exam answer sheets' })).toHaveAttribute('href', '/dashboard/student/exams')
+    expect(within(sidebar()).getByRole('link', { name: 'Live Exam' })).toHaveAttribute('href', '/dashboard/student/exams')
     mocks.openExams = []
     rerender(<AppShell>page</AppShell>)
-    expect(within(sidebar()).queryByRole('link', { name: 'Exam answer sheets' })).not.toBeInTheDocument()
+    expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
   })
 
   it('offers priests the read-only servant attendance page in Sunday School mode', () => {
