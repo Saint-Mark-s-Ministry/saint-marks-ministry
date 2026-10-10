@@ -108,7 +108,7 @@ function SundaySchoolAttendanceContent() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Take attendance"
         meta="Marks save automatically; Save attendance also marks anyone left unmarked absent"

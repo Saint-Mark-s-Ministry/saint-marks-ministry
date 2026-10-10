@@ -221,7 +221,7 @@ export default function SundaySchoolVisitationsPage() {
   const listed = visibleChildren.filter((child) => (visitView === 'all' ? true : visitView === 'done' ? isDoneChild(child) : !isDoneChild(child)))
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader title="Visitations" meta={['Visits and phone call follow-up for every child in your classes']} />
 

@@ -168,7 +168,7 @@ function ServantAttendanceContent() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Servant attendance"
         meta={[canEdit ? 'Record which servants served each week' : 'Recorded servant attendance across classes', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}

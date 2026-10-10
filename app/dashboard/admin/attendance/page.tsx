@@ -441,7 +441,7 @@ export default function AttendancePage() {
   const visibleLessons = lessonView === 'needs' ? scheduledLessons : completedLessons
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Take attendance"
         meta={['Servants Prep', yearName, lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}

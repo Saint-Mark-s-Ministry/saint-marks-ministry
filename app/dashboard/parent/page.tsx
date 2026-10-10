@@ -94,7 +94,7 @@ function ParentDashboardContent() {
   const lessons = (lessonData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="My children"
         meta={['Your Sunday School registrations and class lessons']}

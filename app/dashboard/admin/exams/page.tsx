@@ -436,7 +436,7 @@ function ExamsPageContent() {
   if (selectedExam) {
     const title = `${selectedExam.examSection.displayName} · ${YEAR_LABEL[selectedExam.yearLevel] ?? selectedExam.yearLevel}`
     return (
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
         <PageHeader
           title={title}
           meta={['Original and makeup exam scores', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
@@ -573,7 +573,7 @@ function ExamsPageContent() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Exams"
         meta={['Create exams and enter scores', `${exams.length} exams`, `${totalScores} scores`, lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}

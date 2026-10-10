@@ -22,7 +22,7 @@ export default function StudentClassLessonsPage() {
   if (status === 'loading' || !session || isLoading) return <PageLoading />
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Class lessons" meta={['Upcoming Sunday School slides and resources for your class']} />
 
       {lessons.length === 0 ? (

@@ -142,7 +142,7 @@ export default function StudentLessonsPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="My lessons" meta={['Your lessons, resources and attendance']} />
 
       <KpiStrip

@@ -92,7 +92,7 @@ export default function ActivityPage() {
   const selected = data?.events.find((e) => e.id === selectedId) ?? null
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Activity log"
         meta={['Security and administrative activity recorded across the website']}

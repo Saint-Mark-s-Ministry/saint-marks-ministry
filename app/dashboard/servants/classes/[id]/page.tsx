@@ -207,7 +207,7 @@ export default function SundaySchoolClassDetailPage() {
 
   if (!detail) {
     return (
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
         <PageHeader back={{ href: '/dashboard/servants/classes', label: 'All classes' }} title="Class" />
         <Panel>
           {(loadError as { status?: number } | undefined)?.status && (loadError as { status: number }).status >= 500 ? (
@@ -237,7 +237,7 @@ export default function SundaySchoolClassDetailPage() {
     : availableServants
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
           back={{ href: '/dashboard/servants/classes', label: 'All classes' }}

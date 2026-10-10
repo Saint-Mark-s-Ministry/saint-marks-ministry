@@ -159,7 +159,7 @@ export function MenteesView({ session }: { session: Session | null }) {
   const noun = isPriest ? 'students' : 'mentees'
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title={isPriest ? 'All students' : 'My mentees'}
         meta={['Graduation requirements and progress', `${mentees.length} ${mentees.length === 1 ? noun.slice(0, -1) : noun}`]}

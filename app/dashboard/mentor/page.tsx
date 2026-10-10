@@ -116,7 +116,7 @@ export default function MentorDashboard() {
   const yearName = years?.find((y) => y.isActive)?.name.replace('-', '–')
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Mentor dashboard"
         meta={[`Welcome back${session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}`, yearName]}
