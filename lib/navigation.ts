@@ -163,12 +163,12 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   const role = user.role
   const ssAdmin = canAdministerSundaySchool(role)
 
-  const leaders: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
-  if (ssAdmin) leaders.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
+  const servants: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
+  if (ssAdmin) servants.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
   if (ssAdmin || user.sundaySchool?.isCoordinator) {
-    leaders.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
+    servants.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
   }
-  leaders.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
+  servants.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
 
   const admin: NavItem[] = []
   if (canReviewServantApplications(role)) {
@@ -194,7 +194,7 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   if (admin.length > 0) admin.push(feedback)
   else main.push(feedback)
 
-  const groups: NavGroup[] = [{ items: main }, { label: 'Leaders', items: leaders }]
+  const groups: NavGroup[] = [{ items: main }, { label: 'Servants', items: servants }]
   if (admin.length > 0) groups.push({ label: 'Admin', items: admin })
   return groups
 }

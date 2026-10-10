@@ -10,14 +10,14 @@ describe('defaultDashboardPath', () => {
     expect(defaultDashboardPath('SUPER_ADMIN')).toBe('/dashboard/admin')
   })
 
-  it('opens Sunday School for a servant who is not a Servants Prep leader', () => {
+  it('opens Sunday School for a servant who is not a Servants Prep servant', () => {
     const sundaySchool = { hasAccess: true }
     const ministryMembership = { sundaySchoolServant: true, servantsPrepLeader: false }
     expect(defaultDashboardPath({ role: 'MENTOR', sundaySchool, ministryMembership })).toBe('/dashboard/servants')
     expect(defaultDashboardPath({ role: 'SUPER_ADMIN', sundaySchool, ministryMembership })).toBe('/dashboard/servants')
   })
 
-  it('keeps Prep as the default for its leaders and non-serving mentors', () => {
+  it('keeps Prep as the default for its servants and non-serving mentors', () => {
     const sundaySchool = { hasAccess: true }
     const ministryMembership = { sundaySchoolServant: true, servantsPrepLeader: true }
     expect(defaultDashboardPath({ role: 'SERVANT_PREP', sundaySchool, ministryMembership })).toBe('/dashboard/admin')

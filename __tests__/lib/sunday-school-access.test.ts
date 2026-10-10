@@ -91,7 +91,7 @@ const superAdmin = makeAccess({ isAdmin: true, visibleClassIds: 'all' })
 const priest = makeAccess({ readOnly: true, visibleClassIds: 'all' })
 
 // A SERVANT_PREP who has not been assigned anything: the bug this model fixes
-const unassignedPrepLeader = makeAccess({ canRead: false })
+const unassignedPrepServant = makeAccess({ canRead: false })
 
 describe('Sunday School access resolution', () => {
   beforeEach(() => {
@@ -132,7 +132,7 @@ describe('Sunday School access resolution', () => {
     expect(canServeClass(access, CLASS_A)).toBe(false)
   })
 
-  it('keeps an untagged and unassigned prep leader out of the mode', async () => {
+  it('keeps an untagged and unassigned prep servant out of the mode', async () => {
     const access = await getSundaySchoolAccess({
       id: 'prep-only',
       role: UserRole.SERVANT_PREP,
@@ -195,13 +195,13 @@ describe('Sunday School access resolution', () => {
 })
 
 describe('Sunday School access predicates', () => {
-  describe('an unassigned prep leader', () => {
+  describe('an unassigned prep servant', () => {
     it('has no Sunday School access at all', () => {
-      expect(unassignedPrepLeader.canRead).toBe(false)
-      expect(canViewClass(unassignedPrepLeader, CLASS_A)).toBe(false)
-      expect(canServeClass(unassignedPrepLeader, CLASS_A)).toBe(false)
-      expect(canCoordinateClass(unassignedPrepLeader, CLASS_A)).toBe(false)
-      expect(canCreateClassAtLevel(unassignedPrepLeader, 'GRADE_2')).toBe(false)
+      expect(unassignedPrepServant.canRead).toBe(false)
+      expect(canViewClass(unassignedPrepServant, CLASS_A)).toBe(false)
+      expect(canServeClass(unassignedPrepServant, CLASS_A)).toBe(false)
+      expect(canCoordinateClass(unassignedPrepServant, CLASS_A)).toBe(false)
+      expect(canCreateClassAtLevel(unassignedPrepServant, 'GRADE_2')).toBe(false)
     })
   })
 
@@ -331,7 +331,7 @@ describe('Sunday School access predicates', () => {
     })
 
     it('is empty for someone with no assignments', () => {
-      expect(visibleClassFilter(unassignedPrepLeader)).toEqual([])
+      expect(visibleClassFilter(unassignedPrepServant)).toEqual([])
     })
   })
 

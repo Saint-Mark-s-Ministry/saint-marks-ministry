@@ -26,7 +26,7 @@ export function PrivacyPageContent() {
               </p>
               <p>
                 In this policy, &quot;the church,&quot; &quot;we,&quot; and &quot;us&quot; refer to the Coptic Orthodox Church of Saint
-                Mark and the authorized ministry leaders who operate the portal on its behalf.
+                Mark and the authorized ministry servants who operate the portal on its behalf.
               </p>
             </>
           ),
@@ -80,7 +80,7 @@ export function PrivacyPageContent() {
             <>
               <p>
                 The portal is not intended for unsupervised self-registration by children under 13. A parent,
-                legal guardian, or authorized ministry leader should provide information for a younger child.
+                legal guardian, or authorized ministry servant should provide information for a younger child.
                 A child does not need an email address or portal account to appear on a Sunday School roster.
               </p>
               <p>
@@ -115,7 +115,7 @@ export function PrivacyPageContent() {
             <p>
               The portal may calculate attendance percentages, exam averages, missing requirements, or an
               eligibility status from ministry records. These calculations are administrative aids, not final
-              decisions made solely by an automated system. Authorized ministry leaders may review the underlying
+              decisions made solely by an automated system. Authorized ministry servants may review the underlying
               records, correct errors, and make exceptions or final ministry decisions.
             </p>
           ),
@@ -248,7 +248,7 @@ export function PrivacyPageContent() {
               identifiers, financial information, the substance of a confession, or other highly sensitive
               information into a note or upload unless the church specifically requests it and it is necessary and
               authorized. The priest-only field is not intended to store the content of a confession. For
-              emergencies, contact emergency services and church leadership directly rather than relying on the
+              emergencies, contact emergency services, clergy, or authorized ministry servants directly rather than relying on the
               portal.
             </p>
           ),

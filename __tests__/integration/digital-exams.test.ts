@@ -384,7 +384,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).toMatchObject({ percentage: 90, originalPercentage: 90, digitalRetakePercentage: 2 })
   }, 30000)
 
-  it('lets only exam leaders toggle student return sounds without changing answers or grades', async () => {
+  it('lets only Servants Prep servants toggle student return sounds without changing answers or grades', async () => {
     expect((await (await get()).json()).sheet.studentReturnSoundEnabled).toBe(false)
     await act('start'); await act('save', { question: 0, answer: 'E', revision: 0 })
     const attempt = await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })

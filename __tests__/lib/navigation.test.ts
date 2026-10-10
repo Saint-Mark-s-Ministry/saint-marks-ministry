@@ -89,14 +89,14 @@ describe('navigationFor', () => {
 })
 
 describe('ministries', () => {
-  it('offers both only to prep leaders and mentors who also serve', () => {
+  it('offers both only to prep servants and mentors who also serve', () => {
     expect(availableMinistries({ role: 'SUPER_ADMIN', ...servesSS }).map((m) => m.id)).toEqual(['prep', 'sunday-school'])
     expect(availableMinistries({ role: 'MENTOR', ...servesSS })).toHaveLength(2)
     expect(availableMinistries({ role: 'SUPER_ADMIN', ...noSS })).toHaveLength(1)
     expect(availableMinistries({ role: 'STUDENT', ...servesSS })).toHaveLength(1)
   })
 
-  it('puts Sunday School first for a servant without Prep leadership', () => {
+  it('puts Sunday School first for a servant without Servants Prep service', () => {
     const user = {
       role: 'MENTOR' as const,
       ...servesSS,

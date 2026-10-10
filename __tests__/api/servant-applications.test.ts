@@ -280,7 +280,7 @@ describe('servant applications API', () => {
     })
   })
 
-  it('does not allow Servants Prep leaders to approve applications', async () => {
+  it('does not allow Servants Prep servants to approve applications', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'prep-1', role: 'SERVANT_PREP' })
     const request = new NextRequest(
       'http://localhost/api/servant-applications/application-1/review',

@@ -16,7 +16,7 @@ import { GET } from '@/app/api/mentor-options/route'
 describe('GET /api/mentor-options', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.requireAuth.mockResolvedValue({ id: 'leader-1', role: UserRole.SERVANT_PREP })
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: UserRole.SERVANT_PREP })
     mocks.findMany.mockResolvedValue([])
   })
 

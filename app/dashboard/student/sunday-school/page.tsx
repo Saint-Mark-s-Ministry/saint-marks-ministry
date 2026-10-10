@@ -157,7 +157,7 @@ export default function SundaySchoolPage() {
 
       {!progress || progress.assignments.length === 0 ? (
         <Panel>
-          <EmptyState title="No serving assignment yet" message="A Servants Prep leader assigns your Sunday School class. Ask them if you expected one." />
+          <EmptyState title="No serving assignment yet" message="A Servants Prep servant assigns your Sunday School class. Ask them if you expected one." />
         </Panel>
       ) : (
         progress.assignments.map((assignment) => (

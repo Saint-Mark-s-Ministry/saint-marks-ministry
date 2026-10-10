@@ -29,7 +29,7 @@ references the prep program, and vice versa.
 ## Features
 
 ### Servants Prep
-- **Role-based access** for Super Admins, Priests, Servants Prep Leaders,
+- **Role-based access** for Super Admins, Priests, Servants Prep Servants,
   Mentors, and Students
 - **Academic years** with enrollment management, including late-start students
 - **Curriculum** — weekly lessons with resources, ordering, and exam days
@@ -166,7 +166,7 @@ changes a database. Run schema updates as an explicit deployment step.
 |---|---|---|---|
 | Super Admin | Full | Full, every class | All users |
 | Priest | Full, read-only | Reads every class | None |
-| Servants Prep Leader | Full | Only if personally assigned | Students, Mentors |
+| Servants Prep Servant | Full | Only if personally assigned | Students, Mentors |
 | Mentor | Own mentees, read-only | Only if personally assigned | None |
 | Student | Own data, read-only | None | None |
 | Sunday School Servant | None | Only their assignments | None |
@@ -188,7 +188,7 @@ The login page is the shared entry point for both ministries:
   password directly; the portal does not email credentials. The servant changes
   it at first login and is assigned to a class separately.
 - **Servants Prep students** use the existing invite-code registration flow.
-  A Super Admin or Servants Prep Leader reviews the registration before an
+  A Super Admin or Servants Prep Servant reviews the registration before an
   account and enrollment are created.
 - **Google sign-in** is available only for an existing, enabled account; it
   does not create a new account.
