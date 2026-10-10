@@ -29,7 +29,7 @@ import {
 } from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2, Pencil, Plus, School, X } from 'lucide-react'
+import { Camera, Trash2, Pencil, Plus, School, X, Mail } from 'lucide-react'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
@@ -87,6 +87,10 @@ export default function UsersPage() {
   // Password reset dialog state
   const [passwordResetOpen, setPasswordResetOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
+
+  // Password reset email dialog state (SUPER_ADMIN only)
+  const [resetEmailUser, setResetEmailUser] = useState<User | null>(null)
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false)
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -278,6 +282,23 @@ export default function UsersPage() {
     } finally {
       setDeleteConfirmOpen(false)
       setDeleteUserId(null)
+    }
+  }
+
+  const confirmSendResetEmail = async () => {
+    if (!resetEmailUser) return
+
+    setIsSendingResetEmail(true)
+    try {
+      const res = await fetch(`/api/users/${resetEmailUser.id}/send-password-reset`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send password reset email')
+      toast.success(data.message || `Password reset email sent to ${resetEmailUser.email}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send password reset email')
+    } finally {
+      setIsSendingResetEmail(false)
+      setResetEmailUser(null)
     }
   }
 
@@ -755,6 +776,11 @@ export default function UsersPage() {
                                   <Button size="sm" variant="ghost" onClick={() => startEdit(user)} className="h-7 px-2 text-xs gap-1">
                                     <Pencil className="h-3 w-3" /> Edit
                                   </Button>
+                                  {isSuperAdmin && !user.isDisabled && (
+                                    <Button size="sm" variant="ghost" onClick={() => setResetEmailUser(user)} className="h-7 px-2 text-xs" title="Send password reset email" aria-label={`Send password reset email to ${user.name}`}>
+                                      <Mail className="h-3 w-3" />
+                                    </Button>
+                                  )}
                                   <Button size="sm" variant="ghost" onClick={() => handleDeleteUser(user.id)} disabled={isCurrentUser} className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -943,6 +969,11 @@ export default function UsersPage() {
                             <Button size="sm" variant="ghost" onClick={() => startEdit(user)} className="h-7 w-7 p-0">
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            {isSuperAdmin && !user.isDisabled && (
+                              <Button size="sm" variant="ghost" onClick={() => setResetEmailUser(user)} className="h-7 w-7 p-0" title="Send password reset email" aria-label={`Send password reset email to ${user.name}`}>
+                                <Mail className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" onClick={() => handleDeleteUser(user.id)} disabled={isCurrentUser} className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -1133,6 +1164,24 @@ export default function UsersPage() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               Reset Password
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Password Reset Email Dialog */}
+      <AlertDialog open={resetEmailUser !== null} onOpenChange={(open) => { if (!open && !isSendingResetEmail) setResetEmailUser(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Password Reset Email</AlertDialogTitle>
+            <AlertDialogDescription>
+              Email {resetEmailUser?.name} ({resetEmailUser?.email}) a link to choose a new password. The link expires in one hour, and their current password keeps working until they use it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingResetEmail}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSendResetEmail} disabled={isSendingResetEmail}>
+              {isSendingResetEmail ? 'Sending…' : 'Send email'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

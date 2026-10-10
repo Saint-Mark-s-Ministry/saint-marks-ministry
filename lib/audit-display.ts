@@ -6,6 +6,7 @@ const ACTION_LABELS: Record<string, string> = {
   ADMIN_VIEW_AS_STOPPED: 'Stopped View as',
   'user.role_tags.update': 'Updated access roles',
   'user.delete': 'Deleted a user account',
+  'user.password_reset_email.send': 'Sent a password reset email',
   'sunday_school.priest_note.create': 'Created a confidential visitation note',
 }
 
@@ -94,6 +95,8 @@ export function auditActionSummary(event: DisplayableAuditEvent): string {
       return `Updated access roles for ${target}`
     case 'user.delete':
       return `Deleted user account for ${target}`
+    case 'user.password_reset_email.send':
+      return `Sent a password reset email to ${target}`
     default:
       return ACTION_LABELS[event.action] ?? humanizeAuditIdentifier(event.action)
   }
