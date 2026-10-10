@@ -112,6 +112,41 @@ describe("native NextAuth session transport", () => {
     expect(save).toHaveBeenCalledWith({});
     expect(unauthorized).toHaveBeenCalledOnce();
   });
+  it("collapses every credential rejection into one generic message, except rate limiting (SMM-59)", async () => {
+    const genericFetcher = vi.fn().mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      headers: new Headers(),
+      json: async () => ({ url: "https://example.com/api/auth/error?error=Invalid%20credentials" }),
+    });
+    const client = new PortalApi(
+      "https://example.com",
+      genericFetcher,
+      { load: async () => ({}), save: async () => {} },
+      false,
+    );
+    await expect(
+      client.request("/api/auth/callback/credentials"),
+    ).rejects.toThrow("Sign-in failed. Check your email and password, or try again later.");
+
+    const rateLimitFetcher = vi.fn().mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      headers: new Headers(),
+      json: async () => ({
+        url: "https://example.com/api/auth/error?error=Too%20many%20login%20attempts.%20Please%20try%20again%20in%20900%20seconds.",
+      }),
+    });
+    const client2 = new PortalApi(
+      "https://example.com",
+      rateLimitFetcher,
+      { load: async () => ({}), save: async () => {} },
+      false,
+    );
+    await expect(
+      client2.request("/api/auth/callback/credentials"),
+    ).rejects.toThrow("Too many login attempts. Please try again in 900 seconds.");
+  });
   it("does not resurrect session cookies from a response arriving after logout", async () => {
     let resolve!: (value: Response) => void;
     const response = new Promise<Response>((r) => {

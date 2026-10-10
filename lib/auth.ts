@@ -10,6 +10,7 @@ import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 import { seesAllSundaySchoolClasses } from "./roles"
 import { recordAuditEvent } from "./audit"
 import { normalizeEmail } from "./email"
+import { classBelongsToElementaryBand } from "./sunday-school-homework"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -32,10 +33,10 @@ async function getUserSessionData(user: { id: string; role: UserRole }) {
  */
 async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
   if (seesAllSundaySchoolClasses(user.role)) {
-    return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN }
+    return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN, hasHomeworkAccess: true }
   }
 
-  const [participantGrant, assignments] = await Promise.all([
+  const [participantGrant, assignments, elementaryBands] = await Promise.all([
     prisma.userRoleAssignment.findFirst({
       where: {
         userId: user.id,
@@ -46,13 +47,30 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
     }),
     prisma.sundaySchoolServantAssignment.findMany({
       where: { userId: user.id, academicYear: { isActive: true }, endedAt: null },
-      select: { authority: true }
+      select: { authority: true, classId: true, ageGroupId: true }
+    }),
+    prisma.sundaySchoolAgeGroup.findMany({
+      where: { isElementary: true, isActive: true },
+      select: { id: true, sundaySchoolYearId: true, levels: true },
     }),
   ])
 
+  const directClassIds = assignments.flatMap(assignment => assignment.classId ? [assignment.classId] : [])
+  const directClasses = directClassIds.length > 0
+    ? await prisma.sundaySchoolClass.findMany({
+        where: { id: { in: directClassIds } },
+        select: { level: true, sundaySchoolYearId: true },
+      })
+    : []
+  const elementaryAgeGroupIds = new Set(elementaryBands.map(group => group.id))
+  const hasHomeworkAccess = assignments.some(
+    assignment => assignment.ageGroupId && elementaryAgeGroupIds.has(assignment.ageGroupId),
+  ) || directClasses.some(cls => classBelongsToElementaryBand(cls, elementaryBands))
+
   return {
     hasAccess: participantGrant !== null || assignments.length > 0,
-    isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR)
+    isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR),
+    hasHomeworkAccess,
   }
 }
 
@@ -330,7 +348,7 @@ export const authOptions: NextAuthOptions = {
         token.authVersion = user.authVersion
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
-        token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false }
+        token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false, hasHomeworkAccess: false }
         token.profileImageUrl = user.profileImageUrl ?? null
         token.validatedAt = Date.now()
       }
@@ -500,8 +518,8 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean
         session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
         session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
-        session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean } | undefined)
-          ?? { hasAccess: false, isCoordinator: false }
+        session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess: boolean } | undefined)
+          ?? { hasAccess: false, isCoordinator: false, hasHomeworkAccess: false }
       }
       // Surface View as state without exposing any authority-changing input.
       if (token.originalId) {

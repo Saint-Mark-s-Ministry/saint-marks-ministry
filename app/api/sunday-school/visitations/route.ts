@@ -57,6 +57,7 @@ export async function GET(request: Request) {
             firstName: true,
             lastName: true,
             visitations: {
+              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
               orderBy: [{ createdAt: "desc" }],
               select: {
                 id: true,
@@ -68,6 +69,18 @@ export async function GET(request: Request) {
                 recorder: {
                   select: { id: true, name: true },
                 },
+              },
+            },
+            phoneCalls: {
+              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+              orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
+              select: {
+                id: true,
+                calledAt: true,
+                outcome: true,
+                note: true,
+                callerName: true,
+                createdAt: true,
               },
             },
           },

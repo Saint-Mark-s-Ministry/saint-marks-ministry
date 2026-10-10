@@ -57,7 +57,7 @@ account access through a dated relationship.
 | `SundaySchoolEnrollment` | One child and level per ministry year. Links rollover history without changing the stable child. |
 | `SundaySchoolClassPlacement` | Dated enrollment-to-class history. At most one placement is active for an enrollment. |
 | `SundaySchoolAgeGroupLevel` | Year-bound ownership of levels by age groups; replaces relying on an unenforced enum array. |
-| `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`. A Postgres enum array, so no join table. |
+| `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`, and an explicit `isElementary` marker. At most one band per year is Elementary. |
 | `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. |
 | `SundaySchoolServantAssignment` | Year-bound authority with exactly one class or age-group scope and dated end history. |
 | `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, legacy guardian contact, `notes`, `isActive`. |
@@ -69,10 +69,13 @@ account access through a dated relationship.
 | `SundaySchoolFamily` | Shared family name, home address, separate mother/father contact, and every linked child. Children in the same family are siblings. |
 | `SundaySchoolWeeklyLesson` | One row per `(classId, sundayDate)`, with an optional title and designated owner. It is separate from attendance sessions. |
 | `SundaySchoolWeeklyLessonResource` | Ordered named HTTP(S) links for one weekly lesson. A save replaces the full list transactionally. |
+| `SundaySchoolHomework` | Optional one-per-week Elementary homework package with title, instructions, archive history, and named links. |
+| `SundaySchoolHomeworkCompletion` | A servant-recorded `COMPLETED` or `NOT_COMPLETED` result for one child; no row means not recorded. |
 | `SundaySchoolSession` | `classId`, `date`, optional `topic` / `notes`, `takenBy`. Unique on `(classId, date)`. |
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
 | `SundaySchoolServantAttendance` | `sessionId`, `servantId`, binary `status`, `recordedBy`. Unique on `(sessionId, servantId)`. |
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
+| `SundaySchoolPhoneCall` | A dated, class-scoped follow-up call for a child, with outcome, concise note, and a snapshot of the authenticated caller's name. It does not change visitation status. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
@@ -160,6 +163,9 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
 | `lessons` | GET | Class-scoped servants/leaders, linked parents, and linked child accounts |
 | `lessons/[id]` | PATCH | Any active servant assigned to the class assigns an active class servant as owner and edits title and links |
+| `homework` | GET, POST | Scoped reads for Elementary servants, linked parents/children, and read-only priests; assigned Elementary servants publish |
+| `homework/[id]` | PATCH, DELETE | Assigned Elementary servants edit or soft-archive a package |
+| `homework/[id]/completions` | POST | Assigned Elementary servants batch upsert or clear child outcomes |
 | `sessions` | GET, POST | People who serve the class |
 | `sessions/[id]` | PATCH, DELETE | People who serve the class |
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |
@@ -168,6 +174,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
 | `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
 | `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
+| `phone-calls` | POST | People who serve the child's active class may log a call; `PRIEST` remains read-only. Calls are returned in the scoped `visitations` GET response. |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
@@ -199,12 +206,13 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 |---|---|
 | `page.tsx` | Landing: Children/Servants attendance chart, classes grouped by age group, attendance-due badges, totals |
 | `lessons/page.tsx` | Full academic-year schedule, My Lessons, past lessons, owner assignment, and multi-link editor |
+| `homework/page.tsx` | Elementary-only weekly packages, named links, three-state roster tracking, and school-year history |
 | `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
 | `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `roster/page.tsx` | Child roster CRUD, family/parent details, sibling connections, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
-| `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
+| `visitations/page.tsx` | Per-child visitation status, dated history and notes, and a separate dated phone-call follow-up history, across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
@@ -216,6 +224,10 @@ and sees no switcher.
 Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
 student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
 a clear empty state without gaining access to any class.
+
+Elementary parents and linked child accounts also see homework cards and only
+their own completion status on those existing pages. Homework eligibility
+follows the age group's current levels rather than a hard-coded grade list.
 
 ## Extending it
 

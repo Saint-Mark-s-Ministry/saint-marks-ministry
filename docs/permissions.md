@@ -251,6 +251,10 @@ rule. Priests may edit or delete only their own open ideas and never receive
 moderation authority; changing idea statuses or deleting another person's idea
 remains `SUPER_ADMIN`-only. All feedback routes still call
 `getSundaySchoolAccess` and refuse users who cannot enter Sunday School.
+Only `SUPER_ADMIN` may publish, edit, or remove the single official response
+on an idea. Everyone who can view feedback sees it attributed to the
+“Development Team”; the responding admin's ID is retained in the database
+for accountability but is never included in feedback API responses.
 
 ---
 
@@ -281,7 +285,7 @@ The JWT carries a coarse standing so synchronous renders (the navbar switcher,
 page guards) do not need a fetch:
 
 ```typescript
-session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean }
+session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean, hasHomeworkAccess: boolean }
 ```
 
 It is recomputed on sign-in and on the periodic (~60s) token revalidation in

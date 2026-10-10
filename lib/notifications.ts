@@ -636,27 +636,37 @@ export async function notifyChildRegistrationSubmitted({
 }
 
 /**
- * Notify a parent when their child registration request is approved/rejected
+ * Notify a parent when their child registration request is
+ * approved/rejected, or sent back for changes.
  */
 export async function notifyChildRegistrationReviewed({
   userId,
   status,
   childName,
   className,
+  note,
 }: {
   userId: string
-  status: 'APPROVED' | 'REJECTED'
+  status: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED'
   childName: string
   className?: string
+  note?: string | null
 }) {
   await createNotification({
     userId,
     type: NotificationType.CHILD_REGISTRATION_REVIEWED,
-    title: `Child Registration ${status === 'APPROVED' ? 'Approved' : 'Reviewed'}`,
+    title:
+      status === 'APPROVED'
+        ? 'Child Registration Approved'
+        : status === 'CHANGES_REQUESTED'
+          ? 'Changes Requested'
+          : 'Child Registration Reviewed',
     body:
       status === 'APPROVED'
         ? `${childName} has been placed in ${className ?? 'a Sunday School class'}.`
-        : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
+        : status === 'CHANGES_REQUESTED'
+          ? `A coordinator needs more info about ${childName}'s registration${note ? `: ${note}` : '.'}`
+          : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
     url: '/dashboard/parent',
     metadata: { childName, className },
   })

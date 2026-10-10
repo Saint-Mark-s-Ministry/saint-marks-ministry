@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -9,7 +9,6 @@ import { AppThemeProvider, MinistryTintProvider, serifDisplay, serifHeading, use
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
-import SignIn from "@/components/sign-in";
 import LaunchScreen from "@/components/launch-screen";
 import { AttendanceAccessory } from "@/components/attendance-accessory";
 
@@ -17,6 +16,50 @@ export { ErrorBoundary } from "expo-router";
 export const unstable_settings = { initialRouteName: "(tabs)" };
 
 SplashScreen.setOptions({ duration: 500, fade: true });
+
+// The signed-out counterpart to Navigation() below: its own real <Stack>,
+// not a bare component, so sign-in and the public registration/sign-up
+// screens (SMM-61) are real, addressable routes — reachable by a deep link,
+// and able to push between each other — rather than one opaque screen with
+// no navigator at all underneath it.
+function AuthStack() {
+  const { colors, isDark } = useAppTheme();
+  const base = isDark ? DarkTheme : DefaultTheme;
+  return (
+    <ThemeProvider
+      value={{
+        ...base,
+        colors: {
+          ...base.colors,
+          primary: colors.primary,
+          background: colors.background,
+          card: colors.surface,
+          text: colors.text,
+          border: colors.border,
+        },
+      }}
+    >
+      <StatusBar style={isDark ? "light" : "dark"} />
+      <Stack
+        screenOptions={{
+          headerTintColor: colors.primary,
+          headerBackButtonDisplayMode: "minimal",
+          contentStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+          headerLargeTitle: false,
+          headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
+        }}
+      >
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="registration" options={{ title: "" }} />
+        <Stack.Screen name="registration/apply" options={{ title: "" }} />
+        <Stack.Screen name="signup/parent" options={{ title: "" }} />
+        <Stack.Screen name="signup/servant" options={{ title: "" }} />
+        <Stack.Screen name="roster-signup" options={{ title: "" }} />
+      </Stack>
+    </ThemeProvider>
+  );
+}
 
 function Navigation() {
   const { colors, isDark } = useAppTheme();
@@ -139,11 +182,44 @@ function AuthenticatedApp() {
   const [showSplash, setShowSplash] = useState(true);
   const finishSplash = useCallback(() => setShowSplash(false), []);
 
+  // Preserve the intended deep link across sign-in (SMM-59): while signed
+  // out, there's no <Stack> mounted at all to receive one, so capture it —
+  // both a cold-start URL and one opened while already sitting on the sign-
+  // in screen — and replay it once the real navigator exists, rather than
+  // silently losing it the moment Navigation remounts at its default route.
+  const pendingUrl = useRef<string | null>(null);
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (user) return;
+    let active = true;
+    void Linking.getInitialURL().then((url) => {
+      if (active && url) pendingUrl.current = url;
+    });
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      pendingUrl.current = url;
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [user]);
+  useEffect(() => {
+    const justSignedIn = !!user && !wasSignedIn.current;
+    wasSignedIn.current = !!user;
+    if (!justSignedIn || !pendingUrl.current) return;
+    const url = pendingUrl.current;
+    pendingUrl.current = null;
+    // Navigation's own <Stack> mounts this same render pass; give it one
+    // tick to exist before replaying the link through it.
+    const timeout = setTimeout(() => void Linking.openURL(url), 50);
+    return () => clearTimeout(timeout);
+  }, [user]);
+
   return (
     <View style={{ flex: 1, backgroundColor: "#5C1A1A" }}>
       {ready &&
         (!user || user.mustChangePassword ? (
-          <SignIn />
+          <AuthStack />
         ) : (
           <PortalProvider key={user.id}>
             <Navigation />

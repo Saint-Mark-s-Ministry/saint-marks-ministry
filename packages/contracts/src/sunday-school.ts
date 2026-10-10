@@ -5,7 +5,9 @@ import type {
   SundaySchoolFeedbackStatus,
   SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
+  SundaySchoolHomeworkCompletionStatus,
   SundaySchoolLevel,
+  SundaySchoolPhoneCallOutcome,
   SundaySchoolServantAttendanceStatus,
   SundaySchoolVisitationStatus,
 } from "@prisma/client";
@@ -40,6 +42,9 @@ export interface SundaySchoolAgeGroup {
   levels: SundaySchoolLevel[];
   sortOrder: number;
   isActive: boolean;
+  // Elementary homework (SMM-62) is gated on this real, stored flag — never
+  // a hard-coded grade list, since bands can be renamed/regraded.
+  isElementary: boolean;
   canCoordinate?: boolean;
   assignments?: SundaySchoolAssignmentRow[];
 }
@@ -142,6 +147,49 @@ export interface SundaySchoolWeeklyLessonsResponse {
   lessons: SundaySchoolWeeklyLesson[];
 }
 
+export type SundaySchoolHomeworkDisplayStatus = SundaySchoolHomeworkCompletionStatus | "NOT_RECORDED";
+
+export interface SundaySchoolHomeworkResource {
+  id: string;
+  title: string;
+  url: string;
+  sortOrder: number;
+}
+
+export interface SundaySchoolHomeworkWeek {
+  weeklyLessonId: string;
+  assignedDate: string;
+  dueDate: string;
+  class: SundaySchoolClassRef;
+  homework: null | {
+    id: string;
+    title: string;
+    instructions: string | null;
+    archivedAt: string | null;
+    resources: SundaySchoolHomeworkResource[];
+    completions: Array<{
+      childId: string;
+      child: { id: string; firstName: string; lastName: string };
+      status: SundaySchoolHomeworkCompletionStatus;
+      updatedAt: string;
+    }>;
+    summary: {
+      completed: number;
+      notCompleted: number;
+      notRecorded: number;
+      completionRate: number | null;
+    };
+  };
+}
+
+export interface SundaySchoolHomeworkResponse {
+  eligible: boolean;
+  canManage: boolean;
+  classes: Array<SundaySchoolClassRef & { canEdit: boolean }>;
+  roster: Array<{ id: string; firstName: string; lastName: string; classId?: string | null }>;
+  weeks: SundaySchoolHomeworkWeek[];
+}
+
 export interface SundaySchoolChildSearchResult {
   kind: "child";
   id: string;
@@ -183,6 +231,15 @@ export interface SundaySchoolVisitationRecord {
   recorder: { id: string; name: string } | null;
 }
 
+export interface SundaySchoolPhoneCallRecord {
+  id: string;
+  calledAt: string;
+  outcome: SundaySchoolPhoneCallOutcome;
+  note: string;
+  callerName: string;
+  createdAt: string;
+}
+
 export interface SundaySchoolPriestNote {
   id: string;
   visitationId: string;
@@ -203,6 +260,7 @@ export interface SundaySchoolVisitationChild {
   firstName: string;
   lastName: string;
   visitations: SundaySchoolVisitationRecord[];
+  phoneCalls: SundaySchoolPhoneCallRecord[];
 }
 
 export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
@@ -225,6 +283,10 @@ export interface SundaySchoolFeedbackIdea {
   title: string;
   description: string | null;
   status: SundaySchoolFeedbackStatus;
+  // The one public reply, always attributed to the Development Team — never
+  // the responding admin's own name or id (see lib/sunday-school-feedback-server.ts).
+  teamResponse: string | null;
+  teamRespondedAt: string | null;
   createdAt: string;
   updatedAt: string;
   submitter: {
@@ -379,4 +441,53 @@ export interface SundaySchoolDashboard {
     endDate: string | null;
   };
   weekOf: string;
+}
+
+export type SundaySchoolRegistrationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CHANGES_REQUESTED";
+
+export interface SundaySchoolRegistrationDuplicateMatch {
+  type: "existing_child" | "pending_request";
+  id: string;
+  firstName: string;
+  lastName: string;
+  className: string | null;
+}
+
+export interface SundaySchoolRegistrationDuplicateSignal {
+  matchCount: number;
+  matches: SundaySchoolRegistrationDuplicateMatch[];
+}
+
+// GET /api/sunday-school/child-registrations?summary=1 — the masked queue
+// shape the mobile app requests. `guardianEmail` is omitted entirely rather
+// than typed optional, since the route never sends it in this mode.
+export interface SundaySchoolRegistrationSummary {
+  id: string;
+  status: SundaySchoolRegistrationStatus;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  gender: "MALE" | "FEMALE" | null;
+  intendedLevel: SundaySchoolLevel;
+  guardianName: string;
+  guardianPhone: string; // masked, e.g. "•••• 0170"
+  hasGuardianEmail: boolean;
+  notes: string | null;
+  reviewNote: string | null;
+  submittedBy: { id: string; name: string; email: string; phone: string | null };
+  reviewer: { id: string; name: string; email: string } | null;
+  placedClass: { id: string; name: string; level: SundaySchoolLevel } | null;
+  duplicateSignal: SundaySchoolRegistrationDuplicateSignal;
+  createdAt: string;
+}
+
+// GET /api/sunday-school/child-registrations/[id] — the authorized detail
+// view: full guardian contact (guardianPhone unmasked here), never truncated.
+export interface SundaySchoolRegistrationDetail
+  extends Omit<SundaySchoolRegistrationSummary, "hasGuardianEmail"> {
+  guardianEmail: string | null;
 }
