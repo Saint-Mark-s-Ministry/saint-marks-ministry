@@ -31,7 +31,7 @@ Released exams can reopen only for explicitly approved individual retakes. There
 
 ## Students
 
-Use **Exam answer sheets** in Servants Prep. Students must have an active prep
+Use **Live Exam** in Servants Prep. Students must have an active prep
 student role tag and active enrollment, match the exam's year level (or BOTH),
 and be in its enrollment academic-year range. Enrollment without a starting year
 is limited to the active academic year. Students acknowledge monitoring before
