@@ -41,6 +41,9 @@ export interface SundaySchoolAgeGroup {
   levels: SundaySchoolLevel[];
   sortOrder: number;
   isActive: boolean;
+  // Elementary homework (SMM-62) is gated on this real, stored flag — never
+  // a hard-coded grade list, since bands can be renamed/regraded.
+  isElementary: boolean;
   canCoordinate?: boolean;
   assignments?: SundaySchoolAssignmentRow[];
 }
