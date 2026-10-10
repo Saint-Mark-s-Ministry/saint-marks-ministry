@@ -6,8 +6,9 @@ vi.mock('@/lib/swr', () => ({ useDigitalExam: () => ({ data: mocks.data, mutate:
 vi.mock('sonner', () => ({ toast: { warning: vi.fn(), success: vi.fn(), error: vi.fn() } }))
 import { DigitalExamMonitor } from '@/components/digital-exam-monitor'
 const player = { paused: true, currentTime: 0, volume: 1, preload: '', play: vi.fn(), pause: vi.fn() }
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { vi.restoreAllMocks(); cleanup(); vi.unstubAllGlobals() })
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.25)
   player.paused = true; player.currentTime = 0; player.play.mockReset(); player.pause.mockReset()
   player.play.mockImplementation(() => { player.paused = false; return Promise.resolve() })
   player.pause.mockImplementation(() => { player.paused = true })
@@ -75,8 +76,10 @@ describe('compact proctor dashboard', () => {
     addDeparture('during-preview')
     expect(player.play).toHaveBeenCalledTimes(1)
     player.paused = true
+    vi.mocked(Math.random).mockReturnValue(0.75)
     addDeparture('new-departure')
     await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
+    expect(player).toHaveProperty('src', '/sounds/oh-no.wav')
     player.currentTime = 2
     fireEvent.click(screen.getByRole('button', { name: 'Mute alert sound' }))
     expect(player.pause).toHaveBeenCalled()
@@ -105,20 +108,10 @@ describe('compact proctor dashboard', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Enable alert sound' })).toBeInTheDocument())
   })
 
-  it('lets leaders enable student return sounds while priests only see the setting', async () => {
-    const request = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) })
-    vi.stubGlobal('fetch', request)
-    const { rerender } = render(<DigitalExamMonitor examId="exam" />)
-    expect(screen.getByText('Student return sound: Off')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Enable student return sound' }))
-    await waitFor(() => expect(request).toHaveBeenCalledTimes(1))
-    expect(JSON.parse(request.mock.calls[0][1].body)).toEqual({ action: 'studentSound', enabled: true })
-    mocks.data = structuredClone(mocks.data)
-    mocks.data!.canManage = false
+  it('has no student sound control, including for legacy enabled sheets', () => {
     mocks.data!.sheet!.studentReturnSoundEnabled = true
-    rerender(<DigitalExamMonitor examId="exam" />)
-    expect(screen.getByText('Student return sound: On')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Disable student return sound' })).not.toBeInTheDocument()
+    render(<DigitalExamMonitor examId="exam" />)
+    expect(screen.queryByText(/Student return sound/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /student return sound/i })).not.toBeInTheDocument()
   })
-
 })
