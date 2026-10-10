@@ -177,7 +177,7 @@ export default function ActivityPage() {
         </Panel>
 
         {selected && (
-          <DetailPanel open onClose={() => setSelectedId(null)} title={auditActionSummary(selected)}>
+          <DetailPanel recordKey={selected.id} open onClose={() => setSelectedId(null)} title={auditActionSummary(selected)}>
             <KeyValueList
               items={[
                 { label: 'Result', value: <StatusBadge tone={RESULT_META[selected.result].tone}>{RESULT_META[selected.result].label}</StatusBadge> },

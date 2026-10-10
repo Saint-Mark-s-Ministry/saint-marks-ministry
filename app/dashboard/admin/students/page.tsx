@@ -811,6 +811,7 @@ function StudentsManagementContent() {
         </Panel>
 
         <DetailPanel
+          recordKey={preview?.id}
           open={!!preview}
           onClose={() => setPreviewId(null)}
           label={preview?.name}
