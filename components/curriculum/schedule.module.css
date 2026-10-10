@@ -35,6 +35,10 @@
   background: var(--ds-surface, #fff);
 }
 
+.row:nth-child(even) {
+  background: color-mix(in srgb, var(--ds-raised, #f3f3f5) 45%, var(--ds-surface, #fff));
+}
+
 .row:hover {
   background: var(--ds-hover, #f7f6f8);
 }
@@ -99,9 +103,23 @@
 }
 
 .block {
-  background: var(--ds-hover, #f3f3f5);
-  color: var(--ds-text-2, #51475e);
+  --block-accent: #64606b;
+  background: color-mix(in srgb, var(--block-accent) 10%, var(--ds-surface, #fff));
+  color: color-mix(in srgb, var(--block-accent) 75%, var(--ds-text, #27252d));
   text-align: left;
+}
+
+.block[data-section='SPIRITUALITY_OF_SERVANT'] { --block-accent: #7046a0; }
+.block[data-section='RITUAL_THEOLOGY_SACRAMENTS'] { --block-accent: #23734f; }
+.block[data-section='CHURCH_HISTORY_COPTIC_HERITAGE'] { --block-accent: #2b619b; }
+.block[data-section='PSYCHOLOGY_METHODOLOGY'] { --block-accent: #85517e; }
+.block[data-section='BIBLE_STUDIES'] { --block-accent: #89620e; }
+.block[data-section='DOGMA'] { --block-accent: #256d78; }
+.block[data-section='COMPARATIVE_THEOLOGY'] { --block-accent: #a05b35; }
+
+:global(.dark) .block {
+  background: color-mix(in srgb, var(--block-accent) 23%, var(--ds-surface, #1a1918));
+  color: color-mix(in srgb, var(--block-accent) 25%, var(--ds-text, #eeeae6));
 }
 
 .block option, .status option {
@@ -132,11 +150,14 @@
   align-items: center;
   gap: 3px;
   color: var(--ds-text-3, #716b78);
+  padding: 2px 4px;
   font-size: 9px;
   cursor: pointer;
 }
 .examToggle:has(input:checked) {
-  color: var(--ds-text, #27252d);
+  color: var(--ds-warn, #916118);
+  background: var(--ds-warn-tint, #fff3dc);
+  border-radius: 4px;
   font-weight: 600;
 }
 .examToggle input {
@@ -151,3 +172,10 @@
   font-size: 10px;
 }
 .dragging { box-shadow: 0 5px 16px #0002; }
+
+.examBadge {
+  border-color: transparent;
+  background: var(--ds-warn-tint, #fff3dc);
+  color: var(--ds-warn, #916118);
+  font-size: 10px;
+}
