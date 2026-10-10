@@ -1,6 +1,6 @@
 import { Platform, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
-import type { SundaySchoolDashboard } from "@stmark/contracts";
+import type { SundaySchoolDashboard, SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import {
   CompactRow,
   Copy,
@@ -29,6 +29,10 @@ export default function Ministry() {
   const resource = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const { classes } = usePortal();
   const access = ministryAccess(resource.data, classes);
+  // Re-checked live, every time this menu renders — never a cached flag —
+  // matching this ticket's own "re-check class authority and current
+  // Elementary grade membership through the API" (SMM-62).
+  const homework = useResource<SundaySchoolHomeworkResponse>(endpoint("homework"));
   const common: MinistryLink[] = [
     {
       id: "roster",
@@ -36,6 +40,14 @@ export default function Ministry() {
       subtitle: "Roster and profiles",
       href: "/roster",
     },
+    ...(homework.data?.eligible
+      ? [{
+          id: "homework",
+          title: "Homework",
+          subtitle: homework.data.canManage ? "Publish and track completion" : "View assignments",
+          href: "/homework" as Href,
+        }]
+      : []),
     {
       id: "visitations",
       title: "Visitations",
@@ -179,7 +191,9 @@ function MinistryIcon({ id }: { id: string }) {
             ? ({ ios: "checkmark.circle", android: "check_circle" } as const)
             : id === "registrations"
               ? ({ ios: "person.badge.plus", android: "person_add" } as const)
-              : id === "feedback"
+              : id === "homework"
+                ? ({ ios: "note.text", android: "description" } as const)
+                : id === "feedback"
                 ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
                 : id === "age-groups"
                   ? ({ ios: "square.grid.2x2.fill", android: "group_work" } as const)
