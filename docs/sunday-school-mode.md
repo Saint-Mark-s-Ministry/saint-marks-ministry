@@ -78,6 +78,7 @@ account access through a dated relationship.
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
 | `SundaySchoolPhoneCall` | A dated, class-scoped follow-up call for a child, with outcome, concise note, and a snapshot of the authenticated caller's name. It does not change visitation status. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
+| `McpApiToken` | A hashed, revocable bearer token for the feedback MCP server, owned by one `SUPER_ADMIN`. Not Sunday School data; see "Feedback MCP server". |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
@@ -181,6 +182,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
+| `feedback/[id]/response` | PUT, DELETE | `SUPER_ADMIN`: set or clear the single "Development Team" reply |
 
 `GET /api/cron/sunday-school-lessons` is outside that route group. It requires
 `Authorization: Bearer $CRON_SECRET` and is scheduled by `vercel.json` for
@@ -387,3 +389,23 @@ apply the committed migration explicitly during deployment.
 session; POST creates an explicit session; PUT saves attendance transactionally.
 Every request resolves database authorization and band visibility. Opening the
 section never creates a session or attendance marks.
+
+## Feedback MCP server
+
+`POST /api/mcp` is a stateless Streamable-HTTP MCP server for moderating
+feedback. Tools: `list_feedback`, `get_feedback`, `reply_to_feedback`,
+`clear_feedback_reply`, `set_feedback_status`, `delete_feedback`. Mutations go
+through `lib/sunday-school-feedback-ops.ts`, shared with the web routes.
+
+```bash
+bun scripts/admin.ts mcp-token-create you@example.com "Claude Code"   # prints the token once
+claude mcp add --transport http st-marks-feedback \
+  https://servants-prep-app.vercel.app/api/mcp \
+  --header "Authorization: Bearer <token>"
+bun scripts/admin.ts mcp-token-revoke <id>
+```
+
+Auth is a bearer header, not OAuth, so claude.ai's "custom connector by URL"
+flow is not supported. Feedback text is user-written and returned to the model:
+tool descriptions mark it as untrusted data. Authorization details:
+[`permissions.md`](permissions.md#mcp-token-access-feedback).

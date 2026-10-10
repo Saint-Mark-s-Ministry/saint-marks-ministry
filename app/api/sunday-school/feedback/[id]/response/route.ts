@@ -8,6 +8,10 @@ import {
   validateFeedbackTeamResponse,
 } from '@/lib/sunday-school-feedback'
 import { loadFeedbackIdeaForViewer } from '@/lib/sunday-school-feedback-server'
+import {
+  clearFeedbackTeamResponse,
+  setFeedbackTeamResponse,
+} from '@/lib/sunday-school-feedback-ops'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -41,14 +45,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Feedback idea not found' }, { status: 404 })
     }
 
-    await prisma.sundaySchoolFeedbackIdea.update({
-      where: { id },
-      data: {
-        teamResponse: response,
-        teamRespondedAt: new Date(),
-        teamRespondedById: user.id,
-      },
-    })
+    await setFeedbackTeamResponse(id, response, user.id)
     return NextResponse.json(await loadFeedbackIdeaForViewer(id, user.id, access))
   } catch (error: unknown) {
     return handleApiError(error)
@@ -72,14 +69,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Feedback idea not found' }, { status: 404 })
     }
 
-    await prisma.sundaySchoolFeedbackIdea.update({
-      where: { id },
-      data: {
-        teamResponse: null,
-        teamRespondedAt: null,
-        teamRespondedById: null,
-      },
-    })
+    await clearFeedbackTeamResponse(id)
     return NextResponse.json(await loadFeedbackIdeaForViewer(id, user.id, access))
   } catch (error: unknown) {
     return handleApiError(error)
