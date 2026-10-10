@@ -65,7 +65,7 @@ describe('compact proctor dashboard', () => {
     const { rerender, unmount } = render(<DigitalExamMonitor examId="exam" />)
     expect(player.play).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Enable alert sound' }))
-    expect(Audio).toHaveBeenCalledWith('/sounds/uh-oh.wav')
+    expect(Audio).toHaveBeenCalledWith('/sounds/egyptian-uh-oh.wav')
     expect(player.volume).toBe(1)
     expect(player.play).toHaveBeenCalledTimes(1)
     const addDeparture = (id: string) => {
@@ -79,7 +79,7 @@ describe('compact proctor dashboard', () => {
     vi.mocked(Math.random).mockReturnValue(0.75)
     addDeparture('new-departure')
     await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
-    expect(player).toHaveProperty('src', '/sounds/oh-no-natural.wav')
+    expect(player).toHaveProperty('src', '/sounds/egyptian-alalalala.wav')
     player.currentTime = 2
     fireEvent.click(screen.getByRole('button', { name: 'Mute alert sound' }))
     expect(player.pause).toHaveBeenCalled()
