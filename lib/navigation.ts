@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   BookOpen,
+  ContactRound,
   Cake,
   CalendarCheck,
   ClipboardCheck,
@@ -65,6 +66,7 @@ export interface NavGroup {
 }
 
 export interface NavUser extends DashboardUser {
+  canAccessContactBook?: boolean
   isAsyncStudent?: boolean
   sundaySchool?: { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess?: boolean } | null
 }
@@ -125,7 +127,7 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
 export function resolveMinistry(user: NavUser, pathname: string): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
-  if (pathname === '/settings' || pathname === '/dashboard') return options[0].id
+  if (pathname === '/settings' || pathname === '/dashboard' || pathname === '/dashboard/contact-book') return options[0].id
   return ministryForPath(pathname)
 }
 
@@ -197,7 +199,7 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   return groups
 }
 
-export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
+function ministryNavigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   const role = user.role
 
   if (ministry === 'sunday-school' && (role === 'SERVANT' || user.sundaySchool?.hasAccess)) {
@@ -287,4 +289,13 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
     if (!best || item.href.length > best.href.length) best = item
   }
   return best?.label ?? null
+}
+
+/** Shared directory access is independent of ministry roles and assignments. */
+export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
+  const groups = ministryNavigationFor(user, ministry)
+  if (user.canAccessContactBook) {
+    groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
+  }
+  return groups
 }

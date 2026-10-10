@@ -1,3 +1,4 @@
+import type { ContactBookResponse } from '@/lib/contact-book'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
 
 // Default fetcher for SWR
@@ -335,4 +336,22 @@ export function useSundaySchoolMeetings(ageGroupId: string, meetingId?: string) 
   const params = new URLSearchParams({ ageGroupId })
   if (meetingId) params.set('meetingId', meetingId)
   return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, defaultSWRConfig)
+}
+
+/** Cache directory pages by effective identity so View as cannot reuse another user's contacts. */
+export function useContactBook(userId: string | undefined, search: string, page: number) {
+  const params = new URLSearchParams({ page: String(page) })
+  if (search.trim()) params.set('search', search.trim())
+  return useSWR<ContactBookResponse, Error & { status?: number }>(
+    userId ? ['contact-book', userId, `/api/contact-book?${params}`] : null,
+    ([, , url]: [string, string, string]) => fetcher(url),
+    {
+      ...defaultSWRConfig,
+      revalidateOnMount: true,
+      revalidateOnFocus: true,
+      refreshInterval: 60000,
+      keepPreviousData: false,
+      shouldRetryOnError: error => error.status !== 401 && error.status !== 403,
+    }
+  )
 }

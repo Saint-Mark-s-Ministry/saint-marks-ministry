@@ -134,3 +134,19 @@ describe('active state', () => {
     expect(currentNavLabel(groups, '/dashboard/admin')).toBe('Dashboard')
   })
 })
+
+
+describe('contact book navigation', () => {
+  it('requires explicit permission in both ministries for every role', () => {
+    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'SERVANT', 'PARENT'] as UserRole[]) {
+      for (const ministry of ['prep', 'sunday-school'] as const) {
+        expect(hrefs(role, ministry, servesSS)).not.toContain('/dashboard/contact-book')
+        expect(hrefs(role, ministry, { ...servesSS, canAccessContactBook: true })).toContain('/dashboard/contact-book')
+      }
+    }
+  })
+  it('uses the default ministry for the shared contact book page', () => {
+    expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/dashboard/contact-book')).toBe('sunday-school')
+    expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/contact-book')).toBe('prep')
+  })
+})

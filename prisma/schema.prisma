@@ -296,6 +296,7 @@ model User {
   authVersion        Int       @default(1)
   mustChangePassword Boolean   @default(true)
   isDisabled         Boolean   @default(false)
+  canAccessContactBook Boolean @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

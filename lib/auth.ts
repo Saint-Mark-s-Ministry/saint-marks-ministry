@@ -100,6 +100,7 @@ async function loadAuthUser(userId: string) {
       authVersion: true,
       isDisabled: true,
       mustChangePassword: true,
+      canAccessContactBook: true,
       profileImageUrl: true,
     },
   })
@@ -116,6 +117,7 @@ async function loadViewAsActor(userId: string) {
       authVersion: true,
       isDisabled: true,
       mustChangePassword: true,
+      canAccessContactBook: true,
       profileImageUrl: true,
       roleAssignments: {
         where: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
@@ -140,6 +142,7 @@ async function applyUserToToken(
 ) {
   const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(user)
   token.id = user.id
+  token.canAccessContactBook = user.canAccessContactBook
   token.role = user.role
   token.authVersion = user.authVersion
   token.name = user.name
@@ -302,6 +305,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          canAccessContactBook: user.canAccessContactBook,
           authVersion: user.authVersion,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
@@ -354,6 +358,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account, trigger, session }) {
       // Credentials sign-in: user object has all our custom fields
       if (user && account?.provider === "credentials") {
+        token.canAccessContactBook = user.canAccessContactBook ?? false
         token.role = user.role
         token.id = user.id
         token.authVersion = user.authVersion
@@ -374,6 +379,7 @@ export const authOptions: NextAuthOptions = {
         if (dbUser) {
           const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(dbUser)
           token.id = dbUser.id
+          token.canAccessContactBook = dbUser.canAccessContactBook
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
@@ -387,6 +393,15 @@ export const authOptions: NextAuthOptions = {
 
       // Handle session update (e.g., after password change, profile pic, name)
       if (trigger === 'update' && session) {
+        if (session.refreshContactBook === true) {
+          // Only the database can change this display-only permission claim.
+          const current = token.id ? await loadAuthUser(token.id) : null
+          if (!current || current.isDisabled || (token.authVersion !== undefined && token.authVersion !== current.authVersion)) {
+            token.invalidated = true
+          } else {
+            token.canAccessContactBook = current.canAccessContactBook
+          }
+        }
         if (session.mustChangePassword !== undefined) {
           // Never trust the client to clear the password-change gate. Re-read
           // the current value after the password API has committed it.
@@ -490,6 +505,7 @@ export const authOptions: NextAuthOptions = {
             authVersion: true,
             isDisabled: true,
             mustChangePassword: true,
+            canAccessContactBook: true,
           }
         })
 
@@ -500,6 +516,7 @@ export const authOptions: NextAuthOptions = {
         ) {
           token.invalidated = true
         } else {
+          token.canAccessContactBook = dbUser.canAccessContactBook
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
@@ -522,6 +539,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (session.user) {
+        session.user.canAccessContactBook = token.canAccessContactBook ?? false
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
         session.user.mustChangePassword = token.mustChangePassword as boolean

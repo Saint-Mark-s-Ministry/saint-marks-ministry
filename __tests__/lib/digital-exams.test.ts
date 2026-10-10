@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { RoleTag } from '@prisma/client'
 import { canAnswer, eligibleYear, examPermissions, gradeAnswers, safeExamDestination, staleContact, validAnswer, validateConfiguration } from '@/lib/digital-exams'
 import type { AuthorizationContext } from '@/lib/authorization'
-const context = (tags: RoleTag[], readOnly = false, disabled = false): AuthorizationContext => ({ userId: 'user', roleTags: new Set(tags), readOnly, disabled, sundaySchoolYearId: null, prepStudentScope: { kind: 'none' }, sundaySchoolClassScope: { kind: 'none' }, guardianChildScope: { kind: 'none' }, ownSundaySchoolChildId: null })
+const context = (tags: RoleTag[], readOnly = false, disabled = false): AuthorizationContext => ({ userId: 'user', roleTags: new Set(tags), readOnly, disabled, canAccessContactBook: false, sundaySchoolYearId: null, prepStudentScope: { kind: 'none' }, sundaySchoolClassScope: { kind: 'none' }, guardianChildScope: { kind: 'none' }, ownSundaySchoolChildId: null })
 
 describe('digital exam rules', () => {
   it('accepts mixed four and five choice questions and rejects an invalid key', () => {
