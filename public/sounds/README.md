@@ -8,7 +8,7 @@ License: CC0 (public domain), verified on the source page on October 9, 2026.
 The source permits use, editing and redistribution, including in apps, without attribution.
 This file is bundled locally; exam monitoring does not fetch audio from a third-party service.
 
-## Current alert
+## Previous alert
 
 `uh-oh.wav` is “Cartoon - Uh-Oh!” by Breviceps, from Freesound, normalized to 98% peak amplitude. Both alert players use full playback gain.
 
@@ -18,7 +18,7 @@ License: CC0 (public domain), verified on the source page on October 9, 2026.
 The recording is bundled locally; there are no third-party audio requests during an exam.
 The original donkey MP3 above remains for compatibility with previously deployed pages.
 
-## Natural alternate alert
+## Previous natural alternate alert
 
 `oh-no-natural.wav` is the recorded human voice “OH NO.” by Legnalegna55, from Freesound. It preserves the original voice, pitch, speed and duration; only volume is normalized to 98% peak amplitude.
 
@@ -27,3 +27,12 @@ Public preview: https://cdn.freesound.org/previews/539/539278_10485775-hq.mp3
 License: CC0 (public domain), verified on October 9, 2026.
 
 It is bundled locally alongside `uh-oh.wav`; each proctor alert chooses either clip with equal probability. No remote audio requests occur during exams. Student devices do not play either clip. The old processed `oh-no.wav` remains for compatibility with previously deployed pages, but current players use the new filename to avoid cached playback of the old voice.
+
+## Current Egyptian male alerts
+
+`egyptian-uh-oh.wav`, `egyptian-oh-no.wav` and `egyptian-alalalala.wav` are synthesized using Microsoft’s `ar-EG-ShakirNeural` voice, listed as male, Arabic (Egypt). They say “Uh-oh!”, “Oh, no!” and “alalalalalal” respectively. The last phrase is spelled phonetically as `أَلَلَلَلَلَلَل` for the Arabic voice.
+
+Voice reference: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts
+Generated once using edge-tts with default pitch and rate; converted to PCM WAV and normalized to 98% peak amplitude. No pitch shifting, slowed playback or looped syllables. Each proctor alert independently chooses one of the three clips with equal probability at full volume. The audio is bundled locally, with no speech API or other audio requests during exams. Student devices remain silent.
+
+Older filenames above remain for compatibility with previously deployed pages; the current player uses only the three Egyptian voice assets.
