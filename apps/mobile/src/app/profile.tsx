@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { Button, Card, Copy } from "@/components/ui";
 import { Field, Page, useAction } from "@/components/forms";
-import { PasswordForm } from "@/components/password-form";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import type { Person } from "@/data/people";
 
+// Password changes have their own screen (/change-password), reached from
+// My Account's own "Change password" row, matching the dedicated
+// iOS · Change password artboard rather than being bundled in here.
 export default function Profile() {
   const { user } = useAuth();
   const resource = useResource<Person>(user ? `/api/users/${encodeURIComponent(user.id)}` : null);
-  return <Page title="Profile & security" {...resource}>
+  return <Page title="Name" {...resource}>
     {resource.data && <ProfileEditor key={resource.data.updatedAt ?? resource.data.id} person={resource.data} refresh={resource.refresh} />}
-    <PasswordForm />
   </Page>;
 }
 function ProfileEditor({ person, refresh }: { person: Person; refresh: () => Promise<void> }) {
