@@ -97,7 +97,7 @@ describe('Sunday School attendance page', () => {
     expect(screen.getAllByRole('button', { name: 'Not present' })[0]).toHaveAttribute('aria-pressed', 'false')
     expect(present).toBeEnabled()
     expect(screen.queryByText(/Past attendance is read-only/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/2 not marked will be saved as absent/)).toBeInTheDocument()
+    expect(screen.getByText(/2 unmarked/)).toBeInTheDocument()
   })
 
   it('saves children left unmarked as absent', async () => {
@@ -125,4 +125,30 @@ describe('Sunday School attendance page', () => {
       expect(within(abanoubRow).getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'true')
     )
   })
+  it('keeps the header, roster sections, and status slot mounted throughout autosaving', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<SundaySchoolAttendancePage />)
+    await screen.findByText('Mina Mark')
+    const sections = container.firstElementChild!
+    const originalSections = Array.from(sections.children)
+    const headerText = originalSections[0].textContent
+    const statusSlot = screen.getByRole('status')
+    let acknowledge!: () => void
+    mocks.fetch.mockImplementationOnce(async () => ({ ok: true, json: async () => ({ id: 'session-1' }) }))
+    mocks.fetch.mockImplementationOnce(() => new Promise(resolve => {
+      acknowledge = () => resolve({ ok: true, json: async () => ({ success: true }) })
+    }))
+
+    await user.click(within(screen.getByText('Mina Mark').closest('li')!).getByRole('button', { name: 'Present' }))
+    expect(statusSlot).toHaveTextContent('1 pending')
+    expect(Array.from(sections.children)).toEqual(originalSections)
+    await waitFor(() => expect(statusSlot).toHaveTextContent('Saving marks…'))
+    expect(Array.from(sections.children)).toEqual(originalSections)
+    acknowledge()
+    await waitFor(() => expect(statusSlot).toHaveTextContent('Saved at'))
+    expect(screen.getByRole('status')).toBe(statusSlot)
+    expect(Array.from(sections.children)).toEqual(originalSections)
+    expect(originalSections[0].textContent).toBe(headerText)
+  })
+
 })
