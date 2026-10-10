@@ -5,7 +5,7 @@ import { SUNDAY_SCHOOL_ASSIGNABLE_ROLES } from '@/lib/roles'
  * Active accounts that may hold a Sunday School assignment.
  *
  * Keep pickers and assignment validation on the same rule: mentors and
- * Servants Prep leaders may also serve, while a Super Admin must carry the
+ * Servants Prep servants may also serve, while a Super Admin must carry the
  * explicit Sunday School servant tag. Priests remain read-only.
  */
 export const sundaySchoolAssignableUserWhere = {

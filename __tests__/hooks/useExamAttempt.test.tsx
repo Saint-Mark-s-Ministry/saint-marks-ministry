@@ -108,7 +108,7 @@ describe('exam browser controls', () => {
     expect(result.current.paused).toBe(false)
   })
 
-  it('returns an existing browser session to the start screen when a leader approves a new version', async () => {
+  it('returns an existing browser session to the start screen when a servant approves a new version', async () => {
     stored = { ...stored, attemptNumber: 1, state: 'SUBMITTED' }
     const { result, rerender } = renderHook(({ examView }) => useExamAttempt('exam', 'student', examView), { initialProps: { examView: view } })
     await act(async () => result.current.start())

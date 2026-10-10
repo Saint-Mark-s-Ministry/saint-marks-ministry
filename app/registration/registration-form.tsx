@@ -221,7 +221,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 onKeyDown={(e) => e.key === 'Enter' && handleValidateCode()}
               />
               <p className="text-sm text-gray-500 mt-2">
-                An invite code is required to apply. Contact your mentor or church leader if you don&apos;t have one.
+                An invite code is required to apply. Contact your mentor or church servant if you don&apos;t have one.
               </p>
             </div>
             <Button

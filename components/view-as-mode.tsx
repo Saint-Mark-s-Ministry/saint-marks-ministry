@@ -25,7 +25,7 @@ interface UserRow {
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
   PRIEST: 'Priest',
-  SERVANT_PREP: 'Servants Prep Leader',
+  SERVANT_PREP: 'Servants Prep Servant',
   MENTOR: 'Mentor',
   STUDENT: 'Servants Prep Student',
   SERVANT: 'Sunday School Servant',

@@ -293,7 +293,7 @@ for accountability but is never included in feedback API responses.
 ## Why Sunday School is not role-based
 
 The first implementation gave the `SERVANT_PREP` role blanket Sunday School
-power. That was wrong: a prep leader with no Sunday School involvement could
+power. That was wrong: a prep servant with no Sunday School involvement could
 create servant accounts, staff classes, and edit any child's record.
 
 Adding roles like `HIGH_SCHOOL_COORDINATOR` would not have fixed it:
@@ -356,7 +356,7 @@ the happy path does not protect anything.
 ## Digital original-exam answer sheets
 
 `/api/digital-exams` resolves the current database authorization context. Prep
-leaders and super admins configure, open, close, unlock, and release results.
+servants and super admins configure, open, close, unlock, and release results.
 Priests may read monitoring but never write. Active prep students access only
 their own eligible original-exam attempts; mentor and Sunday School-only tags
 grant no exam-monitoring access. Paper makeup workflows remain separate.

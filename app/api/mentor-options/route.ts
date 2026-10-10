@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { canAssignMentors, MENTOR_ELIGIBLE_ROLES } from '@/lib/roles'
 
 // Minimal directory used only by mentor-assignment controls. This lets
-// Servants Prep leaders assign priests without exposing priest accounts in
+// Servants Prep servants assign priests without exposing priest accounts in
 // the general user-management API.
 export async function GET() {
   try {
