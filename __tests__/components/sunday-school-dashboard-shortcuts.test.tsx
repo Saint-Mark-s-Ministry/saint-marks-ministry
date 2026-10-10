@@ -78,4 +78,11 @@ describe('Sunday School dashboard shortcuts', () => {
       '/dashboard/servants/attendance?classId=class-8',
     ])
   })
+  it('does not put meeting attendance on the Elementary dashboard', () => {
+    mocks.dashboard.classes = [{ ...classSummary('elementary-class', '1st Grade'), level: SundaySchoolLevel.GRADE_1, ageGroup: { id: 'elementary', name: 'Elementary School' } }]
+    mocks.dashboard.ageGroups = [{ id: 'elementary', name: 'Elementary School', levels: [SundaySchoolLevel.GRADE_1], canCoordinate: false }]
+    render(<SundaySchoolDashboardPage />)
+    expect(screen.queryByText(/servants meetings/i)).not.toBeInTheDocument()
+  })
+
 })
