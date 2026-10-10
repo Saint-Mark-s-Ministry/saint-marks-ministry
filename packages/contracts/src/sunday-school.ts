@@ -380,3 +380,52 @@ export interface SundaySchoolDashboard {
   };
   weekOf: string;
 }
+
+export type SundaySchoolRegistrationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CHANGES_REQUESTED";
+
+export interface SundaySchoolRegistrationDuplicateMatch {
+  type: "existing_child" | "pending_request";
+  id: string;
+  firstName: string;
+  lastName: string;
+  className: string | null;
+}
+
+export interface SundaySchoolRegistrationDuplicateSignal {
+  matchCount: number;
+  matches: SundaySchoolRegistrationDuplicateMatch[];
+}
+
+// GET /api/sunday-school/child-registrations?summary=1 — the masked queue
+// shape the mobile app requests. `guardianEmail` is omitted entirely rather
+// than typed optional, since the route never sends it in this mode.
+export interface SundaySchoolRegistrationSummary {
+  id: string;
+  status: SundaySchoolRegistrationStatus;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  gender: "MALE" | "FEMALE" | null;
+  intendedLevel: SundaySchoolLevel;
+  guardianName: string;
+  guardianPhone: string; // masked, e.g. "•••• 0170"
+  hasGuardianEmail: boolean;
+  notes: string | null;
+  reviewNote: string | null;
+  submittedBy: { id: string; name: string; email: string; phone: string | null };
+  reviewer: { id: string; name: string; email: string } | null;
+  placedClass: { id: string; name: string; level: SundaySchoolLevel } | null;
+  duplicateSignal: SundaySchoolRegistrationDuplicateSignal;
+  createdAt: string;
+}
+
+// GET /api/sunday-school/child-registrations/[id] — the authorized detail
+// view: full guardian contact (guardianPhone unmasked here), never truncated.
+export interface SundaySchoolRegistrationDetail
+  extends Omit<SundaySchoolRegistrationSummary, "hasGuardianEmail"> {
+  guardianEmail: string | null;
+}
