@@ -409,3 +409,32 @@ Auth is a bearer header, not OAuth, so claude.ai's "custom connector by URL"
 flow is not supported. Feedback text is user-written and returned to the model:
 tool descriptions mark it as untrusted data. Authorization details:
 [`permissions.md`](permissions.md#mcp-token-access-feedback).
+
+## Attendance drafts and connection recovery
+
+Web child attendance keeps every entered mark immediately on the current device,
+then saves only those pending marks after a short pause. The browser draft key
+includes the signed-in user, class, and exact calendar date. It contains child
+IDs and attendance statuses only; no roster names, photos, or guardian contacts.
+Server acknowledgment clears pending marks; a newer tap during an in-flight
+save stays pending. Network/server failures retry after five seconds and on
+reconnection while that same roster remains open. Authorization/validation
+failures require an explicit retry or roster reload.
+
+Returning to a draft first loads the authorized current roster. Removed child
+IDs are excluded, newly added children stay unmarked, and recovered marks require
+review and **Resume saving marks** before any submission. Browsing another class
+or date and signing out abort outstanding client requests and never submits a
+different draft. Both write routes reject a supplied `expectedUserId` if the
+actual authenticated account changed. Existing server class permission checks
+still apply to every write. Where supported, a browser lock prevents two tabs
+from editing the same user's class/date draft simultaneously.
+
+**Save attendance** remains the explicit final step that marks all children
+left unmarked as absent. Automatic saves never infer absence. A confirmed
+save and a draft kept only on the device are labeled separately. If browser
+storage is unavailable, the page warns that refresh can lose unsent marks;
+keep it open until the church save is confirmed. Reloading a roster in the same
+open editor preserves its in-memory pending marks even when storage fails.
+No database migration or service worker is needed. Draft recovery after a full
+page reload requires a connection to validate permission and the current roster.

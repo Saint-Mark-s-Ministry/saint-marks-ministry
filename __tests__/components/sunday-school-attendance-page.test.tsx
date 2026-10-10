@@ -18,7 +18,7 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/hooks/useSundaySchoolGuard', () => ({
-  useSundaySchoolGuard: () => ({ status: 'authenticated' }),
+  useSundaySchoolGuard: () => ({ status: 'authenticated', session: { user: { id: 'servant-1' } } }),
 }))
 
 vi.mock('@/lib/swr', () => ({
@@ -54,6 +54,12 @@ import SundaySchoolAttendancePage from '@/app/dashboard/servants/attendance/page
 
 describe('Sunday School attendance page', () => {
   beforeEach(() => {
+    const memory = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => { memory.set(key, value) },
+      removeItem: (key: string) => { memory.delete(key) },
+    })
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mocks.fetch)
     mocks.fetch.mockImplementation(async (input: string | URL | Request) => {

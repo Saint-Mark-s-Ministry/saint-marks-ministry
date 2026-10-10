@@ -1,8 +1,7 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FilterSelect } from '@/components/ui/filter-select'
@@ -14,6 +13,7 @@ import { Panel } from '@/components/ds/panel'
 import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
+import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import {
@@ -22,7 +22,6 @@ import {
 } from '@/lib/attendance-roster'
 import {
   getChildFullName,
-  getChildPhotoUrl,
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
@@ -31,30 +30,15 @@ import {
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type {
-  SundaySchoolChild,
   SundaySchoolClass,
-  SundaySchoolRosterEntry,
   SundaySchoolDashboard,
-  SundaySchoolSession,
-  SundaySchoolSessionAttendance,
 } from '@/types/sunday-school'
 import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
 import { Users } from 'lucide-react'
 
-function normalizeSundaySchoolAttendanceStatus(status?: AttendanceStatus | null) {
-  if (
-    status === AttendanceStatus.PRESENT ||
-    status === AttendanceStatus.LATE ||
-    status === AttendanceStatus.ABSENT
-  ) {
-    return status
-  }
-  return undefined
-}
-
 function SundaySchoolAttendanceContent() {
-  const { status } = useSundaySchoolGuard()
+  const { session, status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
@@ -66,12 +50,6 @@ function SundaySchoolAttendanceContent() {
 
   const [selectedClassId, setSelectedClassId] = useState<string>('')
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
-  const [attendance, setAttendance] = useState<SundaySchoolSessionAttendance | null>(null)
-  const [marks, setMarks] = useState<Record<string, AttendanceStatus>>({})
-  const [loadingSession, setLoadingSession] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showPhotos, setShowPhotos] = useState(true)
   const [groupByGender, setGroupByGender] = useState(false)
@@ -105,126 +83,15 @@ function SundaySchoolAttendanceContent() {
     setSessionDate(toDateInputValue(getMostRecentClassMeetingDate(selectedClassLevel)))
   }, [selectedClassId, selectedClassLevel])
 
-  // Load the roster for the selected class + date. Read-only: the session row
-  // is only created on save, so browsing dates never leaves empty sessions
-  // behind (and PRIEST, who cannot write, can still look).
-  const loadSession = useCallback(async () => {
-    if (!selectedClassId || !sessionDate) return
-
-    setLoadingSession(true)
-    try {
-      const sessionsRes = await fetch(
-        `/api/sunday-school/sessions?classId=${selectedClassId}&from=${sessionDate}&to=${sessionDate}`
-      )
-      const sessionsBody = await sessionsRes.json()
-      if (!sessionsRes.ok) {
-        throw new Error(sessionsBody.error || 'Failed to look up the session')
-      }
-
-      const existing = (sessionsBody as SundaySchoolSession[])[0]
-
-      if (existing) {
-        const attendanceRes = await fetch(`/api/sunday-school/sessions/${existing.id}/attendance`)
-        const attendanceBody = await attendanceRes.json()
-        if (!attendanceRes.ok) {
-          throw new Error(attendanceBody.error || 'Failed to load the roster')
-        }
-        const loaded = attendanceBody as SundaySchoolSessionAttendance
-        setAttendance(loaded)
-        setLoadError(false)
-        const savedMarks: Record<string, AttendanceStatus> = {}
-        for (const entry of loaded.roster) {
-          const savedStatus = normalizeSundaySchoolAttendanceStatus(entry.attendance?.status)
-          if (savedStatus) savedMarks[entry.id] = savedStatus
-        }
-        setMarks(savedMarks)
-        return
-      }
-
-      // No session recorded for this date yet — show the class roster unmarked
-      const childrenRes = await fetch(`/api/sunday-school/children?classId=${selectedClassId}&isActive=true`)
-      const childrenBody = await childrenRes.json()
-      if (!childrenRes.ok) {
-        throw new Error(childrenBody.error || 'Failed to load the roster')
-      }
-
-      const roster: SundaySchoolRosterEntry[] = (childrenBody as SundaySchoolChild[]).map(child => ({
-        id: child.id,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        level: child.level,
-        gender: child.gender,
-        profileImageUrl: getChildPhotoUrl(child),
-        attendance: null,
-      }))
-
-      setAttendance({ session: null, roster })
-      setMarks({})
-      setLoadError(false)
-    } catch (error: unknown) {
-      setAttendance(null)
-      setMarks({})
-      setLoadError(true)
-      toast.error(error instanceof Error ? error.message : 'Failed to load attendance')
-    } finally {
-      setLoadingSession(false)
-    }
-  }, [selectedClassId, sessionDate])
-
-  useEffect(() => {
-    loadSession()
-  }, [loadSession])
-
+  const editor = useSundaySchoolAttendance(status === 'authenticated' ? session?.user?.id ?? '' : '', selectedClassId, sessionDate, canEdit)
+  const { attendance, marks, loading: loadingSession, error: loadError, saving, lastSaved } = editor
   const handleSave = async () => {
-    if (!attendance) return
-
-    // Mark who's here; anyone left unmarked is saved as absent
-    const finalMarks: Record<string, AttendanceStatus> = Object.fromEntries(
-      attendance.roster.map(entry => [entry.id, marks[entry.id] ?? AttendanceStatus.ABSENT])
-    )
-
-    setSaving(true)
-    try {
-      // Create the session on first save (the route is idempotent, so a
-      // re-save of an existing date reuses it)
-      const sessionRes = await fetch('/api/sunday-school/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classId: selectedClassId, date: sessionDate }),
-      })
-      const sessionBody = await sessionRes.json()
-      if (!sessionRes.ok) {
-        throw new Error(sessionBody.error || 'Failed to open the session')
-      }
-
-      const res = await fetch('/api/sunday-school/attendance/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: sessionBody.id,
-          records: attendance.roster.map(entry => ({
-            childId: entry.id,
-            status: finalMarks[entry.id],
-          })),
-        }),
-      })
-      const body = await res.json()
-      if (!res.ok) {
-        throw new Error(body.error || 'Failed to save attendance')
-      }
-
-      const saved = new Date()
-      setMarks(finalMarks)
-      setLastSaved(saved)
-      setAttendance(prev => (prev ? { ...prev, session: sessionBody } : prev))
-      void refreshTrend()
-      toast.success('Attendance saved', { description: saved.toLocaleString() })
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save attendance')
-    } finally {
-      setSaving(false)
-    }
+    await editor.save()
   }
+  const pendingCount = Object.keys(editor.pending).length
+  useEffect(() => {
+    if (lastSaved) void refreshTrend()
+  }, [lastSaved, refreshTrend])
 
   const presentCount = useMemo(
     () => Object.values(marks).filter(s => s === AttendanceStatus.PRESENT || s === AttendanceStatus.LATE).length,
@@ -244,7 +111,7 @@ function SundaySchoolAttendanceContent() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Take attendance"
-        meta={['Mark who’s here; anyone not marked is saved as absent', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        meta={['Marks save automatically; Save attendance also marks anyone left unmarked absent', lastSaved && !pendingCount ? <LastSaved key="saved" date={lastSaved} /> : null]}
         actions={
           selectedClassId && (
             <Button asChild variant="outline">
@@ -263,6 +130,17 @@ function SundaySchoolAttendanceContent() {
         </Panel>
       ) : (
         <>
+          {canEdit && (pendingCount > 0 || editor.storageError || editor.removedCount > 0) && (
+            <div role="status" className="rounded-lg border border-line bg-surface p-4 text-sm text-ink-2">
+              {editor.storageError
+                ? 'This browser could not store or clear the local draft. Keep this page open until you save successfully; refreshing may lose changes or restore an older draft.'
+                : pendingCount > 0 ? `${editor.recovered ? 'Recovered draft. ' : ''}${pendingCount} marks kept on this device, pending save to the church.` : null}
+              {editor.recovered && ' Review the marks, then resume saving when connected.'}
+              {editor.removedCount > 0 && ` ${editor.removedCount} draft marks belong to children no longer on this roster and will not be submitted.`}
+              {editor.recovered && pendingCount > 0 && <Button variant="outline" className="ml-3" disabled={saving} onClick={() => void editor.save(false)}>Resume saving marks</Button>}
+            </div>
+          )}
+          {editor.saveError && <p role="alert" className="text-sm text-danger">{editor.saveError}. Attendance has not been confirmed saved. Your marks are kept on this page. Reconnect to retry. <Button variant="outline" disabled={saving} onClick={() => void editor.save(false)}>Retry pending marks</Button> <Button variant="outline" disabled={saving} onClick={editor.retryLoad}>Reload roster and recover marks</Button></p>}
           <Panel
             toolbar={
               <>
@@ -314,7 +192,7 @@ function SundaySchoolAttendanceContent() {
             {loadingSession ? (
               <EmptyState message="Loading roster…" />
             ) : loadError ? (
-              <EmptyState title="Couldn’t load this roster" message="Something went wrong on our side. Pick the class again or try in a moment." />
+              <div className="p-4"><EmptyState title="Couldn’t load this roster" message={`${loadError}. Any saved local draft is kept. Reconnect and try again.`} /><Button variant="outline" onClick={editor.retryLoad}>Retry loading roster</Button></div>
             ) : !attendance || attendance.roster.length === 0 ? (
               <EmptyState message="No children on this roster yet. Add them from the Roster page." />
             ) : (
@@ -339,8 +217,8 @@ function SundaySchoolAttendanceContent() {
                           </span>
                           <AttendanceStatusButtons
                             currentStatus={marks[entry.id]}
-                            onStatusChange={(statusValue) => setMarks((prev) => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))}
-                            disabled={!canEdit}
+                            onStatusChange={(statusValue) => editor.mark(entry.id, statusValue as AttendanceStatus)}
+                            disabled={!canEdit || editor.finalizing || loadingSession}
                             showExcused={false}
                             absentLabel="Not present"
                           />
@@ -359,7 +237,8 @@ function SundaySchoolAttendanceContent() {
                 <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} here
                 {unmarkedCount > 0 && <span className="ml-2 text-ink-3">· {unmarkedCount} not marked will be saved as absent</span>}
               </p>
-              <Button onClick={handleSave} disabled={saving} className="ml-auto">
+              <span role="status" className="text-xs text-ink-3">{saving ? 'Saving marks…' : pendingCount ? `${pendingCount} pending` : lastSaved ? 'All entered marks saved to the church' : 'No changes yet'}</span>
+              <Button onClick={handleSave} disabled={saving || loadingSession || !session?.user?.id} className="ml-auto">
                 {saving ? 'Saving…' : 'Save attendance'}
               </Button>
             </div>
