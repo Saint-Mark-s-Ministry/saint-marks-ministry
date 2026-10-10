@@ -26,13 +26,13 @@ export type Tone = "success" | "warning" | "danger" | "neutral";
 
 /** The program-wide exam average: on target (>=75%) reads as success, else danger. */
 export function examAverageTone(average: number | null): Tone {
-  if (average == null) return "neutral";
+  if ((average === null || average === undefined)) return "neutral";
   return average >= 75 ? "success" : "danger";
 }
 
 /** A single at-risk student's attendance or exam figure, graduated by severity. */
 export function atRiskTone(value: number | null, kind: "attendance" | "exam"): Tone {
-  if (value == null) return "neutral";
+  if ((value === null || value === undefined)) return "neutral";
   if (kind === "attendance") return value < 75 ? "danger" : "success";
   if (value < 60) return "danger";
   if (value < 75) return "warning";

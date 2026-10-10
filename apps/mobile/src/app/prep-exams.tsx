@@ -16,7 +16,6 @@ import { canManageExams, filterExamsByYear, groupExamsByYear, type ExamListItem,
 type AcademicYear = { id: string; name: string; isActive: boolean };
 type ExamSection = { id: string; displayName: string };
 type DashboardAnalytics = { totalAtRisk: number; atRiskStudents: { examAverage: number | null }[]; programOverview: { overallProgramAverage: number | null } };
-type DashboardStats = { activeStudents: number };
 
 const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2", BOTH: "Both years" };
 
@@ -44,7 +43,7 @@ export default function PrepExams() {
   const yearGroups = groupExamsByYear(past);
   const viewingYear = yearGroups.find((g) => g.academicYear.id === viewingYearId);
 
-  const belowThreshold = analytics.data?.atRiskStudents.filter((s) => s.examAverage != null && s.examAverage < 75).length ?? 0;
+  const belowThreshold = analytics.data?.atRiskStudents.filter((s) => (s.examAverage !== null && s.examAverage !== undefined) && s.examAverage < 75).length ?? 0;
   const programAverage = analytics.data?.programOverview.overallProgramAverage ?? null;
 
   return (
@@ -110,9 +109,9 @@ export default function PrepExams() {
                     <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                       <Stat
                         label="Program average"
-                        value={programAverage != null ? `${programAverage.toFixed(1)}%` : "—"}
+                        value={(programAverage !== null && programAverage !== undefined) ? `${programAverage.toFixed(1)}%` : "—"}
                         sublabel="all exams"
-                        color={programAverage != null ? (programAverage >= 75 ? colors.success : colors.danger) : undefined}
+                        color={(programAverage !== null && programAverage !== undefined) ? (programAverage >= 75 ? colors.success : colors.danger) : undefined}
                       />
                       <Stat label="Below 75%" value={belowThreshold} sublabel="students" color={belowThreshold > 0 ? colors.danger : undefined} />
                     </View>

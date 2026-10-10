@@ -263,7 +263,7 @@ export default function PrepHome() {
                     color={(analytics.data?.totalAtRisk ?? 0) > 0 ? colors.danger : undefined}
                   />
                   <Metric
-                    value={examAverage != null ? `${examAverage.toFixed(1)}%` : "—"}
+                    value={(examAverage !== null && examAverage !== undefined) ? `${examAverage.toFixed(1)}%` : "—"}
                     label="Exam average"
                     sublabel="target ≥ 75%"
                     color={examColor}

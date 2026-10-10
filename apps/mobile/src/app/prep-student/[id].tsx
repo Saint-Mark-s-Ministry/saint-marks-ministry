@@ -113,7 +113,7 @@ export default function PrepStudentDetail() {
                   color={enrollment?.isActive === false ? colors.muted : colors.success}
                   soft={enrollment?.isActive === false ? colors.hover : colors.successSoft}
                 />
-                {(student.attendancePercentage != null || student.examAverage != null) && (
+                {((student.attendancePercentage !== null && student.attendancePercentage !== undefined) || (student.examAverage !== null && student.examAverage !== undefined)) && (
                   <StatusPill
                     label={eligibilityLabel(student.graduationEligible)}
                     color={student.graduationEligible ? colors.success : colors.warning}
@@ -196,20 +196,20 @@ export default function PrepStudentDetail() {
 
 function StatCard({ label, value, sublabel }: { label: string; value: number | null; sublabel: string }) {
   const { colors } = useAppTheme();
-  const tone = value == null ? colors.text : value >= 75 ? colors.success : value >= 60 ? colors.warning : colors.danger;
+  const tone = (value === null || value === undefined) ? colors.text : value >= 75 ? colors.success : value >= 60 ? colors.warning : colors.danger;
   return (
     <View
       style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 22, padding: 14, gap: 8 }}
       accessible
-      accessibilityLabel={`${label}: ${value != null ? `${value}%` : "no data"}, ${sublabel}`}
+      accessibilityLabel={`${label}: ${(value !== null && value !== undefined) ? `${value}%` : "no data"}, ${sublabel}`}
     >
       <Copy kind="caption" style={{ fontWeight: "500" }}>
         {label}
       </Copy>
       <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "600" }} color={tone}>
-        {value != null ? `${value}%` : "—"}
+        {(value !== null && value !== undefined) ? `${value}%` : "—"}
       </Copy>
-      {value != null && (
+      {(value !== null && value !== undefined) && (
         <View style={{ height: 5, borderRadius: 2.5, backgroundColor: colors.border, overflow: "hidden" }}>
           <View style={{ width: `${Math.min(100, value)}%`, height: "100%", borderRadius: 2.5, backgroundColor: tone }} />
         </View>

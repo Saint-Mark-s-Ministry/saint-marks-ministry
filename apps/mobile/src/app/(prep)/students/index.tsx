@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
-import { CompactRow, Copy, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
+import { CompactRow, Copy, InitialsAvatar, ListSurface, Screen, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
@@ -112,13 +112,13 @@ export default function PrepStudents() {
                   divider={index < students.length - 1}
                   title={s.studentName}
                   subtitle={
-                    s.attendancePercentage == null && s.examAverage == null
+                    (s.attendancePercentage === null || s.attendancePercentage === undefined) && (s.examAverage === null || s.examAverage === undefined)
                       ? `${yearLabel(s.yearLevel)} · no scores yet`
                       : `Att ${s.attendancePercentage ?? "—"}% · Exam ${s.examAverage ?? "—"}%`
                   }
                   icon={<InitialsAvatar name={s.studentName} size={38} />}
                   trailing={
-                    s.attendancePercentage != null || s.examAverage != null ? (
+                    (s.attendancePercentage !== null && s.attendancePercentage !== undefined) || (s.examAverage !== null && s.examAverage !== undefined) ? (
                       <StatusPill
                         label={eligibilityLabel(s.graduationEligible)}
                         color={s.graduationEligible ? colors.success : colors.warning}

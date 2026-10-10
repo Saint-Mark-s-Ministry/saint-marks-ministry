@@ -4,7 +4,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { MenuView } from "@expo/ui/community/menu";
 import { Button, Copy, Icon, InitialsAvatar, Screen, StatusPill, styles } from "@/components/ui";
-import { ResourceState, confirmAction, useAction } from "@/components/forms";
+import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { api } from "@/data/auth-provider";
 import { useAuth } from "@/data/auth-provider";

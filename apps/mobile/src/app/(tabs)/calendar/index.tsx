@@ -1,6 +1,6 @@
 import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
-import { CalendarDate, CompactRow, Copy, ListSurface, Screen, SectionTitle, styles } from "@/components/ui";
+import { CalendarDate, CompactRow, Copy, ListSurface, Screen, SectionTitle } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { attendanceKey, meetingDate, usePortal } from "@/data/portal-provider";
