@@ -331,9 +331,6 @@ model User {
   sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]       @relation("SundaySchoolFeedbackVotes")
   ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonOwner")
   assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonAssigner")
-  createdSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkCreator")
-  updatedSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkUpdater")
-  recordedSundaySchoolHomework          SundaySchoolHomeworkCompletion[] @relation("RecordedSundaySchoolHomework")
   linkedSundaySchoolChild               SundaySchoolChild?               @relation("SundaySchoolChildAccount")
 
   // Registration relations
