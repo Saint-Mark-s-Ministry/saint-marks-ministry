@@ -54,13 +54,11 @@ export default function SignIn() {
           />
         ) : user?.mustChangePassword ? (
           <Card>
-            <Copy kind="heading">Update your password</Copy>
-            <Copy>
-              Your account requires a password change before you can continue.
-            </Copy>
-            <PasswordForm />
+            <Copy kind="title">Change your password</Copy>
+            <Copy>Your account was created with a temporary password.</Copy>
+            <PasswordForm forced />
             <Button
-              label="Back to sign in"
+              label="Log out instead"
               secondary
               onPress={() => void signOut()}
             />

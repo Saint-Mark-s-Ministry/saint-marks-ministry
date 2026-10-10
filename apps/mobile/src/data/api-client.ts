@@ -8,6 +8,11 @@ export type PortalUser = {
   email: string;
   role: string;
   mustChangePassword: boolean;
+  // The real session callback (lib/auth.ts) already always sends these —
+  // only the type here was incomplete. Not new server behavior.
+  isAsyncStudent: boolean;
+  profileImageUrl: string | null;
+  sundaySchool: { hasAccess: boolean; isCoordinator: boolean };
 };
 export type PortalSession = { user?: PortalUser; impersonating?: unknown };
 
