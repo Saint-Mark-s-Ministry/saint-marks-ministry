@@ -348,6 +348,7 @@ model User {
   submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("SubmittedSundaySchoolFeedback")
   respondedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]       @relation("RespondedSundaySchoolFeedback")
   sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]       @relation("SundaySchoolFeedbackVotes")
+  mcpApiTokens                          McpApiToken[]
   ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonOwner")
   assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]       @relation("SundaySchoolWeeklyLessonAssigner")
   createdSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkCreator")
@@ -1417,6 +1418,25 @@ model SundaySchoolFeedbackVote {
 
   @@unique([ideaId, userId])
   @@index([ideaId, vote])
+  @@index([userId])
+}
+
+// Machine credentials for the feedback MCP server (/api/mcp). Each token acts
+// as one SUPER_ADMIN; authority is re-derived from User.role on every request,
+// so demoting the owner disables the token. Only a SHA-256 hash is stored.
+model McpApiToken {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  lastUsedAt  DateTime? @db.Timestamptz(3)
+  expiresAt   DateTime? @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 

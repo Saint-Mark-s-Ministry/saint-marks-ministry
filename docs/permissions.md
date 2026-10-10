@@ -288,6 +288,17 @@ on an idea. Everyone who can view feedback sees it attributed to the
 “Development Team”; the responding admin's ID is retained in the database
 for accountability but is never included in feedback API responses.
 
+### MCP token access (feedback)
+
+`/api/mcp` lets an MCP client (e.g. Claude Code) triage feedback. It is
+authenticated by an `McpApiToken` bearer token, not a session. A token acts as
+exactly one `SUPER_ADMIN`; on **every request** `lib/mcp-tokens.ts` re-loads the
+owner, requires `canAdministerSundaySchool(role)`, and every tool re-checks
+`canModerateFeedback(access)`. Demoting the owner, revoking, or expiring the
+token cuts access immediately. Tokens are stored as SHA-256 hashes, shown once at
+creation, and managed with `bun scripts/admin.ts mcp-token-create|list|revoke`.
+It exposes only feedback tools; nothing else in the app accepts these tokens.
+
 ---
 
 ## Why Sunday School is not role-based
