@@ -3,6 +3,7 @@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import styles from './schedule.module.css'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDateUTC } from '@/lib/utils'
@@ -55,12 +56,15 @@ export function SortableRow({
     opacity: isDragging ? 0.5 : 1,
   }
 
-  const isPast = new Date(lesson.scheduledDate) < new Date()
   const currentTitle = edits?.title ?? lesson.title
   const currentSpeaker = edits?.speaker ?? lesson.speaker ?? ''
   const currentSectionId = edits?.examSectionId ?? lesson.examSection.id
   const currentIsExamDay = edits?.isExamDay ?? lesson.isExamDay
   const currentStatus = (edits?.status ?? lesson.status) as Lesson['status']
+  const isCancelled = currentStatus === 'CANCELLED' || currentStatus === 'NO_CLASS'
+  const currentSection = sections.find(section => section.id === currentSectionId) ?? lesson.examSection
+  const notesField = isCancelled ? 'cancellationReason' : 'description'
+  const currentNotes = edits?.[notesField] ?? lesson[notesField] ?? ''
   const hasAttendance = (lesson._count?.attendanceRecords || 0) > 0
 
   return (
@@ -68,7 +72,8 @@ export function SortableRow({
       <tr
         ref={setNodeRef}
         style={style}
-        className={`h-11 border-b border-line hover:bg-hover/60 ${isPast ? 'text-ink-3' : ''} ${isDragging ? 'bg-surface shadow-lg' : ''}`}
+        className={`${styles.row} ${isCancelled ? styles.cancelled : ''} ${currentIsExamDay && !isCancelled ? styles.exam : ''} ${isDragging ? styles.dragging : ''}`}
+        data-edited={!!edits}
       >
         {/* Drag handle */}
         {canEdit && (
@@ -76,132 +81,116 @@ export function SortableRow({
             className={`p-1 w-8 text-center ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
             {...(canDrag ? { ...attributes, ...listeners } : {})}
           >
-            <span aria-hidden className={`select-none ${canDrag ? 'text-ink-3' : 'text-line-strong'}`}>⠿</span>
+            <span className={`select-none ${canDrag ? 'text-current opacity-50' : 'text-current opacity-20'}`}>⠿</span>
           </td>
         )}
-        {/* Lesson # */}
-        <td className="p-2 text-gray-500 w-8 text-center">{index + 1}</td>
-        {/* Date */}
-        <td className="p-2 w-32">
+        <td className="text-center font-semibold tabular-nums">{lesson.lessonNumber || index + 1}</td>
+        <td>
           {canEdit ? (
             <Input
               type="date"
+              aria-label={`Date for meeting ${lesson.lessonNumber}`}
               value={edits?.scheduledDate ?? lesson.scheduledDate.slice(0, 10)}
               onChange={(e) => onEdit(lesson.id, 'scheduledDate', e.target.value)}
-              className="h-8 text-xs"
+              className={styles.cellInput}
             />
           ) : (
-            <span className="text-sm">
-              {formatDateUTC(lesson.scheduledDate, {
-                weekday: undefined,
-                month: 'short',
-                day: 'numeric',
-                year: undefined,
-              })}
+            <span className="whitespace-nowrap tabular-nums">
+              {formatDateUTC(lesson.scheduledDate, { month: 'numeric', day: 'numeric', year: 'numeric' })}
             </span>
           )}
         </td>
-        {/* Topic */}
-        <td className="p-2">
-          {canEdit ? (
-            <Input
-              value={currentTitle}
-              onChange={(e) => onEdit(lesson.id, 'title', e.target.value)}
-              className="h-8 text-sm"
-              placeholder="Topic title"
-            />
-          ) : (
-            <span className="text-sm font-medium">{currentTitle}</span>
-          )}
-        </td>
-        {/* Speaker */}
-        <td className="p-2">
-          {canEdit ? (
-            <Input
-              value={currentSpeaker}
-              onChange={(e) => onEdit(lesson.id, 'speaker', e.target.value)}
-              className="h-8 text-sm"
-              placeholder="Speaker name"
-            />
-          ) : (
-            <span className="text-sm text-gray-600">{currentSpeaker || '—'}</span>
-          )}
-        </td>
-        {/* Section */}
-        <td className="p-2">
+        <td>
           {canEdit ? (
             <select
               value={currentSectionId}
+              aria-label={`Block for meeting ${lesson.lessonNumber}`}
               onChange={(e) => onEdit(lesson.id, 'examSectionId', e.target.value)}
-              className="h-8 w-full rounded-md border border-line-strong bg-surface px-2 text-xs text-ink"
+              className={styles.block}
+              data-section={currentSection.name}
             >
               {sections.map(section => (
-                <option key={section.id} value={section.id}>
-                  {section.displayName}
-                </option>
+                <option key={section.id} value={section.id}>{section.displayName}</option>
               ))}
             </select>
           ) : (
-            <Badge variant="outline" className="text-xs">{lesson.examSection.displayName}</Badge>
+            <span className={styles.block} data-section={currentSection.name}>{currentSection.displayName}</span>
           )}
         </td>
-        {/* Exam Day */}
-        <td className="p-2 text-center">
-          {canEdit ? (
-            <input
-              type="checkbox"
-              checked={currentIsExamDay}
-              onChange={(e) => onEdit(lesson.id, 'isExamDay', e.target.checked)}
-              className="h-4 w-4"
-            />
-          ) : (
-            currentIsExamDay && (
-              <Badge variant="outline" className="border-transparent bg-warn-tint text-warn">
-                Exam
-              </Badge>
-            )
-          )}
-        </td>
-        {/* Status + Attendance */}
-        <td className="p-2 text-center">
-          <div className="flex items-center justify-center gap-1">
-            <div className="w-24 shrink-0 text-left">
-              {canEdit ? (
-                <select
-                  value={currentStatus}
-                  onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
-                  className={`h-7 w-full rounded-md border px-1 text-xs font-medium ${
-                    currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
-                    currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
-                    currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
-                    'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
-                  <option value="NO_CLASS">No Class</option>
-                </select>
-              ) : (
-                <Badge
-                  className={`text-xs ${
-                    currentStatus === 'COMPLETED' ? 'bg-green-500' :
-                    currentStatus === 'CANCELLED' ? 'bg-red-500' :
-                    currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
-                    'bg-maroon-600'
-                  }`}
-                >
-                  {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
-                </Badge>
-              )}
-            </div>
-            <span className="w-5 shrink-0 text-left text-xs text-gray-500">
-              {hasAttendance ? lesson._count.attendanceRecords : ''}
-            </span>
+        <td>
+          <div className="flex items-center gap-1">
+            {canEdit ? (
+              <Input
+                value={currentTitle}
+                aria-label={`Topic for meeting ${lesson.lessonNumber}`}
+                onChange={(e) => onEdit(lesson.id, 'title', e.target.value)}
+                className={styles.cellInput}
+                placeholder="Topic title"
+              />
+            ) : (
+              <span className="flex-1 text-center font-medium">{currentTitle}</span>
+            )}
+            {canEdit ? (
+              <label className={styles.examToggle} title="Exam day">
+                <input
+                  type="checkbox"
+                  aria-label={`Exam day for meeting ${lesson.lessonNumber}`}
+                  checked={currentIsExamDay}
+                  onChange={(e) => onEdit(lesson.id, 'isExamDay', e.target.checked)}
+                />
+                <span>Exam</span>
+              </label>
+            ) : currentIsExamDay && <Badge variant="outline" className="text-[10px] border-pink-300 text-pink-700 dark:text-pink-200">Exam</Badge>}
           </div>
         </td>
+        <td>
+          <div className="flex items-center justify-center gap-1">
+            {canEdit ? (
+              <select
+                value={currentStatus}
+                aria-label={`Status for meeting ${lesson.lessonNumber}`}
+                onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
+                className={styles.status}
+                data-status={currentStatus}
+              >
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="NO_CLASS">No class</option>
+              </select>
+            ) : (
+              <span className={styles.status} data-status={currentStatus}>
+                {{ SCHEDULED: 'Scheduled', COMPLETED: 'Completed', CANCELLED: 'Cancelled', NO_CLASS: 'No class' }[currentStatus]}
+              </span>
+            )}
+            {hasAttendance && <span className={styles.attendance} title="Attendance records">{lesson._count.attendanceRecords}</span>}
+          </div>
+        </td>
+        <td>
+          {canEdit ? (
+            <Input
+              value={currentSpeaker}
+              aria-label={`Speaker for meeting ${lesson.lessonNumber}`}
+              onChange={(e) => onEdit(lesson.id, 'speaker', e.target.value)}
+              className={styles.cellInput}
+              placeholder="Speaker name"
+            />
+          ) : <span>{currentSpeaker || '—'}</span>}
+        </td>
+        <td>
+          {canEdit ? (
+            <Input
+              value={currentNotes}
+              aria-label={`Notes for meeting ${lesson.lessonNumber}`}
+              onChange={(e) => onEdit(lesson.id, notesField, e.target.value)}
+              className={`${styles.cellInput} ${styles.notesInput}`}
+              placeholder={isCancelled ? 'Reason for no class' : 'Lesson notes'}
+              title={currentNotes}
+            />
+          ) : <span className={styles.notesText}>{currentNotes || '—'}</span>}
+        </td>
         {/* Actions */}
-        <td className="p-2 text-center">
+        <td className="text-center">
           <div className="flex gap-1 justify-center">
             <Button
               size="sm"
@@ -217,7 +206,7 @@ export function SortableRow({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
+                  className="h-7 px-2 text-xs text-current"
                   onClick={() => onDuplicate(lesson.id)}
                   title="Duplicate lesson"
                 >
@@ -237,7 +226,7 @@ export function SortableRow({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                  className={`h-7 px-2 text-xs ${isCancelled ? 'text-white hover:text-red-100' : 'text-red-600 hover:text-red-700'}`}
                   onClick={() => onDelete(lesson.id)}
                   disabled={hasAttendance}
                   title={hasAttendance ? 'Cannot delete: has attendance records' : 'Delete lesson'}
