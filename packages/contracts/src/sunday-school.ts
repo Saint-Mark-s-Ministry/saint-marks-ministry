@@ -236,6 +236,10 @@ export interface SundaySchoolFeedbackIdea {
   title: string;
   description: string | null;
   status: SundaySchoolFeedbackStatus;
+  // The one public reply, always attributed to the Development Team — never
+  // the responding admin's own name or id (see lib/sunday-school-feedback-server.ts).
+  teamResponse: string | null;
+  teamRespondedAt: string | null;
   createdAt: string;
   updatedAt: string;
   submitter: {

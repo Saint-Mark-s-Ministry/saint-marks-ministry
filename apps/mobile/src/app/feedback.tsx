@@ -1,42 +1,234 @@
-import { useState } from "react";
-import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackResponse, SundaySchoolFeedbackType } from "@stmark/contracts";
-import { Button, Card, Copy } from "@/components/ui";
-import { Choice, Field, Page, confirmAction, useAction } from "@/components/forms";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { router, Stack } from "expo-router";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
+import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackResponse } from "@stmark/contracts";
+import { Copy, Icon, ListSurface, Screen, StatusPill } from "@/components/ui";
+import { ResourceState } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
-import { MinistryTintProvider } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
+import {
+  applyFeedbackView,
+  filterByCategory,
+  matchesSearch,
+  responsePreview,
+  statusLabel,
+  submittedLabel,
+  typeLabel,
+  type FeedbackCategory,
+  type FeedbackView,
+} from "@/data/sunday-school-feedback";
+import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
+import { MinistryTintProvider, serifDisplay, useAppTheme, type ThemeColors } from "@/theme";
 
-const statuses = ["OPEN", "PLANNED", "IN_PROGRESS", "COMPLETED", "DECLINED"] as const;
-const option = (value: string) => ({ value, label: value.replaceAll("_", " ") });
-const feedbackTypes: { value: SundaySchoolFeedbackType; label: string }[] = [
-  { value: "PROBLEM", label: "Problem" },
-  { value: "IDEA", label: "Idea" },
+const OFFLINE = "Could not reach the server. Check your connection and try again.";
+const VIEWS: FeedbackView[] = ["top", "newest", "mine"];
+const CATEGORIES: { value: FeedbackCategory; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "IDEA", label: "Ideas" },
+  { value: "PROBLEM", label: "Problems" },
 ];
+
 export default function Feedback() {
-  const [status, setStatus] = useState("ALL");
-  const [sort, setSort] = useState("TOP");
-  const [editor, setEditor] = useState<SundaySchoolFeedbackIdea | "new" | null>(null);
-  const resource = useResource<SundaySchoolFeedbackResponse>(`${endpoint("feedback")}?${query({ status, sort })}`);
-  const action = useAction();
-  return <MinistryTintProvider ministry="sundaySchool"><Page title="Feedback" {...resource}>
-    <Choice label="Status" value={status} onChange={setStatus} options={["ALL", "ACTIVE", ...statuses].map(option)} />
-    <Choice label="Sort" value={sort} onChange={setSort} options={[{ value: "TOP", label: "Most upvotes" }, { value: "NEWEST", label: "Newest" }]} />
-    {resource.data?.viewer.canSubmit && <Button label="Post feedback" onPress={() => setEditor("new")} />}
-    {editor && <FeedbackEditor key={editor === "new" ? "new" : editor.id} idea={editor === "new" ? undefined : editor} done={async () => { setEditor(null); await resource.refresh(); }} cancel={() => setEditor(null)} />}
-    {resource.data && !resource.data.ideas.length && <Copy>No feedback in this view.</Copy>}
-    {resource.data?.ideas.map(idea => <Card key={idea.id}><Copy kind="heading">{idea.title}</Copy><Copy kind="caption">{idea.type === "PROBLEM" ? "Problem" : "Idea"} · {idea.submitter?.name ?? "Former member"} · {idea.status.replaceAll("_", " ")}</Copy>
-      {idea.description && <Copy>{idea.description}</Copy>}<Copy>{idea.upvotes} upvotes · {idea.downvotes} downvotes</Copy>
-      {idea.canVote && <Choice label="Your vote" value={idea.viewerVote ?? ""} disabled={action.busy} options={[{ value: "", label: "No vote" }, { value: "UP", label: "Upvote" }, { value: "DOWN", label: "Downvote" }]} onChange={vote => void action.run(async () => { await request(`${endpoint("feedback", idea.id)}/vote`, "PUT", { vote: vote || null }); await resource.refresh(); })} />}
-      {idea.canEdit && <Button secondary label="Edit feedback" onPress={() => setEditor(idea)} />}
-      {resource.data?.viewer.canModerate && <Choice label="Moderation status" value={idea.status} disabled={action.busy} options={statuses.map(option)} onChange={value => confirmAction("Change feedback status?", `Set this feedback to ${value.replaceAll("_", " ")}?`, () => void action.run(async () => { await request(endpoint("feedback", idea.id), "PATCH", { status: value }); await resource.refresh(); }))} />}
-      {idea.canDelete && <Button secondary label="Delete feedback" disabled={action.busy} onPress={() => confirmAction("Delete feedback permanently?", "The feedback and all its votes will be removed. This cannot be undone.", () => void action.run(async () => { await request(endpoint("feedback", idea.id), "DELETE"); await resource.refresh(); }), true)} />}
-    </Card>)}
-  </Page></MinistryTintProvider>;
+  return (
+    <MinistryTintProvider ministry="sundaySchool">
+      <FeedbackScreen />
+    </MinistryTintProvider>
+  );
 }
-function FeedbackEditor({ idea, done, cancel }: { idea?: SundaySchoolFeedbackIdea; done: () => Promise<void>; cancel: () => void }) {
-  const [type, setType] = useState<SundaySchoolFeedbackType>(idea?.type ?? "IDEA");
-  const [title, setTitle] = useState(idea?.title ?? "");
-  const [description, setDescription] = useState(idea?.description ?? "");
-  const action = useAction();
-  return <Card><Choice label="Feedback type" value={type} onChange={value => setType(value as SundaySchoolFeedbackType)} disabled={action.busy} options={feedbackTypes} /><Field label={type === "PROBLEM" ? "Problem title" : "Idea title"} value={title} onChange={setTitle} disabled={action.busy} /><Field label="Description" value={description} onChange={setDescription} multiline disabled={action.busy} />
-    <Button label={action.busy ? "Saving…" : "Save feedback"} disabled={action.busy || !title.trim()} onPress={() => void action.run(async () => { await request(endpoint("feedback", idea?.id), idea ? "PATCH" : "POST", { type, title, description }); await done(); })} /><Button secondary label="Cancel" disabled={action.busy} onPress={cancel} /></Card>;
+
+function typeTone(colors: ThemeColors, type: "IDEA" | "PROBLEM") {
+  return type === "PROBLEM"
+    ? { color: colors.danger, soft: colors.dangerSoft }
+    : { color: colors.info, soft: colors.infoSoft };
+}
+
+function FeedbackScreen() {
+  const { colors } = useAppTheme();
+  const { user } = useAuth();
+  const [viewIndex, setViewIndex] = useState(0);
+  const [category, setCategory] = useState<FeedbackCategory>("ALL");
+  const [search, setSearch] = useState("");
+  const [composerOpen, setComposerOpen] = useState(false);
+  // "ACTIVE" vs "ALL" server status scope stays fixed here — the real
+  // filtering this screen's three controls (Top/Newest/Mine, category,
+  // search) all happen client-side over one "ALL" fetch, same as every
+  // other list screen's convention in this app (fetch once, filter locally).
+  const resource = useResource<SundaySchoolFeedbackResponse>(`${endpoint("feedback")}?${query({ status: "ALL", sort: "TOP" })}`);
+  const offline = resource.error === OFFLINE;
+  const view = VIEWS[viewIndex];
+
+  const rows = useMemo(() => {
+    const ideas = resource.data?.ideas ?? [];
+    const categorized = filterByCategory(ideas, category);
+    const searched = categorized.filter((idea) => matchesSearch(idea, search));
+    return applyFeedbackView(searched, view, user?.id);
+  }, [resource.data, category, search, view, user?.id]);
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: "",
+          headerRight: resource.data?.viewer.canSubmit
+            ? () => (
+                <Pressable accessibilityRole="button" accessibilityLabel="Post feedback" onPress={() => setComposerOpen(true)} hitSlop={10}>
+                  <Icon ios="plus" android="add" size={22} color={colors.primary} />
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
+      <Stack.SearchBar
+        autoCapitalize="none"
+        placement="automatic"
+        placeholder="Search feedback"
+        onChangeText={(event) => setSearch(event.nativeEvent.text)}
+        onCancelButtonPress={() => setSearch("")}
+      />
+      <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
+        <View style={{ paddingHorizontal: 4, gap: 4 }}>
+          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Feedback</Copy>
+          <Copy kind="caption">Vote on what matters most</Copy>
+        </View>
+
+        <SegmentedControl
+          values={["Top", "Newest", "Mine"]}
+          selectedIndex={viewIndex}
+          onChange={({ nativeEvent }) => setViewIndex(nativeEvent.selectedSegmentIndex)}
+          style={{ width: "100%", minHeight: 36 }}
+        />
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {CATEGORIES.map((c) => (
+            <FilterChip key={c.value} label={c.label} active={category === c.value} onPress={() => setCategory(c.value)} />
+          ))}
+        </ScrollView>
+
+        {offline && resource.stale && (
+          <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
+            <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
+            <Copy kind="caption">Showing the last feedback we had. Pull down to try again.</Copy>
+          </View>
+        )}
+        {!resource.stale && (
+          <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
+        )}
+
+        {resource.data && !rows.length && (
+          <ListSurface style={{ padding: 16 }}>
+            <Copy>{resource.data.ideas.length ? "Nothing matches this filter." : "No feedback yet. Be the first to share an idea."}</Copy>
+          </ListSurface>
+        )}
+
+        {!!rows.length && (
+          <ListSurface>
+            {rows.map((idea, index) => (
+              <View key={idea.id}>
+                <FeedbackRow idea={idea} refresh={resource.refresh} />
+                {index < rows.length - 1 && <View style={{ height: 0.5, marginLeft: 16, backgroundColor: colors.border }} />}
+              </View>
+            ))}
+          </ListSurface>
+        )}
+      </Screen>
+
+      {composerOpen && user && (
+        <FeedbackComposerSheet
+          userId={user.id}
+          onClose={() => setComposerOpen(false)}
+          onSaved={async () => {
+            setComposerOpen(false);
+            await resource.refresh();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function FeedbackRow({ idea, refresh }: { idea: SundaySchoolFeedbackIdea; refresh: () => Promise<void> }) {
+  const { colors } = useAppTheme();
+  const [voting, setVoting] = useState(false);
+  const preview = responsePreview(idea);
+  const tone = typeTone(colors, idea.type);
+
+  const toggleUpvote = async () => {
+    if (!idea.canVote || voting) return;
+    setVoting(true);
+    try {
+      await request(`${endpoint("feedback", idea.id)}/vote`, "PUT", { vote: idea.viewerVote === "UP" ? null : "UP" });
+      await refresh();
+    } catch {
+      /* ResourceState/refresh already surfaces a retry; a toast-free best-effort here matches the row's compact design. */
+    } finally {
+      setVoting(false);
+    }
+  };
+
+  return (
+    <View style={{ flexDirection: "row", gap: 12, padding: 14 }}>
+      <View style={{ alignItems: "center", gap: 2 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={idea.viewerVote === "UP" ? "Remove your upvote" : "Upvote"}
+          accessibilityState={{ disabled: !idea.canVote, selected: idea.viewerVote === "UP" }}
+          disabled={!idea.canVote || voting}
+          onPress={() => void toggleUpvote()}
+          style={{
+            width: 44,
+            height: 36,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: idea.viewerVote === "UP" ? colors.primarySoft : colors.hover,
+            opacity: idea.canVote ? 1 : 0.4,
+          }}
+        >
+          <Icon ios="chevron.up" android="arrow_upward" size={18} color={idea.viewerVote === "UP" ? colors.primary : colors.text2} />
+        </Pressable>
+        <Copy style={{ fontWeight: "600", fontSize: 15 }}>{idea.score}</Copy>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={idea.title}
+        onPress={() => router.push({ pathname: "/feedback/[id]", params: { id: idea.id } })}
+        style={{ flex: 1, gap: 4 }}
+      >
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <StatusPill label={typeLabel(idea.type)} color={tone.color} soft={tone.soft} />
+          <StatusPill label={statusLabel(idea.status)} color={colors.text2} soft={colors.hover} />
+        </View>
+        <Copy style={{ fontWeight: "500", fontSize: 17 }}>{idea.title}</Copy>
+        <Copy kind="caption">{submittedLabel(idea)}</Copy>
+        {preview && (
+          <Copy kind="caption" color={colors.primary} numberOfLines={1}>
+            Development Team: {preview}
+          </Copy>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={{
+        minHeight: 44,
+        paddingHorizontal: 14,
+        justifyContent: "center",
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: active ? colors.primary : colors.border,
+        backgroundColor: active ? colors.primarySoft : colors.surface,
+      }}
+    >
+      <Copy style={{ fontWeight: active ? "600" : "400", color: active ? colors.primary : colors.text }}>{label}</Copy>
+    </Pressable>
+  );
 }

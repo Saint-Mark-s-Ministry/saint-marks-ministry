@@ -124,9 +124,9 @@ describe('Sunday School feedback validation and sorting', () => {
 
   it('sorts top ideas by upvotes, then fewer downvotes, then newest', () => {
     const ideas = [
-      { id: 'older-high-up', upvotes: 5, downvotes: 2, createdAt: '2026-01-01T00:00:00.000Z' },
-      { id: 'newer-low-up', upvotes: 4, downvotes: 1, createdAt: '2026-02-01T00:00:00.000Z' },
-      { id: 'highest-score', upvotes: 4, downvotes: 0, createdAt: '2025-12-01T00:00:00.000Z' },
+      { id: 'older-high-up', status: SundaySchoolFeedbackStatus.OPEN, upvotes: 5, downvotes: 2, createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'newer-low-up', status: SundaySchoolFeedbackStatus.OPEN, upvotes: 4, downvotes: 1, createdAt: '2026-02-01T00:00:00.000Z' },
+      { id: 'highest-score', status: SundaySchoolFeedbackStatus.OPEN, upvotes: 4, downvotes: 0, createdAt: '2025-12-01T00:00:00.000Z' },
     ]
 
     expect(sortFeedbackIdeas(ideas, 'TOP').map(idea => idea.id)).toEqual([
@@ -139,5 +139,16 @@ describe('Sunday School feedback validation and sorting', () => {
       'older-high-up',
       'highest-score',
     ])
+  })
+
+  it('keeps open ideas ahead of resolved ones in both sorts', () => {
+    const ideas = [
+      { id: 'completed', status: SundaySchoolFeedbackStatus.COMPLETED, upvotes: 20, downvotes: 0, createdAt: '2026-09-03T00:00:00.000Z' },
+      { id: 'planned', status: SundaySchoolFeedbackStatus.PLANNED, upvotes: 4, downvotes: 0, createdAt: '2026-09-02T00:00:00.000Z' },
+      { id: 'open', status: SundaySchoolFeedbackStatus.OPEN, upvotes: 1, downvotes: 0, createdAt: '2026-09-01T00:00:00.000Z' },
+    ]
+
+    expect(sortFeedbackIdeas(ideas, 'TOP').map(idea => idea.id)).toEqual(['open', 'planned', 'completed'])
+    expect(sortFeedbackIdeas(ideas, 'NEWEST').map(idea => idea.id)).toEqual(['open', 'planned', 'completed'])
   })
 })
