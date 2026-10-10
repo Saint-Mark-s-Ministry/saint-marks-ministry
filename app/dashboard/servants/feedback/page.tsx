@@ -49,7 +49,6 @@ import {
   FEEDBACK_DESCRIPTION_MAX_LENGTH,
   FEEDBACK_TEAM_RESPONSE_MAX_LENGTH,
   FEEDBACK_TITLE_MAX_LENGTH,
-  sortFeedbackIdeas,
 } from '@/lib/sunday-school-feedback'
 import { useSundaySchoolFeedback } from '@/lib/swr'
 import { cn } from '@/lib/utils'
@@ -219,7 +218,6 @@ export default function SundaySchoolFeedbackPage() {
   const [replyIdea, setReplyIdea] = useState<SundaySchoolFeedbackIdea | null>(null)
   const [teamResponse, setTeamResponse] = useState('')
   const [replySaving, setReplySaving] = useState(false)
-  const [view, setView] = useState<'top' | 'new' | 'IDEA' | 'PROBLEM'>('top')
 
   const openCreateDialog = () => {
     setEditingIdea(null)
@@ -388,13 +386,6 @@ export default function SundaySchoolFeedbackPage() {
   }
 
   if (sessionStatus === 'loading' || isLoading) return <PageLoading />
-
-  const ideas = sortFeedbackIdeas(
-    (response?.ideas ?? []).filter((idea) =>
-      view === 'IDEA' || view === 'PROBLEM' ? idea.type === view : true
-    ),
-    view === 'new' ? 'NEWEST' : 'TOP'
-  )
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
