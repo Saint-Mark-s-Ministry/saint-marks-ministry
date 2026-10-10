@@ -2,41 +2,40 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
+import { MenuView } from "@expo/ui/community/menu";
 import type {
   AttendanceStatus,
   SundaySchoolSessionAttendance,
 } from "@stmark/contracts";
 import {
   getChildFullName,
-  getLevelDisplayName,
-  isSessionDateToday,
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
 } from "@stmark/domain";
 import { GlassChrome } from "@/components/chrome";
-import {
-  Button,
-  Card,
-  Copy,
-  Icon,
-  ConnectionBadge,
-  Screen,
-  readableDate,
-  styles,
-} from "@/components/ui";
+import { Copy, Icon, ConnectionBadge, Screen, styles } from "@/components/ui";
+import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
-import { rosterProgress, sameMarks, shiftWeek } from "@/data/attendance-draft";
+import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attendance-draft";
 import { useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
-import { Choice, Toggle } from "@/components/forms";
 import { MinistryTintProvider } from "@/theme";
 
-const statuses: { value: AttendanceStatus; label: string; short: string }[] = [
-  { value: "PRESENT", label: "Present", short: "Present" },
-  { value: "LATE", label: "Late", short: "Late" },
-  { value: "ABSENT", label: "Absent", short: "Absent" },
-  { value: "EXCUSED", label: "Excused", short: "Excused" },
+const STATUSES: { value: AttendanceStatus; label: string }[] = [
+  { value: "PRESENT", label: "Present" },
+  { value: "LATE", label: "Late" },
+  { value: "ABSENT", label: "Absent" },
+  // Sunday School attendance is no longer Excused (app/api/sunday-school/attendance/batch's
+  // own policy — confirmed by its test, "rejects Excused because Sunday School attendance
+  // is no longer excused"). The ticket's own artboard still shows a 4th Excused button, but
+  // selecting and saving it would 400 against the real route, so it isn't built here.
 ];
+
+function weekOfLabel(date: string) {
+  return `Week of ${new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
+}
 
 export default function Attendance() {
   const { classId, date } = useLocalSearchParams<{ classId: string; date?: string }>();
@@ -67,10 +66,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     saveAttendance,
     loadAttendance,
   } = usePortal();
+  const { user } = useAuth();
   const cls = classes.find((item) => item.id === classId)!;
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [date, setDate] = useState(() => initialDate && validDate(initialDate) && initialDate <= new Date().toISOString().slice(0, 10) ? initialDate : meetingDate(cls));
+  const [date, setDate] = useState(() => initialDate && validDate(initialDate) ? initialDate : meetingDate(cls));
   const [loaded, setLoaded] = useState<{
     date: string;
     value: SundaySchoolSessionAttendance;
@@ -79,8 +79,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>("last");
-  const [showPhotos, setShowPhotos] = useState(true);
+  const [showPhotos, setShowPhotos] = useState(false);
   const [groupByGender, setGroupByGender] = useState(false);
+  const [query, setQuery] = useState("");
+  const [lastWeekSummary, setLastWeekSummary] = useState<{ present: number; total: number } | null>(null);
+
   useEffect(() => {
     let active = true;
     setLoadError(null);
@@ -101,12 +104,38 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       active = false;
     };
   }, [classId, date, loadAttendance, retry]);
+
+  // Recent attendance context: a quick read of last week's session, purely
+  // informational — failures here are silent, since the main roster above
+  // already has its own error handling and this is a nice-to-have add-on.
+  useEffect(() => {
+    let active = true;
+    setLastWeekSummary(null);
+    void loadAttendance(classId, shiftWeek(date, -1))
+      .then((value) => {
+        if (!active) return;
+        const marked = value.roster.filter((c) => c.attendance);
+        if (!marked.length) return;
+        const present = marked.filter((c) => c.attendance!.status === "PRESENT" || c.attendance!.status === "LATE").length;
+        setLastWeekSummary({ present, total: marked.length });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [classId, date, loadAttendance]);
+
   const current = loaded?.date === date ? loaded.value : null;
   const key = attendanceKey(classId, date);
   const roster = useMemo(() => current?.roster ?? [], [current?.roster]);
+  const q = query.trim().toLowerCase();
+  const searchedRoster = useMemo(
+    () => (q ? roster.filter((c) => getChildFullName(c).toLowerCase().includes(q)) : roster),
+    [roster, q],
+  );
   const rosterGroups = useMemo(
-    () => organizeAttendanceRoster(roster, { nameOrder, groupByGender }),
-    [groupByGender, nameOrder, roster],
+    () => organizeAttendanceRoster(searchedRoster, { nameOrder, groupByGender }),
+    [groupByGender, nameOrder, searchedRoster],
   );
   const serverMarks = Object.fromEntries(
     roster.flatMap((child) =>
@@ -118,24 +147,76 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const ids = roster.map((child) => child.id);
   const progress = rosterProgress(ids, marks);
   const dirty = !sameMarks(ids, marks, serverMarks);
-  const canEdit = !!current && !!cls.canServe && !saving && isSessionDateToday(date);
+  // Editable for any week, not just today's session — the server no longer
+  // enforces a same-day window either (app/api/sunday-school/sessions and
+  // .../attendance/batch both dropped their own isSessionDateToday checks,
+  // a deliberate policy change, not an oversight).
+  const canEdit = !!current && !!cls.canServe && !saving;
   const canSave = canEdit && progress.complete && dirty;
+
+  // A note typed this session, kept local to this device and separate from the
+  // shared cross-screen `drafts` — persisted so an interruption (app killed,
+  // not just backgrounded) doesn't lose a note the way an in-memory-only
+  // value would. Cleared once a save actually lands.
+  const notesDraftKey = user?.id ? `stmark.attendance-notes.${user.id}.${key}` : null;
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!notesDraftKey) return;
+    let active = true;
+    SecureStore.getItemAsync(notesDraftKey)
+      .then((raw) => {
+        if (!active || !raw) return;
+        try {
+          setNotesDraft(JSON.parse(raw));
+        } catch {
+          /* a corrupt draft is just dropped */
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [notesDraftKey]);
+  useEffect(() => {
+    if (!notesDraftKey) return;
+    const timeout = setTimeout(() => {
+      if (Object.keys(notesDraft).length) void SecureStore.setItemAsync(notesDraftKey, JSON.stringify(notesDraft));
+      else void SecureStore.deleteItemAsync(notesDraftKey).catch(() => undefined);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [notesDraftKey, notesDraft]);
+
+  function editNote(childId: string, name: string) {
+    if (!canEdit) return;
+    const current = notesDraft[childId] ?? roster.find((c) => c.id === childId)?.attendance?.notes ?? "";
+    Alert.prompt(
+      `Note for ${name}`,
+      undefined,
+      (text) => setNotesDraft((prev) => ({ ...prev, [childId]: text?.trim() ?? "" })),
+      "plain-text",
+      current,
+    );
+  }
+
+  // Short enough to never overflow the bottom bar's Save button.
   const saveLabel = saving
     ? "Saving…"
     : !cls.canServe
-      ? "Read-only access"
-      : !isSessionDateToday(date)
-        ? "Past attendance is read-only"
+      ? "Read-only"
       : saved && !dirty
-        ? "Attendance saved"
-        : "Save attendance";
+        ? "Saved"
+        : "Save";
 
   async function save() {
     if (!current || !canSave) return;
     setSaving(true);
     try {
-      const confirmed = await saveAttendance(classId, date, current, marks);
+      const confirmed = await saveAttendance(classId, date, current, marks, notesDraft);
       setLoaded({ date, value: confirmed });
+      if (notesDraftKey) {
+        setNotesDraft({});
+        await SecureStore.deleteItemAsync(notesDraftKey).catch(() => undefined);
+      }
     } catch (error) {
       Alert.alert(
         "Unable to save",
@@ -146,19 +227,63 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     }
   }
 
+  const totals = {
+    present: ids.filter((id) => marks[id] === "PRESENT").length,
+    late: ids.filter((id) => marks[id] === "LATE").length,
+    absent: ids.filter((id) => marks[id] === "ABSENT").length,
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Stack.Screen options={{ title: cls.name, gestureEnabled: true }} />
+      <Stack.Screen
+        options={{
+          title: "",
+          // A two-line compact title (class + week) doesn't leave room for a
+          // large title underneath — this is a work/action screen, not a
+          // top-level content destination. Matches Servants Prep's own
+          // attendance screen, which already established this exact pattern.
+          headerLargeTitle: false,
+          gestureEnabled: true,
+          headerTitle: () => (
+            <View style={{ alignItems: "center" }}>
+              <Copy style={{ fontWeight: "600", fontSize: 17 }}>{cls.name}</Copy>
+              <Copy kind="caption">{weekOfLabel(date)}</Copy>
+            </View>
+          ),
+          headerRight: () => (
+            <MenuView
+              title="Roster"
+              actions={[
+                { id: "photos", title: "Include photos", state: showPhotos ? "on" : "off" },
+                { id: "gender", title: "Group by gender", state: groupByGender ? "on" : "off" },
+              ]}
+              onPressAction={({ nativeEvent }) => {
+                if (nativeEvent.event === "photos") setShowPhotos((v) => !v);
+                if (nativeEvent.event === "gender") setGroupByGender((v) => !v);
+              }}
+            >
+              <Pressable accessibilityRole="button" accessibilityLabel="More options" hitSlop={8} style={{ padding: 6 }}>
+                <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
+              </Pressable>
+            </MenuView>
+          ),
+        }}
+      />
+      <Stack.SearchBar
+        autoCapitalize="none"
+        // "automatic" placement assumes a large title to dock under; with
+        // headerLargeTitle disabled on this work screen, it had nothing to
+        // anchor to and rendered detached near the bottom of the screen,
+        // overlapping the floating save bar. "stacked" forces its own fixed
+        // bar directly under the compact nav bar instead, every time.
+        placement="stacked"
+        placeholder="Find a child"
+        onChangeText={(event) => setQuery(event.nativeEvent.text)}
+        onCancelButtonPress={() => setQuery("")}
+      />
       <Screen bottom={160 + insets.bottom}>
         <ConnectionBadge />
-        <View style={{ gap: 6 }}>
-          <Copy kind="title">
-            {cls.canServe ? "Take attendance" : "Class attendance"}
-          </Copy>
-          <Copy color={colors.muted}>
-            {getLevelDisplayName(cls.level)} · {roster.length} children
-          </Copy>
-        </View>
+
         <GlassChrome style={{ borderRadius: 20, padding: 6 }}>
           <View style={[styles.row, { justifyContent: "space-between" }]}>
             <Pressable
@@ -173,32 +298,27 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             <View style={{ flex: 1, alignItems: "center" }}>
               <Copy kind="caption">CLASS DATE</Copy>
               <Copy style={{ fontWeight: "600", textAlign: "center" }}>
-                {readableDate(date)}
+                {new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" })}
               </Copy>
             </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Next week"
-              accessibilityState={{
-                disabled: saving || date >= meetingDate(cls),
-              }}
-              disabled={saving || date >= meetingDate(cls)}
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
               onPress={() => setDate(shiftWeek(date, 1))}
-              style={{
-                padding: 12,
-                minHeight: 48,
-                opacity: date >= meetingDate(cls) ? 0.3 : 1,
-              }}
+              style={{ padding: 12, minHeight: 48 }}
             >
               <Icon ios="chevron.right" android="chevron_right" size={20} />
             </Pressable>
           </View>
         </GlassChrome>
-        {!isSessionDateToday(date) && (
-          <Copy kind="caption" color={colors.warning}>
-            Attendance can only be changed on the session date.
+        {lastWeekSummary && (
+          <Copy kind="caption">
+            Last week: {lastWeekSummary.present} of {lastWeekSummary.total} present
           </Copy>
         )}
+
         {!current && !loadError && (
           <ActivityIndicator
             accessibilityLabel="Loading class roster"
@@ -206,205 +326,265 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
           />
         )}
         {loadError && (
-          <Card>
+          <View style={{ backgroundColor: colors.dangerSoft, borderRadius: 18, padding: 16, gap: 10 }}>
             <Copy color={colors.danger}>{loadError}</Copy>
-            <Button
-              secondary
-              label="Retry"
-              onPress={() => setRetry((value) => value + 1)}
-            />
-          </Card>
+            <Pressable accessibilityRole="button" onPress={() => setRetry((value) => value + 1)}>
+              <Copy style={{ fontWeight: "600" }} color={colors.primary}>Retry</Copy>
+            </Pressable>
+          </View>
         )}
         {current && !roster.length && (
-          <Card>
+          <View style={{ paddingVertical: 24, alignItems: "center" }}>
             <Copy>No active children in this class.</Copy>
-          </Card>
+          </View>
         )}
+
         {!!roster.length && (
-          <Card>
-            <Copy kind="heading">Roster organization</Copy>
-            <Choice
-              label="Alphabetize by"
-              value={nameOrder}
-              onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
-              options={[
-                { value: "last", label: "Last name" },
-                { value: "first", label: "First name" },
-              ]}
-            />
-            <Toggle label="Include photos" value={showPhotos} onChange={setShowPhotos} />
-            <Toggle
-              label="Group roster by gender"
-              value={groupByGender}
-              onChange={setGroupByGender}
-            />
-          </Card>
-        )}
-        <View style={{ gap: 12 }}>
-          <View style={[styles.row, { justifyContent: "space-between" }]}>
-            <Copy kind="heading">Class roster</Copy>
-            <Copy kind="caption">
-              {progress.marked} of {roster.length} marked
-            </Copy>
-          </View>
-          <Button
-            label="Mark all present"
-            secondary
-            disabled={!canEdit || !roster.length}
-            onPress={() =>
-              setDraft(
-                classId,
-                date,
-                Object.fromEntries(ids.map((id) => [id, "PRESENT" as const])),
-              )
-            }
-          />
-          {rosterGroups.map((group) => (
-            <View key={group.key} style={{ gap: 12 }}>
-              {group.label && (
-                <View style={[styles.row, { justifyContent: "space-between" }]}>
-                  <Copy kind="heading">{group.label}</Copy>
-                  <Copy kind="caption">{group.entries.length}</Copy>
-                </View>
-              )}
-              {group.entries.map((child) => (
-            <Card key={child.id} style={{ padding: 16, gap: 13 }}>
-              <View style={styles.row}>
-                {showPhotos && (child.profileImageUrl ? (
-                  <Image
-                    source={{ uri: child.profileImageUrl }}
-                    accessibilityLabel={`${getChildFullName(child)} profile photo`}
-                    style={{ width: 40, height: 40, borderRadius: 20 }}
-                  />
-                ) : (
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      backgroundColor: colors.primarySoft,
-                      borderRadius: 20,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Copy color={colors.primary} style={{ fontWeight: "600" }}>
-                      {(child.firstName[0] ?? "") + (child.lastName[0] ?? "")}
-                    </Copy>
-                  </View>
-                ))}
-                <View style={{ flex: 1 }}>
-                  <Copy style={{ fontWeight: "600" }}>
-                    {getChildFullName(child)}
-                  </Copy>
-                </View>
-                {marks[child.id] && (
-                  <Icon
-                    ios="checkmark.circle.fill"
-                    android="check_circle"
-                    color={colors.success}
-                    size={19}
-                  />
-                )}
-              </View>
-              <View style={{ flexDirection: "row", gap: 5, flexWrap: "wrap" }}>
-                {statuses.map((status) => {
-                  const selected = marks[child.id] === status.value;
-                  const color =
-                    status.value === "ABSENT"
-                      ? colors.danger
-                      : status.value === "LATE"
-                        ? colors.warning
-                        : status.value === "PRESENT"
-                          ? colors.success
-                          : colors.primary;
-                  const background =
-                    status.value === "ABSENT"
-                      ? colors.dangerSoft
-                      : status.value === "LATE"
-                        ? colors.warningSoft
-                        : status.value === "PRESENT"
-                          ? colors.successSoft
-                          : colors.primarySoft;
-                  return (
-                    <Pressable
-                      key={status.value}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected, disabled: !canEdit }}
-                      disabled={!canEdit}
-                      accessibilityLabel={`${getChildFullName(child)}: ${status.label}`}
-                      onPress={() =>
-                        setDraft(classId, date, {
-                          ...marks,
-                          [child.id]: status.value,
-                        })
-                      }
-                      style={{
-                        flexGrow: 1,
-                        flexBasis: "22%",
-                        minHeight: 44,
-                        paddingVertical: 11,
-                        paddingHorizontal: 5,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        backgroundColor: selected ? background : colors.surface,
-                        borderColor: selected ? color : colors.border,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Copy
-                        kind="caption"
-                        color={selected ? color : colors.muted}
-                        style={{ fontWeight: selected ? "700" : "400" }}
-                      >
-                        {status.short}
-                      </Copy>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </Card>
-              ))}
+          <>
+            <View style={[styles.row, { gap: 10 }]}>
+              <Copy style={{ flex: 1 }}>
+                <Copy style={{ fontWeight: "700" }}>{progress.marked}</Copy> of {roster.length} marked
+              </Copy>
+              <Copy kind="caption">Sort</Copy>
+              <SegmentedControl
+                values={["First", "Last"]}
+                selectedIndex={nameOrder === "first" ? 0 : 1}
+                onChange={({ nativeEvent }) => setNameOrder(nativeEvent.selectedSegmentIndex === 0 ? "first" : "last")}
+                style={{ width: 130, minHeight: 32 }}
+              />
             </View>
-          ))}
-        </View>
-        <Copy kind="caption">
-          Tap Save attendance to record your changes. Unsaved changes stay on
-          this device until you sign out or reload.
-        </Copy>
+
+            <View style={[styles.row, { justifyContent: "space-around" }]}>
+              <StatusCount label="Present" value={totals.present} color={colors.success} />
+              <StatusCount label="Late" value={totals.late} color={colors.warning} />
+              <StatusCount label="Absent" value={totals.absent} color={colors.danger} />
+            </View>
+
+            {searchedRoster.length === 0 && (
+              <Copy kind="caption">No children match "{query.trim()}".</Copy>
+            )}
+
+            {rosterGroups.map((group) => (
+              <View key={group.key} style={{ gap: 8 }}>
+                {group.label && (
+                  <View style={[styles.row, { justifyContent: "space-between" }]}>
+                    <Copy kind="heading">{group.label}</Copy>
+                    <Copy kind="caption">{group.entries.length}</Copy>
+                  </View>
+                )}
+                <View style={{ backgroundColor: colors.surface, borderRadius: 24, overflow: "hidden" }}>
+                  {group.entries.map((child, index) => (
+                    <RosterRow
+                      key={child.id}
+                      name={getChildFullName(child)}
+                      note={notesDraft[child.id] ?? child.attendance?.notes ?? undefined}
+                      photo={showPhotos ? child.profileImageUrl : null}
+                      initials={(child.firstName[0] ?? "") + (child.lastName[0] ?? "")}
+                      status={marks[child.id]}
+                      canEdit={canEdit}
+                      divider={index < group.entries.length - 1}
+                      onSetStatus={(status) => setDraft(classId, date, { ...marks, [child.id]: status })}
+                      onEditNote={() => editNote(child.id, getChildFullName(child))}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
+          </>
+        )}
       </Screen>
-      <View
-        style={{
-          position: "absolute",
-          bottom: insets.bottom + 12,
-          left: 18,
-          right: 18,
-          maxWidth: 680,
-          alignSelf: "center",
-        }}
-      >
-        <GlassChrome style={{ padding: 14, borderRadius: 26, gap: 10 }}>
-          <View accessibilityLiveRegion="polite">
-            <Copy
-              kind="caption"
-              style={{ textAlign: "center" }}
-              color={saved && !dirty ? colors.success : colors.muted}
-            >
-              {saved && !dirty
-                ? `${progress.present} here · ${saved.savedAt ? `Saved at ${new Date(saved.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Loaded from database"}`
-                : progress.complete
-                  ? `${progress.present} here · Ready to save`
-                  : `Mark ${roster.length - progress.marked} more to save`}
-            </Copy>
+
+      {!!roster.length && (
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 18 }}>
+          {/* "Glass belongs to controls. Content cards always use an opaque
+              surface" (chrome.tsx's own rule) — this bar's two solid-colored
+              action buttons are content, not ambient chrome, so it gets the
+              same opaque surface a Card does, not a translucent GlassChrome
+              (which otherwise washed the buttons' own fill colors out). */}
+          <View
+            style={{
+              borderRadius: 32,
+              padding: 8,
+              paddingLeft: 18,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              shadowColor: "#000",
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            }}
+          >
+            <View style={[styles.row, { gap: 10 }]}>
+              <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
+                {/* Shortened from the artboard's "N children left" — with two
+                    buttons alongside it in the same bar, the fuller wording
+                    had no room and truncated unreadably; "children" is
+                    already established by every other label on this screen. */}
+                <Copy kind="caption" numberOfLines={1}>{roster.length - progress.marked} left</Copy>
+              </View>
+              <BarButton
+                label="Mark rest present"
+                disabled={!canEdit}
+                onPress={() => setDraft(classId, date, restPresent(ids, marks))}
+              />
+              <BarButton label={saveLabel} primary disabled={!canSave} onPress={() => void save()} />
+            </View>
           </View>
-          <Button
-            testID="save-attendance"
-            label={saveLabel}
-            disabled={!canSave}
-            onPress={() => void save()}
-          />
-        </GlassChrome>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function StatusCount({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }} accessible accessibilityLabel={`${value} ${label}`}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      <Copy kind="caption">{label}</Copy>
+      <Copy kind="caption" style={{ fontWeight: "600" }}>{value}</Copy>
+    </View>
+  );
+}
+
+// The shared Button component (an @expo/ui SwiftUI Host) only ever renders at
+// a nonzero width when it's the sole child of a column — confirmed live on
+// simulator, and already documented this way on prep-attendance.tsx. Placed
+// as a row sibling (two buttons side by side, as this bottom bar needs), it
+// silently collapses to zero width, so this bar uses a plain Pressable instead.
+function BarButton({
+  label,
+  onPress,
+  disabled = false,
+  primary = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={({ pressed }) => ({
+        flexShrink: 1,
+        height: 48,
+        paddingHorizontal: 16,
+        borderRadius: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: primary ? colors.primary : colors.hover,
+        // The secondary fill alone reads too close to this bar's own
+        // surface color to stand out — a border gives it a clear edge,
+        // the same way roster.tsx's FilterChip defines itself.
+        borderWidth: primary ? 0 : 1,
+        borderColor: colors.border,
+        opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+      })}
+      onPress={onPress}
+    >
+      <Copy style={{ fontWeight: "600" }} color={primary ? colors.onAction : colors.text} numberOfLines={1}>
+        {label}
+      </Copy>
+    </Pressable>
+  );
+}
+
+function RosterRow({
+  name,
+  note,
+  photo,
+  initials,
+  status,
+  canEdit,
+  divider,
+  onSetStatus,
+  onEditNote,
+}: {
+  name: string;
+  note?: string;
+  photo: string | null;
+  initials: string;
+  status?: AttendanceStatus;
+  canEdit: boolean;
+  divider: boolean;
+  onSetStatus: (status: AttendanceStatus) => void;
+  onEditNote: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const fillFor = (value: AttendanceStatus) => {
+    if (value === "PRESENT") return colors.success;
+    if (value === "LATE") return colors.warning;
+    return colors.danger;
+  };
+  return (
+    <View
+      style={[
+        { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 62, paddingVertical: 8, paddingLeft: 16, paddingRight: 12 },
+        divider && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
+      ]}
+    >
+      {/* Always shown (an initials fallback when there's no photo, or "Include
+          photos" is off) — matching the Roster screen's own row convention,
+          rather than the artboard's photo-less row, so a row never loses its
+          visual anchor. */}
+      {photo ? (
+        <Image source={{ uri: photo }} accessibilityLabel={`${name} profile photo`} style={{ width: 36, height: 36, borderRadius: 18 }} />
+      ) : (
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+          <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>{initials}</Copy>
+        </View>
+      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={note ? `${name}, note: ${note}` : `Add note for ${name}`}
+        onPress={onEditNote}
+        disabled={!canEdit}
+        style={{ flex: 1, minWidth: 0, gap: 1 }}
+      >
+        <Copy numberOfLines={1} style={{ fontSize: 16, fontWeight: "500" }}>{name}</Copy>
+        {/* Only rendered when there's something to show — an empty caption still
+            takes a line of height, pushing the name off-center against its row. */}
+        {!!note && <Copy kind="caption" numberOfLines={1}>{note}</Copy>}
+      </Pressable>
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        {STATUSES.map((item) => {
+          const selected = status === item.value;
+          const fill = fillFor(item.value);
+          return (
+            <Pressable
+              key={item.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: !canEdit }}
+              accessibilityLabel={`${name}: ${item.label}`}
+              disabled={!canEdit}
+              onPress={() => onSetStatus(item.value)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: selected ? fill : colors.hover,
+                opacity: canEdit ? 1 : 0.5,
+              }}
+            >
+              <Icon ios={statusIcon(item.value)} android="check" size={18} color={selected ? "#FFFFFF" : colors.muted} />
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
+}
+
+function statusIcon(status: AttendanceStatus) {
+  if (status === "PRESENT") return "checkmark" as const;
+  if (status === "LATE") return "clock" as const;
+  return "xmark" as const;
 }

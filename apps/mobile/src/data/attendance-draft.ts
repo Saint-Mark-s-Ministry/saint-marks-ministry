@@ -32,6 +32,26 @@ export function sameMarks(
   return ids.every((id) => left[id] === right[id]);
 }
 
+/** "Mark rest present": fills only the still-unmarked roster members — never overwrites an existing mark. */
+export function restPresent(
+  ids: string[],
+  marks: AttendanceMarks,
+): AttendanceMarks {
+  const next = { ...marks };
+  for (const id of ids) {
+    if (!next[id]) next[id] = "PRESENT";
+  }
+  return next;
+}
+
+/** A freshly-typed note always wins; otherwise keep whatever the record already had. */
+export function resolveAttendanceNote(
+  existing: string | null | undefined,
+  draftNote: string | null | undefined,
+): string | null {
+  return draftNote !== undefined ? draftNote : (existing ?? null);
+}
+
 export function shiftWeek(date: string, direction: -1 | 1) {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + direction * 7);
