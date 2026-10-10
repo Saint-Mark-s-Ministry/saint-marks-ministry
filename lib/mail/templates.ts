@@ -74,14 +74,14 @@ export function registrationReceived({ name }: { name: string }): Content {
       heading: 'Registration received',
       paragraphs: [
         hi,
-        'Thank you for registering for Servants Prep. Our leaders will review your registration and let you know once a decision is made.',
+        'Thank you for registering for Servants Prep. Our Servants Prep servants will review your registration and let you know once a decision is made.',
         'There’s nothing else you need to do right now.',
       ],
     }),
     text: text([
       `Hi ${firstName(name)},`,
       '',
-      'Thank you for registering for Servants Prep. Our leaders will review your registration and let you know once a decision is made.',
+      'Thank you for registering for Servants Prep. Our Servants Prep servants will review your registration and let you know once a decision is made.',
       'There’s nothing else you need to do right now.',
     ]),
   }
@@ -126,14 +126,14 @@ export function registrationNotApproved({ name }: { name: string }): Content {
       paragraphs: [
         `Hi ${escapeHtml(firstName(name))},`,
         'Thank you for your interest in Servants Prep. We weren’t able to approve your registration at this time.',
-        'If you have questions, please reach out to your mentor servant or a Servants Prep leader at church.',
+        'If you have questions, please reach out to your mentor servant or a Servants Prep servant at church.',
       ],
     }),
     text: text([
       `Hi ${firstName(name)},`,
       '',
       'Thank you for your interest in Servants Prep. We weren’t able to approve your registration at this time.',
-      'If you have questions, please reach out to your mentor servant or a Servants Prep leader at church.',
+      'If you have questions, please reach out to your mentor servant or a Servants Prep servant at church.',
     ]),
   }
 }
@@ -149,13 +149,13 @@ export function servantApplicationReceived({ name }: { name: string }): Content 
       heading: 'Application received',
       paragraphs: [
         `Hi ${escapeHtml(firstName(name))},`,
-        'Thank you for offering to serve in Sunday School. A leader will review your application, and we’ll email you when it’s approved.',
+        'Thank you for offering to serve in Sunday School. An authorized servant will review your application, and we’ll email you when it’s approved.',
       ],
     }),
     text: text([
       `Hi ${firstName(name)},`,
       '',
-      'Thank you for offering to serve in Sunday School. A leader will review your application, and we’ll email you when it’s approved.',
+      'Thank you for offering to serve in Sunday School. An authorized servant will review your application, and we’ll email you when it’s approved.',
     ]),
   }
 }
@@ -194,13 +194,13 @@ export function servantApplicationNotApproved({ name }: { name: string }): Conte
       heading: 'Application update',
       paragraphs: [
         `Hi ${escapeHtml(firstName(name))},`,
-        'Thank you for offering to serve. We weren’t able to approve your application at this time. A Sunday School leader can tell you more.',
+        'Thank you for offering to serve. We weren’t able to approve your application at this time. A Sunday School servant can tell you more.',
       ],
     }),
     text: text([
       `Hi ${firstName(name)},`,
       '',
-      'Thank you for offering to serve. We weren’t able to approve your application at this time. A Sunday School leader can tell you more.',
+      'Thank you for offering to serve. We weren’t able to approve your application at this time. A Sunday School servant can tell you more.',
     ]),
   }
 }
@@ -268,7 +268,7 @@ export function passwordChanged({ name, forgotUrl, signedOutElsewhere }: { name:
       paragraphs: [
         `Hi ${escapeHtml(firstName(name))},`,
         changed,
-        'If you didn’t do this, reset your password right away and tell a ministry leader.',
+        'If you didn’t do this, reset your password right away and tell a ministry servant.',
       ],
       action: { label: 'Reset password', url: forgotUrl },
     }),

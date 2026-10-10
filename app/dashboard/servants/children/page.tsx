@@ -488,7 +488,7 @@ function SundaySchoolChildrenContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? 'Edit child' : 'Add a child'}</DialogTitle>
             <DialogDescription>
-              Family contact is only visible to the servants of this class and to leaders.
+              Family contact is only visible to the servants of this class and authorized administrators.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

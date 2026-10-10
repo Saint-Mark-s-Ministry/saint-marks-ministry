@@ -42,7 +42,7 @@ export const canManageUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
 }
 
-// The roles a SERVANT_PREP leader may create, edit, or delete.
+// The roles a SERVANT_PREP servant may create, edit, or delete.
 // SUPER_ADMIN is unrestricted; everyone else manages nobody.
 // Deliberately excludes SERVANT: running the prep program confers no authority
 // over Sunday School. Servant accounts are created by SUPER_ADMIN, and Sunday
@@ -156,7 +156,7 @@ export const canViewRegistrations = (role: UserRole) => {
 
 // Can review servant sign-up applications (approve/reject). SUPER_ADMIN
 // only — same reasoning as SERVANT_PREP_MANAGEABLE_ROLES excluding SERVANT:
-// prep leadership confers no authority to create Sunday School servant
+// prep service confers no authority to create Sunday School servant
 // accounts.
 export const canReviewServantApplications = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN
@@ -217,7 +217,7 @@ export const getRoleDisplayName = (role: UserRole): string => {
   const displayNames: Record<UserRole, string> = {
     SUPER_ADMIN: 'Super Admin',
     PRIEST: 'Priest',
-    SERVANT_PREP: 'Servants Prep Leader',
+    SERVANT_PREP: 'Servants Prep Servant',
     MENTOR: 'Mentor',
     STUDENT: 'Student',
     SERVANT: 'Sunday School Servant',

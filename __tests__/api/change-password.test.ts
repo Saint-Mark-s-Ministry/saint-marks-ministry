@@ -77,7 +77,7 @@ describe('change password API', () => {
     })
   })
 
-  it('returns Sunday School for a mentor who serves there without Prep leadership', async () => {
+  it('returns Sunday School for a mentor who serves there without Servants Prep service', async () => {
     mocks.requireAuth.mockResolvedValue({
       id: 'mentor-1',
       role: 'MENTOR',

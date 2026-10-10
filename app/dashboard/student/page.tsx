@@ -127,7 +127,7 @@ export default function StudentDashboard() {
       <div className="flex min-w-0 flex-col gap-5">
         <PageHeader title={`Hi${session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}`} meta={['Servants Prep']} />
         <Panel>
-          <EmptyState title="No enrollment yet" message="You aren’t enrolled in the current academic year. If you think that’s a mistake, contact a Servants Prep leader." />
+          <EmptyState title="No enrollment yet" message="You aren’t enrolled in the current academic year. If you think that’s a mistake, contact a Servants Prep servant." />
         </Panel>
       </div>
     )
@@ -341,7 +341,7 @@ export default function StudentDashboard() {
                   ))}
                 </ul>
               ) : (
-                <EmptyState message="No serving assignment yet. A leader will assign your class." />
+                <EmptyState message="No serving assignment yet. A servant will assign your class." />
               )}
             </Panel>
           )}

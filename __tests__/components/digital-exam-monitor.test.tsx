@@ -45,7 +45,7 @@ describe('compact proctor dashboard', () => {
     rerender(<DigitalExamMonitor examId="exam" />)
     expect(screen.getByText(/Waiting for contact:/)).toBeInTheDocument()
   })
-  it('shows priests the reason and asks an exam leader to unlock', () => {
+  it('shows priests the reason and asks an Servants Prep servant to unlock', () => {
     mocks.data!.canManage = false
     render(<DigitalExamMonitor examId="exam" />)
     expect(screen.queryByRole('button', { name: 'Unlock student' })).not.toBeInTheDocument()

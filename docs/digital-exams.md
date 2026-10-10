@@ -4,7 +4,7 @@ This feature is for the original sitting of a Servants Prep exam. The questions
 remain printed. Makeup exams remain entirely on paper, and existing makeup
 booking and score-entry routes are unchanged.
 
-## Leaders
+## Servants
 
 Open **Exams → Answer sheet** on an existing exam. Enter the 50-answer key and
 choose A–B through A–H separately for each question, then save setup. Open the exam
@@ -129,9 +129,9 @@ prove cheating. Use activity flags for proctor review.
 
 Student navigation and direct answer sheet access are available only while an eligible exam is OPEN. Closing hides access, including submitted attempts. Released grades remain in My Progress; students never receive the answer key. Question choices can be configured from two to eight (A–B through A–H).
 
-Leaders and priests can open **Exam Monitoring** from the sidebar, search by exam or academic year, filter by proctoring status, and enter each live dashboard. Priests have read-only access. **Reset test opening** returns an unreleased sheet to draft only if nobody has joined, preserving its key and every saved grade. Full exam deletion is blocked when grades or digital attempts exist.
+Servants and priests can open **Exam Monitoring** from the sidebar, search by exam or academic year, filter by proctoring status, and enter each live dashboard. Priests have read-only access. **Reset test opening** returns an unreleased sheet to draft only if nobody has joined, preserving its key and every saved grade. Full exam deletion is blocked when grades or digital attempts exist.
 
-Unless a leader explicitly approves an individual retake, students with an existing score for the exam are excluded from the proctor roster and cannot start another digital attempt or see its student link. This includes zero scores and paper makeup scores. Existing digital activity remains available under Past digital activity, without putting graded students back in the proctor roster.
+Unless a servant explicitly approves an individual retake, students with an existing score for the exam are excluded from the proctor roster and cannot start another digital attempt or see its student link. This includes zero scores and paper makeup scores. Existing digital activity remains available under Past digital activity, without putting graded students back in the proctor roster.
 
 Student selections use the colored brand fill with white, bold letters. During an open, started attempt, the page requests a screen wake lock on supported browsers and releases it on submission, closure, or navigation away. Availability and release status are shown to the student. Low power or browser restrictions may prevent this. Phone locking still triggers normal visibility monitoring and proctor clearance; browsers do not reliably distinguish it from leaving the exam.
 
@@ -150,10 +150,10 @@ Leaving a started answer page through an internal website route reports SITE_NAV
 
 In Exam Monitoring, use **Individual retakes → Allow retake** beside a completed student, including Test Student. Confirm the student, then **Open exam** if needed. Close the exam after the retake and **Release results**. Only explicitly approved students can join a reopened, previously released exam. Other graded students stay off the roster. Makeup exams remain on paper.
 
-Approval atomically archives the previous submission and grade snapshot, preserves all versioned events, creates a new blank version, invalidates the old answering session, and clears pending drafts from previous versions. Active attempts cannot be replaced. Repeated approval before starting is harmless. Closing does not submit approved retakes that have not started. Grades remain private per attempt version until a leader releases results, even if the original exam was already released. Release retains the highest score across submissions and the existing grade, preserving original grade fields and paper makeup records. A lower retake never decreases a grade.
+Approval atomically archives the previous submission and grade snapshot, preserves all versioned events, creates a new blank version, invalidates the old answering session, and clears pending drafts from previous versions. Active attempts cannot be replaced. Repeated approval before starting is harmless. Closing does not submit approved retakes that have not started. Grades remain private per attempt version until a servant releases results, even if the original exam was already released. Release retains the highest score across submissions and the existing grade, preserving original grade fields and paper makeup records. A lower retake never decreases a grade.
 
 The additive 20261009210000 migration adds retake state, per-attempt release dates, event version numbers and immutable submission archives. It backfills release dates for previously released submissions without changing any ExamScore records.
 
-**Set ready to open** hides a previously opened exam until the leader opens it again. It preserves locked configuration, grades, submitted attempts, and pending individual approvals. Started attempts must first be finalized by closing. The 20261009210500 migration also stores the highest released digital retake on ExamScore, so later original/paper makeup grade corrections continue to retain it. No existing grades are changed by this migration.
+**Set ready to open** hides a previously opened exam until the servant opens it again. It preserves locked configuration, grades, submitted attempts, and pending individual approvals. Started attempts must first be finalized by closing. The 20261009210500 migration also stores the highest released digital retake on ExamScore, so later original/paper makeup grade corrections continue to retain it. No existing grades are changed by this migration.
 
 Alerts play only on the proctor dashboard. Each audible alert independently chooses one of six clips: five English clips using Egyptian male voices (“Uh-oh!”, “Oh, no!”, “alalalalalal”, “Come back!” and “Where are you going?”), plus Borat’s original “Very nice!” with equal probability, at full playback volume. Student devices remain silent on departure, return and resume. The former student sound setting is retained in the database for compatibility but has no playback effect or dashboard control. This change requires no database migration and does not alter scores or pause behavior.
