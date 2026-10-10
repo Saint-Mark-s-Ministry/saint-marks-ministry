@@ -330,3 +330,9 @@ export function useDigitalExams(enabled = true) {
 export function useDigitalExam(examId: string, enabled = true) {
   return useSWR<import('@/lib/digital-exam-types').DigitalExamView>(enabled ? `/api/digital-exams/${examId}` : null, fetcher, { ...defaultSWRConfig, dedupingInterval: 500, refreshInterval: 2000, refreshWhenHidden: false })
 }
+
+export function useSundaySchoolMeetings(ageGroupId: string, meetingId?: string) {
+  const params = new URLSearchParams({ ageGroupId })
+  if (meetingId) params.set('meetingId', meetingId)
+  return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, defaultSWRConfig)
+}
