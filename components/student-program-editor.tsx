@@ -63,6 +63,9 @@ const REGISTRATION_BADGE: Record<RegistrationStatus, { label: string; className:
   PENDING: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800' },
   APPROVED: { label: 'Approved', className: 'bg-green-100 text-green-800' },
   REJECTED: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
+  // Student program applications never reach this status (only Sunday
+  // School child registrations do) — present only for exhaustiveness.
+  CHANGES_REQUESTED: { label: 'Changes requested', className: 'bg-amber-100 text-amber-800' },
 }
 
 const selectClass = 'border rounded px-2 py-1.5 text-sm w-full dark:bg-gray-800 dark:text-white dark:border-gray-600 disabled:opacity-60'
