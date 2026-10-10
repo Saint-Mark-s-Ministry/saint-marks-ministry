@@ -11,8 +11,12 @@ choose A–B through A–H separately for each question, then save setup. Open t
 when students may begin. Opening is not restricted by the scheduled exam date and makes the sheet available to all eligible students. Choices and the answer key lock on first opening.
 
 Monitoring shows the eligible roster, started attempts, progress, last contact,
-paused attempts, submissions, and a durable activity history. Enable alert sound
-using the dashboard button; browsers require that user gesture for audio.
+paused attempts, submissions, and a durable activity history. Enable donkey sound
+using the dashboard button; it previews the bray to enable browser playback.
+New pause alerts play the locally bundled donkey bray at half volume. Repeated
+reports are deduplicated, clips do not overlap, and answer saves are silent.
+Sound is off by default and can be muted immediately. The recording is CC0
+from BigSoundBank; provenance is in public/sounds/README.md.
 Hidden-tab and window focus-loss reports both pause an attempt and alert the proctor.
 Focus loss remains a separate event from page visibility. A proctor may unlock a paused attempt once the student has returned to
 the page and reconnected. Refreshing or regaining focus never clears a server pause.
