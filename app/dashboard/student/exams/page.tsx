@@ -1,4 +1,6 @@
 'use client'
+
+import { PageLoading } from '@/components/ui/page-loading'
 import Link from 'next/link'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
@@ -11,7 +13,7 @@ import { formatDateUTC } from '@/lib/utils'
 export default function StudentExamsPage() {
   const { session, status } = useAdminGuard(isStudent)
   const { data, error, isLoading } = useDigitalExams(status === 'authenticated' && !!session && isStudent(session.user.role))
-  if (status !== 'authenticated' || !session || !isStudent(session.user.role)) return null
+  if (status !== 'authenticated' || !session || !isStudent(session.user.role)) return <PageLoading />
   return <div className="flex flex-col gap-5">
     <PageHeader title="Live Exam" meta={['Servants Prep', 'Original exams · Printed questions']} />
     <Panel title="Your exams" description="Makeup exams are completed on paper.">

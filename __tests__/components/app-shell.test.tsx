@@ -59,6 +59,17 @@ describe('AppShell', () => {
     }
   })
 
+  it('shows loading feedback even when the guarded page renders nothing', () => {
+    mocks.status = 'loading'
+    const { rerender } = render(<AppShell>{null}</AppShell>)
+    expect(screen.getByRole('status')).toHaveTextContent('Loading page…')
+
+    mocks.status = 'authenticated'
+    rerender(<AppShell>Loaded page</AppShell>)
+    expect(screen.queryByText('Loading page…')).not.toBeInTheDocument()
+    expect(screen.getByText('Loaded page')).toBeInTheDocument()
+  })
+
   it('shows the student exam link only while an eligible exam is open', () => {
     mocks.pathname = '/dashboard/student'
     mocks.user = { id: 'student-1', name: 'Student', role: UserRole.STUDENT }

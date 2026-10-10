@@ -1,5 +1,7 @@
 'use client'
 
+import { PageLoading } from '@/components/ui/page-loading'
+
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -23,7 +25,7 @@ export default function AsyncStudentsPage() {
   }, [status, session, router])
 
   if (status === 'loading' || !session?.user || !isAdmin(session.user.role)) {
-    return null
+    return <PageLoading />
   }
 
   const role = session.user.role

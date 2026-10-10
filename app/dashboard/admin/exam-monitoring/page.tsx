@@ -1,5 +1,7 @@
 'use client'
 
+import { PageLoading } from '@/components/ui/page-loading'
+
 import Link from 'next/link'
 import { useState } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -32,7 +34,7 @@ export default function ExamMonitoringPage() {
   const { data, error, isLoading, mutate } = useDigitalExams(allowed)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
-  if (!allowed) return null
+  if (!allowed) return <PageLoading />
   const manage = canManageExams(session.user.role)
   const exams = data?.exams ?? []
   const visible = exams.filter(exam => (filter === 'all' || examState(exam) === filter)

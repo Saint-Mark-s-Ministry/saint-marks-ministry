@@ -17,6 +17,7 @@ import { TopBar } from './top-bar'
 import { MobileAppBar, MobileTabBar } from './mobile-nav'
 import { AnnualMentorReminderBanner } from '@/components/annual-mentor-reminder-banner'
 import { ProfilePhotoReminder } from '@/components/profile-photo-reminder'
+import { PageLoading } from '@/components/ui/page-loading'
 
 const RAIL_KEY = 'sidebar-rail'
 
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-dvh">
         <div data-sidebar className="hidden shrink-0 border-r border-line bg-sidebar-bg md:block" />
-        <main id="main" className="min-w-0 flex-1">{children}</main>
+        <main id="main" className="min-w-0 flex-1"><PageLoading /></main>
       </div>
     )
   }

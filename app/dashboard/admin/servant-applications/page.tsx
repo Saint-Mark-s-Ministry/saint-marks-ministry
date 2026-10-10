@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageLoading } from '@/components/ui/page-loading'
+import { LoadingStatus } from '@/components/ui/loading-status'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
@@ -47,7 +48,7 @@ const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'sho
 
 export default function ServantApplicationsPage() {
   const { data: session, status } = useSession()
-  const { data: applications, mutate } = useServantApplications()
+  const { data: applications, isLoading, error, mutate } = useServantApplications()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [view, setView] = useState<RegistrationStatus | 'all'>('PENDING')
   const [search, setSearch] = useState('')
@@ -89,7 +90,15 @@ export default function ServantApplicationsPage() {
           }
           footer={<span className="tabular">{visible.length} application{visible.length === 1 ? "" : "s"}</span>}
         >
-          {visible.length === 0 ? (
+          {error ? (
+            <EmptyState
+              title="Couldn’t load applications"
+              message="Please try again."
+              action={<Button variant="outline" onClick={() => void mutate()}>Try again</Button>}
+            />
+          ) : isLoading ? (
+            <LoadingStatus label="Loading applications…" className="py-8" />
+          ) : visible.length === 0 ? (
             <EmptyState message={view === 'PENDING' && !search ? 'Nothing waiting for review.' : 'No applications match.'} />
           ) : (
             <ul className="divide-y divide-line">

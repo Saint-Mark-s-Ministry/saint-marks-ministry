@@ -1,3 +1,4 @@
+import { LoadingStatus } from "@/components/ui/loading-status"
 import { cn } from "@/lib/utils"
 
 function Skeleton({
@@ -40,6 +41,7 @@ function DashboardSkeleton() {
   return (
     <div className="flex min-w-0 flex-col">
       <div className="space-y-5">
+        <LoadingStatus label="Loading dashboard…" className="justify-start" />
         {/* Header skeleton */}
         <div>
           <Skeleton className="h-8 w-48" />
@@ -75,6 +77,7 @@ function DashboardSkeleton() {
 function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
     <div className="rounded-lg border border-line bg-surface overflow-hidden">
+      <LoadingStatus label="Loading data…" className="justify-start border-b border-line px-3 py-2.5" />
       {/* Header */}
       <div className="border-b bg-gray-50 p-3">
         <div className="flex gap-4">
