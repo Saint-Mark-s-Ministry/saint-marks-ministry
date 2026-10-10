@@ -56,6 +56,17 @@ describe('Sunday School child attendance edit window', () => {
     }))
   })
 
+  it.each([openSession, saveAttendance])('rejects a restored draft after the signed-in user changes', async route => {
+    const response = await route(new Request('http://localhost/api/sunday-school/attendance', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedUserId: 'previous-user', classId: 'class-1', date: '2000-01-02', sessionId: 'session-1', records: [] }),
+    }))
+    expect(response.status).toBe(409)
+    expect(mocks.classFindUnique).not.toHaveBeenCalled()
+    expect(mocks.sessionFindUnique).not.toHaveBeenCalled()
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
   it('allows child attendance to be saved after the session date', async () => {
     const response = await saveAttendance(new Request(
       'http://localhost/api/sunday-school/attendance/batch',

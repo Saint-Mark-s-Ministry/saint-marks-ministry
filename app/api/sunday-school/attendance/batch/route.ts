@@ -16,6 +16,7 @@ interface ChildAttendanceRecord {
 }
 
 interface BatchRequest {
+  expectedUserId?: string
   sessionId: string
   records: ChildAttendanceRecord[]
 }
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
     const user = await requireAuth()
 
     const body: BatchRequest = await request.json()
+    // A restored browser draft must never be submitted under a different login.
+    if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+      return NextResponse.json({ error: "Your signed-in account changed. Reload attendance before saving." }, { status: 409 })
+    }
+
     const { sessionId, records } = body
 
     if (!sessionId || !records || !Array.isArray(records)) {
