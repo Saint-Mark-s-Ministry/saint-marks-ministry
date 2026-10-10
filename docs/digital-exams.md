@@ -11,12 +11,12 @@ choose A–B through A–H separately for each question, then save setup. Open t
 when students may begin. Opening is not restricted by the scheduled exam date and makes the sheet available to all eligible students. Choices and the answer key lock on first opening.
 
 Monitoring shows the eligible roster, started attempts, progress, last contact,
-paused attempts, submissions, and a durable activity history. Enable donkey sound
-using the dashboard button; it previews the bray to enable browser playback.
-New pause alerts play the locally bundled donkey bray at half volume. Repeated
+paused attempts, submissions, and a durable activity history. Enable alert sound
+using the dashboard button; it previews the “Uh-oh!” clip to enable browser playback.
+New pause alerts play the locally bundled 1.3-second “Uh-oh!” at full playback volume. Repeated
 reports are deduplicated, clips do not overlap, and answer saves are silent.
 Sound is off by default and can be muted immediately. The recording is CC0
-from BigSoundBank; provenance is in public/sounds/README.md.
+from Freesound; provenance is in public/sounds/README.md.
 Hidden-tab and window focus-loss reports both pause an attempt and alert the proctor.
 Focus loss remains a separate event from page visibility. A proctor may unlock a paused attempt once the student has returned to
 the page and reconnected. Refreshing or regaining focus never clears a server pause.
@@ -156,3 +156,7 @@ Approval atomically archives the previous submission and grade snapshot, preserv
 The additive 20261009210000 migration adds retake state, per-attempt release dates, event version numbers and immutable submission archives. It backfills release dates for previously released submissions without changing any ExamScore records.
 
 **Set ready to open** hides a previously opened exam until the leader opens it again. It preserves locked configuration, grades, submitted attempts, and pending individual approvals. Started attempts must first be finalized by closing. The 20261009210500 migration also stores the highest released digital retake on ExamScore, so later original/paper makeup grade corrections continue to retain it. No existing grades are changed by this migration.
+
+The student Start/Resume click prepares the local “Uh-oh!” audio through Web Audio without playing it immediately. Hidden-tab, focus-loss and internal website departure reports set a locally persisted pending sound. When the student returns to a visible, focused exam page, one “Uh-oh!” plays on their device; paired visibility/focus return reports do not duplicate it. The proctor still hears departure alerts immediately. Refresh or internal navigation retains the pending sound until the student resumes, while submission and retake version changes clear it. Audio failure does not change monitoring or pause behavior. Muted devices and browser audio restrictions can prevent playback; the durable pause and proctor alert remain authoritative.
+
+Leaders enable or disable **Student return sound** independently of their own proctor sound toggle, per exam. It defaults off. Priests can see the setting but cannot change it. Students receive the current setting through monitoring refresh; disabling it stops student playback and clears pending sounds. The additive 20261010021000 migration adds only this sheet setting and does not change scores or attempts.

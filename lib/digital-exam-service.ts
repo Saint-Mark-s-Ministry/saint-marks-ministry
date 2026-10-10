@@ -59,7 +59,7 @@ export function sessionHash(token: unknown) {
 export async function mutateExam(examId: string, input: Record<string, unknown>, access: Awaited<ReturnType<typeof examAccess>>) {
   const { user, manage, student } = access
   const action = input.action
-  const staffAction = ['configure', 'open', 'close', 'unlock', 'release', 'reset', 'retake', 'ready'].includes(String(action))
+  const staffAction = ['configure', 'open', 'close', 'unlock', 'release', 'reset', 'retake', 'ready', 'studentSound'].includes(String(action))
   if (staffAction ? !manage : !student) throw new Error('Forbidden')
   const result = await lockedExam(examId, async (tx, exam, sheet) => {
     if (action === 'configure') {
@@ -69,6 +69,11 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
       return { success: true }
     }
     if (!sheet) throw new ExamError('Set up the answer sheet first.', 409)
+    if (action === 'studentSound') {
+      if (typeof input.enabled !== 'boolean') throw new ExamError('Choose whether student return sound is enabled.')
+      await tx.digitalExamSheet.update({ where: { examId }, data: { studentReturnSoundEnabled: input.enabled } })
+      return { success: true }
+    }
     if (action === 'reset') {
       if (sheet.releasedAt) throw new ExamError('Released exams cannot be reset.', 409)
       if (await tx.digitalExamAttempt.count({ where: { examId } })) throw new ExamError('A student has joined this exam. Close it normally; attempts cannot be reset.', 409)

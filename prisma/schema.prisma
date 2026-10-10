@@ -1923,6 +1923,7 @@ model DigitalExamSheet {
   openedAt DateTime?
   closedAt DateTime?
   releasedAt DateTime?
+  studentReturnSoundEnabled Boolean @default(false)
   createdAt DateTime @default(now())
   exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
   attempts DigitalExamAttempt[]
