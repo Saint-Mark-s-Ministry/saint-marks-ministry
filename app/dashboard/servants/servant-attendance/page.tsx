@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { ServantAttendanceNavigation } from '@/components/servant-attendance-navigation'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
@@ -172,6 +173,8 @@ function ServantAttendanceContent() {
         title="Servant attendance"
         meta={[canEdit ? 'Record which servants served each week' : 'Recorded servant attendance across classes', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
       />
+
+      <ServantAttendanceNavigation active="classes" />
 
       {classes.length === 0 ? (
         <Panel>

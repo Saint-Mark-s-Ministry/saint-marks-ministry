@@ -13,7 +13,6 @@ import { Segmented } from '@/components/ds/segmented'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { EventLegend, MonthCalendar, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
-import { SundaySchoolServantsMeetings } from '@/components/sunday-school-servants-meetings'
 import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolDashboard, useSundaySchoolLessons } from '@/lib/swr'
@@ -309,14 +308,6 @@ export default function SundaySchoolDashboardPage() {
           )}
         </Panel>
       )}
-
-      {grouped.filter(([, band]) => /\belementary\b/i.test(band.name)).map(([key, band]) => (
-        <Panel key={`meetings-${key}`} title={`${band.name} servants meetings`}>
-          <div className="p-4">
-            <SundaySchoolServantsMeetings ageGroupId={key} />
-          </div>
-        </Panel>
-      ))}
 
       {dashboard?.attendanceTrend && (
         <SundaySchoolAttendanceChart

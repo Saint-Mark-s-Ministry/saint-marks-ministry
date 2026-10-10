@@ -361,7 +361,9 @@ remain an explicit, separately reviewed deployment step.
 
 ## Elementary servants meetings
 
-The Elementary dashboard band includes **Servants meetings**, visible to every
+**Servant Attendance → Servants meetings** opens the dedicated meeting page
+(`/dashboard/servants/servant-attendance/meetings`). The dashboard no longer
+contains the meeting section. Meetings are visible to every
 servant assigned to an Elementary class, the band coordinators, super admins,
 and priests. Other bands cannot view that roster. Only the band's coordinators
 and super admins can create sessions or save attendance; priests remain read-only.

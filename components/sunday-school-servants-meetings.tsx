@@ -21,8 +21,8 @@ interface MeetingData {
   roster: { id: string; name: string; status: Mark | null }[]
 }
 
-export function SundaySchoolServantsMeetings({ ageGroupId }: { ageGroupId: string }) {
-  const [meetingId, setMeetingId] = useState<string>()
+export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: { ageGroupId: string; initialMeetingId?: string }) {
+  const [meetingId, setMeetingId] = useState<string | undefined>(initialMeetingId)
   const { data: response, isLoading, error, mutate } = useSundaySchoolMeetings(ageGroupId, meetingId)
   const data = response as MeetingData | undefined
   const [adding, setAdding] = useState(false)
