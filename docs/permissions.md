@@ -363,3 +363,28 @@ grant no exam-monitoring access. Paper makeup workflows remain separate.
 
 See [digital-exams.md](digital-exams.md) for eligibility, state controls,
 private grades, free live-alert setup, and deployment verification.
+
+
+## Contact book
+
+`User.canAccessContactBook` is an independent per-user permission, defaulting
+to `false` for every account, including Super Admins. An active account with
+this flag may read the names, emails, and phone numbers of all app users
+(including disabled directory entries). It grants no user-management or ministry
+record access, and includes no separate child or family records.
+
+`/dashboard/contact-book` and `GET /api/contact-book` resolve the current
+`AuthorizationContext` from the database. Disabled accounts and accounts without
+the flag are denied regardless of JWT claims, role tags, or assignments.
+The JWT flag only renders the navigation link and refreshes within the normal
+session revalidation window. API revocation is immediate; the open directory
+revalidates on focus, reconnect, and every minute and hides contacts on denial.
+
+Only an active Super Admin without a Priest tag may change this flag via
+`PUT /api/admin/users/[id]/contact-book-access`. View as writes and ordinary
+profile-update attempts are rejected. Grants and revocations are recorded with
+the actor and target in the same transaction as the update. A Super Admin may
+grant or revoke their own contact-book access.
+
+Deploy the additive `20261010120000_add_contact_book_access` migration explicitly
+before deploying this code; builds never apply it. No existing user is opted in.

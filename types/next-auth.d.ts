@@ -21,6 +21,7 @@ declare module "next-auth" {
     user: {
       id: string
       role: UserRole
+      canAccessContactBook: boolean
       mustChangePassword: boolean
       isAsyncStudent: boolean
       sundaySchool: SundaySchoolStanding
@@ -40,6 +41,7 @@ declare module "next-auth" {
 
   interface User {
     role: UserRole
+    canAccessContactBook?: boolean
     authVersion: number
     mustChangePassword: boolean
     isAsyncStudent: boolean
@@ -52,6 +54,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role: UserRole
+    canAccessContactBook?: boolean
     id: string
     authVersion?: number
     mustChangePassword: boolean

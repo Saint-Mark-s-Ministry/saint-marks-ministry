@@ -32,6 +32,7 @@ export async function GET(
         email: true,
         name: true,
         phone: true,
+        canAccessContactBook: true,
         profileImageUrl: true,
         role: true,
         roleAssignments: {
@@ -69,6 +70,9 @@ export async function PATCH(
     const currentUser = await requireAuth()
     const { id } = await params
     const body = await request.json()
+    if (Object.prototype.hasOwnProperty.call(body, 'canAccessContactBook')) {
+      return NextResponse.json({ error: 'Use the contact book access endpoint to change this permission' }, { status: 403 })
+    }
     const { email, name, phone, password, role, profileImageUrl } = body
 
     // Get the user being updated (with password, to verify self-service email changes)

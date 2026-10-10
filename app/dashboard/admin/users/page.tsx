@@ -1,4 +1,6 @@
 'use client'
+import { useSession } from 'next-auth/react'
+import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-class-dialog'
 
@@ -58,12 +60,14 @@ interface User {
   roleAssignments?: { tag: RoleTag }[]
   sundaySchoolServing?: SundaySchoolAssignmentSummary[]
   isDisabled?: boolean
+  canAccessContactBook?: boolean
   _count?: {
     mentoredStudents: number
   }
 }
 
 export default function UsersPage() {
+  const { update: refreshSession } = useSession()
   const sundaySchoolMode = usePathname().startsWith('/dashboard/servants/users')
   const [organizationUser, setOrganizationUser] = useState<User | null>(null)
   const [classAssignmentUser, setClassAssignmentUser] = useState<User | null>(null)
@@ -110,6 +114,7 @@ export default function UsersPage() {
     role: 'STUDENT' as UserRole,
     roleTags: [RoleTag.SERVANTS_PREP_STUDENT] as RoleTag[],
     roleAuditNote: '',
+    canAccessContactBook: false,
   })
   const [formError, setFormError] = useState('')
 
@@ -179,7 +184,7 @@ export default function UsersPage() {
 
       await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user')
     }
@@ -235,6 +240,19 @@ export default function UsersPage() {
         }
       }
 
+      if (isSuperAdmin && formData.canAccessContactBook !== (editingUser.canAccessContactBook ?? false)) {
+        const accessResponse = await fetch(`/api/admin/users/${editingUser.id}/contact-book-access`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canAccessContactBook: formData.canAccessContactBook }),
+        })
+        if (!accessResponse.ok) {
+          const accessData = await accessResponse.json()
+          throw new Error(`Profile fields were saved, but contact book access was not updated: ${accessData.error || 'Unknown error'}`)
+        }
+        if (editingUser.id === session?.user.id) await refreshSession({ refreshContactBook: true })
+      }
+
       await fetchUsers(debouncedSearch, roleFilter)
 
       // Show appropriate success message
@@ -247,7 +265,7 @@ export default function UsersPage() {
       }
 
       setEditingUser(null)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to update user')
     }
@@ -293,6 +311,7 @@ export default function UsersPage() {
       role: user.role,
       roleTags: user.roleAssignments?.map((assignment) => assignment.tag) ?? [],
       roleAuditNote: '',
+      canAccessContactBook: user.canAccessContactBook ?? false,
     })
     setShowCreateForm(false)
     setFormError('')
@@ -305,7 +324,7 @@ export default function UsersPage() {
   const cancelForm = () => {
     setShowCreateForm(false)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
     setFormError('')
   }
 
@@ -516,7 +535,7 @@ export default function UsersPage() {
   const openCreate = () => {
     setShowCreateForm(true)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
   }
 
   return (
@@ -827,6 +846,13 @@ export default function UsersPage() {
                                     </div>
                                   </div>
                                   {isSuperAdmin && (
+                                    <ContactBookAccessSwitch
+                                      checked={formData.canAccessContactBook}
+                                      onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
+                                      disabled={!!session?.impersonating}
+                                    />
+                                  )}
+                                  {isSuperAdmin && (
                                     <div className="space-y-2 rounded-md border bg-background p-3">
                                       <UserRoleTagEditor
                                         value={formData.roleTags}
@@ -1004,6 +1030,13 @@ export default function UsersPage() {
                               </div>
                             )}
                           </div>
+                          {isSuperAdmin && (
+                            <ContactBookAccessSwitch
+                              checked={formData.canAccessContactBook}
+                              onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
+                              disabled={!!session?.impersonating}
+                            />
+                          )}
                           {isSuperAdmin && (
                             <div className="space-y-2 rounded-md border bg-background p-2">
                               <UserRoleTagEditor
