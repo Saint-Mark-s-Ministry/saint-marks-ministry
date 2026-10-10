@@ -36,6 +36,7 @@ import { LastSaved } from '@/components/ui/last-saved'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus } from 'lucide-react'
+import styles from '@/components/curriculum/schedule.module.css'
 import { SortableRow } from '@/components/curriculum/sortable-row'
 import { MobileLessonCard } from '@/components/curriculum/mobile-lesson-card'
 import type { Lesson, Section, LessonEdits } from '@/components/curriculum/types'
@@ -307,7 +308,7 @@ export default function CurriculumPage() {
         if (filterSection !== 'all' && lesson.examSection.name !== filterSection) return false
         return true
       })
-      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
     const oldIndex = currentFiltered.findIndex(l => l.id === active.id)
     const newIndex = currentFiltered.findIndex(l => l.id === over.id)
@@ -320,7 +321,8 @@ export default function CurriculumPage() {
       const res = await fetch('/api/lessons/batch/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonIds: reorderedFiltered.map(l => l.id) }),
+        // The API assigns newest-first date slots; the table displays oldest first.
+        body: JSON.stringify({ lessonIds: [...reorderedFiltered].reverse().map(l => l.id) }),
       })
 
       if (!res.ok) {
@@ -453,7 +455,7 @@ export default function CurriculumPage() {
       const res = await fetch('/api/lessons/batch/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonIds: reordered.map(l => l.id) }),
+        body: JSON.stringify({ lessonIds: [...reordered].reverse().map(l => l.id) }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -486,7 +488,7 @@ export default function CurriculumPage() {
       }
       return true
     })
-    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
   if (loading || status === 'loading') {
     return <PageLoading />
@@ -568,20 +570,35 @@ export default function CurriculumPage() {
           <EmptyState message={canEdit ? 'No lessons match. Add one, or clear the filters.' : 'No lessons match these filters.'} />
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className={`hidden md:block ${styles.scrollArea}`}>
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} autoScroll={false}>
-                <table className="w-full text-[13px] text-ink" style={{ minWidth: canEdit ? 820 : 640 }}>
-                  <thead className="bg-raised">
-                    <tr className="border-b border-line text-left text-xs text-ink-3">
-                      {canEdit && <th scope="col" className="w-8"><span className="sr-only">Reorder</span></th>}
-                      <th scope="col" className="h-9 w-8 px-2 text-center font-medium">#</th>
-                      <th scope="col" className="w-36 px-2 font-medium">Date</th>
-                      <th scope="col" className="px-2 font-medium">Topic</th>
-                      <th scope="col" className="w-36 px-2 font-medium">Speaker</th>
-                      <th scope="col" className="w-40 px-2 font-medium">Section</th>
-                      <th scope="col" className="w-14 px-2 text-center font-medium">Exam</th>
-                      <th scope="col" className="w-36 px-2 text-center font-medium">Status</th>
-                      <th scope="col" className="w-24"><span className="sr-only">Actions</span></th>
+                <table className={styles.schedule}>
+                  <caption className={styles.caption}>
+                    Servants Prep · {selectedYearId === 'all' ? 'All Academic Years' : academicYears.find(year => year.id === selectedYearId)?.name}
+                    <span>{filteredLessons.length} meetings</span>
+                  </caption>
+                  <colgroup>
+                    {canEdit && <col style={{ width: 28 }} />}
+                    <col style={{ width: 58 }} />
+                    <col style={{ width: 132 }} />
+                    <col style={{ width: 210 }} />
+                    <col style={{ width: 300 }} />
+                    <col style={{ width: 122 }} />
+                    <col style={{ width: 200 }} />
+                    <col style={{ width: 260 }} />
+                    <col style={{ width: canEdit ? 116 : 40 }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      {canEdit && <th scope="col"><span className="sr-only">Reorder</span></th>}
+                      <th scope="col">Meeting<br />No.</th>
+                      <th scope="col">Date</th>
+                      <th scope="col">Block</th>
+                      <th scope="col">Topic</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Speaker</th>
+                      <th scope="col">Notes</th>
+                      <th scope="col"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <SortableContext items={filteredLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>

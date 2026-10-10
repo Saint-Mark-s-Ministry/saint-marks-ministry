@@ -1,0 +1,171 @@
+.scrollArea {
+  max-height: 74vh;
+  overflow: auto;
+}
+
+.schedule {
+  width: 100%;
+  min-width: 1400px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  color: #27252d;
+}
+
+.caption {
+  padding: 10px 16px;
+  background: #7862ac;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.caption span {
+  float: right;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: .85;
+}
+
+.schedule th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 40px;
+  padding: 5px 8px;
+  border-right: 1px solid #9c88c2;
+  border-bottom: 1px solid #7862ac;
+  background: #9580bd;
+  color: white;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.row {
+  background: #fff;
+}
+
+.row:nth-child(even) {
+  background: #f3f3f5;
+}
+
+.row:hover {
+  background: #f0ecf8;
+}
+
+.row td {
+  height: 34px;
+  padding: 2px 6px;
+  border-right: 1px solid #e2e1e6;
+  border-bottom: 1px solid #dedde3;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.row[data-edited='true'] td:first-child {
+  box-shadow: inset 3px 0 #d99b22;
+}
+
+.cellInput {
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 4px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: 12px;
+  text-align: center;
+}
+
+.cellInput:hover {
+  border-color: #c6bdd8;
+}
+
+.cellInput:focus-visible {
+  background: white;
+  color: #27252d;
+  border-color: #8a6ab6;
+  box-shadow: 0 0 0 2px #8a6ab633;
+}
+
+.notesInput, .notesText {
+  text-align: left;
+}
+
+.notesText {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.block, .status {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.block {
+  background: #e7e4eb;
+  color: #51475e;
+  text-align: left;
+}
+
+.block[data-section='SPIRITUALITY_OF_SERVANT'] { background: #694094; color: white; }
+.block[data-section='RITUAL_THEOLOGY_SACRAMENTS'] { background: #14764e; color: white; }
+.block[data-section='CHURCH_HISTORY_COPTIC_HERITAGE'] { background: #125fac; color: white; }
+.block[data-section='PSYCHOLOGY_METHODOLOGY'] { background: #e3cef1; color: #66388b; }
+.block[data-section='BIBLE_STUDIES'] { background: #f4deab; color: #79520d; }
+.block[data-section='DOGMA'] { background: #cce6eb; color: #205e6b; }
+.block[data-section='COMPARATIVE_THEOLOGY'] { background: #f6d6c4; color: #8a4924; }
+.block option, .status option { background: white; color: #27252d; }
+.block:focus-visible, .status:focus-visible { outline: 2px solid #8a6ab6; outline-offset: 2px; }
+
+.status { background: #fff0bd; color: #79570d; }
+.status[data-status='COMPLETED'] { background: #cdebd8; color: #21683e; }
+.status[data-status='CANCELLED'], .status[data-status='NO_CLASS'] { background: #ffd1cc; color: #9c201e; }
+
+.exam, .exam:nth-child(even), .exam:hover { background: #f3dce6; }
+.cancelled, .cancelled:nth-child(even) { background: #a70f16; color: white; }
+.cancelled:hover { background: #940d14; }
+.cancelled td { border-color: #bd3035; }
+.cancelled .block { background: #d42e35; color: white; }
+.cancelled .cellInput::placeholder { color: #f2b7b9; }
+.cancelled input[type='date'] { color-scheme: dark; }
+.cancelled input[type='date']:focus { color-scheme: light; }
+
+.examToggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  opacity: .65;
+  cursor: pointer;
+}
+.examToggle:has(input:checked) { opacity: 1; font-weight: 600; }
+.examToggle input { width: 12px; height: 12px; accent-color: #7862ac; }
+.attendance { font-size: 10px; opacity: .65; }
+.dragging { box-shadow: 0 5px 16px #0002; }
+
+:global(.dark) .schedule { color: #e9e5ef; }
+:global(.dark) .row { background: #211e28; }
+:global(.dark) .row:nth-child(even) { background: #292530; }
+:global(.dark) .row:hover { background: #383044; }
+:global(.dark) .row td { border-color: #413a4c; }
+:global(.dark) .cellInput { background: transparent; }
+:global(.dark) .cellInput:focus-visible { background: #211e28; color: #e9e5ef; }
+:global(.dark) .exam, :global(.dark) .exam:nth-child(even) { background: #4c2d3e; }
+:global(.dark) .cancelled, :global(.dark) .cancelled:nth-child(even) { background: #86151c; color: white; }
+:global(.dark) .cancelled:hover { background: #9b1b23; }
+:global(.dark) .cancelled td { border-color: #a1323a; }
