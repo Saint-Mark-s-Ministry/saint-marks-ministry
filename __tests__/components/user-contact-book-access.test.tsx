@@ -28,6 +28,9 @@ describe('user contact book configuration', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
     const switches = screen.getAllByRole('checkbox', { name: 'Allow contact book access' })
     expect(switches).toHaveLength(2)
+    for (const checkbox of switches) {
+      expect(checkbox.closest('fieldset')?.querySelector('legend')).toHaveTextContent('Access tags')
+    }
     await user.click(switches[0])
     expect(switches[1]).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))

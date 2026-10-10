@@ -34,9 +34,9 @@ describe('server contact book page guard', () => {
     expect(await ContactBookPage()).toBeTruthy()
     expect(mocks.context).toHaveBeenCalledWith('viewer')
   })
-  it('allows an active database super admin without an explicit grant', async () => {
-    mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook: false, roleTags: new Set([RoleTag.SUPER_ADMIN]) })
-    expect(await ContactBookPage()).toBeTruthy()
+  it.each([false, true])('redirects super admins to their dashboard with stored directory flag %s', async canAccessContactBook => {
+    mocks.context.mockResolvedValue({ disabled: false, canAccessContactBook, roleTags: new Set([RoleTag.SUPER_ADMIN]) })
+    await expect(ContactBookPage()).rejects.toThrow('redirect:/dashboard')
   })
   it('honors the password-change gate', async () => {
     mocks.session.mockResolvedValue({ user: { id: 'viewer', mustChangePassword: true } })

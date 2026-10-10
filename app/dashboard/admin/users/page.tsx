@@ -845,20 +845,21 @@ export default function UsersPage() {
                                       )}
                                     </div>
                                   </div>
-                                  {isSuperAdmin && !formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
-                                    <ContactBookAccessSwitch
-                                      checked={formData.canAccessContactBook}
-                                      onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
-                                      disabled={!!session?.impersonating}
-                                    />
-                                  )}
                                   {isSuperAdmin && (
                                     <div className="space-y-2 rounded-md border bg-background p-3">
                                       <UserRoleTagEditor
                                         value={formData.roleTags}
                                         onChange={(roleTags) => setFormData({ ...formData, roleTags })}
                                         compact
-                                      />
+                                      >
+                                        {!formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
+                                          <ContactBookAccessSwitch
+                                            checked={formData.canAccessContactBook}
+                                            onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
+                                            disabled={!!session?.impersonating}
+                                          />
+                                        )}
+                                      </UserRoleTagEditor>
                                       <div>
                                         <Label htmlFor="edit-role-note" className="text-xs">Audit note (optional)</Label>
                                         <Input
@@ -1030,20 +1031,21 @@ export default function UsersPage() {
                               </div>
                             )}
                           </div>
-                          {isSuperAdmin && !formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
-                            <ContactBookAccessSwitch
-                              checked={formData.canAccessContactBook}
-                              onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
-                              disabled={!!session?.impersonating}
-                            />
-                          )}
                           {isSuperAdmin && (
                             <div className="space-y-2 rounded-md border bg-background p-2">
                               <UserRoleTagEditor
                                 value={formData.roleTags}
                                 onChange={(roleTags) => setFormData({ ...formData, roleTags })}
                                 compact
-                              />
+                              >
+                                {!formData.roleTags.includes(RoleTag.SUPER_ADMIN) && (
+                                  <ContactBookAccessSwitch
+                                    checked={formData.canAccessContactBook}
+                                    onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
+                                    disabled={!!session?.impersonating}
+                                  />
+                                )}
+                              </UserRoleTagEditor>
                               <div>
                                 <Label className="text-xs">Audit note (optional)</Label>
                                 <Input
