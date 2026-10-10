@@ -142,7 +142,7 @@ export default function Child() {
                   ios="house.fill"
                   android="home"
                   label="Log visitation"
-                  onPress={() => router.push({ pathname: "/visitations", params: { childId: id, classId: child.classId ?? "" } })}
+                  onPress={() => router.push({ pathname: "/visitation/[childId]", params: { childId: id, classId: child.classId ?? "" } })}
                 />
               </View>
             </View>
