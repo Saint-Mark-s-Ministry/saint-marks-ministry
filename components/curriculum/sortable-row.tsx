@@ -72,7 +72,7 @@ export function SortableRow({
       <tr
         ref={setNodeRef}
         style={style}
-        className={`${styles.row} ${isCancelled ? styles.cancelled : ''} ${currentIsExamDay && !isCancelled ? styles.exam : ''} ${isDragging ? styles.dragging : ''}`}
+        className={`${styles.row} ${isDragging ? styles.dragging : ''}`}
         data-edited={!!edits}
       >
         {/* Drag handle */}
@@ -128,7 +128,7 @@ export function SortableRow({
                 placeholder="Topic title"
               />
             ) : (
-              <span className="flex-1 text-center font-medium">{currentTitle}</span>
+              <span className="flex-1 font-medium">{currentTitle}</span>
             )}
             {canEdit ? (
               <label className={styles.examToggle} title="Exam day">
@@ -226,7 +226,7 @@ export function SortableRow({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className={`h-7 px-2 text-xs ${isCancelled ? 'text-white hover:text-red-100' : 'text-red-600 hover:text-red-700'}`}
+                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
                   onClick={() => onDelete(lesson.id)}
                   disabled={hasAttendance}
                   title={hasAttendance ? 'Cannot delete: has attendance records' : 'Delete lesson'}

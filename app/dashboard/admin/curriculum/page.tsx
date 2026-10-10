@@ -573,19 +573,15 @@ export default function CurriculumPage() {
             <div className={`hidden md:block ${styles.scrollArea}`}>
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} autoScroll={false}>
                 <table className={styles.schedule}>
-                  <caption className={styles.caption}>
-                    Servants Prep · {selectedYearId === 'all' ? 'All Academic Years' : academicYears.find(year => year.id === selectedYearId)?.name}
-                    <span>{filteredLessons.length} meetings</span>
-                  </caption>
                   <colgroup>
                     {canEdit && <col style={{ width: 28 }} />}
-                    <col style={{ width: 58 }} />
+                    <col style={{ width: 48 }} />
                     <col style={{ width: 132 }} />
+                    <col style={{ width: 180 }} />
+                    <col style={{ width: 240 }} />
+                    <col style={{ width: 116 }} />
+                    <col style={{ width: 170 }} />
                     <col style={{ width: 210 }} />
-                    <col style={{ width: 300 }} />
-                    <col style={{ width: 122 }} />
-                    <col style={{ width: 200 }} />
-                    <col style={{ width: 260 }} />
                     <col style={{ width: canEdit ? 116 : 40 }} />
                   </colgroup>
                   <thead>
