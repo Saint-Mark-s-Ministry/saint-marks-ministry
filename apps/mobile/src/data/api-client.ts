@@ -184,8 +184,23 @@ export class PortalApi {
       if (!response.ok) {
         if (path === "/api/auth/callback/credentials") {
           await this.clear();
+          // Every credential rejection (wrong password, unknown email,
+          // disabled account) deliberately shares one generic message —
+          // never disclosing which of those it was. Rate limiting is the
+          // one exception: it says nothing about whether the account
+          // exists, only that this client has made too many attempts, so
+          // it's safe — and more useful — to surface that specific wait
+          // time instead of hiding it behind the same generic copy.
+          const rawError = (() => {
+            try {
+              return new URL(body?.url, this.origin).searchParams.get("error");
+            } catch {
+              return null;
+            }
+          })();
+          const rateLimited = rawError && /^Too many login attempts\./.test(rawError);
           throw new ApiError(
-            "Sign-in failed. Check your email and password, or try again later.",
+            rateLimited ? rawError! : "Sign-in failed. Check your email and password, or try again later.",
             response.status,
           );
         }
