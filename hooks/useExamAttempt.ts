@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AttemptResponse, DigitalExamView, ExamAttemptView } from '@/lib/digital-exam-types'
+import { createExamReturnAudio } from '@/lib/exam-return-audio'
 import { safeExamDestination } from '@/lib/digital-exams'
 import type { ClientEventKind } from '@/lib/digital-exams'
 
 type PendingEvent = { id: string; kind: ClientEventKind; at: string; destinationPath?: string }
-type Draft = { attemptNumber?: number; answers: Record<string, string>; events: PendingEvent[] }
+type Draft = { departureAlertPending?: boolean; attemptNumber?: number; answers: Record<string, string>; events: PendingEvent[] }
 export function useExamAttempt(examId: string, userId: string, view?: DigitalExamView, refresh?: () => Promise<unknown>) {
   const [attempt, setAttempt] = useState<ExamAttemptView | null>(null)
   const [started, setStarted] = useState(false)
@@ -16,7 +17,9 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
   const [message, setMessage] = useState('')
   const [pendingCount, setPendingCount] = useState(0)
   const [, setDraftVersion] = useState(0)
+  const studentSoundEnabled = useRef(false)
   const current = useRef<ExamAttemptView | null>(null)
+  const returnAudio = useRef<ReturnType<typeof createExamReturnAudio> | null>(null)
   const token = useRef('')
   const draft = useRef<Draft>({ answers: {}, events: [] })
   const saving = useRef(false)
@@ -31,9 +34,17 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
     setDraftVersion(value => value + 1)
     try { localStorage.setItem(storageKey, JSON.stringify(draft.current)) } catch { setMessage('This browser cannot preserve pending changes. Keep this page open until every answer is saved.') }
   }, [storageKey])
+  useEffect(() => {
+    studentSoundEnabled.current = !!view?.sheet?.studentReturnSoundEnabled
+    if (!studentSoundEnabled.current) {
+      returnAudio.current?.stop()
+      if (draft.current.departureAlertPending) { delete draft.current.departureAlertPending; persist() }
+    }
+  }, [view?.sheet?.studentReturnSoundEnabled, persist])
   const apply = useCallback((next: ExamAttemptView) => {
     if (current.current && next.revision < current.current.revision) return
     if (current.current && (next.attemptNumber ?? 1) !== (current.current.attemptNumber ?? 1)) {
+      returnAudio.current?.stop()
       own.current = false; setStarted(false); releaseLock.current?.(); releaseLock.current = null
     }
     if ((next.attemptNumber ?? 1) !== (draft.current.attemptNumber ?? 1)) {
@@ -41,6 +52,7 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
     }
     current.current = next; setAttempt(next)
     if (next.state === 'SUBMITTED') {
+      returnAudio.current?.stop()
       draft.current = { attemptNumber: next.attemptNumber, answers: {}, events: [] }; persist(); setPendingCount(0)
       releaseLock.current?.(); releaseLock.current = null
     }
@@ -66,12 +78,21 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Activity report is waiting to reconnect.') }
     finally { sendingEvents.current = false }
   }, [post, persist])
+  const playReturnSound = useCallback(() => {
+    if (!studentSoundEnabled.current || !draft.current.departureAlertPending) return
+    const version = draft.current.attemptNumber ?? 1
+    void returnAudio.current?.play(() => studentSoundEnabled.current && (current.current?.attemptNumber ?? 1) === version && own.current && current.current?.state !== 'SUBMITTED' && !!draft.current.departureAlertPending && !document.hidden && document.hasFocus()).then(played => {
+      if (played && (draft.current.attemptNumber ?? 1) === version) { draft.current.departureAlertPending = false; persist() }
+    })
+  }, [persist])
   const event = useCallback((kind: ClientEventKind) => {
     if (!own.current || current.current?.state === 'SUBMITTED') return
+    if (['HIDDEN', 'BLUR', 'SITE_NAVIGATION'].includes(kind) && studentSoundEnabled.current) draft.current.departureAlertPending = true
+    if (kind === 'RETURNED' || kind === 'FOCUS') playReturnSound()
     if (['HIDDEN', 'BLUR', 'OFFLINE', 'RECONNECTED', 'SITE_NAVIGATION'].includes(kind)) { paused.current = true; setLocallyPaused(true) }
     draft.current.events.push({ id: crypto.randomUUID(), kind, at: new Date().toISOString() }); persist()
     void flushEvents()
-  }, [persist, flushEvents])
+  }, [persist, flushEvents, playReturnSound])
   const flushAnswers = useCallback(async () => {
     if (saving.current || !own.current || paused.current || !navigator.onLine || document.hidden || current.current?.state !== 'ACTIVE') return
     saving.current = true
@@ -123,6 +144,7 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
       const destinationPath = safeExamDestination(window.location.pathname)
       if (!own.current || current.current?.state === 'SUBMITTED' || !destinationPath) return
       const navigation: PendingEvent = { id: crypto.randomUUID(), kind: 'SITE_NAVIGATION', at: new Date().toISOString(), destinationPath }
+      if (studentSoundEnabled.current) draft.current.departureAlertPending = true
       paused.current = true
       draft.current.events.push(navigation); persist()
       // Send even if another event batch is in flight. Retry IDs prevent duplicates;
@@ -135,12 +157,15 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
     return () => {
       if (window.location.pathname !== initialPath) navigationReporter.current?.()
       own.current = false; releaseLock.current?.()
+      returnAudio.current?.dispose()
     }
   }, [])
   async function start() {
     setBusy(true); setMessage('')
     try {
       if (!navigator.onLine || document.hidden) throw new Error('Return to this tab and connect to the internet before starting.')
+      returnAudio.current ??= createExamReturnAudio()
+      returnAudio.current.arm()
       if (navigator.locks && !releaseLock.current) {
         await new Promise<void>((resolve, reject) => {
           void navigator.locks.request(storageKey, { ifAvailable: true }, async lock => {
@@ -153,9 +178,11 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
       token.current = navigation?.type === 'reload' ? sessionStorage.getItem(`${storageKey}:session`) || crypto.randomUUID() : crypto.randomUUID()
       sessionStorage.setItem(`${storageKey}:session`, token.current)
       try { const stored = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (stored && typeof stored.answers === 'object' && Array.isArray(stored.events)) draft.current = stored } catch { /* The saved server answers remain authoritative. */ }
+      if (!studentSoundEnabled.current) delete draft.current.departureAlertPending
       const result = await post({ action: 'start' })
       if (result.attempt.state !== 'SUBMITTED') {
         own.current = true
+        playReturnSound()
         if (draft.current.events.length || Object.keys(draft.current.answers).length) {
           paused.current = true; setLocallyPaused(true); event('RECONNECTED'); event('RETURNED'); await flushEvents()
         }

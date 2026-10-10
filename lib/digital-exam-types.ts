@@ -6,7 +6,7 @@ export interface ExamAttemptView {
 }
 export interface DigitalExamView {
   exam: { id: string; examDate: string; yearLevel: string; totalPoints: number; examSection: { displayName: string }; academicYear: { name: string } }
-  sheet: { state: 'DRAFT' | 'OPEN' | 'CLOSED'; choiceCounts: number[]; openedAt: string | null; closedAt: string | null; releasedAt: string | null } | null
+  sheet: { studentReturnSoundEnabled?: boolean; state: 'DRAFT' | 'OPEN' | 'CLOSED'; choiceCounts: number[]; openedAt: string | null; closedAt: string | null; releasedAt: string | null } | null
   attempt?: ExamAttemptView | null
   answerKey?: string[]; canManage?: boolean; realtimeConfigured?: boolean
   hasAttempts?: boolean

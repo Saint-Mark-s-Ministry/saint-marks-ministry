@@ -384,4 +384,20 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).toMatchObject({ percentage: 90, originalPercentage: 90, digitalRetakePercentage: 2 })
   }, 30000)
 
+  it('lets only exam leaders toggle student return sounds without changing answers or grades', async () => {
+    expect((await (await get()).json()).sheet.studentReturnSoundEnabled).toBe(false)
+    await act('start'); await act('save', { question: 0, answer: 'E', revision: 0 })
+    const attempt = await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })
+    const grades = await db.examScore.findMany({ where: { examId: fixture.examId } })
+    await expect(act('studentSound', { enabled: true })).rejects.toThrow('Forbidden')
+    await expect(mutateExam(fixture.examId, { action: 'studentSound', enabled: true }, { ...staff, manage: false })).rejects.toThrow('Forbidden')
+    await expect(admin('studentSound', { enabled: 'true' })).rejects.toThrow('Choose whether')
+    await admin('studentSound', { enabled: true })
+    expect((await (await get()).json()).sheet.studentReturnSoundEnabled).toBe(true)
+    await admin('studentSound', { enabled: false })
+    expect((await (await get()).json()).sheet.studentReturnSoundEnabled).toBe(false)
+    expect(await db.digitalExamAttempt.findUnique({ where: { id: attempt.id } })).toEqual(attempt)
+    expect(await db.examScore.findMany({ where: { examId: fixture.examId } })).toEqual(grades)
+  }, 30000)
+
 })

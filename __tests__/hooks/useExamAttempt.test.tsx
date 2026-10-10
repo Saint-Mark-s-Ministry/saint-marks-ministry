@@ -2,13 +2,17 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExamAttempt } from '@/hooks/useExamAttempt'
 import type { DigitalExamView, ExamAttemptView } from '@/lib/digital-exam-types'
-const view: DigitalExamView = { exam: { id: 'exam', examDate: '', yearLevel: 'YEAR_1', totalPoints: 100, examSection: { displayName: 'Bible' }, academicYear: { name: 'Year' } }, sheet: { state: 'OPEN', choiceCounts: Array(50).fill(4), openedAt: '', closedAt: null, releasedAt: null } }
+const sound = vi.hoisted(() => ({ arm: vi.fn(), play: vi.fn(), stop: vi.fn(), dispose: vi.fn() }))
+vi.mock('@/lib/exam-return-audio', () => ({ createExamReturnAudio: () => sound }))
+const view: DigitalExamView = { exam: { id: 'exam', examDate: '', yearLevel: 'YEAR_1', totalPoints: 100, examSection: { displayName: 'Bible' }, academicYear: { name: 'Year' } }, sheet: { studentReturnSoundEnabled: true, state: 'OPEN', choiceCounts: Array(50).fill(4), openedAt: '', closedAt: null, releasedAt: null } }
 let stored: ExamAttemptView
 let eventLog: { kind: string; id: string }[]
 let online: boolean
 let hidden: boolean
 let fetcher: ReturnType<typeof vi.fn>
 beforeEach(() => {
+  vi.clearAllMocks(); sound.play.mockResolvedValue(true)
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true)
   const memoryStorage = () => { const map = new Map<string, string>(); return { getItem: (key: string) => map.get(key) ?? null, setItem: (key: string, value: string) => map.set(key, value), clear: () => map.clear(), removeItem: (key: string) => map.delete(key) } }
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage())
   online = true; hidden = false; eventLog = []
@@ -26,7 +30,7 @@ beforeEach(() => {
   })
   vi.stubGlobal('fetch', fetcher)
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 describe('exam browser controls', () => {
   it('autosaves an answer and clears its pending draft only after acknowledgment', async () => {
     const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
@@ -113,6 +117,58 @@ describe('exam browser controls', () => {
     rerender({ examView: { ...view, attempt: approved } })
     await waitFor(() => expect(result.current.started).toBe(false))
     expect(result.current.answers.every(answer => answer === '')).toBe(true)
+  })
+
+  it('plays the student alert on return rather than departure, without unlocking the attempt', async () => {
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    expect(sound.arm).toHaveBeenCalledTimes(1)
+    expect(sound.play).not.toHaveBeenCalled()
+    await act(async () => { hidden = true; document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('blur')) })
+    expect(sound.play).not.toHaveBeenCalled()
+    expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).departureAlertPending).toBe(true)
+    await act(async () => { hidden = false; document.dispatchEvent(new Event('visibilitychange')) })
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    expect(sound.play).toHaveBeenCalledTimes(1)
+    expect(result.current.paused).toBe(true)
+    expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).departureAlertPending).toBe(false)
+  })
+  it('retains a return alert through refresh and plays it after resume', async () => {
+    localStorage.setItem('digital-exam:student:exam', JSON.stringify({ departureAlertPending: true, answers: {}, events: [] }))
+    stored = { ...stored, state: 'PAUSED' }
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    expect(sound.play).toHaveBeenCalledTimes(1)
+    expect(result.current.paused).toBe(true)
+    expect(result.current.started).toBe(true)
+  })
+  it('keeps a pending return alert if audio fails and clears it on submission', async () => {
+    sound.play.mockResolvedValue(false)
+    const { result, rerender } = renderHook(({ examView }) => useExamAttempt('exam', 'student', examView), { initialProps: { examView: view } })
+    await act(async () => result.current.start())
+    await act(async () => window.dispatchEvent(new Event('blur')))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(result.current.paused).toBe(true)
+    expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).departureAlertPending).toBe(true)
+    rerender({ examView: { ...view, attempt: { ...stored, state: 'SUBMITTED', revision: 10 } } })
+    await waitFor(() => expect(result.current.attempt?.state).toBe('SUBMITTED'))
+    expect(sound.stop).toHaveBeenCalled()
+    expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).departureAlertPending).toBeUndefined()
+  })
+
+  it('does not play return sounds when the proctor disables them, and stops a current sound', async () => {
+    const { result, rerender } = renderHook(({ examView }) => useExamAttempt('exam', 'student', examView), { initialProps: { examView: { ...view, sheet: { ...view.sheet!, studentReturnSoundEnabled: false } } } })
+    await act(async () => result.current.start())
+    await act(async () => window.dispatchEvent(new Event('blur')))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(sound.play).not.toHaveBeenCalled()
+    expect(result.current.paused).toBe(true)
+    rerender({ examView: { ...view, sheet: { ...view.sheet!, studentReturnSoundEnabled: true } } })
+    await act(async () => window.dispatchEvent(new Event('blur')))
+    await act(async () => window.dispatchEvent(new Event('focus')))
+    expect(sound.play).toHaveBeenCalledTimes(1)
+    rerender({ examView: { ...view, sheet: { ...view.sheet!, studentReturnSoundEnabled: false } } })
+    expect(sound.stop).toHaveBeenCalled()
   })
 
 })

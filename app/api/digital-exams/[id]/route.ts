@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: Context) {
     if (!exam) throw new Error('Not found')
     if (!access.staff && !await eligibleForExam(prisma, access.user.id, exam)) throw new Error('Forbidden')
     const sheet = await prisma.digitalExamSheet.findUnique({ where: { examId: id } })
-    const safeSheet = sheet ? { state: sheet.state, choiceCounts: sheet.choiceCounts, openedAt: sheet.openedAt, closedAt: sheet.closedAt, releasedAt: sheet.releasedAt } : null
+    const safeSheet = sheet ? { state: sheet.state, choiceCounts: sheet.choiceCounts, openedAt: sheet.openedAt, closedAt: sheet.closedAt, releasedAt: sheet.releasedAt, studentReturnSoundEnabled: sheet.studentReturnSoundEnabled } : null
     if (!access.staff) {
       if (!sheet || sheet.state !== 'OPEN' || (sheet.releasedAt && !await prisma.digitalExamAttempt.findFirst({ where: { examId: id, studentId: access.user.id, attemptNumber: { gt: 1 } }, select: { id: true } }))) throw new Error('Not found')
       const attempt = await prisma.digitalExamAttempt.findUnique({ where: { examId_studentId: { examId: id, studentId: access.user.id } } })

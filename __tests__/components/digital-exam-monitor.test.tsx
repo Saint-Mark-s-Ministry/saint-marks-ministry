@@ -60,12 +60,12 @@ describe('compact proctor dashboard', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('Locked choices, the answer key, grades, submissions and retake approvals are preserved')
   })
 
-  it('previews the donkey sound, alerts on new departures without overlap, and mutes immediately', async () => {
+  it('previews the alert sound, alerts on new departures without overlap, and mutes immediately', async () => {
     const { rerender, unmount } = render(<DigitalExamMonitor examId="exam" />)
     expect(player.play).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
-    expect(Audio).toHaveBeenCalledWith('/sounds/donkey-bray.mp3')
-    expect(player.volume).toBe(0.5)
+    fireEvent.click(screen.getByRole('button', { name: 'Enable alert sound' }))
+    expect(Audio).toHaveBeenCalledWith('/sounds/uh-oh.wav')
+    expect(player.volume).toBe(1)
     expect(player.play).toHaveBeenCalledTimes(1)
     const addDeparture = (id: string) => {
       mocks.data = structuredClone(mocks.data)
@@ -78,7 +78,7 @@ describe('compact proctor dashboard', () => {
     addDeparture('new-departure')
     await waitFor(() => expect(player.play).toHaveBeenCalledTimes(2))
     player.currentTime = 2
-    fireEvent.click(screen.getByRole('button', { name: 'Mute donkey sound' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mute alert sound' }))
     expect(player.pause).toHaveBeenCalled()
     expect(player.currentTime).toBe(0)
     addDeparture('muted-departure')
@@ -88,7 +88,7 @@ describe('compact proctor dashboard', () => {
   })
   it('keeps answer changes and already-seen departures silent', () => {
     const { rerender } = render(<DigitalExamMonitor examId="exam" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enable alert sound' }))
     player.paused = true
     mocks.data = structuredClone(mocks.data)
     mocks.data!.roster![0].attempt!.events.push({ id: 'new-answer', kind: 'ANSWER_SAVED', actorId: 'student', questionNumber: 13, answerChoice: 'D', createdAt: '2026-10-09T20:00:20Z', clientAt: null })
@@ -101,8 +101,24 @@ describe('compact proctor dashboard', () => {
   it('allows sound to be enabled again if browser playback fails', async () => {
     player.play.mockRejectedValueOnce(new Error('Playback unavailable'))
     render(<DigitalExamMonitor examId="exam" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Enable donkey sound' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Enable donkey sound' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Enable alert sound' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Enable alert sound' })).toBeInTheDocument())
+  })
+
+  it('lets leaders enable student return sounds while priests only see the setting', async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) })
+    vi.stubGlobal('fetch', request)
+    const { rerender } = render(<DigitalExamMonitor examId="exam" />)
+    expect(screen.getByText('Student return sound: Off')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Enable student return sound' }))
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1))
+    expect(JSON.parse(request.mock.calls[0][1].body)).toEqual({ action: 'studentSound', enabled: true })
+    mocks.data = structuredClone(mocks.data)
+    mocks.data!.canManage = false
+    mocks.data!.sheet!.studentReturnSoundEnabled = true
+    rerender(<DigitalExamMonitor examId="exam" />)
+    expect(screen.getByText('Student return sound: On')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Disable student return sound' })).not.toBeInTheDocument()
   })
 
 })
