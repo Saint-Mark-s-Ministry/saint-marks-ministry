@@ -68,6 +68,28 @@ export async function PATCH(
 
     if (sortOrder !== undefined) updateData.sortOrder = Number(sortOrder) || 0
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
+    if (body.isElementary !== undefined) {
+      const nextIsElementary = Boolean(body.isElementary)
+      if (nextIsElementary) {
+        const current = await prisma.sundaySchoolAgeGroup.findUnique({
+          where: { id },
+          select: { sundaySchoolYearId: true },
+        })
+        if (!current) return NextResponse.json({ error: "Age group not found" }, { status: 404 })
+        const existingElementary = await prisma.sundaySchoolAgeGroup.findFirst({
+          where: {
+            id: { not: id },
+            isElementary: true,
+            sundaySchoolYearId: current.sundaySchoolYearId,
+          },
+          select: { id: true },
+        })
+        if (existingElementary) {
+          return NextResponse.json({ error: "Only one Elementary age group is allowed" }, { status: 409 })
+        }
+      }
+      updateData.isElementary = nextIsElementary
+    }
 
     const updated = await prisma.sundaySchoolAgeGroup.update({
       where: { id },

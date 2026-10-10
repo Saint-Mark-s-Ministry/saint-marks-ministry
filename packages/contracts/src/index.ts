@@ -8,6 +8,7 @@ export type {
   SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
   SundaySchoolPhoneCallOutcome,
+  SundaySchoolHomeworkCompletionStatus,
   UserRole,
   RoleTag,
 } from "@prisma/client";
