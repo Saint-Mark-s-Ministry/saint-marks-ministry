@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { randomExamAlertSound } from '@/lib/exam-alert-sound'
 import { ANSWER_CHOICES } from '@/lib/digital-exams'
 import { formatDateUTC } from '@/lib/utils'
 
@@ -56,6 +57,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
       setAlerts(previous => [{ event, name: event.name, studentId: event.studentId }, ...previous].slice(0, 8))
       toast.warning(`${event.name}: ${message.title}`)
       if (sound && audio.current?.paused) {
+        audio.current.src = randomExamAlertSound()
         audio.current.currentTime = 0
         void audio.current.play().catch((error: unknown) => {
           if (error instanceof DOMException && error.name === 'AbortError') return
@@ -68,7 +70,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
   useEffect(() => () => { audio.current?.pause() }, [])
   function toggleSound() {
     if (sound) { audio.current?.pause(); if (audio.current) audio.current.currentTime = 0; setSound(false); return }
-    audio.current ??= new Audio('/sounds/uh-oh.wav')
+    audio.current ??= new Audio(randomExamAlertSound())
     audio.current.preload = 'auto'
     audio.current.volume = 1
     audio.current.currentTime = 0
@@ -86,7 +88,7 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
       const response = await fetch(`/api/digital-exams/${examId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: name, ...payload }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Could not update the exam.')
-      toast.success(name === 'studentSound' ? `Student return sound ${payload.enabled ? 'enabled' : 'disabled'}` : name === 'ready' ? 'Exam ready to open; grades and history preserved' : name === 'retake' ? 'Individual retake approved; previous grade and history preserved' : name === 'reset' ? 'Test opening reset; answer key and grades preserved' : name === 'configure' ? 'Answer sheet setup saved' : name === 'unlock' ? 'Student unlocked' : name === 'release' ? 'Results released' : name === 'open' ? 'Exam opened' : 'Exam closed and saved answers submitted')
+      toast.success(name === 'ready' ? 'Exam ready to open; grades and history preserved' : name === 'retake' ? 'Individual retake approved; previous grade and history preserved' : name === 'reset' ? 'Test opening reset; answer key and grades preserved' : name === 'configure' ? 'Answer sheet setup saved' : name === 'unlock' ? 'Student unlocked' : name === 'release' ? 'Results released' : name === 'open' ? 'Exam opened' : 'Exam closed and saved answers submitted')
       await mutate()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not update the exam.') }
     finally { setBusy(false); setConfirm(null); setRetake(null) }
@@ -108,7 +110,6 @@ export function DigitalExamMonitor({ examId }: { examId: string }) {
     {sheet && <>
       <Panel title="Live monitoring" description="Activity flags support proctor review; they do not establish cheating." actions={<Button variant="outline" size="sm" onClick={toggleSound}>{sound ? 'Mute alert sound' : 'Enable alert sound'}</Button>} bodyClassName="p-4">
         <div className="flex flex-wrap gap-5 text-sm"><span>{started}/{roster.filter(r => r.eligible).length} started</span><span>{paused} paused</span><span>{submitted} submitted</span><span className={live ? 'text-ok' : 'text-ink-3'}>{live ? 'Live alerts connected · Refresh backup active' : 'Monitoring refreshes every 2 seconds'}</span></div>
-        <div className="mt-3 flex flex-wrap items-center gap-3"><span className="text-sm">Student return sound: {sheet.studentReturnSoundEnabled ? 'On' : 'Off'}</span>{manage && <Button variant="outline" size="sm" disabled={busy} onClick={() => void action('studentSound', { enabled: !sheet.studentReturnSoundEnabled })}>{sheet.studentReturnSoundEnabled ? 'Disable student return sound' : 'Enable student return sound'}</Button>}</div>
         {sheet.releasedAt && <p className="mt-3 text-sm text-ok">Results released {new Date(sheet.releasedAt).toLocaleString()}</p>}
         {alerts.length > 0 && <div role="log" aria-live="polite" className="mt-4 rounded-md border border-warn/30 bg-warn/10 p-3"><div className="mb-2 flex justify-between"><strong className="text-sm">Recent alerts</strong><button className="text-xs underline" onClick={() => setAlerts([])}>Dismiss</button></div>{alerts.map(alert => {
           const current = roster.find(row => row.student.id === alert.studentId)?.attempt

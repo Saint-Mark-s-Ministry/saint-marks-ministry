@@ -17,3 +17,7 @@ Public preview: https://cdn.freesound.org/previews/445/445964_9159316-hq.mp3
 License: CC0 (public domain), verified on the source page on October 9, 2026.
 The recording is bundled locally; there are no third-party audio requests during an exam.
 The original donkey MP3 above remains for compatibility with previously deployed pages.
+
+## Deep alternate alert
+
+`oh-no.wav` is an original synthesized “Oh, noooooo” generated locally using the macOS Ralph voice, slowed to lower its pitch, with a crossfaded sustained final vowel, and normalized to 98% peak amplitude. It is bundled locally alongside `uh-oh.wav`; each proctor alert chooses either clip with equal probability. No remote speech service or browser speech synthesis is used during exams. Student devices do not play either clip.
