@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -11,7 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { ChildPhotoField } from '@/components/sunday-school-child-photo'
+import { ContactLink } from '@/components/contact-link'
+import { FilterSelect } from '@/components/ui/filter-select'
 import {
   Dialog,
   DialogContent,
@@ -25,16 +31,18 @@ import {
   useSundaySchoolChildren,
   useSundaySchoolClasses,
   useSundaySchoolFamilies,
+  useSundaySchoolAgeGroups,
 } from '@/lib/swr'
-import { getChildFullName, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, LEVEL_ORDER, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type {
   SundaySchoolChild,
   SundaySchoolClass,
   SundaySchoolFamily,
 } from '@/types/sunday-school'
 import { SundaySchoolChildGender, SundaySchoolLevel } from '@prisma/client'
-import { Check, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
+import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
 
 const NEW_FAMILY_ID = '__new__'
 
@@ -44,6 +52,12 @@ interface ChildForm {
   gender: SundaySchoolChildGender | ''
   level: SundaySchoolLevel
   classId: string
+  birthDate: string
+  guardianName: string
+  guardianPhone: string
+  guardianEmail: string
+  cellPhone: string
+  fatherOfConfession: string
   familyId: string
   familyName: string
   homeAddress: string
@@ -63,6 +77,12 @@ const EMPTY_FORM: ChildForm = {
   gender: '',
   level: 'GRADE_1',
   classId: '',
+  birthDate: '',
+  guardianName: '',
+  guardianPhone: '',
+  guardianEmail: '',
+  cellPhone: '',
+  fatherOfConfession: '',
   familyId: NEW_FAMILY_ID,
   familyName: '',
   homeAddress: '',
@@ -95,59 +115,16 @@ function familyFormFields(family?: SundaySchoolFamily | null) {
   }
 }
 
-function CopyableValue({
-  value,
-  label,
-  className = '',
-}: {
-  value: string
-  label: string
-  className?: string
-}) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
-    } catch {
-      toast.error(`Could not copy ${label.toLowerCase()}`)
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={`Copy ${label}`}
-      title={`Copy ${label}`}
-      className={`group -mx-2 inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-        copied
-          ? 'bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-300'
-          : 'hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100'
-      } ${className}`}
-    >
-      <span className="min-w-0 break-words">{value}</span>
-      {copied && (
-        <span
-          aria-live="polite"
-          className="inline-flex shrink-0 items-center gap-1 text-xs text-green-600 dark:text-green-400"
-        >
-          <Check className="h-3.5 w-3.5 animate-in zoom-in-50 duration-200" />
-          <span className="animate-in fade-in slide-in-from-left-1 duration-200">Copied</span>
-        </span>
-      )}
-    </button>
-  )
-}
-
 function SundaySchoolChildrenContent() {
   const { status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData } = useSundaySchoolClasses()
-  const classes = useMemo(() => (classesData as SundaySchoolClass[] | undefined) ?? [], [classesData])
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
+  const classes = useMemo(() => sortClassesByAgeGroup(
+    (classesData as SundaySchoolClass[] | undefined) ?? [],
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+  ), [ageGroupsData, classesData])
   const { data: familiesData, mutate: mutateFamilies } = useSundaySchoolFamilies()
   const families = useMemo(
     () => (familiesData as SundaySchoolFamily[] | undefined) ?? [],
@@ -155,13 +132,15 @@ function SundaySchoolChildrenContent() {
   )
 
   const [selectedClassId, setSelectedClassId] = useState('')
-  const { data, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
+  const { data, error: rosterError, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingPhoto, setEditingPhoto] = useState<{ photoUrl: string | null; accountPhotoUrl: string | null }>({ photoUrl: null, accountPhotoUrl: null })
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
+  const [rosterSearch, setRosterSearch] = useState('')
 
   // Editing a roster follows from serving that class, which the server decides
   const selectedClass = classes.find(c => c.id === selectedClassId)
@@ -189,12 +168,19 @@ function SundaySchoolChildrenContent() {
 
   const openEdit = (child: SundaySchoolChild) => {
     setEditingId(child.id)
+    setEditingPhoto({ photoUrl: child.photoUrl ?? null, accountPhotoUrl: child.user?.profileImageUrl ?? null })
     setForm({
       firstName: child.firstName,
       lastName: child.lastName,
       gender: child.gender ?? '',
       level: child.level,
       classId: child.classId ?? '',
+      birthDate: child.birthDate ? child.birthDate.slice(0, 10) : '',
+      guardianName: child.guardianName ?? '',
+      guardianPhone: child.guardianPhone ?? '',
+      guardianEmail: child.guardianEmail ?? '',
+      cellPhone: child.cellPhone ?? '',
+      fatherOfConfession: child.fatherOfConfession ?? '',
       familyId: child.familyId ?? NEW_FAMILY_ID,
       ...familyFormFields(child.family),
       linkedUserEmail: child.user?.email ?? '',
@@ -282,7 +268,7 @@ function SundaySchoolChildrenContent() {
   }
 
   const handleDelete = async (child: SundaySchoolChild) => {
-    if (!confirm(`Remove ${getChildFullName(child)} from the roster? This also deletes their attendance history.`)) {
+    if (!confirm(`Remove ${getChildFullName(child)} from the roster? Their attendance history is kept and they can be restored by an admin.`)) {
       return
     }
 
@@ -305,190 +291,195 @@ function SundaySchoolChildrenContent() {
 
   const children = (data as SundaySchoolChild[] | undefined) ?? []
   const selectedFormFamily = families.find(family => family.id === form.familyId)
+  // A class only accepts children at its own grade, so offering every class
+  // would just produce a server-side rejection.
+  const classesForLevel = classes.filter(cls => cls.level === form.level)
+
+  const visibleChildren = children.filter(
+    (child) => !rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase())
+  )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
           title="Roster"
-          description="Roster, family connections, and contact details for the children in your class."
+          meta={['Children, family connections and contact details for your class']}
           actions={
             canManage && classes.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <SundaySchoolRosterImport
-                  classId={selectedClassId}
-                  className={selectedClass?.name ?? 'this class'}
-                  onSuccess={async () => {
-                    await Promise.all([mutate(), mutateFamilies()])
-                  }}
-                />
-                <Button onClick={openCreate}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add child
-                </Button>
-              </div>
+              <Button onClick={openCreate}>
+                <Plus />
+                Add child
+              </Button>
             ) : undefined
           }
         />
 
         {classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="You are not assigned to any Sunday School class yet." />
-            </CardContent>
-          </Card>
+          <Panel>
+            <EmptyState message="You are not assigned to a Sunday School class yet. Ask your coordinator to add you." />
+          </Panel>
         ) : (
-          <>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-2 max-w-sm">
-                  <Label htmlFor="class-filter">Class</Label>
-                  <select
-                    id="class-filter"
+          <Panel
+            toolbar={
+              <>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Class
+                  <FilterSelect
+                    aria-label="Class"
                     value={selectedClassId}
-                    onChange={e => setSelectedClassId(e.target.value)}
-                    className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
-                  >
-                    {classes.map(cls => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} — {getLevelDisplayName(cls.level)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                {isLoading ? (
-                  <p className="text-center py-8 text-gray-500">Loading roster…</p>
-                ) : children.length === 0 ? (
-                  <EmptyState message="No children on this roster yet." />
-                ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {children.map(child => (
-                      <div
-                        key={child.id}
-                        className="grid grid-cols-1 gap-3 py-3 sm:grid-cols-[minmax(16rem,24rem)_minmax(0,1fr)_auto] sm:items-center"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`font-medium ${child.isActive ? '' : 'text-gray-400 line-through'}`}>
-                              {getChildFullName(child)}
-                            </p>
-                            <Badge variant="secondary">{getLevelDisplayName(child.level)}</Badge>
-                            {child.gender && (
-                              <Badge variant="outline">{child.gender === 'MALE' ? 'Boy' : 'Girl'}</Badge>
-                            )}
-                          </div>
-                          {child.family ? (
-                            <div className="mt-1 space-y-0.5 text-sm text-gray-600 dark:text-gray-400">
-                              {(child.family.motherName || child.family.motherPhone) && (
-                                <div className="flex flex-wrap items-center gap-x-1">
-                                  <span>Mother: {child.family.motherName ?? '—'}</span>
-                                  {child.family.motherPhone && (
-                                    <>
-                                      <span>·</span>
-                                      <CopyableValue
-                                        value={child.family.motherPhone}
-                                        label="mother's phone number"
-                                        className="py-0.5"
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                              {(child.family.fatherName || child.family.fatherPhone) && (
-                                <div className="flex flex-wrap items-center gap-x-1">
-                                  <span>Father: {child.family.fatherName ?? '—'}</span>
-                                  {child.family.fatherPhone && (
-                                    <>
-                                      <span>·</span>
-                                      <CopyableValue
-                                        value={child.family.fatherPhone}
-                                        label="father's phone number"
-                                        className="py-0.5"
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 text-primary hover:underline"
-                                onClick={() => setViewingFamily(child.family ?? null)}
-                              >
-                                <Users className="h-3.5 w-3.5" />
-                                View {getFamilyDisplayName(child.family)}
-                                {child.family.children.length > 1 && (
-                                  <span>
-                                    · {child.family.children.length - 1}{' '}
-                                    {child.family.children.length === 2 ? 'sibling' : 'siblings'}
-                                  </span>
-                                )}
-                              </button>
-                            </div>
-                          ) : (child.guardianName || child.guardianPhone) ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-gray-600 dark:text-gray-400">
-                              <span>Guardian: {child.guardianName ?? '—'}</span>
-                              {child.guardianPhone && (
-                                <>
-                                  <span>·</span>
-                                  <CopyableValue
-                                    value={child.guardianPhone}
-                                    label="guardian's phone number"
-                                    className="py-0.5"
-                                  />
-                                </>
-                              )}
-                            </div>
-                          ) : null}
-                          {child.user && (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-green-700 dark:text-green-400">
-                              <span>Student account:</span>
-                              <CopyableValue value={child.user.email} label="student email" className="py-0.5" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 sm:px-4">
-                          {child.notes ? (
-                            <p
-                              className="truncate text-sm text-gray-600 dark:text-gray-300"
-                              title={child.notes}
-                            >
-                              <span className="font-medium text-gray-500 dark:text-gray-400">Note:</span>{' '}
-                              {child.notes}
-                            </p>
-                          ) : canManage ? (
-                            <button
-                              type="button"
-                              className="text-sm text-gray-400 transition-colors hover:text-primary"
-                              onClick={() => openEdit(child)}
-                            >
-                              Add note
-                            </button>
-                          ) : (
-                            <p className="text-sm text-gray-400">No note</p>
-                          )}
-                        </div>
-                        {canManage && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(child)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(child)}>
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    onChange={setSelectedClassId}
+                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                  />
+                </label>
+                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" />
+                {canManage && (
+                  <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                    <SundaySchoolRosterImport
+                      classId={selectedClassId}
+                      className={selectedClass?.name ?? 'this class'}
+                      onSuccess={async () => {
+                        await Promise.all([mutate(), mutateFamilies()])
+                      }}
+                    />
+                    <SundaySchoolRosterLinkDialog
+                      classId={selectedClassId}
+                      className={selectedClass?.name ?? 'this class'}
+                      onSuccess={async () => {
+                        await Promise.all([mutate(), mutateFamilies()])
+                      }}
+                    />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </>
+              </>
+            }
+            footer={<span className="tabular">{visibleChildren.length} children</span>}
+          >
+            {isLoading ? (
+              <EmptyState message="Loading roster…" />
+            ) : rosterError ? (
+              // Never show "no children" when the roster failed to load: it invites re-adding them.
+              <EmptyState
+                title="Couldn’t load this roster"
+                message="Something went wrong on our side. Try again in a moment; if it keeps happening, tell a super admin."
+                action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>}
+              />
+            ) : visibleChildren.length === 0 ? (
+              <EmptyState message={children.length === 0 ? (canManage ? 'No children yet. Add one, import a roster, or share the sign-up link.' : 'No children on this roster yet.') : 'No children match.'} />
+            ) : (
+              <ul className="divide-y divide-line">
+                {visibleChildren.map((child) => (
+                  <li
+                    key={child.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(0,14rem)_auto] lg:items-center"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
+                      <div className="flex min-w-0 flex-col leading-tight">
+                        <span className={`truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                          {getChildFullName(child)}
+                        </span>
+                        <span className="text-xs text-ink-3">
+                          {getLevelDisplayName(child.level)}
+                          {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
+                      {child.cellPhone && (
+                        <span className="mb-0.5 flex flex-wrap items-center gap-x-1">
+                          Child: <ContactLink kind="phone" value={child.cellPhone} name={getChildFullName(child)} label="child's cell number" />
+                        </span>
+                      )}
+                      {child.family ? (
+                        <div className="flex flex-col gap-0.5">
+                          {(child.family.motherName || child.family.motherPhone) && (
+                            <span className="flex flex-wrap items-center gap-x-1">
+                              Mother: {child.family.motherName ?? '—'}
+                              {child.family.motherPhone && (
+                                <>
+                                  <span aria-hidden>·</span>
+                                  <ContactLink kind="phone" value={child.family.motherPhone} name={child.family.motherName} label="mother's phone number" />
+                                </>
+                              )}
+                            </span>
+                          )}
+                          {(child.family.fatherName || child.family.fatherPhone) && (
+                            <span className="flex flex-wrap items-center gap-x-1">
+                              Father: {child.family.fatherName ?? '—'}
+                              {child.family.fatherPhone && (
+                                <>
+                                  <span aria-hidden>·</span>
+                                  <ContactLink kind="phone" value={child.family.fatherPhone} name={child.family.fatherName} label="father's phone number" />
+                                </>
+                              )}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="inline-flex w-fit cursor-pointer items-center gap-1 text-accent-ink hover:underline"
+                            onClick={() => setViewingFamily(child.family ?? null)}
+                          >
+                            <House className="size-3.5" aria-hidden />
+                            {getFamilyDisplayName(child.family)}
+                            {child.family.children.length > 1 &&
+                              ` · ${child.family.children.length - 1} ${child.family.children.length === 2 ? 'sibling' : 'siblings'}`}
+                          </button>
+                        </div>
+                      ) : child.guardianName || child.guardianPhone ? (
+                        <span className="flex flex-wrap items-center gap-x-1">
+                          Guardian: {child.guardianName ?? '—'}
+                          {child.guardianPhone && (
+                            <>
+                              <span aria-hidden>·</span>
+                              <ContactLink kind="phone" value={child.guardianPhone} name={child.guardianName} label="guardian's phone number" />
+                            </>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-ink-3">No family on file</span>
+                      )}
+                      {child.notes && (
+                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
+                          Note: {child.notes}
+                        </p>
+                      )}
+                      {child.fatherOfConfession && (
+                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.fatherOfConfession}>
+                          Father of confession: {child.fatherOfConfession}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="order-4 col-span-2 min-w-0 lg:order-none lg:col-span-1">
+                      {child.user ? (
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge tone="ok">Linked</StatusBadge>
+                          <ContactLink kind="email" value={child.user.email} name={getChildFullName(child)} label="student email" className="text-xs" />
+                        </span>
+                      ) : (
+                        <StatusBadge tone="neutral">No account</StatusBadge>
+                      )}
+                    </div>
+
+                    {canManage ? (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${getChildFullName(child)}`} onClick={() => openEdit(child)}>
+                          <Pencil />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" aria-label={`Remove ${getChildFullName(child)}`} className="hover:text-bad" onClick={() => handleDelete(child)}>
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
         )}
       </div>
 
@@ -497,10 +488,24 @@ function SundaySchoolChildrenContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? 'Edit child' : 'Add a child'}</DialogTitle>
             <DialogDescription>
-              Family contact is only visible to the servants of this class and to leaders.
+              Family contact is only visible to the servants of this class and authorized administrators.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {editingId ? (
+              <ChildPhotoField
+                childId={editingId}
+                name={`${form.firstName} ${form.lastName}`.trim()}
+                photoUrl={editingPhoto.photoUrl}
+                accountPhotoUrl={editingPhoto.accountPhotoUrl}
+                onChange={(photoUrl) => {
+                  setEditingPhoto((prev) => ({ ...prev, photoUrl }))
+                  mutate()
+                }}
+              />
+            ) : (
+              <p className="text-xs text-ink-3">You can add a photo after saving the child.</p>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name</Label>
@@ -542,7 +547,16 @@ function SundaySchoolChildrenContent() {
                 <select
                   id="child-level"
                   value={form.level}
-                  onChange={e => setForm(prev => ({ ...prev, level: e.target.value as SundaySchoolLevel }))}
+                  onChange={e => {
+                    const level = e.target.value as SundaySchoolLevel
+                    setForm(prev => ({
+                      ...prev,
+                      level,
+                      classId: classes.find(cls => cls.id === prev.classId)?.level === level
+                        ? prev.classId
+                        : classes.find(cls => cls.level === level)?.id ?? '',
+                    }))
+                  }}
                   className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
                 >
                   {LEVEL_ORDER.map(level => (
@@ -560,12 +574,91 @@ function SundaySchoolChildrenContent() {
                   onChange={e => setForm(prev => ({ ...prev, classId: e.target.value }))}
                   className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
                 >
-                  {classes.map(cls => (
+                  <option value="">No class yet</option>
+                  {classesForLevel.map(cls => (
                     <option key={cls.id} value={cls.id}>
                       {cls.name}
                     </option>
                   ))}
                 </select>
+                {classesForLevel.length === 0 && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    You do not serve a class at this grade.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
+              <p className="font-medium">Child details</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="birthDate">Date of birth</Label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={form.birthDate}
+                    onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cellPhone">Child&apos;s cell number</Label>
+                  <Input
+                    id="cellPhone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="Only if they have their own phone"
+                    maxLength={50}
+                    value={form.cellPhone}
+                    onChange={e => setForm(prev => ({ ...prev, cellPhone: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fatherOfConfession">Father of confession</Label>
+                <Input
+                  id="fatherOfConfession"
+                  placeholder="Name"
+                  maxLength={200}
+                  value={form.fatherOfConfession}
+                  onChange={e => setForm(prev => ({ ...prev, fatherOfConfession: e.target.value }))}
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Date of birth also helps distinguish children with the same name during roster imports.
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
+              <p className="font-medium">Guardian contact</p>
+              <p className="text-xs text-gray-500">
+                Used when a child has no family record — this is what a roster CSV and a
+                sign-up QR collect.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Input
+                  aria-label="Guardian name"
+                  placeholder="Name"
+                  maxLength={200}
+                  value={form.guardianName}
+                  onChange={e => setForm(prev => ({ ...prev, guardianName: e.target.value }))}
+                />
+                <Input
+                  aria-label="Guardian phone"
+                  placeholder="Phone"
+                  maxLength={50}
+                  value={form.guardianPhone}
+                  onChange={e => setForm(prev => ({ ...prev, guardianPhone: e.target.value }))}
+                />
+                <Input
+                  aria-label="Guardian email"
+                  type="email"
+                  placeholder="Email"
+                  value={form.guardianEmail}
+                  onChange={e => setForm(prev => ({ ...prev, guardianEmail: e.target.value }))}
+                />
               </div>
             </div>
 
@@ -744,11 +837,14 @@ function SundaySchoolChildrenContent() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">Home address</p>
                       {viewingFamily.homeAddress ? (
-                        <CopyableValue
-                          value={viewingFamily.homeAddress}
-                          label="home address"
-                          className="mt-1 text-sm text-gray-600 sm:whitespace-nowrap dark:text-gray-400"
-                        />
+                        <div className="mt-1 text-sm">
+                          <ContactLink
+                            kind="address"
+                            value={viewingFamily.homeAddress}
+                            name={getFamilyDisplayName(viewingFamily)}
+                            label="home address"
+                          />
+                        </div>
                       ) : (
                         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                           No address added yet.
@@ -765,15 +861,17 @@ function SundaySchoolChildrenContent() {
                       <p>{viewingFamily.motherName || 'Not added'}</p>
                       {viewingFamily.motherPhone && (
                         <div>
-                          <CopyableValue
+                          <ContactLink
+                            kind="phone"
                             value={viewingFamily.motherPhone}
+                            name={viewingFamily.motherName}
                             label="mother's phone number"
                           />
                         </div>
                       )}
                       {viewingFamily.motherEmail && (
                         <div>
-                          <CopyableValue value={viewingFamily.motherEmail} label="mother's email" />
+                          <ContactLink kind="email" value={viewingFamily.motherEmail} name={viewingFamily.motherName} label="mother's email" />
                         </div>
                       )}
                     </div>
@@ -784,15 +882,17 @@ function SundaySchoolChildrenContent() {
                       <p>{viewingFamily.fatherName || 'Not added'}</p>
                       {viewingFamily.fatherPhone && (
                         <div>
-                          <CopyableValue
+                          <ContactLink
+                            kind="phone"
                             value={viewingFamily.fatherPhone}
+                            name={viewingFamily.fatherName}
                             label="father's phone number"
                           />
                         </div>
                       )}
                       {viewingFamily.fatherEmail && (
                         <div>
-                          <CopyableValue value={viewingFamily.fatherEmail} label="father's email" />
+                          <ContactLink kind="email" value={viewingFamily.fatherEmail} name={viewingFamily.fatherName} label="father's email" />
                         </div>
                       )}
                     </div>

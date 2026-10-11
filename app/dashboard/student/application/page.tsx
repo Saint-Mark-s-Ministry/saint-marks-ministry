@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Download, Loader2, Upload } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle2, Circle, Download, Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { mutate } from 'swr'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -113,7 +114,10 @@ export default function CompleteApplicationPage() {
       setShowApprovalForm(data.showApprovalForm)
       setAnnualMentorRequired(data.annualMentorRequired)
       setAcademicYear(data.academicYear)
-      if (data.complete) void mutate('/api/notifications?limit=15')
+      if (data.complete) {
+        void mutate('/api/notifications?limit=15')
+        void mutate('/api/registration/application')
+      }
       toast.success(
         annualMentorRequired
           ? 'Mentor information confirmed'
@@ -142,40 +146,37 @@ export default function CompleteApplicationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
         <PageHeader
-          title={annualMentorRequired ? 'Confirm Your Mentor Information' : 'Complete Your Application'}
-          description={annualMentorRequired
-            ? `Confirm your mentor servant contact information for ${academicYear?.name ?? 'the current academic year'}.`
-            : 'Add the remaining church and mentor information after your registration was approved.'}
+          title={annualMentorRequired ? 'Confirm your mentor' : 'Application'}
+          meta={[annualMentorRequired
+            ? `Confirm your mentor servant’s contact information for ${academicYear?.name ?? 'the current academic year'}`
+            : 'Complete the rest of your Servants Prep application']}
         />
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="flex min-w-0 flex-col gap-5">
 
         {complete ? (
-          <Card className="border-green-300 bg-green-50/70 dark:border-green-800 dark:bg-green-950/40">
-            <CardContent className="flex items-start gap-3 pt-6">
-              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-700" />
+          <div role="status" className="flex items-start gap-3 rounded-lg bg-ok-tint px-4 py-3 text-ok">
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
               <div>
-                <p className="font-semibold text-green-900">
+                <p className="font-semibold">
                   {annualMentorRequired ? 'Your mentor information is confirmed.' : 'Your application is complete.'}
                 </p>
-                <p className="mt-1 text-sm text-green-800">
+                <p className="mt-0.5 text-[13px] text-ink-2">
                   {annualMentorRequired
                     ? `You are up to date for ${academicYear?.name ?? 'the current academic year'}.`
                     : 'The application reminder has been cleared.'}
                 </p>
               </div>
-            </CardContent>
-          </Card>
+          </div>
         ) : (
-          <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/40">
-            <CardContent className="flex items-start gap-3 pt-6">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
-              <p className="text-sm text-amber-900">
-                This reminder cannot be dismissed until all sections below are complete.
+          <div role="status" className="flex items-start gap-3 rounded-lg bg-warn-tint px-4 py-3 text-warn">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+              <p className="text-[13px]">
+                <strong>Finish your application.</strong> This reminder cannot be dismissed until all sections below are complete.
               </p>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
         <form onSubmit={saveApplication} className="space-y-6">
@@ -238,8 +239,8 @@ export default function CompleteApplicationPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={saving} className="bg-maroon-600 hover:bg-maroon-700">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="animate-spin" />}
                 {annualMentorRequired ? 'Confirm mentor information' : 'Save application details'}
               </Button>
             </CardContent>
@@ -256,28 +257,28 @@ export default function CompleteApplicationPage() {
               href="https://drive.google.com/file/d/1ebGILBc8OAAPaTWbpmwLDDqjEm-lnbQ7/view?usp=drivesdk"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-maroon-700 hover:underline"
+              className="inline-flex w-fit items-center gap-1.5 text-[13px] font-medium text-accent-ink hover:underline"
             >
-              <Download className="h-4 w-4" />
-              Download Approval Form Template
+              <Download className="size-4" />
+              Download approval form template
             </a>
             {details.approvalFormUrl ? (
-              <div className="flex flex-col gap-3 rounded-lg border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-green-900">
+              <div className="flex flex-col gap-3 rounded-md bg-ok-tint px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-ok">
                   <CheckCircle2 className="h-5 w-5" />
                   {details.approvalFormFilename}
                 </div>
-                <a className="text-sm text-maroon-700 hover:underline" href={details.approvalFormUrl} target="_blank" rel="noopener noreferrer">
+                <a className="text-[13px] text-accent-ink hover:underline" href={details.approvalFormUrl} target="_blank" rel="noopener noreferrer">
                   View uploaded form
                 </a>
               </div>
             ) : (
-              <p className="text-sm text-amber-800">No approval form has been uploaded yet.</p>
+              <p className="text-[13px] text-warn">No approval form has been uploaded yet.</p>
             )}
 
             <div>
-              <Label htmlFor="approval-form" className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-maroon-600 px-4 py-2 text-sm font-medium text-white hover:bg-maroon-700">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              <Label htmlFor="approval-form" className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-md border border-brand bg-brand px-4 text-[15px] font-medium text-white hover:bg-brand-hover md:h-8 md:px-3 md:text-[13px]">
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                 {details.approvalFormUrl ? 'Replace form' : 'Upload form'}
               </Label>
               <Input
@@ -288,10 +289,34 @@ export default function CompleteApplicationPage() {
                 onChange={uploadApprovalForm}
                 disabled={uploading}
               />
-              <p className="mt-2 text-xs text-gray-500">PNG, JPG, GIF, or PDF (maximum 4.5 MB)</p>
+              <p className="mt-2 text-xs text-ink-3">PNG, JPG, GIF, or PDF (maximum 4.5 MB)</p>
             </div>
           </CardContent>
         </Card>}
+      </div>
+
+      <Panel title="Progress">
+        <ol className="flex flex-col gap-0.5 px-4 py-3">
+          {[
+            { label: 'Registration approved', done: true },
+            { label: 'Mentor servant', done: Boolean(details.mentorName && details.mentorEmail && details.mentorPhone) },
+            ...(showChurchInformation || details.fatherOfConfessionName ? [{ label: 'Father of confession', done: Boolean(details.fatherOfConfessionName) }] : []),
+            ...(showApprovalForm || details.approvalFormUrl ? [{ label: 'Approval form', done: Boolean(details.approvalFormUrl) }] : []),
+          ].map((step) => (
+            <li key={step.label} className="flex min-h-9 items-center gap-2.5 text-[13px]">
+              {step.done ? (
+                <span className="flex size-5 items-center justify-center rounded-full bg-ok text-white dark:text-canvas">
+                  <Check className="size-3" strokeWidth={3} aria-hidden />
+                </span>
+              ) : (
+                <Circle className="size-5 text-line-strong" aria-hidden />
+              )}
+              <span className={step.done ? 'text-ink' : 'text-ink-2'}>{step.label}</span>
+              <span className="sr-only">{step.done ? 'done' : 'to do'}</span>
+            </li>
+          ))}
+        </ol>
+      </Panel>
       </div>
     </div>
   )

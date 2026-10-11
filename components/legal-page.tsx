@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import { FileText, ShieldCheck } from 'lucide-react'
-import { FadeIn } from '@/components/fade-in'
 import { LegalHeader } from '@/components/legal-header'
 import { LegalBackLink } from '@/components/legal-back-link'
+import { PublicFooter } from '@/components/ds/public-frame'
 
 interface LegalSection {
   title: string
@@ -17,48 +16,61 @@ interface LegalPageProps {
   sections: LegalSection[]
 }
 
-export function LegalPage({ eyebrow, title, description, lastUpdated, sections }: LegalPageProps) {
-  const Icon = eyebrow === 'Privacy' ? ShieldCheck : FileText
+const slug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
 
+/** Privacy and Terms: a table of contents beside numbered sections (design: "Privacy Policy · Terms"). */
+export function LegalPage({ eyebrow, title, description, lastUpdated, sections }: LegalPageProps) {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-full bg-canvas text-ink">
       <LegalHeader />
 
-      <main className="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-24">
-        <LegalBackLink />
-
-        <FadeIn>
-          <div className="mb-16 sm:mb-20">
-            <div className="mb-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-maroon-700 dark:text-maroon-300">
-              <Icon className="h-3.5 w-3.5" />
-              {eyebrow}
-            </div>
-            <h1 className="max-w-3xl text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-              {title}
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-gray-600 sm:text-lg">
-              {description}
-            </p>
-            <p className="mt-8 text-sm text-gray-500">Last updated: {lastUpdated}</p>
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-8 md:px-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:py-12">
+        <nav aria-label="On this page" className="hidden lg:block">
+          <div className="sticky top-20 flex flex-col gap-1">
+            <p className="mb-1 px-2.5 text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">On this page</p>
+            {sections.map((section) => (
+              <a
+                key={section.title}
+                href={`#${slug(section.title)}`}
+                className="rounded-md px-2.5 py-1.5 text-[13px] leading-snug text-ink-2 no-underline hover:bg-hover hover:text-ink"
+              >
+                {section.title}
+              </a>
+            ))}
           </div>
-        </FadeIn>
+        </nav>
 
-        <article className="space-y-12 sm:space-y-14">
-          {sections.map((section, index) => (
-            <FadeIn key={section.title} delay={Math.min(index * 0.035, 0.18)}>
-              <section>
-                <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+        <main id="main" className="min-w-0 max-w-3xl">
+          <LegalBackLink />
+          <p className="text-xs font-medium tracking-[0.06em] text-accent-ink uppercase">
+            St. Mark Church Ministry Portal · {eyebrow}
+          </p>
+          <h1 className="mt-2 font-display text-[38px] leading-tight font-medium tracking-[-0.01em] md:text-[44px]">{title}</h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-ink-2">{description}</p>
+          <p className="mt-2 text-[13px] text-ink-3">Last updated {lastUpdated}</p>
+
+          <article className="mt-10 flex flex-col gap-10">
+            {sections.map((section, index) => (
+              <section key={section.title} id={slug(section.title)} className="scroll-mt-20">
+                <h2 className="text-lg font-semibold tracking-tight">
                   {index + 1}. {section.title}
                 </h2>
-                <div className="mt-4 space-y-3 text-[15px] leading-7 text-gray-600 dark:text-gray-300">
+                <div className="mt-3 space-y-3 text-[15px] leading-7 text-ink-2 [&_a]:text-accent-ink [&_li]:ml-5 [&_ul]:list-disc">
                   {section.content}
                 </div>
               </section>
-            </FadeIn>
-          ))}
-        </article>
-      </main>
+            ))}
+          </article>
 
+          <div className="mt-14 border-t border-line pt-6">
+            <PublicFooter />
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

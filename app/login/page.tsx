@@ -3,12 +3,10 @@
 import { Suspense, useState, useEffect } from 'react'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
+import { PublicFrame, Field } from '@/components/ds/public-frame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 function GoogleIcon() {
   return (
@@ -24,9 +22,7 @@ function GoogleIcon() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
-      </div>
+      <div className="flex min-h-dvh items-center justify-center bg-canvas text-[13px] text-ink-3">Loading…</div>
     }>
       <LoginForm />
     </Suspense>
@@ -113,122 +109,85 @@ function LoginForm() {
   // Show loading state while checking session
   if (status === 'loading' || clearingInvalidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
-      </div>
+      <div className="flex min-h-dvh items-center justify-center bg-canvas text-[13px] text-ink-3">Loading…</div>
     )
   }
 
   // Don't render login form if already authenticated (will redirect)
   if (status === 'authenticated' && session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-lg text-gray-600 dark:text-gray-300">Redirecting...</div>
-      </div>
+      <div className="flex min-h-dvh items-center justify-center bg-canvas text-[13px] text-ink-3">Redirecting…</div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 dark:bg-gray-950">
-      <Card className="w-full max-w-md bg-[#5c1a1a] border-[#5c1a1a]">
-        <CardHeader className="space-y-4">
-          <div className="flex justify-center">
-            <Image
-              src="/sunday-school-favicon.png"
-              alt="St. Mark Coptic Orthodox Church"
-              width={144}
-              height={144}
-              className="h-32 w-32 object-contain drop-shadow-md"
-            />
-          </div>
-          <CardTitle className="text-2xl font-bold text-center text-white">
-            <h1>St. Mark Ministry Portal</h1>
-          </CardTitle>
-          <div className="flex flex-wrap justify-center gap-2" aria-label="Programs available in this portal">
-            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-              Servants Prep
-            </span>
-            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-              Sunday School
-            </span>
-          </div>
-          <CardDescription className="text-center text-gray-200">
-            Sign in once to access the ministries connected to your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading || googleLoading}
-                className="bg-background text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading || googleLoading}
-                className="bg-background text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-            {error && (
-              <div className="text-sm text-red-100 bg-red-900/50 p-3 rounded border border-red-800">
-                {error}
-              </div>
-            )}
-            <Button type="submit" className="w-full" disabled={loading || googleLoading}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-white/20" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#5c1a1a] px-2 text-gray-300">Or</span>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full bg-white text-gray-700 hover:bg-gray-50 border-gray-300"
-            onClick={handleGoogleSignIn}
+    <PublicFrame
+      title="Sign in"
+      badges={
+        <>
+          <span className="inline-flex h-[22px] items-center rounded-sm bg-accent-tint px-2 text-xs font-medium text-accent-ink">Servants Prep</span>
+          <span className="inline-flex h-[22px] items-center rounded-sm bg-gold-tint px-2 text-xs font-medium text-gold">Sunday School</span>
+        </>
+      }
+      description="Sign in once to access the ministries connected to your account."
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-[18px]">
+        <Field label="Email" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
             disabled={loading || googleLoading}
-          >
-            <GoogleIcon />
-            <span className="ml-2">{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
-          </Button>
+          />
+        </Field>
+        <Field label="Password" htmlFor="password">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading || googleLoading}
+          />
+        </Field>
+        <Link href="/forgot-password" className="-mt-2.5 self-end text-[13px] font-medium text-accent-ink no-underline hover:underline">
+          Forgot password?
+        </Link>
+        {error && (
+          <p role="alert" className="rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad">
+            {error}
+          </p>
+        )}
+        <Button type="submit" size="lg" className="w-full" disabled={loading || googleLoading}>
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
 
-          <div className="text-center text-sm text-gray-300 space-y-1 pt-2">
-            <p>New here?</p>
-            <p>
-              <Link href="/signup/parent" className="text-white underline hover:text-gray-200">
-                Register your child for Sunday School
-              </Link>
-            </p>
-            <p>
-              <Link href="/signup/servant" className="text-white underline hover:text-gray-200">
-                Sign up as a Sunday School servant
-              </Link>
-            </p>
-          </div>
+      <div className="flex items-center gap-2.5 text-xs text-ink-3" aria-hidden>
+        <span className="h-px flex-1 bg-line" />
+        or
+        <span className="h-px flex-1 bg-line" />
+      </div>
 
-        </CardContent>
-      </Card>
-    </div>
+      <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleGoogleSignIn} disabled={loading || googleLoading}>
+        <GoogleIcon />
+        {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
+      </Button>
+
+      <div className="flex flex-col items-center gap-1.5 pt-1 text-[13.5px]">
+        <span className="text-ink-3">New here?</span>
+        <Link href="/signup/parent" className="font-medium text-accent-ink no-underline hover:underline">
+          Register your child for Sunday School
+        </Link>
+        <Link href="/signup/servant" className="font-medium text-accent-ink no-underline hover:underline">
+          Sign up as a Sunday School servant
+        </Link>
+      </div>
+    </PublicFrame>
   )
 }

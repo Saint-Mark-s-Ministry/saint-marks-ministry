@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { SundaySchoolGrade } from "@prisma/client"
 import { canManageSundaySchool } from "@/lib/roles"
+import { rotationGradeForClassLevel } from "@/lib/sunday-school-utils"
 
 // PATCH /api/sunday-school/assignments/[id] - Update an assignment
-// Body: { grade?, totalWeeks?, startDate?, isActive? }
+// Body: { classId?, grade?, totalWeeks?, startDate?, isActive? } — a class sets the grade
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -19,9 +20,23 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { grade, totalWeeks, startDate, isActive } = body
+    const { classId, totalWeeks, startDate, isActive } = body
+    let { grade } = body
 
     const updateData: Record<string, unknown> = {}
+    if (classId !== undefined) {
+      if (classId) {
+        const ssClass = await prisma.sundaySchoolClass.findFirst({
+          where: { id: classId, isActive: true },
+          select: { level: true },
+        })
+        if (!ssClass) {
+          return NextResponse.json({ error: "Sunday School class not found" }, { status: 400 })
+        }
+        grade = rotationGradeForClassLevel(ssClass.level)
+      }
+      updateData.classId = classId || null
+    }
     if (grade !== undefined) {
       const validGrades = Object.values(SundaySchoolGrade)
       if (!validGrades.includes(grade as SundaySchoolGrade)) {
@@ -49,7 +64,7 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      parsed.setHours(0, 0, 0, 0)
+      parsed.setUTCHours(0, 0, 0, 0) // a date-only value is UTC midnight; keep that day
       updateData.startDate = parsed
     }
     if (isActive !== undefined) updateData.isActive = isActive
@@ -71,6 +86,7 @@ export async function PATCH(
             name: true,
           },
         },
+        class: { select: { id: true, name: true } },
         assigner: {
           select: {
             id: true,

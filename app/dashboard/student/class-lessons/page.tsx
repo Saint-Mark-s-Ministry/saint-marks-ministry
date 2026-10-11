@@ -1,11 +1,14 @@
 'use client'
 
-import { ExternalLink, Loader2 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
 import { useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/ui/page-loading'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { ResourceLink } from '@/components/ds/resource-link'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
 import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
@@ -16,56 +19,45 @@ export default function StudentClassLessonsPage() {
   const { data: homeworkData } = useSundaySchoolHomework()
   const lessons = (data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
-  if (status === 'loading' || !session || isLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-maroon-600" /></div>
-  }
+  if (status === 'loading' || !session || isLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Class Lessons</h1>
-          <p className="mt-1 text-gray-600 dark:text-gray-400">Upcoming Sunday School slides and resources for your class.</p>
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader title="Class lessons" meta={['Upcoming Sunday School slides and resources for your class']} />
 
-        {lessons.length === 0 ? (
-          <Card>
-            <CardHeader><CardTitle>No class lessons yet</CardTitle></CardHeader>
-            <CardContent className="text-sm text-gray-600 dark:text-gray-400">
-              Your student account may not be linked to a Sunday School child record, or your class has no upcoming lessons. Ask your class coordinator to check the account link.
-            </CardContent>
-          </Card>
-        ) : lessons.map(lesson => (
-          <Card key={lesson.id}>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <CardTitle>{lesson.title || 'Upcoming lesson'}</CardTitle>
-                  <CardDescription>
-                    {lesson.class.name} · {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })}
-                  </CardDescription>
-                </div>
-                {lesson.status === 'READY' && <Badge className="bg-green-600">Ready</Badge>}
+      {lessons.length === 0 ? (
+        <Panel>
+          <EmptyState
+            title="No class lessons yet"
+            message="Your account may not be linked to a Sunday School child record, or your class has no upcoming lessons. Ask your class coordinator to check the link."
+          />
+        </Panel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {lessons.map((lesson) => (
+            <Panel key={lesson.id} bodyClassName="flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12.5px] text-ink-3">
+                  {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })} · {lesson.class.name}
+                </span>
+                {lesson.status === 'READY' ? <StatusBadge tone="ok">Ready</StatusBadge> : <StatusBadge tone="warn">Needs links</StatusBadge>}
               </div>
-            </CardHeader>
-            <CardContent>
+              <h2 className="font-display text-[22px] leading-tight font-medium text-ink">{lesson.title || 'Upcoming lesson'}</h2>
               {lesson.resources.length === 0 ? (
-                <p className="text-sm text-gray-500">Links have not been added yet.</p>
+                <p className="text-[13px] text-ink-3">Links have not been added yet.</p>
               ) : (
-                <div className="flex flex-wrap gap-3">
-                  {lesson.resources.map(resource => (
-                    <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-maroon-700 hover:underline dark:text-maroon-300">
-                      <ExternalLink className="h-4 w-4" /> {resource.title}
-                    </a>
+                <div className="flex flex-col gap-2">
+                  {lesson.resources.map((resource) => (
+                    <ResourceLink key={resource.id} title={resource.title} url={resource.url} compact />
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        ))}
+            </Panel>
+          ))}
+        </div>
+      )}
 
-        <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
-      </div>
+      <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * Pure logic for the Sunday School Elementary Homework screen (SMM-62,
+ * Pure logic for the Sunday School Elementary Homework screen (SMM-71,
  * porting PR #127's web implementation to iOS).
  *
  * Eligibility, authorization (`canEdit`/`canManage`), due dates, and each

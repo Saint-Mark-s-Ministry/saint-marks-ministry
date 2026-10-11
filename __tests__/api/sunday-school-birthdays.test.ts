@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -43,9 +44,13 @@ describe('GET /api/sunday-school/birthdays', () => {
 
     await GET()
 
-    expect(mocks.findMany.mock.calls[0][0].where.class).toEqual({
-      academicYearId: 'year-active',
-      id: { in: ['class-a'] },
+    expect(mocks.findMany.mock.calls[0][0].where).toEqual({
+      isActive: true,
+      birthDate: { not: null },
+      class: {
+        academicYearId: 'year-active',
+        id: { in: ['class-a'] },
+      },
     })
   })
 
@@ -59,12 +64,25 @@ describe('GET /api/sunday-school/birthdays', () => {
     })
   })
 
-  it('selects birthday fields only: no guardian, family, phone, or photo', async () => {
+  it('selects birthday display fields only: no guardian, family, or phone details', async () => {
     mocks.getAccess.mockResolvedValue({ canRead: true, visibleClassIds: 'all' })
 
     await GET()
 
     const select = mocks.findMany.mock.calls[0][0].select
-    expect(Object.keys(select).sort()).toEqual(['birthDate', 'class', 'classId', 'firstName', 'id', 'lastName'])
+    expect(Object.keys(select).sort()).toEqual([
+      'birthDate',
+      'class',
+      'classId',
+      'firstName',
+      'id',
+      'lastName',
+      'level',
+      'photoUrl',
+      'user',
+    ])
+    expect(select).not.toHaveProperty('guardianPhone')
+    expect(select).not.toHaveProperty('cellPhone')
+    expect(select).not.toHaveProperty('family')
   })
 })

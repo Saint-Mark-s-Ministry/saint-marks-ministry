@@ -1,48 +1,74 @@
-// Simple in-memory rate limiter for login attempts
-// Tracks attempts by email to prevent brute force attacks
+import { prisma } from '@/lib/prisma'
 
-interface RateLimitEntry {
-  count: number
-  resetAt: number
+/**
+ * Fixed-window rate limits shared by every server instance: one row per key in
+ * "RateLimitBucket", counted with a single atomic upsert. If the database call
+ * fails (e.g. before the migration is applied), it falls back to a per-instance
+ * in-memory window rather than blocking sign-in.
+ */
+
+export type RateLimitResult = { allowed: boolean; retryAfterSeconds?: number }
+
+const MAX_LOGIN_ATTEMPTS = 5
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+
+const loginKey = (email: string) => `login:${email.toLowerCase()}`
+
+export function checkLoginRateLimit(email: string): Promise<RateLimitResult> {
+  return checkRateLimit(loginKey(email), MAX_LOGIN_ATTEMPTS, LOGIN_WINDOW_MS)
 }
 
-const loginAttempts = new Map<string, RateLimitEntry>()
-
-const MAX_ATTEMPTS = 5
-const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
-
-// Clean up expired entries periodically
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of loginAttempts) {
-    if (now > entry.resetAt) {
-      loginAttempts.delete(key)
-    }
+export async function resetLoginRateLimit(email: string): Promise<void> {
+  const key = loginKey(email)
+  memory.delete(key)
+  try {
+    await prisma.rateLimitBucket.deleteMany({ where: { key } })
+  } catch (error) {
+    warnFallback(error)
   }
-}, 60 * 1000) // Clean every minute
-
-export function checkLoginRateLimit(email: string): { allowed: boolean; retryAfterSeconds?: number } {
-  const key = email.toLowerCase()
-  const now = Date.now()
-  const entry = loginAttempts.get(key)
-
-  // No previous attempts or window expired
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(key, { count: 1, resetAt: now + WINDOW_MS })
-    return { allowed: true }
-  }
-
-  // Within window but under limit
-  if (entry.count < MAX_ATTEMPTS) {
-    entry.count++
-    return { allowed: true }
-  }
-
-  // Rate limited
-  const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000)
-  return { allowed: false, retryAfterSeconds }
 }
 
-export function resetLoginRateLimit(email: string): void {
-  loginAttempts.delete(email.toLowerCase())
+export async function checkRateLimit(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
+  let bucket: { count: number; resetAt: Date }
+  try {
+    const rows = await prisma.$queryRaw<{ count: number; resetAt: Date }[]>`
+      INSERT INTO "RateLimitBucket" ("key", "count", "resetAt")
+      VALUES (${key}, 1, now() + ${windowMs} * interval '1 millisecond')
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE WHEN "RateLimitBucket"."resetAt" <= now() THEN 1 ELSE "RateLimitBucket"."count" + 1 END,
+        "resetAt" = CASE WHEN "RateLimitBucket"."resetAt" <= now() THEN EXCLUDED."resetAt" ELSE "RateLimitBucket"."resetAt" END
+      RETURNING "count", "resetAt"`
+    bucket = rows[0]
+    // ponytail: opportunistic cleanup of expired rows; move to a cron if the table grows.
+    if (Math.random() < 0.01) void prisma.rateLimitBucket.deleteMany({ where: { resetAt: { lt: new Date() } } }).catch(() => {})
+  } catch (error) {
+    warnFallback(error)
+    bucket = hitMemory(key, windowMs)
+  }
+
+  if (bucket.count <= max) return { allowed: true }
+  return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt.getTime() - Date.now()) / 1000)) }
+}
+
+// ------------------------------------------------------------ in-memory fallback
+
+const memory = new Map<string, { count: number; resetAt: Date }>()
+
+function hitMemory(key: string, windowMs: number) {
+  const now = Date.now()
+  const entry = memory.get(key)
+  if (!entry || entry.resetAt.getTime() <= now) {
+    const fresh = { count: 1, resetAt: new Date(now + windowMs) }
+    memory.set(key, fresh)
+    return fresh
+  }
+  entry.count++
+  return entry
+}
+
+let warned = false
+function warnFallback(error: unknown) {
+  if (warned) return
+  warned = true
+  console.error('[rate-limit] database limiter unavailable; using per-instance memory:', error instanceof Error ? error.message : error)
 }

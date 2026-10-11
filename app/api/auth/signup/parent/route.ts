@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { checkLoginRateLimit, resetLoginRateLimit } from '@/lib/rate-limit'
 import { normalizeEmail } from '@/lib/email'
+import { emailParentWelcome } from '@/lib/mail/notify'
 
 /**
  * POST /api/auth/signup/parent
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const rateLimit = checkLoginRateLimit(normalizedEmail)
+    const rateLimit = await checkLoginRateLimit(normalizedEmail)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: `Too many signup attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.` },
@@ -81,7 +82,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    resetLoginRateLimit(normalizedEmail)
+    await resetLoginRateLimit(normalizedEmail)
+    emailParentWelcome({ email: user.email, name: user.name })
 
     return NextResponse.json(
       { id: user.id, message: 'Account created successfully' },

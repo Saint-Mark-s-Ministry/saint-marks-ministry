@@ -102,6 +102,7 @@ export async function GET(request: Request) {
           orderBy: { grantedAt: 'asc' }
         },
         isDisabled: true,
+        canAccessContactBook: true,
         createdAt: true,
         updatedAt: true,
         enrollments: {

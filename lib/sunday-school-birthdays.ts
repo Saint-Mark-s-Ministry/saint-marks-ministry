@@ -7,6 +7,21 @@
  * Keep the two in step.
  */
 
+export const BIRTHDAY_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
 export interface BirthdayParts {
   year: number
   month: number
@@ -16,7 +31,18 @@ export interface BirthdayParts {
 export function getBirthdayParts(value: string | Date): BirthdayParts | null {
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() }
+
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  }
+}
+
+export function formatBirthday(value: string | Date): string {
+  const parts = getBirthdayParts(value)
+  if (!parts) return 'Unknown birthday'
+  return `${BIRTHDAY_MONTHS[parts.month - 1]} ${parts.day}`
 }
 
 /** The age a child turns in `year`. Never negative. */
@@ -31,4 +57,22 @@ export function isBirthdayToday(value: string | Date, now: Date = new Date()): b
   const parts = getBirthdayParts(value)
   if (!parts) return false
   return parts.month === now.getUTCMonth() + 1 && parts.day === now.getUTCDate()
+}
+
+export function compareBirthdays(
+  left: { birthDate: string | Date | null; firstName: string; lastName: string },
+  right: { birthDate: string | Date | null; firstName: string; lastName: string }
+): number {
+  const leftParts = left.birthDate ? getBirthdayParts(left.birthDate) : null
+  const rightParts = right.birthDate ? getBirthdayParts(right.birthDate) : null
+  if (!leftParts && !rightParts) return 0
+  if (!leftParts) return 1
+  if (!rightParts) return -1
+
+  return (
+    leftParts.month - rightParts.month ||
+    leftParts.day - rightParts.day ||
+    left.firstName.localeCompare(right.firstName) ||
+    left.lastName.localeCompare(right.lastName)
+  )
 }

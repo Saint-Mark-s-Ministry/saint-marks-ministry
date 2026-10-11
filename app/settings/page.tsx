@@ -12,6 +12,7 @@ import { getRoleDisplayName } from '@/lib/roles'
 import { toast } from 'sonner'
 import { Camera, Trash2 } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
+import { PageHeader } from '@/components/ds/page-header'
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
@@ -196,25 +197,22 @@ export default function SettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-3xl space-y-5">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">My Account</h1>
-          <p className="text-sm text-gray-600">Manage your account settings</p>
-        </div>
+        <PageHeader title="My account" meta={['Profile, name and password']} />
 
         {/* Account Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Account Information</CardTitle>
+            <CardTitle>Account information</CardTitle>
             <CardDescription>Your current account details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -234,7 +232,7 @@ export default function SettingsPage() {
         {/* Profile Picture */}
         <Card>
           <CardHeader>
-            <CardTitle>Profile Picture</CardTitle>
+            <CardTitle>Profile picture</CardTitle>
             <CardDescription>Update your profile photo</CardDescription>
           </CardHeader>
           <CardContent>
@@ -301,7 +299,7 @@ export default function SettingsPage() {
         {/* Update Name */}
         <Card>
           <CardHeader>
-            <CardTitle>Update Name</CardTitle>
+            <CardTitle>Name</CardTitle>
             <CardDescription>Change your display name</CardDescription>
           </CardHeader>
           <CardContent>
@@ -327,7 +325,7 @@ export default function SettingsPage() {
         {/* Change Password */}
         <Card>
           <CardHeader>
-            <CardTitle>Change Password</CardTitle>
+            <CardTitle>Change password</CardTitle>
             <CardDescription>Update your account password</CardDescription>
           </CardHeader>
           <CardContent>

@@ -56,7 +56,7 @@ describe('NotificationBell', () => {
     ]
   })
 
-  it('fills the selected bell without moving or resizing it', async () => {
+  it('marks the open bell without moving or resizing it', async () => {
     const user = userEvent.setup()
     render(<NotificationBell onOpenChange={mocks.onOpenChange} />)
 
@@ -64,14 +64,14 @@ describe('NotificationBell', () => {
     const icon = screen.getByTestId('notification-bell-icon')
 
     expect(button).toHaveAttribute('aria-expanded', 'false')
-    expect(icon).not.toHaveClass('fill-current')
+    expect(button).not.toHaveClass('bg-hover')
 
     await user.click(button)
 
     expect(button).toHaveAttribute('aria-expanded', 'true')
     expect(mocks.onOpenChange).toHaveBeenCalledWith(true)
-    expect(button).toHaveClass('bg-accent', 'text-primary')
-    expect(icon).toHaveClass('fill-current')
+    expect(button).toHaveClass('bg-hover', 'text-ink')
+    expect(icon).toHaveClass('size-[17px]')
     expect(icon).not.toHaveClass('-rotate-12', 'scale-110')
     expect(button).not.toHaveClass('scale-105')
     const panel = screen.getByRole('dialog', { name: 'Notifications' })

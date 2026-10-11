@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           userId: true,
           authority: true,
           user: {
-            select: { id: true, name: true, email: true, profileImageUrl: true },
+            select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
           },
         },
         orderBy: { user: { name: "asc" } },

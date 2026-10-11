@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PublicFrame } from '@/components/ds/public-frame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -58,47 +58,33 @@ export default function ServantSignupPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md border-2 border-green-600 shadow-lg">
-          <CardHeader className="text-center space-y-4 pt-8 pb-6">
-            <div className="flex justify-center">
-              <CheckCircle2 className="w-24 h-24 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl sm:text-3xl text-green-600">Application Submitted!</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Your application to serve in Sunday School has been received and is under review.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 px-6 pb-8">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
-              <p className="font-semibold text-green-900 mb-2">What happens next?</p>
-              <ul className="list-disc list-inside space-y-1 text-green-800">
-                <li>A Super Admin will review your application</li>
-                <li>If approved, the Super Admin will share a temporary password with you directly</li>
-                <li>No login credentials are sent automatically by email</li>
-                <li>You&apos;ll change the temporary password when you first sign in</li>
-                <li>You&apos;ll then be assigned to a class once staffing is finalized</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PublicFrame
+        title="Application submitted"
+        description="Your application to serve in Sunday School was received and is under review."
+        width="lg"
+      >
+        <div className="flex justify-center">
+          <span className="flex size-14 items-center justify-center rounded-full bg-ok-tint text-ok">
+            <CheckCircle2 className="size-8" aria-hidden />
+          </span>
+        </div>
+        <div className="rounded-md bg-raised px-4 py-3 text-[13px]">
+          <p className="mb-1.5 font-semibold text-ink">What happens next</p>
+          <ul className="list-inside list-disc space-y-1 text-ink-2">
+            <li>A super admin reviews your application.</li>
+            <li>We’ve emailed you a confirmation. If approved, you’ll get a link to set your password.</li>
+            <li>You’re assigned to a class once staffing is final.</li>
+          </ul>
+        </div>
+      </PublicFrame>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-lg border-2 border-maroon-600 shadow-lg">
-        <CardHeader className="text-center space-y-4 pt-8 pb-6">
-          <CardTitle className="text-2xl sm:text-3xl">Sunday School Servant Sign-Up</CardTitle>
-          <CardDescription className="text-base mt-2">
-            Submit your information to request servant access. Applications require approval.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6 px-6 pb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <PublicFrame title="Servant sign up" description="Submit your information to request servant access. Applications require approval." width="lg">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
+              <Label htmlFor="fullName">Full name *</Label>
               <Input
                 id="fullName"
                 required
@@ -107,7 +93,7 @@ export default function ServantSignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address *</Label>
+              <Label htmlFor="email">Email address *</Label>
               <Input
                 id="email"
                 type="email"
@@ -139,7 +125,7 @@ export default function ServantSignupPage() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-maroon-600 hover:bg-maroon-700"
+              className="w-full"
               size="lg"
             >
               {isSubmitting ? (
@@ -152,14 +138,12 @@ export default function ServantSignupPage() {
               )}
             </Button>
           </form>
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-[13.5px] text-ink-3">
             Registering a child instead?{' '}
-            <Link href="/signup/parent" className="text-maroon-600 hover:underline">
+            <Link href="/signup/parent" className="font-medium text-accent-ink no-underline hover:underline">
               Sign up as a parent
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+    </PublicFrame>
   )
 }

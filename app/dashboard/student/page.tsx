@@ -1,19 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useRouter } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
-import { PageHeader } from '@/components/admin/page-header'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Metric, metricTone } from '@/components/ds/metric'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { KeyValueList } from '@/components/ds/kv-list'
+import { cn } from '@/lib/utils'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
 import { getAttendanceGuidance, getExamGuidance } from '@/lib/graduation-guidance'
-import { Phone, Mail, Church, Lightbulb, BookOpen, Printer, GraduationCap as GradCap } from 'lucide-react'
+import { BookOpen, Check, ClipboardCheck, Printer, X } from 'lucide-react'
 
 interface Analytics {
   enrollment: {
@@ -63,6 +68,8 @@ interface Analytics {
     }>
     year1Met: boolean
     year2Met: boolean
+    /** No active rotation for the current year yet. */
+    needsRotation?: boolean
     allMet: boolean
   }
 }
@@ -117,364 +124,253 @@ export default function StudentDashboard() {
 
   if (!analytics) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg">No enrollment found for the current academic year.</p>
-        </div>
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
+        <PageHeader title={`Hi${session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}`} meta={['Servants Prep']} />
+        <Panel>
+          <EmptyState title="No enrollment yet" message="You aren’t enrolled in the current academic year. If you think that’s a mistake, contact a Servants Prep servant." />
+        </Panel>
       </div>
     )
   }
 
+  const { enrollment, attendance: att, exams, graduation } = analytics
+  const isAsync = enrollment.isAsyncStudent
+  const firstName = (enrollment.student.name || session?.user?.name || '').split(' ')[0]
+  const att2 = getAttendanceGuidance(att)
+  const ex2 = getExamGuidance(exams)
+  const na = (att.notEnrolledYetCount ?? 0) + (att.expectedAbsenceNACount ?? 0)
+  const guidanceTone = (status: string) =>
+    status === 'failing' ? 'bg-bad-tint text-bad' : status === 'at-risk' ? 'bg-warn-tint text-warn' : status === 'on-track' ? 'bg-ok-tint text-ok' : 'bg-hover text-ink-2'
+  const requirements = [
+    { label: 'Attendance ≥ 75%', met: graduation.attendanceMet },
+    { label: 'Exam avg ≥ 75%', met: graduation.overallAverageMet },
+    { label: 'All sections ≥ 60%', met: graduation.allSectionsPassing },
+    ...(isAsync && graduation.sundaySchoolMet !== undefined
+      ? [{
+          label: analytics.sundaySchool?.needsRotation ? 'Sunday School rotation · not assigned yet' : 'Sunday School rotation ≥ 75%',
+          met: graduation.sundaySchoolMet,
+        }]
+      : []),
+  ]
+  // The rotation that counts: this year's active one
+  const assignment =
+    analytics.sundaySchool?.assignments.find((a) => a.isActive && a.yearLevel === enrollment.yearLevel) ??
+    analytics.sundaySchool?.assignments[0]
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <PageHeader
-          title={`Welcome, ${session?.user?.name}`}
-          description={[
-            `Year ${analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student${academicYearName ? ` - ${academicYearName}` : ''}`,
-            analytics.enrollment.mentor ? `Mentor: ${analytics.enrollment.mentor.name}` : '',
-          ].filter(Boolean).join(' · ')}
-          actions={
-            <>
-              <Button onClick={() => router.push('/dashboard/student/lessons')} size="sm" className="gap-2">
-                <BookOpen className="h-4 w-4" />
-                My Lessons
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title={`Hi, ${firstName}`}
+        meta={[`Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}`, isAsync ? 'Async student' : 'Servants Prep', academicYearName.replace('-', '–')]}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => router.push('/dashboard/student/lessons')}>
+              <BookOpen />
+              My lessons
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard/student/makeup-exams')}>
+              Makeup exams
+            </Button>
+            {isAsync && (
+              <Button onClick={() => router.push('/dashboard/student/attendance-slip')}>
+                <Printer />
+                Print attendance slip
               </Button>
-              {analytics.enrollment.isAsyncStudent && (
-                <>
-                  <Button
-                    onClick={() => router.push('/dashboard/student/attendance-slip')}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Attendance Slip
-                  </Button>
-                  <Button
-                    onClick={() => router.push('/dashboard/student/sunday-school')}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <GradCap className="h-4 w-4" />
-                    Sunday School
-                  </Button>
-                </>
-              )}
-            </>
-          }
-        />
+            )}
+          </>
+        }
+      />
 
-        {/* Graduation Status */}
-        <Card className={analytics.graduation.eligible ? 'border-green-500' : 'border-yellow-500'}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              GRADUATION STATUS:
-              {analytics.graduation.eligible ? (
-                <Badge className="bg-green-500">ON TRACK</Badge>
-              ) : (
-                <Badge className="bg-yellow-500">AT RISK</Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`grid gap-3 ${analytics.enrollment.isAsyncStudent ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3'}`}>
-              <div className={`p-3 rounded border text-center ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="text-2xl mb-1">{analytics.graduation.attendanceMet ? '✓' : '✗'}</div>
-                <div className={`text-sm font-medium ${analytics.graduation.attendanceMet ? 'text-green-700' : 'text-red-700'}`}>
-                  Attendance ≥75%
-                </div>
-              </div>
-              <div className={`p-3 rounded border text-center ${analytics.graduation.overallAverageMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="text-2xl mb-1">{analytics.graduation.overallAverageMet ? '✓' : '✗'}</div>
-                <div className={`text-sm font-medium ${analytics.graduation.overallAverageMet ? 'text-green-700' : 'text-red-700'}`}>
-                  Exam Avg ≥75%
-                </div>
-              </div>
-              <div className={`p-3 rounded border text-center ${analytics.graduation.allSectionsPassing ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="text-2xl mb-1">{analytics.graduation.allSectionsPassing ? '✓' : '✗'}</div>
-                <div className={`text-sm font-medium ${analytics.graduation.allSectionsPassing ? 'text-green-700' : 'text-red-700'}`}>
-                  All Sections ≥60%
-                </div>
-              </div>
-              {analytics.enrollment.isAsyncStudent && analytics.graduation.sundaySchoolMet !== undefined && (
-                <div className={`p-3 rounded border text-center ${analytics.graduation.sundaySchoolMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                  <div className="text-2xl mb-1">{analytics.graduation.sundaySchoolMet ? '✓' : '✗'}</div>
-                  <div className={`text-sm font-medium ${analytics.graduation.sundaySchoolMet ? 'text-green-700' : 'text-red-700'}`}>
-                    Sunday School ≥75%
-                  </div>
-                </div>
-              )}
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel
+            title="Graduation track"
+            description={`Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}${academicYearName ? ` · ${academicYearName.replace('-', '–')}` : ''}`}
+            actions={graduation.eligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">Needs attention</StatusBadge>}
+          >
+            <div className="grid gap-5 px-4 py-4 sm:grid-cols-2">
+              <GoalBar label="Attendance" value={att.percentage} detail={`${att.effectivePresent.toFixed(1)} of ${att.totalLessons} lessons`} goal={att.required} />
+              <GoalBar
+                label="Exam average"
+                value={exams.overallAverage}
+                detail={`${exams.examsTaken} of ${exams.totalApplicableExams} exams`}
+                goal={exams.requiredAverage}
+              />
             </div>
-          </CardContent>
-        </Card>
+            <ul className="flex flex-wrap gap-x-5 gap-y-1.5 border-t border-line px-4 py-2.5">
+              {requirements.map((r) => (
+                <li key={r.label} className={cn('inline-flex items-center gap-1.5 text-[12.5px]', r.met ? 'text-ok' : 'text-bad')}>
+                  {r.met ? <Check className="size-3.5" strokeWidth={2.5} aria-hidden /> : <X className="size-3.5" strokeWidth={2.5} aria-hidden />}
+                  <span className="text-ink-2">{r.label}</span>
+                  <span className="sr-only">{r.met ? 'met' : 'not met'}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
 
-        {/* Actionable Guidance */}
-        {(() => {
-          const att = getAttendanceGuidance(analytics.attendance)
-          const ex = getExamGuidance(analytics.exams)
-          const items: Array<{ label: string; status: string; message: string; detail?: string }> = [
-            { label: 'Attendance', status: att.status, message: att.message, detail: att.detail },
-            { label: 'Exam Average', status: ex.status, message: ex.message, detail: ex.detail },
-          ]
-          const tone = (s: string) =>
-            s === 'failing' ? 'bg-red-50 border-red-200 text-red-900'
-            : s === 'at-risk' ? 'bg-yellow-50 border-yellow-200 text-yellow-900'
-            : s === 'on-track' ? 'bg-green-50 border-green-200 text-green-900'
-            : 'bg-gray-50 border-gray-200 text-gray-700'
+          <Panel title="What to do next" description="Based on your current progress">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+              {[
+                { label: 'Attendance', g: att2 },
+                { label: 'Exam average', g: ex2 },
+              ].map(({ label, g }) => (
+                <div key={label} className={cn('rounded-md px-3 py-2.5', guidanceTone(g.status))}>
+                  <div className="text-[11px] font-semibold tracking-[0.06em] uppercase opacity-80">{label}</div>
+                  <div className="mt-0.5 text-[13.5px] font-medium">{g.message}</div>
+                  {g.detail && <div className="mt-0.5 text-xs opacity-90">{g.detail}</div>}
+                </div>
+              ))}
+            </div>
+          </Panel>
 
-          return (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-amber-500" />
-                  What to do next
-                </CardTitle>
-                <CardDescription>Personalized guidance based on your current progress</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-2">
-                {items.map(item => (
-                  <div key={item.label} className={`p-3 rounded-md border text-sm ${tone(item.status)}`}>
-                    <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{item.label}</div>
-                    <div className="font-medium mt-1">{item.message}</div>
-                    {item.detail && <div className="text-xs mt-1 opacity-80">{item.detail}</div>}
-                  </div>
+          <Panel title="Attendance" description="Late counts as half · two lates equal one absence · excused days don’t count against you">
+            <dl className="tabular grid grid-cols-3 gap-px bg-line sm:grid-cols-6">
+              {[
+                ['Present', att.presentCount, 'text-ok'],
+                ['Late', att.lateCount, 'text-warn'],
+                ['Absent', att.absentCount, 'text-bad'],
+                ['Excused', att.excusedCount - na, 'text-info'],
+                ['N/A', na, 'text-ink-3'],
+                ['Total', att.allLessons, 'text-ink'],
+              ].map(([label, value, ink]) => (
+                <div key={label as string} className="flex flex-col gap-0.5 bg-surface px-4 py-3">
+                  <dt className="text-xs text-ink-3">{label as string}</dt>
+                  <dd className={cn('text-2xl font-semibold', ink as string)}>{value as number}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+
+          <Panel title="Exams" description={`${exams.examsTaken} of ${exams.totalApplicableExams} taken · every section needs 60% or more`}>
+            {exams.sectionAverages.length === 0 ? (
+              <EmptyState message="No exam scores yet." />
+            ) : (
+              <ul className="divide-y divide-line">
+                {exams.sectionAverages.map((section) => (
+                  <li key={section.section} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                    <span className="min-w-0 truncate">{SECTION_DISPLAY_NAMES[section.section] || section.section}</span>
+                    <Metric value={section.average} target={60} floor={50} />
+                  </li>
                 ))}
-              </CardContent>
-            </Card>
-          )
-        })()}
-
-        {/* Contacts */}
-        {(analytics.enrollment.mentor || analytics.enrollment.fatherOfConfession) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {analytics.enrollment.mentor && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Mentor</CardTitle>
-                  <CardDescription>{analytics.enrollment.mentor.name}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm">
-                  {analytics.enrollment.mentor.email && (
-                    <a href={`mailto:${analytics.enrollment.mentor.email}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
-                      <Mail className="h-4 w-4 shrink-0" />
-                      {analytics.enrollment.mentor.email}
-                    </a>
-                  )}
-                  {analytics.enrollment.mentor.phone && (
-                    <a href={`tel:${analytics.enrollment.mentor.phone}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      {analytics.enrollment.mentor.phone}
-                    </a>
-                  )}
-                </CardContent>
-              </Card>
+              </ul>
             )}
-            {analytics.enrollment.fatherOfConfession && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Father of Confession</CardTitle>
-                  <CardDescription>{analytics.enrollment.fatherOfConfession.name}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm">
-                  {analytics.enrollment.fatherOfConfession.church && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Church className="h-4 w-4 shrink-0" />
-                      {analytics.enrollment.fatherOfConfession.church}
-                    </div>
-                  )}
-                  {analytics.enrollment.fatherOfConfession.phone && (
-                    <a href={`tel:${analytics.enrollment.fatherOfConfession.phone}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      {analytics.enrollment.fatherOfConfession.phone}
-                    </a>
-                  )}
-                </CardContent>
-              </Card>
+            {exams.missingExams?.length > 0 && (
+              <div className="border-t border-line px-4 py-3">
+                <h3 className="mb-1.5 text-xs font-medium text-warn">Not taken yet ({exams.missingExams.length})</h3>
+                <ul className="flex flex-col gap-1">
+                  {exams.missingExams.map((exam) => (
+                    <li key={exam.id} className="flex items-center justify-between gap-2 text-[13px]">
+                      <span className="truncate">{exam.sectionDisplayName}</span>
+                      <span className="text-xs text-ink-3">
+                        {new Date(exam.examDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </div>
-        )}
+          </Panel>
+        </div>
 
-        {/* Async Student Progress */}
-        {analytics.enrollment.isAsyncStudent && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Attendance Slip */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Attendance Slip</CardTitle>
-                <CardDescription>How your lessons are counted as an async student</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-gray-600">
-                <p>
-                  Print your attendance slip and have each lesson signed. Give it to a Servants Prep
-                  servant — your lessons count as attended once they upload it.
-                </p>
-                <Button
-                  onClick={() => router.push('/dashboard/student/attendance-slip')}
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                >
-                  <Printer className="h-4 w-4" />
-                  Print Attendance Slip
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel title="Your people">
+            <div className="px-4 py-1">
+              <KeyValueList
+                items={[
+                  {
+                    label: 'Mentor',
+                    value: enrollment.mentor ? (
+                      <span className="flex flex-col">
+                        {enrollment.mentor.name}
+                        {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
+                        {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3">Not assigned yet</span>
+                    ),
+                  },
+                  {
+                    label: 'Father of confession',
+                    value: enrollment.fatherOfConfession ? (
+                      <span className="flex flex-col">
+                        {enrollment.fatherOfConfession.name}
+                        {enrollment.fatherOfConfession.church && <span className="text-xs text-ink-3">{enrollment.fatherOfConfession.church}</span>}
+                        {enrollment.fatherOfConfession.phone && (
+                          <ContactLink kind="phone" value={enrollment.fatherOfConfession.phone} name={enrollment.fatherOfConfession.name} label="father of confession's phone number" className="w-fit font-mono text-xs" />
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3">Not set</span>
+                    ),
+                  },
+                  ...(isAsync ? [{
+                    label: 'Sunday School',
+                    value: assignment ? `Serving · ${assignment.academicYear.name}` : 'Not assigned yet',
+                  }] : []),
+                ]}
+              />
+            </div>
+          </Panel>
+
+          {isAsync && (
+            <Panel
+              title="Sunday School serving"
+              description="Async students serve six weeks in Sunday School"
+              actions={
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/dashboard/student/sunday-school">
+                    <ClipboardCheck />
+                    Open
+                  </Link>
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Sunday School Summary */}
-            {analytics.sundaySchool && analytics.sundaySchool.assignments.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Sunday School</CardTitle>
-                  <CardDescription>
-                    {analytics.sundaySchool.assignments[0]?.grade?.replace('_', ' ').replace('GRADE ', 'Grade ').replace('PRE K', 'Pre-K').replace('KINDERGARTEN', 'Kindergarten').replace('GRADE 6 PLUS', '6th Grade+')}
-                    {' '}&bull; {analytics.sundaySchool.assignments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {analytics.sundaySchool.assignments.map(assignment => (
-                    <div key={assignment.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Attendance</span>
-                        <span className={`text-sm font-bold ${assignment.attendance?.met ? 'text-green-600' : 'text-red-600'}`}>
-                          {assignment.attendance ? `${assignment.attendance.percentage.toFixed(0)}%` : 'N/A'}
+              }
+            >
+              {analytics.sundaySchool && analytics.sundaySchool.assignments.length > 0 ? (
+                <ul className="divide-y divide-line">
+                  {analytics.sundaySchool.assignments.map((a) => (
+                    <li key={a.id} className="flex flex-col gap-1.5 px-4 py-3">
+                      <span className="flex items-center justify-between gap-2 text-[13px]">
+                        <span className="font-medium text-ink">
+                          {a.grade.replace('GRADE_', 'Grade ').replace('_PLUS', '+').replace('PRE_K', 'Pre-K').replace('KINDERGARTEN', 'Kindergarten')} ·{' '}
+                          {a.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
                         </span>
-                      </div>
-                      {assignment.attendance && (
-                        <Progress value={assignment.attendance.percentage} className="h-3" />
-                      )}
-                      <div className="text-xs text-gray-500">
-                        {assignment.attendance?.present ?? 0} of {assignment.attendance?.effectiveTotal ?? assignment.totalWeeks} weeks attended (75% required)
-                      </div>
-                    </div>
+                        {a.attendance?.met ? <StatusBadge tone="ok">Met</StatusBadge> : <StatusBadge tone="warn">In progress</StatusBadge>}
+                      </span>
+                      <Metric value={a.attendance?.percentage ?? null} detail={a.attendance ? `${a.attendance.present} of ${a.totalWeeks} weeks` : undefined} width={96} />
+                    </li>
                   ))}
-                  <Button
-                    onClick={() => router.push('/dashboard/student/sunday-school')}
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3 w-full"
-                  >
-                    View Details →
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Attendance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Attendance</CardTitle>
-            <CardDescription>
-              {analytics.attendance.met ? '✓' : '❌'} {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'} (Need {analytics.attendance.required}%)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={analytics.attendance.percentage || 0} className="h-4" />
-            <div className={`grid grid-cols-2 gap-4 text-sm ${((analytics.attendance.notEnrolledYetCount ?? 0) + (analytics.attendance.expectedAbsenceNACount ?? 0)) > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
-              <div>
-                <div className="font-semibold text-green-700">Present</div>
-                <div className="text-2xl text-green-700">{analytics.attendance.presentCount}</div>
-              </div>
-              <div>
-                <div className="font-semibold text-yellow-700">Late</div>
-                <div className="text-2xl text-yellow-700">{analytics.attendance.lateCount}</div>
-              </div>
-              <div>
-                <div className="font-semibold text-red-700">Absent</div>
-                <div className="text-2xl text-red-700">{analytics.attendance.absentCount}</div>
-              </div>
-              <div>
-                <div className="font-semibold text-blue-700">Excused</div>
-                <div className="text-2xl text-blue-700">{analytics.attendance.excusedCount - (analytics.attendance.notEnrolledYetCount ?? 0) - (analytics.attendance.expectedAbsenceNACount ?? 0)}</div>
-              </div>
-              {((analytics.attendance.notEnrolledYetCount ?? 0) + (analytics.attendance.expectedAbsenceNACount ?? 0)) > 0 && (
-                <div>
-                  <div className="font-semibold text-gray-500">N/A</div>
-                  <div className="text-2xl text-gray-500">{(analytics.attendance.notEnrolledYetCount ?? 0) + (analytics.attendance.expectedAbsenceNACount ?? 0)}</div>
-                </div>
-              )}
-              <div>
-                <div className="font-semibold text-gray-700">Total</div>
-                <div className="text-2xl text-gray-700">{analytics.attendance.allLessons}</div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 italic">
-              Formula: (Present + Late÷2) ÷ (Total - Excused) • 2 lates = 1 absence • Excused days don&apos;t count against you
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Exam Scores */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Exam Average
-              <span className="text-sm font-normal text-gray-500">
-                ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} exams taken)
-              </span>
-            </CardTitle>
-            <CardDescription>
-              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'} (Need {analytics.exams.requiredAverage}% • Based on exams taken)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={analytics.exams.overallAverage || 0} className="h-4" />
-
-            <div className="space-y-3">
-              {analytics.exams.sectionAverages.length > 0 ? (
-                analytics.exams.sectionAverages.map((sectionData) => (
-                  <div key={sectionData.section} className="flex justify-between items-center">
-                    <span className="text-sm">{SECTION_DISPLAY_NAMES[sectionData.section] || sectionData.section}</span>
-                    <span className={`text-sm font-medium ${sectionData.passingMet ? 'text-green-600' : 'text-red-600'}`}>
-                      {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : '❌'}
-                    </span>
-                  </div>
-                ))
+                </ul>
               ) : (
-                <div className="text-center text-gray-500 py-4">
-                  No exam scores yet
-                </div>
+                <EmptyState message="No serving assignment yet. A servant will assign your class." />
               )}
-            </div>
-
-            {/* Missing Exams */}
-            {analytics.exams.missingExams && analytics.exams.missingExams.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <h4 className="font-semibold text-amber-700 mb-2">
-                  Missing Exams ({analytics.exams.missingExams.length})
-                </h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {analytics.exams.missingExams.map((exam) => (
-                    <div
-                      key={exam.id}
-                      className="bg-amber-50 border border-amber-200 rounded p-2 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">{exam.sectionDisplayName}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(exam.examDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-amber-700 border-amber-400">
-                        Not Taken
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </Panel>
+          )}
+        </div>
       </div>
+    </div>
+  )
+}
+
+/** A percentage bar with the goal marked on it (student boards: "Goal 75%"). */
+function GoalBar({ label, value, detail, goal }: { label: string; value: number | null; detail: string; goal: number }) {
+  const tone = value === null ? null : metricTone(value, goal)
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-ink-3">{label}</span>
+        <span className="text-xs text-ink-3">Goal {goal}%</span>
+      </div>
+      <span className={cn('tabular text-[28px] leading-none font-semibold tracking-[-0.02em]', tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-ink')}>
+        {value === null ? '—' : `${value.toFixed(1)}%`}
+      </span>
+      <span aria-hidden className="relative block h-2 rounded-[3px] bg-track">
+        <span
+          className={cn('block h-full rounded-[3px]', tone === 'bad' ? 'bg-bad' : tone === 'warn' ? 'bg-warn' : 'bg-ok')}
+          style={{ width: `${Math.min(100, value ?? 0)}%` }}
+        />
+        <span className="absolute -top-1 -bottom-1 w-0.5 rounded bg-ink" style={{ left: `${goal}%` }} />
+      </span>
+      <span className="text-xs text-ink-3">{detail}</span>
     </div>
   )
 }

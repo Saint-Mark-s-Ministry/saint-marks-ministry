@@ -42,9 +42,9 @@ export function LegalBackLink() {
     <Link
       href={destination.href}
       onClick={() => sessionStorage.removeItem(LEGAL_RETURN_PATH_KEY)}
-      className="group mb-10 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 transition-all duration-200 hover:-translate-y-0.5 hover:border-maroon-300 hover:text-maroon-700 hover:shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-maroon-700 dark:hover:text-maroon-300"
+      className="mb-6 inline-flex items-center gap-1 text-[13px] text-ink-2 no-underline hover:text-ink"
     >
-      <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
+      <ArrowLeft className="size-3.5" />
       Back to {destination.label}
     </Link>
   )

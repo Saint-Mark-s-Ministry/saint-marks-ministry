@@ -3,14 +3,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { PageLoading } from '@/components/ui/page-loading'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Metric } from '@/components/ds/metric'
+import { StatusBadge } from '@/components/ds/status-badge'
 import { toast } from 'sonner'
-import { ChevronLeft, CheckCircle, XCircle, MinusCircle, Clock, KeyRound } from 'lucide-react'
+import { CheckCircle, XCircle, MinusCircle, Clock, KeyRound } from 'lucide-react'
 
 const GRADE_DISPLAY: Record<string, string> = {
   PRE_K: 'Pre-K',
@@ -63,7 +65,6 @@ export default function SundaySchoolPage() {
   const router = useRouter()
   const [progress, setProgress] = useState<SSProgress | null>(null)
   const [loading, setLoading] = useState(true)
-  const [codeDialogOpen, setCodeDialogOpen] = useState(false)
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -116,7 +117,6 @@ export default function SundaySchoolPage() {
       }
 
       toast.success('Attendance logged successfully!')
-      setCodeDialogOpen(false)
       setCode('')
       fetchData()
     } catch (error: unknown) {
@@ -128,11 +128,11 @@ export default function SundaySchoolPage() {
 
   const getWeekStatusIcon = (status: SSWeek['status']) => {
     switch (status) {
-      case 'VERIFIED': return <CheckCircle className="h-5 w-5 text-green-600" />
-      case 'MANUAL': return <CheckCircle className="h-5 w-5 text-blue-600" />
-      case 'EXCUSED': return <MinusCircle className="h-5 w-5 text-gray-400" />
-      case 'REJECTED': return <XCircle className="h-5 w-5 text-red-600" />
-      default: return <Clock className="h-5 w-5 text-gray-300" />
+      case 'VERIFIED': return <CheckCircle className="size-5 text-ok" aria-hidden />
+      case 'MANUAL': return <CheckCircle className="size-5 text-ok" aria-hidden />
+      case 'EXCUSED': return <MinusCircle className="size-5 text-info" aria-hidden />
+      case 'REJECTED': return <XCircle className="size-5 text-bad" aria-hidden />
+      default: return <Clock className="size-5 text-ink-3" aria-hidden />
     }
   }
 
@@ -147,133 +147,81 @@ export default function SundaySchoolPage() {
   }
 
   if (loading || authStatus === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-lg">Loading...</div></div>
+    return <PageLoading />
   }
 
-  const activeAssignment = progress?.assignments.find(a => a.isActive)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/student')}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold dark:text-white">Sunday School</h1>
-            <p className="text-gray-600 dark:text-gray-400">Track your weekly Sunday School attendance</p>
-          </div>
-          {activeAssignment && (
-            <Button onClick={() => setCodeDialogOpen(true)} className="bg-purple-600 hover:bg-purple-700">
-              <KeyRound className="h-4 w-4 mr-2" />
-              Submit Code
-            </Button>
-          )}
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader title="Sunday School" meta={['Track your weekly Sunday School serving']} back={{ href: '/dashboard/student', label: 'My progress' }} />
 
-        {!progress || progress.assignments.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-gray-500">
-              <p>No Sunday School assignment found. Contact your administrator.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          progress.assignments.map(assignment => (
-            <Card key={assignment.id} className={assignment.isActive ? 'border-purple-300' : ''}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {GRADE_DISPLAY[assignment.grade] || assignment.grade}
-                    </CardTitle>
-                    <CardDescription>
-                      {assignment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} &bull; {assignment.academicYear.name}
-                    </CardDescription>
-                  </div>
-                  <div className="text-right">
-                    {assignment.isActive && <Badge className="bg-purple-100 text-purple-800 border-purple-300">Active</Badge>}
-                    {assignment.attendance && (
-                      <Badge className={`ml-2 ${assignment.attendance.met ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {assignment.attendance.percentage.toFixed(0)}%
-                      </Badge>
-                    )}
-                  </div>
+      {!progress || progress.assignments.length === 0 ? (
+        <Panel>
+          <EmptyState title="No serving assignment yet" message="A Servants Prep servant assigns your Sunday School class. Ask them if you expected one." />
+        </Panel>
+      ) : (
+        progress.assignments.map((assignment) => (
+          <Panel
+            key={assignment.id}
+            title="Serving stint"
+            description={`${GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${assignment.academicYear.name}`}
+            actions={assignment.isActive ? <StatusBadge tone="gold">Active</StatusBadge> : <StatusBadge tone="neutral">Finished</StatusBadge>}
+          >
+            <div className="flex flex-col gap-4 px-4 py-4">
+              {assignment.attendance && (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Metric
+                    value={assignment.attendance.percentage}
+                    detail={`${assignment.attendance.present} of ${assignment.attendance.effectiveTotal} weeks`}
+                    width={140}
+                  />
+                  {assignment.attendance.met ? <StatusBadge tone="ok">Requirement met</StatusBadge> : <StatusBadge tone="warn">Need 75%</StatusBadge>}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {assignment.attendance && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {assignment.attendance.present} of {assignment.attendance.effectiveTotal} weeks attended
-                      </span>
-                      <span className={assignment.attendance.met ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                        {assignment.attendance.percentage.toFixed(0)}% {assignment.attendance.met ? '(Met)' : '(Need 75%)'}
-                      </span>
-                    </div>
-                    <Progress value={assignment.attendance.percentage} className="h-3" />
-                  </div>
-                )}
-
-                {/* Week-by-week tracker */}
-                <div className="space-y-2">
-                  {assignment.weeks.map(week => (
-                    <div key={week.weekNumber} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded">
-                      <div className="flex items-center gap-3">
-                        {getWeekStatusIcon(week.status)}
-                        <div>
-                          <span className="text-sm font-medium">Week {week.weekNumber}</span>
-                          <span className="text-xs text-gray-500 ml-2">
-                            {new Date(week.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`text-xs font-medium ${
-                        week.status === 'VERIFIED' || week.status === 'MANUAL' ? 'text-green-600' :
-                        week.status === 'EXCUSED' ? 'text-gray-500' :
-                        week.status === 'REJECTED' ? 'text-red-600' : 'text-gray-400'
-                      }`}>
-                        {getWeekStatusLabel(week.status)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-
-        {/* Code Submit Dialog */}
-        <Dialog open={codeDialogOpen} onOpenChange={setCodeDialogOpen}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Submit Attendance Code</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Enter the verification code provided by your Sunday School servant.
-              </p>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="e.g., G2-A7X3"
-                className="text-center text-lg font-mono tracking-wider"
-                maxLength={10}
-              />
+              )}
+              <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {assignment.weeks.map((week) => (
+                  <li key={week.weekNumber} className="flex flex-col items-center gap-1.5 rounded-md border border-line px-2 py-3 text-center">
+                    {getWeekStatusIcon(week.status)}
+                    <span className="text-[12.5px] font-medium text-ink">
+                      {new Date(week.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="text-[11px] text-ink-3">{getWeekStatusLabel(week.status)}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCodeDialogOpen(false)}>Cancel</Button>
-              <Button
-                onClick={handleSubmitCode}
-                disabled={submitting || !code.trim()}
-                className="bg-purple-600 hover:bg-purple-700"
+            {assignment.isActive && (
+              <form
+                className="flex flex-col gap-2 border-t border-line px-4 py-4"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void handleSubmitCode()
+                }}
               >
-                {submitting ? 'Verifying...' : 'Submit'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <label htmlFor={`code-${assignment.id}`} className="text-sm font-semibold text-ink">
+                  Submit attendance code
+                </label>
+                <p className="text-xs text-ink-3">Enter the verification code your Sunday School servant gave you.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id={`code-${assignment.id}`}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="e.g., G2-A7X3"
+                    autoComplete="off"
+                    maxLength={10}
+                    className="w-40 font-mono tracking-wider"
+                  />
+                  <Button type="submit" disabled={submitting || !code.trim()}>
+                    <KeyRound />
+                    {submitting ? 'Verifying…' : 'Submit code'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Panel>
+        ))
+      )}
     </div>
   )
 }

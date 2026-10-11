@@ -89,11 +89,22 @@ describe('navigationFor', () => {
 })
 
 describe('ministries', () => {
-  it('offers both only to prep leaders and mentors who also serve', () => {
+  it('offers both only to prep servants and mentors who also serve', () => {
     expect(availableMinistries({ role: 'SUPER_ADMIN', ...servesSS }).map((m) => m.id)).toEqual(['prep', 'sunday-school'])
     expect(availableMinistries({ role: 'MENTOR', ...servesSS })).toHaveLength(2)
     expect(availableMinistries({ role: 'SUPER_ADMIN', ...noSS })).toHaveLength(1)
     expect(availableMinistries({ role: 'STUDENT', ...servesSS })).toHaveLength(1)
+  })
+
+  it('puts Sunday School first for a servant without Servants Prep service', () => {
+    const user = {
+      role: 'MENTOR' as const,
+      ...servesSS,
+      ministryMembership: { sundaySchoolServant: true, servantsPrepLeader: false },
+    }
+    expect(availableMinistries(user).map((ministry) => ministry.id)).toEqual(['sunday-school', 'prep'])
+    expect(resolveMinistry(user, '/settings')).toBe('sunday-school')
+    expect(resolveMinistry(user, '/dashboard/mentor')).toBe('prep')
   })
 
   it('keeps single-ministry users in their ministry on shared pages', () => {
@@ -119,6 +130,29 @@ describe('active state', () => {
   it('labels the breadcrumb from the most specific match', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
     expect(currentNavLabel(groups, '/dashboard/admin/exams')).toBe('Exams')
+    expect(currentNavLabel(groups, '/dashboard/admin/exam-monitoring')).toBe('Exam Monitoring')
     expect(currentNavLabel(groups, '/dashboard/admin')).toBe('Dashboard')
+  })
+})
+
+
+describe('contact book navigation', () => {
+  it('requires explicit permission in both ministries for non-admin roles', () => {
+    for (const role of ['PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'SERVANT', 'PARENT'] as UserRole[]) {
+      for (const ministry of ['prep', 'sunday-school'] as const) {
+        expect(hrefs(role, ministry, servesSS)).not.toContain('/dashboard/contact-book')
+        expect(hrefs(role, ministry, { ...servesSS, canAccessContactBook: true })).toContain('/dashboard/contact-book')
+      }
+    }
+  })
+  it('hides the contact book from super admins even with a stored grant', () => {
+    for (const ministry of ['prep', 'sunday-school'] as const) {
+      expect(hrefs('SUPER_ADMIN', ministry, servesSS)).not.toContain('/dashboard/contact-book')
+      expect(hrefs('SUPER_ADMIN', ministry, { ...servesSS, canAccessContactBook: true })).not.toContain('/dashboard/contact-book')
+    }
+  })
+  it('uses the default ministry for the shared contact book page', () => {
+    expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/dashboard/contact-book')).toBe('sunday-school')
+    expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/contact-book')).toBe('prep')
   })
 })

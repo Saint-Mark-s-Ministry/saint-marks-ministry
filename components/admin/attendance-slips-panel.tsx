@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
 import { Trash2, Upload } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Panel } from '@/components/ds/panel'
+import { Initials } from '@/components/ds/person'
+import { StatusBadge } from '@/components/ds/status-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -61,6 +62,7 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
   const [file, setFile] = useState<File | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [pickedId, setPickedId] = useState<string | null>(null)
 
   // Lessons are only needed once the upload dialog is open
   const { data: years = [] } = useSWR<AcademicYear[]>('/api/academic-years', fetcher, staticDataConfig)
@@ -145,88 +147,118 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
   // In a student's modal, stay out of the way unless they're async or have slips
   if (enrollment && students.length === 0) return null
 
+  const renderStudent = (student: SlipEnrollment) => {
+    const studentSlips = slipsByStudent.get(student.studentId) ?? []
+    return (
+      <Panel
+        key={student.studentId}
+        title={enrollment ? 'Attendance slips' : `Attendance slips · ${student.student.name}`}
+        description={
+          !student.isAsyncStudent ? (
+            <span className="text-warn">No longer async — remove slips uploaded in error</span>
+          ) : (
+            student.asyncReason ?? 'Each slip marks the lessons it covers Present'
+          )
+        }
+        actions={
+          canEdit &&
+          student.isAsyncStudent && (
+            <Button size="sm" onClick={() => openUpload(student)}>
+              <Upload />
+              Upload slip
+            </Button>
+          )
+        }
+      >
+        {studentSlips.length === 0 ? (
+          <EmptyState message={canEdit && student.isAsyncStudent ? 'No slips yet. Upload a photo of a signed slip to mark lessons present.' : 'No slips uploaded yet.'} />
+        ) : (
+          <ul className="divide-y divide-line">
+            {studentSlips.map((slip) => (
+              <li key={slip.id} className="flex items-start gap-3 px-4 py-3">
+                <a href={slip.imageUrl} target="_blank" rel="noopener noreferrer" className="shrink-0" aria-label="Open slip">
+                  {isPdf(slip.imageUrl) ? (
+                    <span className="flex size-14 items-center justify-center rounded-md bg-hover text-xs font-medium text-ink-2">PDF</span>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL
+                    <img src={slip.imageUrl} alt="Signed attendance slip" className="size-14 rounded-md border border-line object-cover" />
+                  )}
+                </a>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap gap-1.5">
+                    {slip.attendanceRecords.map(({ lesson }) => (
+                      <StatusBadge key={lesson.id} tone="ok">
+                        Lesson {lesson.lessonNumber} · {lesson.title}
+                      </StatusBadge>
+                    ))}
+                    {slip.attendanceRecords.length === 0 && <span className="text-xs text-ink-3">No lessons linked</span>}
+                  </div>
+                  <p className="mt-1 text-xs text-ink-3">
+                    Uploaded {formatToastTimestamp(new Date(slip.createdAt))}
+                    {slip.uploader && ` by ${slip.uploader.name}`}
+                  </p>
+                </div>
+                {canEdit && (
+                  <Button size="icon-sm" variant="ghost" onClick={() => handleRemove(slip)} className="hover:text-bad" aria-label="Remove slip">
+                    <Trash2 />
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+    )
+  }
+
+  const picked = students.find((st) => st.studentId === pickedId) ?? students[0]
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {!enrollment && (
-        <p className="text-sm text-muted-foreground">
-          Async students print an attendance slip from their portal and get each lesson signed.
-          Upload a photo of the signed slip to mark those lessons Present.
+        <p className="text-[13px] text-ink-3">
+          Async students print an attendance slip from their portal and get each lesson signed. Upload a photo of the signed slip
+          to mark those lessons Present.
         </p>
       )}
 
-      {students.length === 0 ? (
-        <Card>
-          <CardContent>
-            <EmptyState message="No async students. Mark a student as async from Students → Edit → Profile, or from the Roster." />
-          </CardContent>
-        </Card>
-      ) : students.map(student => {
-        const studentSlips = slipsByStudent.get(student.studentId) ?? []
-        return (
-          <Card key={student.studentId}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <div className="min-w-0">
-                <CardTitle className="text-base">{enrollment ? 'Attendance Slips' : student.student.name}</CardTitle>
-                {!student.isAsyncStudent ? (
-                  <p className="text-xs text-amber-700">No longer async — remove slips uploaded in error</p>
-                ) : student.asyncReason && <p className="text-xs text-gray-500 truncate">{student.asyncReason}</p>}
-              </div>
-              {canEdit && student.isAsyncStudent && (
-                <Button size="sm" onClick={() => openUpload(student)} className="gap-1 shrink-0">
-                  <Upload className="h-4 w-4" />
-                  Upload slip
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {studentSlips.length === 0 ? (
-                <p className="text-sm text-gray-500">No slips uploaded yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {studentSlips.map(slip => (
-                    <li key={slip.id} className="flex items-start gap-3 p-2 border rounded-md">
-                      <a href={slip.imageUrl} target="_blank" rel="noopener noreferrer" className="shrink-0" aria-label="Open slip">
-                        {isPdf(slip.imageUrl) ? (
-                          <div className="h-16 w-16 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium">PDF</div>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL
-                          <img src={slip.imageUrl} alt="Signed attendance slip" className="h-16 w-16 rounded object-cover border" />
-                        )}
-                      </a>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap gap-1">
-                          {slip.attendanceRecords.map(({ lesson }) => (
-                            <Badge key={lesson.id} variant="outline" className="text-xs font-normal">
-                              #{lesson.lessonNumber} {lesson.title}
-                            </Badge>
-                          ))}
-                          {slip.attendanceRecords.length === 0 && (
-                            <span className="text-xs text-gray-500">No lessons linked</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Uploaded {formatToastTimestamp(new Date(slip.createdAt))}{slip.uploader && ` by ${slip.uploader.name}`}
-                        </p>
-                      </div>
-                      {canEdit && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRemove(slip)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 shrink-0"
-                          aria-label="Remove slip"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
+      {enrollment ? (
+        students.map(renderStudent)
+      ) : students.length === 0 ? (
+        <Panel>
+          <EmptyState message="No async students. Mark a student as async from Students → Edit → Profile, or from the Roster." />
+        </Panel>
+      ) : (
+        <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <Panel title="Async students" actions={<span className="tabular text-[13px] text-ink-3">{students.length}</span>}>
+            <ul className="py-1">
+              {students.map((student) => {
+                const count = slipsByStudent.get(student.studentId)?.length ?? 0
+                const active = picked?.studentId === student.studentId
+                return (
+                  <li key={student.studentId}>
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setPickedId(student.studentId)}
+                      className={`flex min-h-12 w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-left ${active ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
+                    >
+                      <Initials name={student.student.name} />
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className="truncate text-[13.5px] font-medium text-ink">{student.student.name}</span>
+                        <span className="text-xs text-ink-3">
+                          {!student.isAsyncStudent ? 'No longer async' : count === 0 ? 'No slips yet' : `${count} slip${count === 1 ? '' : 's'}`}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </Panel>
+          {picked && renderStudent(picked)}
+        </div>
+      )}
 
       <Dialog open={!!uploadFor} onOpenChange={(open) => !open && setUploadFor(null)}>
         <DialogContent className="max-w-lg">
@@ -251,9 +283,9 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
               {pastLessons.length === 0 ? (
                 <p className="text-sm text-gray-500">No past lessons in the active academic year.</p>
               ) : (
-                <div className="max-h-72 overflow-y-auto border rounded-md divide-y dark:divide-gray-800">
+                <div className="max-h-72 divide-y divide-line overflow-y-auto rounded-md border border-line">
                   {pastLessons.map(lesson => (
-                    <label key={lesson.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 has-[:disabled]:cursor-default has-[:disabled]:opacity-60">
+                    <label key={lesson.id} className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-[13px] hover:bg-hover/60 has-[:disabled]:cursor-default has-[:disabled]:opacity-60 md:min-h-9">
                       <input
                         type="checkbox"
                         checked={selected.has(lesson.id)}
@@ -263,7 +295,7 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
                       />
                       <span className="flex-1 min-w-0 truncate">#{lesson.lessonNumber} {lesson.title}</span>
                       {coveredLessonIds.has(lesson.id) && (
-                        <Badge className="bg-green-100 text-green-800 text-[10px] px-1.5 py-0 shrink-0">On a slip</Badge>
+                        <StatusBadge tone="ok">On a slip</StatusBadge>
                       )}
                       <span className="text-xs text-gray-500 shrink-0">
                         {formatDateUTC(lesson.scheduledDate, { weekday: undefined, year: undefined })}

@@ -69,6 +69,21 @@ Two rules that hold in both directions:
 - **`SERVANT_PREP` has no Sunday School permission.** Running the prep program
   confers nothing in the other mode.
 
+Active Servants Prep students may create, reschedule, and cancel their own
+makeup exam bookings through `/api/makeup-exams`. This self-service exception
+does not grant exam or score editing. The route resolves current role tags
+from the database, filters eligible failed or missed exams to the student's program
+years and enrollment academic years (the active academic year when the
+starting year is unknown), and ignores client-supplied student identities.
+Only prep administrators and priests can read the full booking list; mentors
+and Sunday School-only participants have no access to it.
+
+Original grade writes and `/api/exams/[id]/makeup-scores` resolve current
+role tags from the database. Only `SUPER_ADMIN` and
+`SERVANTS_PREP_SERVANT` may record or correct grades. Priests may read makeup
+history; students, mentors, and Sunday School-only servants cannot reach the
+makeup grading endpoint. Disabled accounts cannot grade.
+
 `PRIEST` is read-only **everywhere**. When adding a write path, confirm it is
 excluded.
 
@@ -238,9 +253,26 @@ an omitted Prisma filter can accidentally mean unrestricted access.
    by `/api/sunday-school/children*` and `/api/sunday-school/families`, scoped
    to people who can see at least one child in that family — never from the
    dashboard summary or the command palette.
+   The one public write path, `/api/public/roster-signup`, *collects* guardian
+   contact for a single child and returns none — see
+   [`sunday-school-mode.md`](sunday-school-mode.md), "Roster sign-up links".
 5. **A grade level belongs to at most one age group.** Enforced by
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.
+
+### The one unauthenticated Sunday School route
+
+`app/api/public/roster-signup` has no session. It is reached with a temporary
+`SundaySchoolRosterLink` token and its authority comes entirely from that row:
+the class, Sunday School year, and grade level are read from the link, never
+from the request, so it can only ever write to the one roster the link was
+created for. It is bounded by `expiresAt`, `maxUses`, and `revokedAt`, returns
+nothing about the roster, and never overwrites a field a servant filled in.
+Minting a link requires `canServeClass`, exactly like adding a child by hand.
+
+It lives outside `app/api/sunday-school/` on purpose. If you add another public
+route, put it under `app/api/public/` too — the absence of a session should be
+visible in the path, not just in a comment.
 
 ### Feedback exception for priests
 
@@ -256,12 +288,23 @@ on an idea. Everyone who can view feedback sees it attributed to the
 “Development Team”; the responding admin's ID is retained in the database
 for accountability but is never included in feedback API responses.
 
+### MCP token access (feedback)
+
+`/api/mcp` lets an MCP client (e.g. Claude Code) triage feedback. It is
+authenticated by an `McpApiToken` bearer token, not a session. A token acts as
+exactly one `SUPER_ADMIN`; on **every request** `lib/mcp-tokens.ts` re-loads the
+owner, requires `canAdministerSundaySchool(role)`, and every tool re-checks
+`canModerateFeedback(access)`. Demoting the owner, revoking, or expiring the
+token cuts access immediately. Tokens are stored as SHA-256 hashes, shown once at
+creation, and managed with `bun scripts/admin.ts mcp-token-create|list|revoke`.
+It exposes only feedback tools; nothing else in the app accepts these tokens.
+
 ---
 
 ## Why Sunday School is not role-based
 
 The first implementation gave the `SERVANT_PREP` role blanket Sunday School
-power. That was wrong: a prep leader with no Sunday School involvement could
+power. That was wrong: a prep servant with no Sunday School involvement could
 create servant accounts, staff classes, and edit any child's record.
 
 Adding roles like `HIGH_SCHOOL_COORDINATOR` would not have fixed it:
@@ -286,9 +329,10 @@ page guards) do not need a fetch:
 
 ```typescript
 session.user.sundaySchool // { hasAccess: boolean, isCoordinator: boolean, hasHomeworkAccess: boolean }
+session.user.ministryMembership // { sundaySchoolServant: boolean, servantsPrepLeader: boolean }
 ```
 
-It is recomputed on sign-in and on the periodic (~60s) token revalidation in
+These are recomputed on sign-in and on the periodic (~60s) token revalidation in
 `lib/auth.ts`. Assignment changes therefore take effect within about a minute
 for navigation purposes — and immediately for anything the server enforces.
 
@@ -319,3 +363,44 @@ re-deriving anything: list and detail responses carry `canServe`,
 
 When you add a permission, add its denial cases too — a test that only proves
 the happy path does not protect anything.
+
+## Digital original-exam answer sheets
+
+`/api/digital-exams` resolves the current database authorization context. Prep
+servants and super admins configure, open, close, unlock, and release results.
+Priests may read monitoring but never write. Active prep students access only
+their own eligible original-exam attempts; mentor and Sunday School-only tags
+grant no exam-monitoring access. Paper makeup workflows remain separate.
+
+See [digital-exams.md](digital-exams.md) for eligibility, state controls,
+private grades, free live-alert setup, and deployment verification.
+
+
+## Contact book
+
+`User.canAccessContactBook` is an independent per-user permission, defaulting
+to `false` for every account. Super Admins use the existing Users page instead;
+the Contact Book is hidden and denied for them even when this flag is set.
+Other active accounts need this flag to read the names, emails, and phone
+numbers of all app users
+(including disabled directory entries). It grants no user-management or ministry
+record access, and includes no separate child or family records.
+
+`/dashboard/contact-book` and `GET /api/contact-book` resolve the current
+`AuthorizationContext` from the database. Disabled accounts are always denied.
+Super Admins are also denied. Other accounts need the explicit flag; JWT claims
+alone cannot grant access.
+The JWT flag only renders the navigation link and refreshes within the normal
+session revalidation window. API revocation is immediate; the open directory
+revalidates on focus, reconnect, and every minute and hides contacts on denial.
+
+Only an active Super Admin without a Priest tag may change this flag via
+`PUT /api/admin/users/[id]/contact-book-access`. View as writes and ordinary
+profile-update attempts are rejected. Grants and revocations are recorded with
+the actor and target in the same transaction as the update. The Users
+configuration uses a checkbox within Access tags for non-super-admin targets;
+Super Admins do not need this checkbox.
+
+Deploy the additive `20261010120000_add_contact_book_access` migration explicitly
+before deploying this code; builds never apply it. This follow-up changes no
+database schema or stored permission grants.

@@ -76,6 +76,11 @@ export async function POST(request: Request) {
     const user = await requireAuth()
 
     const body = await request.json()
+    // A restored browser draft must never be submitted under a different login.
+    if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+      return NextResponse.json({ error: "Your signed-in account changed. Reload attendance before saving." }, { status: 409 })
+    }
+
     const { classId, date, topic, notes } = body
 
     if (!classId || !date) {
@@ -101,7 +106,6 @@ export async function POST(request: Request) {
     if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-
     // Idempotent: opening the attendance page for a date that already has a
     // session should reuse it rather than fail on the unique constraint.
     const existing = await prisma.sundaySchoolSession.findUnique({

@@ -42,7 +42,7 @@ export interface SundaySchoolAgeGroup {
   levels: SundaySchoolLevel[];
   sortOrder: number;
   isActive: boolean;
-  // Elementary homework (SMM-62) is gated on this real, stored flag — never
+  // Elementary homework (SMM-71) is gated on this real, stored flag — never
   // a hard-coded grade list, since bands can be renamed/regraded.
   isElementary: boolean;
   canCoordinate?: boolean;
@@ -102,14 +102,30 @@ export interface SundaySchoolChild {
   classId: string | null;
   birthDate: string | null;
   gender: SundaySchoolChildGender | null;
+  /** Photo a servant added (most children have no account). */
+  photoUrl?: string | null;
   guardianName: string | null;
   guardianPhone: string | null;
   guardianEmail: string | null;
+  cellPhone: string | null;
+  fatherOfConfession: string | null;
   notes: string | null;
   isActive: boolean;
   class?: SundaySchoolClassRef | null;
   family?: SundaySchoolFamily | null;
   user?: { id: string; name: string; email: string; profileImageUrl: string | null } | null;
+}
+
+export interface SundaySchoolBirthdayChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  level: SundaySchoolLevel;
+  classId: string | null;
+  birthDate: string;
+  photoUrl: string | null;
+  class: SundaySchoolClassRef | null;
+  user: { profileImageUrl: string | null } | null;
 }
 
 export type SundaySchoolWeeklyLessonStatus =
@@ -353,6 +369,7 @@ export interface SundaySchoolServantAttendanceRosterEntry {
   userId: string;
   name: string;
   email: string;
+  phone: string | null;
   profileImageUrl: string | null;
   authority: SundaySchoolAuthority;
   attendance: {

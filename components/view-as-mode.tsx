@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Command } from 'cmdk'
-import { Eye, EyeOff, Search, ShieldCheck, User as UserIcon, X } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, X } from 'lucide-react'
+import { Initials } from '@/components/ds/person'
 import { toast } from 'sonner'
 import type { RoleTag, UserRole } from '@prisma/client'
 import { replaceBrowserLocation } from '@/lib/browser-navigation'
@@ -25,7 +25,7 @@ interface UserRow {
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
   PRIEST: 'Priest',
-  SERVANT_PREP: 'Servants Prep Leader',
+  SERVANT_PREP: 'Servants Prep Servant',
   MENTOR: 'Mentor',
   STUDENT: 'Servants Prep Student',
   SERVANT: 'Sunday School Servant',
@@ -44,12 +44,12 @@ const TAG_LABEL: Record<RoleTag, string> = {
 
 export function ViewAsMode() {
   const { data: session, update } = useSession()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const viewingAs = session?.impersonating ?? null
   const isSuperAdminActor = session?.user?.role === 'SUPER_ADMIN' || !!viewingAs
@@ -80,17 +80,20 @@ export function ViewAsMode() {
 
     const fetchUsers = async () => {
       setLoading(true)
+      setLoadError(null)
       try {
         const params = new URLSearchParams({ limit: '30' })
         if (query.trim()) params.set('search', query.trim())
         const response = await fetch(`/api/admin/view-as/users?${params.toString()}`)
-        if (!response.ok) throw new Error('Unable to load users')
+        if (!response.ok) {
+          throw new Error(response.status === 403 ? 'View as needs an active Super Admin role grant.' : 'Unable to load users')
+        }
         const data = await response.json() as UserRow[]
         if (!cancelled) setUsers(data)
       } catch (error) {
         if (!cancelled) {
           setUsers([])
-          toast.error(error instanceof Error ? error.message : 'Unable to load users')
+          setLoadError(error instanceof Error ? error.message : 'Unable to load users')
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -106,11 +109,6 @@ export function ViewAsMode() {
 
   if (!session?.user || !isSuperAdminActor) return null
 
-  const reloadForEffectiveIdentity = () => {
-    router.refresh()
-    window.setTimeout(() => window.location.reload(), 50)
-  }
-
   const pick = async (userId: string) => {
     setBusy(true)
     try {
@@ -121,9 +119,9 @@ export function ViewAsMode() {
         return
       }
       if (!switchingViewedUser) rememberViewAsReturnPath()
-      setOpen(false)
-      setQuery('')
-      reloadForEffectiveIdentity()
+      // A full navigation to the viewed account's home: staying on this page would
+      // refetch it as that account (403s) and keep data cached for the admin.
+      replaceBrowserLocation(defaultDashboardPath(updated.user))
     } finally {
       setBusy(false)
     }
@@ -141,7 +139,7 @@ export function ViewAsMode() {
       // clears data cached for the viewed user and prevents Next.js from
       // restoring the target user's old route during the identity change.
       replaceBrowserLocation(
-        consumeViewAsReturnPath(defaultDashboardPath(updated.user.role))
+        consumeViewAsReturnPath(defaultDashboardPath(updated.user))
       )
     } finally {
       setBusy(false)
@@ -158,6 +156,7 @@ export function ViewAsMode() {
         setQuery={setQuery}
         users={users}
         loading={loading}
+        error={loadError}
         busy={busy}
         actorUserId={viewingAs?.originalId ?? session.user.id}
         effectiveUserId={session.user.id}
@@ -179,31 +178,27 @@ function ViewAsBanner({
   busy: boolean
   onStop: () => void
 }) {
+  // Floating, so it never shifts the shell; sits above the phone tab bar.
   return (
-    <div className="bg-amber-500 text-amber-950 shadow-sm" role="status">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <Eye className="h-4 w-4 shrink-0" />
-          <span className="truncate">
-            <strong>Read-only View as:</strong>{' '}
-            {session.user?.name ?? session.user?.email}
-            <span className="opacity-80"> ({ROLE_LABEL[session.user?.role ?? ''] ?? session.user?.role})</span>
-            <span className="hidden md:inline opacity-80">
-              {' '}— acting admin: {session.impersonating?.originalName ?? session.impersonating?.originalEmail}
-            </span>
-            <span className="hidden lg:inline opacity-80"> · Ctrl+Q to switch</span>
-          </span>
-        </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onStop}
-          className="inline-flex items-center gap-1.5 rounded-md bg-amber-950/10 hover:bg-amber-950/20 px-2.5 py-1 font-medium disabled:opacity-50"
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-          Stop
-        </button>
-      </div>
+    <div
+      role="status"
+      className="fixed inset-x-3 bottom-[calc(56px+env(safe-area-inset-bottom)+12px)] z-50 mx-auto flex max-w-[640px] items-center gap-3 rounded-[10px] border border-warn/40 bg-warn-tint py-2 pr-2 pl-3.5 text-[13px] text-ink shadow-lg md:bottom-5 print:hidden"
+    >
+      <Eye className="size-4 shrink-0 text-warn" strokeWidth={1.75} aria-hidden />
+      <span className="min-w-0 flex-1 truncate">
+        <span className="font-medium">Viewing as {session.user?.name ?? session.user?.email}</span>
+        <span className="text-ink-2"> · {ROLE_LABEL[session.user?.role ?? ''] ?? session.user?.role} · read-only</span>
+        <span className="hidden text-ink-3 lg:inline"> · Ctrl Q to switch</span>
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onStop}
+        className="inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2.5 font-medium text-ink hover:bg-hover disabled:opacity-50"
+      >
+        <EyeOff className="size-3.5" strokeWidth={1.75} aria-hidden />
+        Stop
+      </button>
     </div>
   )
 }
@@ -215,6 +210,7 @@ function PickerDialog({
   setQuery,
   users,
   loading,
+  error,
   busy,
   actorUserId,
   effectiveUserId,
@@ -226,6 +222,7 @@ function PickerDialog({
   setQuery: (query: string) => void
   users: UserRow[]
   loading: boolean
+  error: string | null
   busy: boolean
   actorUserId: string
   effectiveUserId: string
@@ -241,38 +238,43 @@ function PickerDialog({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-3 sm:top-[12%] z-50 w-full max-w-[680px] -translate-x-1/2 px-3 sm:px-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed top-3 left-1/2 z-50 w-full max-w-[640px] -translate-x-1/2 px-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:top-[12%] sm:px-4">
           <DialogPrimitive.Title className="sr-only">View as another user</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Preview the application with another user&apos;s access. All changes are blocked.
           </DialogPrimitive.Description>
-          <Command className="overflow-hidden rounded-xl border bg-white dark:bg-gray-900 shadow-2xl" label="View as user">
-            <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/50 px-3">
-              <Eye className="h-4 w-4 text-amber-700 shrink-0" />
+          {/* The server already filters by the query; cmdk filtering on top would hide matches. */}
+          <Command shouldFilter={false} className="overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-2xl" label="View as user">
+            <div className="flex items-center gap-2 border-b border-line px-3.5">
+              <Eye className="size-4 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden />
               <Command.Input
                 value={query}
                 onValueChange={setQuery}
                 autoFocus
-                placeholder="Search users by name or email…"
-                className="h-12 flex-1 bg-transparent text-base sm:text-sm outline-none placeholder:text-amber-700/50 text-amber-950 dark:text-amber-100"
+                placeholder="View as… search by name or email"
+                className="h-12 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 sm:text-sm"
               />
-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold rounded bg-amber-200 px-1.5 py-0.5 text-amber-900">
-                <ShieldCheck className="h-3 w-3" /> READ-ONLY
+              <span className="hidden items-center gap-1 rounded-sm bg-warn-tint px-1.5 py-0.5 text-[11px] font-medium text-warn sm:inline-flex">
+                <ShieldCheck className="size-3" aria-hidden /> Read-only
               </span>
               <button
                 type="button"
                 aria-label="Close"
                 onClick={() => onOpenChange(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-amber-700 hover:bg-amber-100"
+                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink"
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" aria-hidden />
               </button>
             </div>
-            <Command.List className="max-h-[70vh] sm:max-h-[60vh] overflow-y-auto overscroll-contain p-2">
-              <Command.Empty className="py-6 text-center text-sm text-gray-500">
-                {loading ? 'Searching…' : 'No users found.'}
-              </Command.Empty>
+            <Command.List className="max-h-[70vh] overflow-y-auto overscroll-contain p-1.5 sm:max-h-[60vh]">
+              {error ? (
+                <p role="alert" className="m-1.5 rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad">{error}</p>
+              ) : (
+                <Command.Empty className="py-6 text-center text-[13px] text-ink-3">
+                  {loading ? 'Searching…' : 'No users found.'}
+                </Command.Empty>
+              )}
               {groupOrder.map((role) => {
                 const rows = grouped[role]
                 if (!rows?.length) return null
@@ -280,7 +282,7 @@ function PickerDialog({
                   <Command.Group
                     key={role}
                     heading={ROLE_LABEL[role]}
-                    className="text-xs font-semibold text-gray-500 uppercase tracking-wide [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-[0.06em] [&_[cmdk-group-heading]]:text-ink-3 [&_[cmdk-group-heading]]:uppercase"
                   >
                     {rows.map((user) => {
                       const isActor = user.id === actorUserId
@@ -288,27 +290,26 @@ function PickerDialog({
                       return (
                         <Command.Item
                           key={user.id}
-                          value={`${user.name} ${user.email}`}
+                          value={user.id}
                           disabled={busy || isActor || isCurrent}
                           onSelect={() => onPick(user.id)}
-                          className="flex items-center gap-3 rounded-md px-2 py-2.5 text-sm cursor-pointer aria-selected:bg-amber-50 dark:aria-selected:bg-amber-900/30 active:bg-amber-100 data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed"
+                          // cmdk always sets data-disabled ("true"/"false"), so match the value.
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-[13.5px] aria-selected:bg-hover data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45"
                         >
-                          <UserIcon className="h-4 w-4 text-gray-500 shrink-0" />
+                          <Initials name={user.name} size={28} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate normal-case font-medium text-gray-900 dark:text-gray-100">{user.name}</span>
-                            <span className="block truncate normal-case text-xs font-normal text-gray-500">{user.email}</span>
+                            <span className="block truncate font-medium text-ink">{user.name}</span>
+                            <span className="block truncate text-xs text-ink-3">{user.email}</span>
                           </span>
-                          <span className="hidden md:flex max-w-[230px] flex-wrap justify-end gap-1 normal-case">
+                          <span className="hidden max-w-[230px] flex-wrap justify-end gap-1 md:flex">
                             {user.roleAssignments.slice(0, 3).map(({ tag }) => (
-                              <span key={tag} className="rounded border bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              <span key={tag} className="rounded-sm bg-raised px-1.5 py-0.5 text-[11px] text-ink-2">
                                 {TAG_LABEL[tag]}
                               </span>
                             ))}
                           </span>
                           {(isActor || isCurrent) && (
-                            <span className="text-[10px] uppercase font-bold text-amber-700">
-                              {isActor ? 'you' : 'current'}
-                            </span>
+                            <span className="text-[11px] font-medium text-ink-3">{isActor ? 'You' : 'Current'}</span>
                           )}
                         </Command.Item>
                       )
@@ -317,13 +318,10 @@ function PickerDialog({
                 )
               })}
             </Command.List>
-            <div className="flex items-center justify-between border-t px-3 py-2 text-[11px] text-gray-500 dark:border-gray-800">
-              <span className="flex items-center gap-1.5">
-                <Search className="h-3 w-3" /> Permissions and scope match the selected account
-              </span>
+            <div className="flex items-center justify-between border-t border-line px-3.5 py-2 text-[11.5px] text-ink-3">
+              <span>Permissions and scope match the selected account</span>
               <span className="hidden sm:inline">
-                <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">Ctrl Q</kbd>
-                {' '}close · expires after 30 minutes
+                <kbd className="rounded-[4px] border border-line-strong px-[5px] font-mono text-[11px]">Ctrl Q</kbd> close · expires after 30 minutes
               </span>
             </div>
           </Command>

@@ -7,6 +7,8 @@ import { getToken } from "next-auth/jwt"
 const ALLOW_DURING_PASSWORD_CHANGE = [
   "/change-password",
   "/login",
+  "/forgot-password",
+  "/reset-password",
   "/privacy",
   "/terms",
   "/api/auth", // NextAuth: sign-in, sign-out, session, csrf
