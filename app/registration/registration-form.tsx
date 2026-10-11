@@ -17,7 +17,8 @@ type RegistrationStep = 'CODE' | 'FORM' | 'CONFIRMATION'
 
 interface FormData {
   email: string
-  fullName: string
+  firstName: string
+  lastName: string
   dateOfBirth: string
   phone: string
   previouslyServed: string
@@ -40,7 +41,8 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
   const [formData, setFormData] = useState<FormData>({
     email: '',
-    fullName: '',
+    firstName: '',
+    lastName: '',
     dateOfBirth: '',
     phone: '',
     previouslyServed: '',
@@ -183,7 +185,8 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
   const calculateProgress = () => {
     const requiredFields: Array<keyof FormData> = [
       'email',
-      'fullName',
+      'firstName',
+      'lastName',
       'dateOfBirth',
       'phone',
       'previouslyServed',
@@ -281,12 +284,27 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 <h3 className="border-b border-line pb-2 text-sm font-semibold tracking-[0.04em] text-accent-ink uppercase">Personal Information</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name *</Label>
+                    <Label htmlFor="firstName">First name *</Label>
                     <Input
-                      id="fullName"
+                      id="firstName"
+                      name="firstName"
+                      autoComplete="given-name"
+                      autoCapitalize="words"
                       required
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last name *</Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      autoComplete="family-name"
+                      autoCapitalize="words"
+                      required
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">

@@ -81,6 +81,43 @@ describe('registration submission', () => {
     }))
   })
 
+  it.each([
+    { firstName: '  john  ', lastName: '  McDonald  ', fullName: undefined },
+    { fullName: '  john   McDonald  ' },
+  ])('capitalizes names before saving and notifying: %j', async (nameFields) => {
+    const response = await POST(request({
+      ...requiredApplication,
+      ...nameFields,
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mocks.createSubmission).toHaveBeenCalledWith({
+      data: expect.objectContaining({ fullName: 'John McDonald' }),
+    })
+    expect(mocks.notifyNewRegistration).toHaveBeenCalledWith(
+      expect.objectContaining({ applicantName: 'John McDonald' })
+    )
+    expect(mocks.emailReceived).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'John McDonald' })
+    )
+  })
+
+  it.each([
+    { firstName: 'John' },
+    { firstName: 'John', lastName: '   ' },
+    { firstName: 123, lastName: 'Smith' },
+    { fullName: '   ' },
+    { fullName: { name: 'John' } },
+  ])('rejects missing or invalid name fields: %j', async (nameFields) => {
+    const response = await POST(request({
+      ...requiredApplication,
+      ...nameFields,
+    }))
+
+    expect(response.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
   it('accepts an application without approval or mentor information', async () => {
     const response = await POST(request(requiredApplication))
 

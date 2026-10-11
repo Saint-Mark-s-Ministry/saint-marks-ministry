@@ -4,6 +4,7 @@ import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
 import { normalizeEmail } from '@/lib/email'
+import { getRegistrationName } from '@/lib/registration-name'
 import { emailRegistrationReceived } from '@/lib/mail/notify'
 
 /**
@@ -16,7 +17,6 @@ export async function POST(req: NextRequest) {
     const {
       inviteCode,
       email,
-      fullName,
       dateOfBirth,
       phone,
       previouslyServed,
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       profileImageFilename,
     } = body
     const normalizedEmail = normalizeEmail(email)
+    const fullName = getRegistrationName(body)
     const normalizedPreviousServiceLocation = typeof previousServiceLocation === 'string'
       ? previousServiceLocation.trim()
       : ''

@@ -92,6 +92,43 @@ describe('servant applications API', () => {
     }))
   })
 
+  it.each([
+    { firstName: '  john  ', lastName: '  McDonald  ', fullName: undefined },
+    { fullName: '  john   McDonald  ' },
+  ])('capitalizes names before saving and notifying: %j', async (nameFields) => {
+    const response = await POST(submissionRequest({
+      email: 'servant@example.com', phone: '555-0100', currentGrade: '3rd grade',
+      ...nameFields,
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mocks.createApplication).toHaveBeenCalledWith({
+      data: expect.objectContaining({ fullName: 'John McDonald' }),
+    })
+    expect(mocks.notifyNewApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ applicantName: 'John McDonald' })
+    )
+    expect(mocks.emailReceived).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'John McDonald' })
+    )
+  })
+
+  it.each([
+    { firstName: 'John' },
+    { firstName: 'John', lastName: '   ' },
+    { firstName: 123, lastName: 'Smith' },
+    { fullName: '   ' },
+    { fullName: { name: 'John' } },
+  ])('rejects missing or invalid name fields: %j', async (nameFields) => {
+    const response = await POST(submissionRequest({
+      email: 'servant@example.com', phone: '555-0100', currentGrade: '3rd grade',
+      ...nameFields,
+    }))
+
+    expect(response.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
   it('requires the applicant current grade', async () => {
     const response = await POST(submissionRequest({
       email: 'servant@example.com',
