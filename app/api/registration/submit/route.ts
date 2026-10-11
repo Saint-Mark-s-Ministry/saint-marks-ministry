@@ -4,6 +4,7 @@ import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
 import { normalizeEmail } from '@/lib/email'
+import { emailRegistrationReceived } from '@/lib/mail/notify'
 
 /**
  * POST /api/registration/submit
@@ -203,6 +204,7 @@ export async function POST(req: NextRequest) {
       applicantName: fullName,
       registrationId: submission.id,
     }).catch(() => {})
+    emailRegistrationReceived({ email: normalizedEmail, name: fullName })
 
     return NextResponse.json(
       {

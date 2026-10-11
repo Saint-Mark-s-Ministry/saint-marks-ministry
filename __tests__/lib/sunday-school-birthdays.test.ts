@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { ageOnBirthdayInYear, getBirthdayParts, isBirthdayToday } from '@/lib/sunday-school-birthdays'
+import {
+  ageOnBirthdayInYear,
+  compareBirthdays,
+  formatBirthday,
+  getBirthdayParts,
+  isBirthdayToday,
+} from '@/lib/sunday-school-birthdays'
 
-describe('birthday calendar values', () => {
-  it('reads the UTC calendar day, so the day never shifts by device time zone', () => {
-    // Stored at midnight UTC. In a western zone this is still the 3rd, and it must read as the 3rd.
-    expect(getBirthdayParts('2019-02-03T00:00:00.000Z')).toEqual({ year: 2019, month: 2, day: 3 })
+describe('Sunday School birthdays', () => {
+  it('reads stored calendar dates in UTC without shifting the day', () => {
+    // Stored at midnight UTC. In a western zone this is still the 4th, and it must read as the 4th.
+    expect(getBirthdayParts('2014-10-04T00:00:00.000Z')).toEqual({
+      year: 2014,
+      month: 10,
+      day: 4,
+    })
+    expect(formatBirthday('2014-10-04T00:00:00.000Z')).toBe('October 4')
   })
 
-  it('computes the age the child turns in the given year, never negative', () => {
-    expect(ageOnBirthdayInYear('2019-02-03T00:00:00.000Z', 2026)).toBe(7)
+  it('calculates the age reached during the selected calendar year, never negative', () => {
+    expect(ageOnBirthdayInYear('2014-10-04T00:00:00.000Z', 2026)).toBe(12)
     expect(ageOnBirthdayInYear('2030-01-01T00:00:00.000Z', 2026)).toBe(0)
   })
 
@@ -16,6 +27,16 @@ describe('birthday calendar values', () => {
     const now = new Date('2026-10-06T12:00:00.000Z')
     expect(isBirthdayToday('2019-10-06T00:00:00.000Z', now)).toBe(true)
     expect(isBirthdayToday('2019-10-07T00:00:00.000Z', now)).toBe(false)
+  })
+
+  it('sorts by month, day, and then name', () => {
+    const children = [
+      { firstName: 'Zoe', lastName: 'B', birthDate: '2014-10-05T00:00:00.000Z' },
+      { firstName: 'Adam', lastName: 'A', birthDate: '2014-02-10T00:00:00.000Z' },
+      { firstName: 'Mina', lastName: 'C', birthDate: '2014-10-04T00:00:00.000Z' },
+    ]
+
+    expect(children.sort(compareBirthdays).map(child => child.firstName)).toEqual(['Adam', 'Mina', 'Zoe'])
   })
 
   it('returns null for an unreadable date', () => {

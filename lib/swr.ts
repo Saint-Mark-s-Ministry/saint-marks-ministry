@@ -1,4 +1,5 @@
-import useSWR, { SWRConfiguration } from 'swr'
+import type { ContactBookResponse } from '@/lib/contact-book'
+import useSWR, { SWRConfiguration, mutate } from 'swr'
 
 // Default fetcher for SWR
 export const fetcher = async (url: string) => {
@@ -74,6 +75,25 @@ export function useRegistrationSettings(options?: SWRConfiguration) {
     ...staticDataConfig,
     ...options,
   })
+}
+
+export interface StudentApplicationState {
+  annualMentorRequired: boolean
+  academicYear: { id: string; name: string } | null
+  missingDetails: string[]
+  complete: boolean
+}
+
+export function useStudentApplicationState(enabled = true, options?: SWRConfiguration) {
+  return useSWR<StudentApplicationState>(
+    enabled ? '/api/registration/application' : null,
+    fetcher,
+    {
+      ...defaultSWRConfig,
+      shouldRetryOnError: false,
+      ...options,
+    }
+  )
 }
 
 // Servant application hooks
@@ -189,6 +209,10 @@ export function useSundaySchoolChildren(classId?: string, options?: SWRConfigura
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
 
+export function useSundaySchoolBirthdays(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/birthdays', fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useSundaySchoolVisitations(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/visitations', fetcher, {
     ...defaultSWRConfig,
@@ -234,5 +258,100 @@ export function useSundaySchoolOrganization() {
 export function usePriestOverseers(enabled: boolean) {
   return useSWR<Array<import('@/lib/sunday-school-organization').OrganizationPerson & { isDisabled: boolean }>>(
     enabled ? '/api/users?role=PRIEST' : null, fetcher, defaultSWRConfig,
+  )
+}
+
+export interface AcademicYearSummary {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  isActive: boolean
+  _count?: { lessons: number; exams: number }
+}
+
+export function useAcademicYears(enabled = true, options?: SWRConfiguration) {
+  return useSWR<AcademicYearSummary[]>(enabled ? '/api/academic-years' : null, fetcher, {
+    ...staticDataConfig,
+    ...options,
+  })
+}
+
+export interface LessonSummary {
+  id: string
+  title: string
+  subtitle?: string | null
+  speaker?: string | null
+  scheduledDate: string
+  status: 'SCHEDULED' | 'CANCELLED' | 'NO_CLASS' | 'COMPLETED'
+  lessonNumber: number
+  isExamDay: boolean
+  examSection?: { id: string; displayName: string } | null
+}
+
+export function useLessons(academicYearId?: string | null, options?: SWRConfiguration) {
+  return useSWR<LessonSummary[]>(
+    academicYearId ? `/api/lessons?academicYearId=${academicYearId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export interface ExamSummary {
+  id: string
+  examDate: string
+  yearLevel: string
+  totalPoints: number
+  examSection: { id: string; displayName: string }
+}
+
+export function useExams(academicYearId?: string | null, options?: SWRConfiguration) {
+  return useSWR<ExamSummary[]>(
+    academicYearId ? `/api/exams?academicYearId=${academicYearId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export function useMakeupExams(enabled = true) {
+  return useSWR(enabled ? '/api/makeup-exams' : null, fetcher, defaultSWRConfig)
+}
+
+export function useMakeupExamScores(examId: string) {
+  return useSWR(`/api/exams/${examId}/makeup-scores`, fetcher, defaultSWRConfig)
+}
+
+export function refreshMakeupExamScores(examId: string) {
+  return mutate(`/api/exams/${examId}/makeup-scores`)
+}
+
+export function useDigitalExams(enabled = true) {
+  return useSWR<import('@/lib/digital-exam-types').DigitalExamList>(enabled ? '/api/digital-exams' : null, fetcher, { ...defaultSWRConfig, refreshInterval: 2000 })
+}
+export function useDigitalExam(examId: string, enabled = true) {
+  return useSWR<import('@/lib/digital-exam-types').DigitalExamView>(enabled ? `/api/digital-exams/${examId}` : null, fetcher, { ...defaultSWRConfig, dedupingInterval: 500, refreshInterval: 2000, refreshWhenHidden: false })
+}
+
+export function useSundaySchoolMeetings(ageGroupId: string, meetingId?: string) {
+  const params = new URLSearchParams({ ageGroupId })
+  if (meetingId) params.set('meetingId', meetingId)
+  return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, defaultSWRConfig)
+}
+
+/** Cache directory pages by effective identity so View as cannot reuse another user's contacts. */
+export function useContactBook(userId: string | undefined, search: string, page: number) {
+  const params = new URLSearchParams({ page: String(page) })
+  if (search.trim()) params.set('search', search.trim())
+  return useSWR<ContactBookResponse, Error & { status?: number }>(
+    userId ? ['contact-book', userId, `/api/contact-book?${params}`] : null,
+    ([, , url]: [string, string, string]) => fetcher(url),
+    {
+      ...defaultSWRConfig,
+      revalidateOnMount: true,
+      revalidateOnFocus: true,
+      refreshInterval: 60000,
+      keepPreviousData: false,
+      shouldRetryOnError: error => error.status !== 401 && error.status !== 403,
+    }
   )
 }

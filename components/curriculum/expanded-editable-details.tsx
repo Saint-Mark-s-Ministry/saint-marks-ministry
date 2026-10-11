@@ -52,8 +52,8 @@ export function ExpandedEditableDetails({
         />
       </div>
 
-      {/* Cancellation reason - only when CANCELLED */}
-      {currentStatus === 'CANCELLED' && (
+      {/* Cancellation reason for canceled meetings or no-class days */}
+      {(currentStatus === 'CANCELLED' || currentStatus === 'NO_CLASS') && (
         <div>
           <label className="text-xs font-medium text-gray-500">Cancellation Reason</label>
           <Textarea

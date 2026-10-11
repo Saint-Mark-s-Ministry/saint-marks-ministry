@@ -469,7 +469,7 @@ Any signed-in user may begin the child-registration flow; successful submission 
 
 - Search-as-you-type servant selector replaces long scrolling lists.
 - Search returns active accounts eligible to serve in Sunday School, including
-  mentors and Servants Prep leaders who may serve in both programs, plus super
+  mentors and Servants Prep servants who may serve in both programs, plus super
   admins who explicitly carry the `SUNDAY_SCHOOL_SERVANT` tag.
 - Creating an assignment automatically grants `SUNDAY_SCHOOL_SERVANT` when the
   active tag is missing; the assignment and tag grant commit atomically.

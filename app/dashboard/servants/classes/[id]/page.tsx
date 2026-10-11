@@ -4,14 +4,18 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { ServantContactDialog } from '@/components/servant-contact-dialog'
+import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +28,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClass } from '@/lib/swr'
-import { getChildFullName, getLevelDisplayName } from '@/lib/sunday-school-class'
+import { getChildFullName, getChildPhotoUrl, getLevelDisplayName } from '@/lib/sunday-school-class'
+import type { OrganizationPerson } from '@/lib/sunday-school-organization'
 import { formatDateUTC } from '@/lib/utils'
 import type {
   SundaySchoolAssignmentRow,
@@ -34,7 +39,7 @@ import type {
   SundaySchoolWeeklyLesson,
 } from '@/types/sunday-school'
 import { SundaySchoolAuthority } from '@prisma/client'
-import { ArrowLeft, ClipboardList, ExternalLink, Trash2, UserPlus } from 'lucide-react'
+import { ClipboardList, ExternalLink, Trash2, UserPlus } from 'lucide-react'
 
 interface ServantOption {
   id: string
@@ -59,7 +64,7 @@ export default function SundaySchoolClassDetailPage() {
   const classId = params?.id
   const router = useRouter()
   const { status } = useSundaySchoolGuard()
-  const { data, isLoading, mutate } = useSundaySchoolClass(classId)
+  const { data, error: loadError, isLoading, mutate } = useSundaySchoolClass(classId)
 
   const [servantOptions, setServantOptions] = useState<ServantOption[]>([])
   const [servantSearch, setServantSearch] = useState('')
@@ -69,6 +74,8 @@ export default function SundaySchoolClassDetailPage() {
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [contactAssignment, setContactAssignment] = useState<SundaySchoolAssignmentRow | null>(null)
+  const [organizationUser, setOrganizationUser] = useState<OrganizationPerson | null>(null)
 
   const detail = data as ClassDetail | undefined
   const canCoordinate = detail?.canCoordinate ?? false
@@ -200,10 +207,19 @@ export default function SundaySchoolClassDetailPage() {
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <EmptyState message="This class could not be found, or you do not have access to it." />
-        </div>
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
+        <PageHeader back={{ href: '/dashboard/servants/classes', label: 'All classes' }} title="Class" />
+        <Panel>
+          {(loadError as { status?: number } | undefined)?.status && (loadError as { status: number }).status >= 500 ? (
+            <EmptyState
+              title="Couldn’t load this class"
+              message="Something went wrong on our side. Try again in a moment."
+              action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>}
+            />
+          ) : (
+            <EmptyState message="This class could not be found, or you do not have access to it." />
+          )}
+        </Panel>
       </div>
     )
   }
@@ -221,26 +237,20 @@ export default function SundaySchoolClassDetailPage() {
     : availableServants
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Button asChild variant="ghost" size="sm" className="-ml-2">
-          <Link href="/dashboard/servants/classes">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            All classes
-          </Link>
-        </Button>
-
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
+          back={{ href: '/dashboard/servants/classes', label: 'All classes' }}
           title={detail.name}
-          description={`${getLevelDisplayName(detail.level)} · ${detail.children.length} children`}
+          meta={[getLevelDisplayName(detail.level), `${detail.children.length} children`]}
           actions={
-            <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap">
+            <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline">
                 <Link href="/dashboard/servants/lessons">Lessons</Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>
-                  <ClipboardList className="h-4 w-4 mr-1" />
+                  <ClipboardList />
                   Roster
                 </Link>
               </Button>
@@ -260,7 +270,7 @@ export default function SundaySchoolClassDetailPage() {
               )}
               {detail.canDelete && (
                 <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-1" />
+                  <Trash2 />
                   Delete class
                 </Button>
               )}
@@ -288,7 +298,7 @@ export default function SundaySchoolClassDetailPage() {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-bad text-white hover:bg-bad/90"
                 disabled={deleting}
                 onClick={event => {
                   event.preventDefault()
@@ -301,26 +311,79 @@ export default function SundaySchoolClassDetailPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Servants</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {organizationUser && (
+          <UserOrganizationDialog
+            key={organizationUser.id}
+            user={organizationUser}
+            onClose={() => setOrganizationUser(null)}
+          />
+        )}
+
+        {contactAssignment && (
+          <ServantContactDialog
+            key={contactAssignment.userId}
+            servant={{
+              name: contactAssignment.user.name,
+              email: contactAssignment.user.email ?? '',
+              phone: contactAssignment.user.phone ?? null,
+              profileImageUrl: contactAssignment.user.profileImageUrl ?? null,
+            }}
+            onClose={() => setContactAssignment(null)}
+            onViewOrganization={() => {
+              setOrganizationUser({
+                id: contactAssignment.userId,
+                name: contactAssignment.user.name,
+                profileImageUrl: contactAssignment.user.profileImageUrl ?? null,
+              })
+              setContactAssignment(null)
+            }}
+          />
+        )}
+
+        <KpiStrip
+          items={[
+            { label: 'Children', value: detail.children.filter((c) => c.isActive).length, hint: 'on roster' },
+            {
+              label: 'Servants',
+              value: classAssignments.length,
+              hint: `${classAssignments.filter((a) => a.authority === SundaySchoolAuthority.COORDINATOR).length} coordinator`,
+            },
+            { label: 'Sessions', value: detail.sessions.length, hint: 'attendance taken' },
+            {
+              label: 'Latest session',
+              value: <span className="text-[22px]">{detail.sessions[0] ? formatDateUTC(detail.sessions[0].date, { weekday: undefined, year: undefined }) : '—'}</span>,
+              hint: detail.sessions[0] ? `${detail.sessions[0]._count?.attendance ?? 0} marked` : 'none yet',
+            },
+          ]}
+        />
+
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex min-w-0 flex-col gap-5 xl:order-2">
+        <Panel title="Servants" bodyClassName="flex flex-col gap-4 px-4 py-3">
             {classAssignments.length === 0 ? (
               <EmptyState message="No servants assigned to this class yet." />
             ) : (
-              <div className="divide-y dark:divide-gray-800">
+              <div className="divide-y divide-line">
                 {classAssignments.map(assignment => (
-                  <div key={assignment.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{assignment.user.name}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {assignment.user.email}
-                      </p>
+                  <div key={assignment.id} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Initials name={assignment.user.name} imageUrl={assignment.user.profileImageUrl} />
+                      <div className="flex min-w-0 flex-col leading-tight">
+                        <button
+                          type="button"
+                          onClick={() => setContactAssignment(assignment)}
+                          className="min-w-0 truncate rounded text-left text-[13.5px] font-medium text-ink hover:text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                          aria-label={`View ${assignment.user.name}'s contact information`}
+                        >
+                          {assignment.user.name}
+                          <span aria-hidden="true" className="ml-1 text-xs text-ink-3">↗</span>
+                        </button>
+                        <span className="truncate text-xs text-ink-3">{assignment.user.email}</span>
+                      </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       {assignment.authority === SundaySchoolAuthority.COORDINATOR && (
-                        <Badge className="bg-maroon-600">Coordinator</Badge>
+                        <StatusBadge tone="gold" dot={false}>Coordinator</StatusBadge>
                       )}
                       {canCoordinate && (
                         <>
@@ -343,11 +406,12 @@ export default function SundaySchoolClassDetailPage() {
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon-sm"
                             aria-label={`Remove ${assignment.user.name} from class`}
+                            className="hover:text-bad"
                             onClick={() => handleUnassign(assignment.id)}
                           >
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                            <Trash2 />
                           </Button>
                         </>
                       )}
@@ -358,10 +422,10 @@ export default function SundaySchoolClassDetailPage() {
             )}
 
             {canCoordinate && (
-              <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-2 border-t dark:border-gray-800">
+              <div className="flex flex-col gap-2 border-t border-line pt-3">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="servant-search">Assign a servant</Label>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2">
                     <Input
                       id="servant-search"
                       type="search"
@@ -377,7 +441,7 @@ export default function SundaySchoolClassDetailPage() {
                       aria-label="Servant"
                       value={selectedServantId}
                       onChange={e => setSelectedServantId(e.target.value)}
-                      className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                      className="h-11 w-full rounded-md border border-line-strong bg-surface px-2.5 text-base text-ink md:h-9 md:text-[13.5px]"
                     >
                       <option value="">
                         {normalizedServantSearch
@@ -397,54 +461,57 @@ export default function SundaySchoolClassDetailPage() {
                     </p>
                   )}
                 </div>
-                <label className="flex items-center gap-2 text-sm h-9">
+                <div className="flex items-center justify-between gap-2">
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
                   <input
                     type="checkbox"
                     checked={asCoordinator}
                     onChange={e => setAsCoordinator(e.target.checked)}
+                    className="size-4 accent-brand"
                   />
-                  Coordinator
+                  As coordinator
                 </label>
                 <Button onClick={handleAssign} disabled={!selectedServantId || assigning}>
-                  <UserPlus className="h-4 w-4 mr-1" />
+                  <UserPlus />
                   {assigning ? 'Assigning…' : 'Assign'}
                 </Button>
+                </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Roster</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="flex min-w-0 flex-col gap-5 xl:order-1">
+        <Panel
+          title="Roster"
+          actions={
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>Open roster</Link>
+            </Button>
+          }
+          bodyClassName="px-4 py-2"
+        >
             {detail.children.length === 0 ? (
               <EmptyState message="No children on this roster yet." />
             ) : (
-              <div className="divide-y dark:divide-gray-800">
+              <ul className="grid gap-x-6 sm:grid-cols-2">
                 {detail.children.map(child => (
-                  <div key={child.id} className="flex items-center justify-between gap-3 py-3">
-                    <p className={`font-medium ${child.isActive ? '' : 'text-gray-400 line-through'}`}>
+                  <li key={child.id} className="flex items-center gap-2.5 border-b border-line py-2">
+                    <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
+                    <span className={`truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                       {getChildFullName(child)}
-                    </p>
-                    <Badge variant="secondary">{getLevelDisplayName(child.level)}</Badge>
-                  </div>
+                    </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel title="Recent sessions" bodyClassName="px-4 py-1">
             {detail.sessions.length === 0 ? (
               <EmptyState message="No attendance has been taken for this class yet." />
             ) : (
-              <div className="divide-y dark:divide-gray-800">
+              <div className="divide-y divide-line">
                 {detail.sessions.slice(0, 12).map(sessionItem => {
                   const lesson = detail.weeklyLessons?.find(item => item.sundayDate.slice(0, 10) === sessionItem.date.slice(0, 10))
                   return (
@@ -459,7 +526,7 @@ export default function SundaySchoolClassDetailPage() {
                         {lesson && lesson.resources.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-3">
                             {lesson.resources.map(resource => (
-                              <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-maroon-700 hover:underline dark:text-maroon-300">
+                              <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-accent-ink hover:underline dark:text-maroon-300">
                                 <ExternalLink className="h-3.5 w-3.5" /> {resource.title}
                               </a>
                             ))}
@@ -474,8 +541,9 @@ export default function SundaySchoolClassDetailPage() {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
+        </div>
+        </div>
       </div>
     </div>
   )

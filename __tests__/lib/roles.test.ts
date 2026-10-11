@@ -233,7 +233,7 @@ describe('Role Helper Functions', () => {
     it('should return correct display names for all roles', () => {
       expect(getRoleDisplayName(UserRole.SUPER_ADMIN as UserRoleType)).toBe('Super Admin')
       expect(getRoleDisplayName(UserRole.PRIEST as UserRoleType)).toBe('Priest')
-      expect(getRoleDisplayName(UserRole.SERVANT_PREP as UserRoleType)).toBe('Servants Prep Leader')
+      expect(getRoleDisplayName(UserRole.SERVANT_PREP as UserRoleType)).toBe('Servants Prep Servant')
       expect(getRoleDisplayName(UserRole.MENTOR as UserRoleType)).toBe('Mentor')
       expect(getRoleDisplayName(UserRole.STUDENT as UserRoleType)).toBe('Student')
     })
@@ -413,7 +413,7 @@ describe('Sunday School mode permissions', () => {
     it('should cover SUPER_ADMIN and PRIEST only', () => {
       expect(seesAllSundaySchoolClasses(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
       expect(seesAllSundaySchoolClasses(UserRole.PRIEST as UserRoleType)).toBe(true)
-      // A prep leader sees Sunday School only through their own assignments
+      // A prep servant sees Sunday School only through their own assignments
       expect(seesAllSundaySchoolClasses(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
       expect(seesAllSundaySchoolClasses(UserRole.SERVANT as UserRoleType)).toBe(false)
     })
@@ -431,7 +431,7 @@ describe('Sunday School mode permissions', () => {
     it('should allow SERVANT, MENTOR, and SERVANT_PREP', () => {
       expect(canBeAssignedToSundaySchool(UserRole.SERVANT as UserRoleType)).toBe(true)
       expect(canBeAssignedToSundaySchool(UserRole.MENTOR as UserRoleType)).toBe(true)
-      // This is what lets one person serve both sides: a prep leader is
+      // This is what lets one person serve both sides: a prep servant is
       // assignable as an individual, without the role granting anything
       expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })

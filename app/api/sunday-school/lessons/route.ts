@@ -14,6 +14,7 @@ import {
   getWeeklyLessonStatus,
 } from "@/lib/sunday-school-lessons"
 import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { sundaySchoolAssignableUserWhere } from "@/lib/sunday-school-assignees"
 
 // Sunday School mode: future-facing weekly lesson plans and their links.
 // Deliberately separate from the prep-side Lesson model and from attendance
@@ -120,10 +121,7 @@ export async function GET(request: Request) {
               where: {
                 classId: { not: null },
                 endedAt: null,
-                user: {
-                  isDisabled: false,
-                  role: { in: [UserRole.SERVANT, UserRole.SERVANT_PREP] },
-                },
+                user: sundaySchoolAssignableUserWhere,
               },
               select: {
                 user: {

@@ -16,6 +16,7 @@ export default tseslint.config(
       "build/**",
       "coverage/**",
       "next-env.d.ts",
+      "apps/**", // the Expo app has its own toolchain
     ],
   },
   ...tseslint.configs.recommended,

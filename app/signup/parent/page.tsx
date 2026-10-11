@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PublicFrame } from '@/components/ds/public-frame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -94,18 +94,10 @@ export default function ParentSignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md border-2 border-maroon-600 shadow-lg">
-        <CardHeader className="text-center space-y-4 pt-8 pb-6">
-          <CardTitle className="text-2xl sm:text-3xl">Parent Sign Up</CardTitle>
-          <CardDescription className="text-base mt-2">
-            Create an account to register your child for Sunday School
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6 px-6 pb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <PublicFrame title="Parent sign up" description="Create an account to register your child for Sunday School" width="lg">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
+              <Label htmlFor="fullName">Full name *</Label>
               <Input
                 id="fullName"
                 required
@@ -115,7 +107,7 @@ export default function ParentSignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address *</Label>
+              <Label htmlFor="email">Email address *</Label>
               <Input
                 id="email"
                 type="email"
@@ -126,7 +118,7 @@ export default function ParentSignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Phone number</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -145,12 +137,12 @@ export default function ParentSignupPage() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 disabled={isSubmitting}
-                className={errors.password ? 'border-red-500' : ''}
+                aria-invalid={Boolean(errors.password)}
               />
-              {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+              {errors.password && <p className="text-xs text-bad">{errors.password}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+              <Label htmlFor="confirmPassword">Confirm password *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -158,42 +150,40 @@ export default function ParentSignupPage() {
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 disabled={isSubmitting}
-                className={errors.confirmPassword ? 'border-red-500' : ''}
+                aria-invalid={Boolean(errors.confirmPassword)}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+                <p className="text-xs text-bad">{errors.confirmPassword}</p>
               )}
             </div>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-maroon-600 hover:bg-maroon-700"
+              className="w-full"
               size="lg"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
+                  Creating account…
                 </>
               ) : (
-                'Create Account'
+                'Create account'
               )}
             </Button>
           </form>
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-[13.5px] text-ink-3">
             Want to serve instead?{' '}
-            <Link href="/signup/servant" className="text-maroon-600 hover:underline">
+            <Link href="/signup/servant" className="font-medium text-accent-ink no-underline hover:underline">
               Sign up as a servant
             </Link>
           </p>
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-[13.5px] text-ink-3">
             Already have an account?{' '}
-            <Link href="/login" className="text-maroon-600 hover:underline">
+            <Link href="/login" className="font-medium text-accent-ink no-underline hover:underline">
               Log in
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+    </PublicFrame>
   )
 }

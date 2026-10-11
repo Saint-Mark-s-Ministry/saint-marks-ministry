@@ -9,6 +9,7 @@ export type ResourceScope =
 export interface AuthorizationContext {
   userId: string
   disabled: boolean
+  canAccessContactBook: boolean
   roleTags: ReadonlySet<RoleTag>
   readOnly: boolean
   sundaySchoolYearId: string | null
@@ -88,6 +89,7 @@ export async function getAuthorizationContext(
       select: {
         id: true,
         isDisabled: true,
+        canAccessContactBook: true,
         roleAssignments: {
           where: { revokedAt: null },
           select: { tag: true },
@@ -178,6 +180,7 @@ export async function getAuthorizationContext(
   return {
     userId,
     disabled: user.isDisabled,
+    canAccessContactBook: user.canAccessContactBook,
     roleTags,
     readOnly,
     sundaySchoolYearId: yearId,

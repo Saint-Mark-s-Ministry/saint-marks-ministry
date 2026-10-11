@@ -61,7 +61,7 @@ export function MobileLessonCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm text-gray-500">#{index + 1}</span>
+              <span className="text-sm text-gray-500">#{lesson.lessonNumber || index + 1}</span>
               {canEdit ? (
                 <select
                   value={currentStatus}

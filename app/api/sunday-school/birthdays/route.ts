@@ -7,7 +7,7 @@ import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-a
 // GET /api/sunday-school/birthdays
 // A birthday-only view for the Sunday School birthday list. Limited to the
 // classes the caller can read. Guardian, family, and phone fields are never
-// selected, and neither are photos.
+// selected.
 export async function GET() {
   try {
     const user = await requireAuth()
@@ -38,9 +38,12 @@ export async function GET() {
         id: true,
         firstName: true,
         lastName: true,
-        birthDate: true,
+        level: true,
         classId: true,
+        birthDate: true,
+        photoUrl: true,
         class: { select: { id: true, name: true, level: true } },
+        user: { select: { profileImageUrl: true } },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     })

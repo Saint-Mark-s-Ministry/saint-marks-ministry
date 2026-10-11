@@ -80,10 +80,10 @@ export function MentorFilterCombobox({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full sm:w-64">
+    <div ref={containerRef} className="relative w-full sm:w-56">
       <Search
         aria-hidden="true"
-        className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-gray-400"
+        className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-[15px] -translate-y-1/2 text-ink-3"
       />
       <input
         ref={inputRef}
@@ -130,7 +130,7 @@ export function MentorFilterCombobox({
             setQuery('')
           }
         }}
-        className="h-9 w-full rounded-md border border-input bg-background py-2 pl-8 pr-8 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-gray-400 focus:border-maroon-400 focus:ring-2 focus:ring-maroon-100 dark:bg-gray-800 dark:text-white dark:focus:border-maroon-600 dark:focus:ring-maroon-950"
+        className="h-11 w-full rounded-md border border-line-strong bg-surface pr-8 pl-8 text-base text-ink outline-none placeholder:text-ink-3 focus:border-accent-ink focus:ring-[3px] focus:ring-accent-tint md:h-8 md:text-[13px]"
       />
       <button
         type="button"
@@ -147,7 +147,7 @@ export function MentorFilterCombobox({
             inputRef.current?.focus()
           }
         }}
-        className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+        className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-hover hover:text-ink"
       >
         <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
       </button>
@@ -157,7 +157,7 @@ export function MentorFilterCombobox({
           id="mentor-filter-options"
           role="listbox"
           aria-label="Mentors"
-          className="absolute z-40 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-gray-200/80 bg-white/95 p-1.5 shadow-xl shadow-gray-900/10 backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/95 dark:shadow-black/30"
+          className="absolute z-40 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-[0_12px_32px_-12px_rgba(27,24,23,0.3)]"
         >
           {filteredOptions.length > 0 ? filteredOptions.map((option, index) => (
             <button
@@ -171,7 +171,7 @@ export function MentorFilterCombobox({
               className={cn(
                 'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
                 index === activeIndex
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
+                  ? 'bg-hover text-ink'
                   : 'text-gray-700 dark:text-gray-300'
               )}
             >

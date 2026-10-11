@@ -81,13 +81,12 @@ describe('Sunday School feedback page', () => {
 
     expect(screen.getByText('Add lesson reminders')).toBeInTheDocument()
     expect(screen.getByText('Idea')).toBeInTheDocument()
-    expect(screen.getByText(/Submitted by Sunday Servant/)).toBeInTheDocument()
+    expect(screen.getByText(/Sunday Servant ·/)).toBeInTheDocument()
     expect(screen.getByText(/report bugs/i)).toBeInTheDocument()
     expect(screen.getByText('3 upvotes and 1 downvotes')).toHaveClass('sr-only')
     expect(screen.getByLabelText('Net score 2')).toBeInTheDocument()
     expect(screen.getByLabelText('Voting for Add lesson reminders')).toHaveClass(
-      'flex-row',
-      'sm:flex-col'
+      'flex-col'
     )
   })
 
@@ -207,7 +206,7 @@ describe('Sunday School feedback page', () => {
     render(<SundaySchoolFeedbackPage />)
 
     expect(screen.getByRole('button', { name: 'Upvote Add lesson reminders' })).toBeDisabled()
-    expect(screen.getByText('Voting closed')).toBeInTheDocument()
+    expect(screen.getByText(/Voting closed/)).toBeInTheDocument()
 
     expect(mocks.useSundaySchoolFeedback).toHaveBeenCalledWith('ALL', 'TOP')
   })

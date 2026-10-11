@@ -17,8 +17,6 @@ export default function HomePage() {
   }, [status, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-lg">Loading...</div>
-    </div>
+    <div className="flex min-h-dvh items-center justify-center bg-canvas text-[13px] text-ink-3">Loading…</div>
   )
 }

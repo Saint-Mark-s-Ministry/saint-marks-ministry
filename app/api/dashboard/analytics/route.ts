@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 import { AttendanceStatus, YearLevel, ExamYearLevel } from "@prisma/client"
+import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
 
 // GET /api/dashboard/analytics - Get detailed analytics for the dashboard
 export async function GET() {
@@ -54,23 +55,6 @@ export async function GET() {
       }
     })
 
-    // Get attendance records with lesson info (exclude exam day lessons)
-    const attendanceRecords = await prisma.attendanceRecord.findMany({
-      where: {
-        lesson: {
-          isExamDay: false
-        }
-      },
-      select: {
-        status: true,
-        lesson: {
-          select: {
-            academicYearId: true
-          }
-        }
-      }
-    })
-
     // Get students at risk (below 75% attendance or exam average)
     const activeEnrollments = await prisma.studentEnrollment.findMany({
       where: { isActive: true },
@@ -84,6 +68,33 @@ export async function GET() {
         yearLevel: true
       }
     })
+
+    // Async students: lessons from the day they went async count only if a slip
+    // covered them (their attendance is their Sunday School rotation)
+    const asyncEnrollments = await prisma.studentEnrollment.findMany({
+      where: { isAsyncStudent: true },
+      select: { studentId: true, isAsyncStudent: true, asyncApprovedAt: true },
+    })
+    const asyncExclusion = excludeAsyncPeriodRecords(asyncEnrollments)
+
+    // Get attendance records with lesson info (exclude exam day lessons)
+    const attendanceRecords = await prisma.attendanceRecord.findMany({
+      where: {
+        lesson: {
+          isExamDay: false
+        },
+        ...asyncExclusion,
+      },
+      select: {
+        status: true,
+        lesson: {
+          select: {
+            academicYearId: true
+          }
+        }
+      }
+    })
+
 
     // Calculate exam averages per section per academic year
     const examAveragesByYearAndSection: Record<string, Record<string, { total: number; count: number }>> = {}
@@ -135,7 +146,8 @@ export async function GET() {
         studentId: { in: studentIds },
         lesson: {
           isExamDay: false
-        }
+        },
+        ...asyncExclusion,
       },
       _count: true
     })

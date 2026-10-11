@@ -17,7 +17,10 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { StatusBadge, type Tone } from '@/components/ds/status-badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ import {
   FEEDBACK_DESCRIPTION_MAX_LENGTH,
   FEEDBACK_TEAM_RESPONSE_MAX_LENGTH,
   FEEDBACK_TITLE_MAX_LENGTH,
+  sortFeedbackIdeas,
 } from '@/lib/sunday-school-feedback'
 import { useSundaySchoolFeedback } from '@/lib/swr'
 import { cn } from '@/lib/utils'
@@ -65,12 +67,12 @@ const STATUS_LABELS: Record<SundaySchoolFeedbackStatus, string> = {
   DECLINED: 'Declined',
 }
 
-const STATUS_STYLES: Record<SundaySchoolFeedbackStatus, string> = {
-  OPEN: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200',
-  PLANNED: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200',
-  IN_PROGRESS: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
-  COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
-  DECLINED: 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
+const STATUS_TONE: Record<SundaySchoolFeedbackStatus, Tone> = {
+  OPEN: 'info',
+  PLANNED: 'accent',
+  IN_PROGRESS: 'warn',
+  COMPLETED: 'ok',
+  DECLINED: 'neutral',
 }
 
 const TYPE_LABELS: Record<SundaySchoolFeedbackType, string> = {
@@ -78,9 +80,9 @@ const TYPE_LABELS: Record<SundaySchoolFeedbackType, string> = {
   IDEA: 'Idea',
 }
 
-const TYPE_STYLES: Record<SundaySchoolFeedbackType, string> = {
-  PROBLEM: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200',
-  IDEA: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
+const TYPE_TONE: Record<SundaySchoolFeedbackType, Tone> = {
+  PROBLEM: 'bad',
+  IDEA: 'gold',
 }
 
 function formatSubmittedDate(value: string) {
@@ -131,7 +133,7 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
 
   return (
     <div
-      className="flex h-fit w-fit shrink-0 flex-row items-center rounded-full border border-gray-200 bg-gray-50 p-1 shadow-sm sm:flex-col dark:border-gray-700 dark:bg-gray-900"
+      className="flex h-fit w-fit shrink-0 flex-col items-center rounded-md border border-line bg-raised p-0.5"
       aria-label={`Voting for ${idea.title}`}
     >
       <button
@@ -144,8 +146,8 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
         className={cn(
           'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
           hasUpvote
-            ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
-            : 'text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:text-gray-400 dark:hover:bg-orange-950/60 dark:hover:text-orange-400'
+            ? 'bg-orange-100 text-orange-600 dark:text-orange-400'
+            : 'text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400'
         )}
       >
         <ArrowBigUp
@@ -183,8 +185,8 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
         className={cn(
           'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
           hasDownvote
-            ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
-            : 'text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950/60 dark:hover:text-blue-400'
+            ? 'bg-blue-100 text-blue-600 dark:text-blue-400'
+            : 'text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400'
         )}
       >
         <ArrowBigDown
@@ -218,6 +220,7 @@ export default function SundaySchoolFeedbackPage() {
   const [replyIdea, setReplyIdea] = useState<SundaySchoolFeedbackIdea | null>(null)
   const [teamResponse, setTeamResponse] = useState('')
   const [replySaving, setReplySaving] = useState(false)
+  const [view, setView] = useState<'top' | 'new' | 'IDEA' | 'PROBLEM'>('top')
 
   const openCreateDialog = () => {
     setEditingIdea(null)
@@ -387,78 +390,72 @@ export default function SundaySchoolFeedbackPage() {
 
   if (sessionStatus === 'loading' || isLoading) return <PageLoading />
 
+  const ideas = sortFeedbackIdeas(
+    (response?.ideas ?? []).filter((idea) =>
+      view === 'IDEA' || view === 'PROBLEM' ? idea.type === view : true
+    ),
+    view === 'new' ? 'NEWEST' : 'TOP'
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
           title="Feedback"
-          description="Share ideas, request improvements, or report bugs. Vote on feedback to help prioritize what matters most."
+          meta={['Share ideas, request improvements, or report bugs; vote to help prioritize']}
           actions={
             response?.viewer.canSubmit ? (
               <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4" />
+                <Plus />
                 Post feedback
               </Button>
             ) : undefined
           }
         />
 
-        {error ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="Feedback could not be loaded. Please try again." />
-            </CardContent>
-          </Card>
-        ) : !response?.ideas.length ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="No feedback yet. Post the first idea or bug report!" />
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {response.ideas.map(idea => (
-              <Card key={idea.id} className="overflow-hidden transition-colors hover:border-gray-300 dark:hover:border-gray-700">
-                <CardContent className="flex flex-col-reverse gap-4 pt-6 sm:flex-row sm:gap-5">
-                  <FeedbackVoteRail
-                    idea={idea}
-                    disabled={!idea.canVote || votingIdeaId === idea.id}
-                    onVote={vote => handleVote(idea, vote)}
-                  />
-
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="break-words text-lg font-semibold">{idea.title}</h2>
-                          <Badge variant="outline" className={STATUS_STYLES[idea.status]}>
-                            {STATUS_LABELS[idea.status]}
-                          </Badge>
-                          <Badge variant="outline" className={TYPE_STYLES[idea.type]}>
-                            {TYPE_LABELS[idea.type]}
-                          </Badge>
+        <Panel
+          toolbar={
+            <Segmented
+              label="Feedback"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'top', label: 'Top' },
+                { value: 'new', label: 'Newest' },
+                { value: 'IDEA', label: 'Ideas' },
+                { value: 'PROBLEM', label: 'Problems' },
+              ]}
+            />
+          }
+        >
+          {error ? (
+            <EmptyState title="Couldn’t load feedback" message="Something went wrong on our side. Try again in a moment." />
+          ) : ideas.length === 0 ? (
+            <EmptyState message={response?.ideas.length ? 'Nothing in this view.' : 'No feedback yet. Post the first idea or bug report.'} />
+          ) : (
+            <ul className="divide-y divide-line">
+              {ideas.map((idea) => (
+                <li key={idea.id} className="flex gap-4 px-4 py-4">
+                  <FeedbackVoteRail idea={idea} disabled={!idea.canVote || votingIdeaId === idea.id} onVote={(vote) => handleVote(idea, vote)} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge tone={TYPE_TONE[idea.type]} dot={false}>{TYPE_LABELS[idea.type]}</StatusBadge>
+                          <StatusBadge tone={STATUS_TONE[idea.status]}>{STATUS_LABELS[idea.status]}</StatusBadge>
                         </div>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Submitted by {idea.submitter?.name ?? 'Former user'} on{' '}
-                          {formatSubmittedDate(idea.createdAt)}
-                        </p>
+                        <h2 className="text-[14.5px] font-semibold break-words text-ink">{idea.title}</h2>
                       </div>
-
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {response.viewer.canModerate && (
+                      <div className="flex shrink-0 flex-wrap items-center gap-1">
+                        {response?.viewer.canModerate && (
                           <select
                             aria-label={`Change status for ${idea.title}`}
                             value={idea.status}
                             disabled={statusSavingIdeaId === idea.id}
-                            onChange={event =>
-                              handleStatusChange(
-                                idea,
-                                event.target.value as SundaySchoolFeedbackStatus
-                              )
-                            }
-                            className="h-8 rounded-md border bg-white px-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                            onChange={(event) => handleStatusChange(idea, event.target.value as SundaySchoolFeedbackStatus)}
+                            className="h-9 rounded-md border border-line-strong bg-surface px-2 text-[13px] text-ink md:h-[30px] md:text-xs"
                           >
-                            {Object.values(SundaySchoolFeedbackStatus).map(feedbackStatus => (
+                            {Object.values(SundaySchoolFeedbackStatus).map((feedbackStatus) => (
                               <option key={feedbackStatus} value={feedbackStatus}>
                                 {STATUS_LABELS[feedbackStatus]}
                               </option>
@@ -472,44 +469,25 @@ export default function SundaySchoolFeedbackPage() {
                           </Button>
                         )}
                         {idea.canEdit && (
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="outline"
-                            aria-label={`Edit ${idea.title}`}
-                            onClick={() => openEditDialog(idea)}
-                          >
-                            <Pencil className="h-4 w-4" />
+                          <Button type="button" size="icon-sm" variant="ghost" aria-label={`Edit ${idea.title}`} onClick={() => openEditDialog(idea)}>
+                            <Pencil />
                           </Button>
                         )}
                         {idea.canDelete && (
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="outline"
-                            aria-label={`Delete ${idea.title}`}
-                            onClick={() => setDeleteIdea(idea)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                          <Button type="button" size="icon-sm" variant="ghost" aria-label={`Delete ${idea.title}`} className="hover:text-bad" onClick={() => setDeleteIdea(idea)}>
+                            <Trash2 />
                           </Button>
                         )}
                       </div>
                     </div>
-
-                    {idea.description && (
-                      <p className="whitespace-pre-wrap break-words text-sm text-gray-700 dark:text-gray-300">
-                        {idea.description}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                      {!idea.canVote && idea.submitter && idea.canEdit && <span>Your idea</span>}
+                    {idea.description && <p className="text-[13px] whitespace-pre-wrap break-words text-ink-2">{idea.description}</p>}
+                    <p className="text-xs text-ink-3">
+                      {idea.submitter?.name ?? 'Former user'} · {formatSubmittedDate(idea.createdAt)}
+                      {!idea.canVote && idea.submitter && idea.canEdit && ' · Your idea'}
                       {!idea.canVote &&
-                        (idea.status === SundaySchoolFeedbackStatus.COMPLETED ||
-                          idea.status === SundaySchoolFeedbackStatus.DECLINED) && (
-                          <span>Voting closed</span>
-                        )}
-                    </div>
+                        (idea.status === SundaySchoolFeedbackStatus.COMPLETED || idea.status === SundaySchoolFeedbackStatus.DECLINED) &&
+                        ' · Voting closed'}
+                    </p>
                     {idea.teamResponse && (
                       <div className="mt-2 rounded-lg border border-line bg-raised px-3 py-2.5">
                         <p className="text-xs font-semibold text-ink">
@@ -524,11 +502,11 @@ export default function SundaySchoolFeedbackPage() {
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

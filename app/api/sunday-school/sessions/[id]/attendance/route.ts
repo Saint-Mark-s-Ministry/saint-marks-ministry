@@ -43,6 +43,7 @@ export async function GET(
           lastName: true,
           level: true,
           gender: true,
+          photoUrl: true,
           user: { select: { profileImageUrl: true } },
         },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -63,7 +64,8 @@ export async function GET(
         lastName: child.lastName,
         level: child.level,
         gender: child.gender,
-        profileImageUrl: child.user?.profileImageUrl ?? null,
+        // A photo servants added, else the child's own account photo
+        profileImageUrl: child.photoUrl ?? child.user?.profileImageUrl ?? null,
         attendance: recordByChild.get(child.id) ?? null,
       })),
     })

@@ -5,7 +5,6 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   canCoordinateClass,
   canServeClass,
-  canViewClass,
   getSundaySchoolAccess,
   visibleClassFilter,
   type SundaySchoolAccess,
@@ -18,60 +17,10 @@ import {
 } from "@/lib/sunday-school-family"
 import { normalizeEmail, normalizeOptionalEmail } from "@/lib/email"
 import { SundaySchoolChildGender } from "@prisma/client"
+import { loadChildForUser } from "@/lib/sunday-school-child-access"
 
 // Sunday School mode: a single child on a Sunday School roster.
 
-/**
- * You may only touch children in classes your assignments cover. Returns the
- * child's current classId, or throws Forbidden / Not found.
- *
- * `write` distinguishes reading a child's record from changing it, so PRIEST
- * can look without being able to edit.
- */
-async function loadChildForUser(
-  childId: string,
-  access: SundaySchoolAccess,
-  write: boolean
-) {
-  const child = await prisma.sundaySchoolChild.findUnique({
-    where: { id: childId },
-    select: {
-      id: true,
-      classId: true,
-      familyId: true,
-      level: true,
-      enrollments: {
-        where: { status: "ACTIVE" },
-        take: 1,
-        select: {
-          id: true,
-          sundaySchoolYearId: true,
-          level: true,
-        },
-      },
-    },
-  })
-  if (!child) {
-    throw new Error("Not found")
-  }
-
-  if (!child.classId) {
-    // A child with no class is admin-only
-    if (!access.isAdmin && !(access.canRead && !write && access.visibleClassIds === "all")) {
-      throw new Error("Forbidden")
-    }
-    return child
-  }
-
-  const allowed = write
-    ? canServeClass(access, child.classId)
-    : canViewClass(access, child.classId)
-  if (!allowed) {
-    throw new Error("Forbidden")
-  }
-
-  return child
-}
 
 async function canAccessFamily(familyId: string, access: SundaySchoolAccess) {
   const allowedClassIds = visibleClassFilter(access)
@@ -148,6 +97,8 @@ export async function PATCH(
       guardianName,
       guardianPhone,
       guardianEmail,
+      cellPhone,
+      fatherOfConfession,
       notes,
       isActive,
       linkedUserEmail,
@@ -289,6 +240,8 @@ export async function PATCH(
     if (guardianName !== undefined) updateData.guardianName = guardianName?.trim() || null
     if (guardianPhone !== undefined) updateData.guardianPhone = guardianPhone?.trim() || null
     if (guardianEmail !== undefined) updateData.guardianEmail = normalizeOptionalEmail(guardianEmail)
+    if (cellPhone !== undefined) updateData.cellPhone = cellPhone?.trim() || null
+    if (fatherOfConfession !== undefined) updateData.fatherOfConfession = fatherOfConfession?.trim() || null
     if (notes !== undefined) updateData.notes = notes?.trim() || null
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
     if (linkedUserEmail !== undefined) {

@@ -1,3 +1,4 @@
+import { LoadingStatus } from "@/components/ui/loading-status"
 import { cn } from "@/lib/utils"
 
 function Skeleton({
@@ -6,7 +7,7 @@ function Skeleton({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-gray-200", className)}
+      className={cn("motion-safe:animate-pulse rounded-md bg-gray-200", className)}
       {...props}
     />
   )
@@ -14,7 +15,7 @@ function Skeleton({
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-lg border bg-white p-6 shadow-sm", className)}>
+    <div className={cn("rounded-lg border border-line bg-surface p-5", className)}>
       <div className="space-y-3">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-8 w-1/2" />
@@ -38,8 +39,9 @@ function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
+        <LoadingStatus label="Loading dashboard…" className="justify-start" />
         {/* Header skeleton */}
         <div>
           <Skeleton className="h-8 w-48" />
@@ -74,7 +76,8 @@ function DashboardSkeleton() {
 
 function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="rounded-lg border bg-white overflow-hidden">
+    <div className="rounded-lg border border-line bg-surface overflow-hidden">
+      <LoadingStatus label="Loading data…" className="justify-start border-b border-line px-3 py-2.5" />
       {/* Header */}
       <div className="border-b bg-gray-50 p-3">
         <div className="flex gap-4">

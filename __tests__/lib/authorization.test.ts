@@ -14,6 +14,7 @@ function context(overrides: Partial<AuthorizationContext> = {}): AuthorizationCo
   return {
     userId: "user-1",
     disabled: false,
+    canAccessContactBook: false,
     roleTags: new Set(),
     readOnly: false,
     sundaySchoolYearId: null,

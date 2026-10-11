@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole, YearLevel } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
-import { calculateSSAttendance, getAssignmentWeeks, GRADE_DISPLAY_NAMES } from "@/lib/sunday-school-utils"
+import { getAssignmentWeeks, GRADE_DISPLAY_NAMES, rotationAttendanceToDate } from "@/lib/sunday-school-utils"
 
 // GET /api/sunday-school/progress - Get student Sunday School progress
 // Query params:
@@ -59,7 +59,8 @@ export async function GET(request: Request) {
 
     // Build per-assignment progress data
     const assignmentProgress = assignments.map((assignment) => {
-      const attendance = calculateSSAttendance(assignment.logs, assignment.totalWeeks)
+      // Weeks still ahead are not counted as missed
+      const attendance = rotationAttendanceToDate(assignment)
       const weeks = getAssignmentWeeks(assignment.startDate, assignment.totalWeeks)
 
       // Map logs to weeks for week-by-week breakdown

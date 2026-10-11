@@ -1,6 +1,25 @@
 import type { UserRole } from '@prisma/client'
 
-export function defaultDashboardPath(role?: UserRole | null): string {
+export interface DashboardUser {
+  role: UserRole
+  sundaySchool?: { hasAccess: boolean } | null
+  ministryMembership?: {
+    sundaySchoolServant: boolean
+    servantsPrepLeader: boolean
+  } | null
+}
+
+export function defaultDashboardPath(user?: DashboardUser | UserRole | null): string {
+  const role = typeof user === 'string' ? user : user?.role
+  if (
+    typeof user === 'object' && user?.sundaySchool?.hasAccess &&
+    user.ministryMembership?.sundaySchoolServant &&
+    !user.ministryMembership.servantsPrepLeader &&
+    role !== 'SERVANT_PREP' && role !== 'STUDENT' && role !== 'PARENT'
+  ) {
+    return '/dashboard/servants'
+  }
+
   switch (role) {
     case 'STUDENT':
       return '/dashboard/student'

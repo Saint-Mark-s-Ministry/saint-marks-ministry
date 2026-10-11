@@ -61,7 +61,7 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/login')
       expect(mocks.refresh).toHaveBeenCalled()
-      expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     })
   })
 
@@ -71,13 +71,10 @@ describe('LoginPage', () => {
 
     render(<LoginPage />)
 
-    expect(screen.getByRole('heading', { name: 'St. Mark Ministry Portal' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'St. Mark Ministry Portal' })).toHaveAttribute('href', '/')
     expect(screen.getByText('Servants Prep')).toBeInTheDocument()
     expect(screen.getByText('Sunday School')).toBeInTheDocument()
-    expect(screen.getByAltText('St. Mark Coptic Orthodox Church')).toHaveAttribute(
-      'src',
-      '/sunday-school-favicon.png'
-    )
     expect(screen.getByText(/sign in once to access the ministries/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sign up as a Sunday School servant' })).toHaveAttribute(
       'href',

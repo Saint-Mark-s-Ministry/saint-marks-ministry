@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   BookOpen,
+  Cake,
   Users,
   UserCheck,
   FileText,
@@ -23,6 +24,8 @@ import {
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
+import { useDigitalExams } from '@/lib/swr'
+import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 interface SearchUser {
   id: string
@@ -56,6 +59,7 @@ function getNavItemsForRole(
       { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
       { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
     ]
 
@@ -75,6 +79,8 @@ function getNavItemsForRole(
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
       { label: 'My Lessons', href: '/dashboard/student/lessons', icon: BookOpen },
+      { label: 'Live Exam', href: '/dashboard/student/exams', icon: GraduationCap },
+      { label: 'Makeup Exams', href: '/dashboard/student/makeup-exams', icon: GraduationCap },
       { label: 'Class Lessons', href: '/dashboard/student/class-lessons', icon: School },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
@@ -96,6 +102,7 @@ function getNavItemsForRole(
       { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
       { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
       { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]
@@ -106,6 +113,7 @@ function getNavItemsForRole(
     { label: 'Attendance', href: '/dashboard/admin/attendance', icon: ClipboardCheck },
     { label: 'Students', href: '/dashboard/admin/students', icon: Users },
     { label: 'Exams', href: '/dashboard/admin/exams', icon: GraduationCap },
+    { label: 'Exam Monitoring', href: '/dashboard/admin/exam-monitoring', icon: ClipboardCheck },
     { label: 'Curriculum', href: '/dashboard/admin/curriculum', icon: BookOpen },
     { label: 'Mentees', href: '/dashboard/admin/mentees', icon: UserCheck },
     { label: 'Confession', href: '/dashboard/admin/confession', icon: FileText },
@@ -130,12 +138,14 @@ function getNavItemsForRole(
 }
 
 export function CommandPalette() {
+  const shortcutModifier = useShortcutModifier()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [students, setStudents] = useState<SearchUser[]>([])
   const [lessons, setLessons] = useState<SearchLesson[]>([])
   const [loading, setLoading] = useState(false)
   const { data: session } = useSession()
+  const { data: openExams } = useDigitalExams(session?.user.role === 'STUDENT')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -241,7 +251,7 @@ export function CommandPalette() {
     session.user.sundaySchool?.hasAccess ?? false,
     pathname.startsWith('/dashboard/servants'),
     session.user.sundaySchool?.hasHomeworkAccess ?? false,
-  )
+  ).filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'
   const studentHref = (id: string) =>
@@ -378,9 +388,11 @@ export function CommandPalette() {
                 {'  '}
                 <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">↵</kbd> select
               </span>
-              <span>
-                <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">⌘K</kbd> to toggle
-              </span>
+              {shortcutModifier && (
+                <span className="hidden md:inline">
+                  <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">{shortcutModifier}K</kbd> to toggle
+                </span>
+              )}
             </div>
           </Command>
         </DialogPrimitive.Content>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { LoadingStatus } from '@/components/ui/loading-status'
 import { isLegalPath, LEGAL_RETURN_PATH_KEY } from '@/lib/legal-navigation'
 
 const EXIT_DURATION_MS = 120
@@ -12,6 +13,7 @@ export function NavigationTransition() {
   const router = useRouter()
   const previousPathname = useRef(pathname)
   const navigating = useRef(false)
+  const [pending, setPending] = useState(false)
   const navigateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cleanupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -21,6 +23,7 @@ export function NavigationTransition() {
     if (previousPathname.current === pathname) return
     previousPathname.current = pathname
     navigating.current = false
+    setPending(false)
 
     if (cleanupTimer.current) clearTimeout(cleanupTimer.current)
 
@@ -58,7 +61,6 @@ export function NavigationTransition() {
         !anchor ||
         anchor.hasAttribute('download') ||
         (anchor.target && anchor.target !== '_self') ||
-        anchor.hasAttribute('data-mode-switch') ||
         anchor.hasAttribute('data-no-page-transition')
       ) {
         return
@@ -83,6 +85,7 @@ export function NavigationTransition() {
       event.preventDefault()
       if (navigating.current) return
       navigating.current = true
+      setPending(true)
 
       const root = document.documentElement
       root.classList.remove('page-transition-in')
@@ -95,6 +98,7 @@ export function NavigationTransition() {
         cleanupTimer.current = setTimeout(() => {
           root.classList.remove('page-transition-out')
           navigating.current = false
+          setPending(false)
         }, 2000)
       }, EXIT_DURATION_MS)
     }
@@ -108,5 +112,10 @@ export function NavigationTransition() {
     }
   }, [router])
 
-  return null
+  return pending ? (
+    <LoadingStatus
+      label="Loading page…"
+      className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full border border-line bg-surface px-4 py-2.5 shadow-lg md:bottom-6 print:hidden"
+    />
+  ) : null
 }

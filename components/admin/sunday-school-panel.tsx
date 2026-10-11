@@ -93,12 +93,17 @@ interface SSAssignment {
   studentId: string
   student: { id: string; name: string; email: string }
   grade: SundaySchoolGrade
+  /** The Sunday School class served in; older rotations have only a grade. */
+  classId?: string | null
+  class?: { id: string; name: string } | null
   academicYearId: string
   academicYear?: { id: string; name: string }
   startDate: string
   totalWeeks: number
   presentCount: number
   totalLogged: number
+  /** Attendance over the weeks that have started; null before week 1. */
+  percentage: number | null
   yearLevel?: string
 }
 
@@ -140,6 +145,11 @@ interface SSProgress {
 
 function gradeDisplayName(grade: SundaySchoolGrade): string {
   return GRADE_DISPLAY_NAMES[grade] ?? grade
+}
+
+/** A rotation's class name, or its grade for rotations made before classes were linked. */
+function rotationPlace(a: { grade: SundaySchoolGrade; class?: { name: string } | null }): string {
+  return a.class?.name ?? rotationPlace(a)
 }
 
 function formatDate(dateStr: string): string {
@@ -218,6 +228,8 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [formStudentId, setFormStudentId] = useState('')
   const [formGrade, setFormGrade] = useState<SundaySchoolGrade>('PRE_K')
+  const [formClassId, setFormClassId] = useState('')
+  const [classOptions, setClassOptions] = useState<Array<{ id: string; name: string }>>([])
   const [formYearId, setFormYearId] = useState('')
   const [formStartDate, setFormStartDate] = useState('')
   const [formTotalWeeks, setFormTotalWeeks] = useState(6)
@@ -242,10 +254,15 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
 
   const fetchFormData = useCallback(async () => {
     try {
-      const [studentsRes, yearsRes] = await Promise.all([
+      const [studentsRes, yearsRes, classesRes] = await Promise.all([
         fetch('/api/sunday-school/assignments?unassigned=true'),
         fetch('/api/academic-years'),
+        fetch('/api/sunday-school/assignments?classOptions=true'),
       ])
+      if (classesRes.ok) {
+        const data = await classesRes.json()
+        setClassOptions(Array.isArray(data) ? data : [])
+      }
       if (studentsRes.ok) {
         const data = await studentsRes.json()
         setAsyncStudents(Array.isArray(data) ? data : [])
@@ -271,6 +288,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
     setEditingAssignment(null)
     setFormStudentId('')
     setFormGrade('PRE_K')
+    setFormClassId('')
     setFormStartDate(getSundayOfCurrentWeek())
     setFormTotalWeeks(6)
     setDialogOpen(true)
@@ -280,6 +298,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
     setEditingAssignment(a)
     setFormStudentId(a.studentId)
     setFormGrade(a.grade)
+    setFormClassId(a.classId ?? '')
     setFormYearId(a.academicYearId)
     setFormStartDate(a.startDate ? a.startDate.split('T')[0] : '')
     setFormTotalWeeks(a.totalWeeks)
@@ -298,9 +317,15 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
 
     setSaving(true)
     try {
+      if (classOptions.length > 0 && !formClassId) {
+        toast.error('Please select a Sunday School class')
+        setSaving(false)
+        return
+      }
       const payload = {
         studentId: formStudentId,
-        grade: formGrade,
+        // The class sets the grade on the server; the grade list is only a fallback
+        ...(formClassId ? { classId: formClassId } : { grade: formGrade }),
         academicYearId: formYearId,
         startDate: formStartDate,
         totalWeeks: formTotalWeeks,
@@ -401,7 +426,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                   <thead className="border-b bg-gray-50 dark:bg-gray-900">
                     <tr>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Student</th>
-                      <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Grade</th>
+                      <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Class</th>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Year</th>
                       <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Progress</th>
                       <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Percentage</th>
@@ -412,7 +437,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                   </thead>
                   <tbody>
                     {assignments.map((a) => {
-                      const pct = a.totalWeeks > 0 ? Math.round((a.presentCount / a.totalWeeks) * 100) : 0
+                      const pct = Math.round(a.percentage ?? 0) // weeks so far; computed by the API
                       const pctColor = pct >= 75 ? 'text-green-700 dark:text-green-400' : pct >= 50 ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                       return (
                         <tr key={a.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
@@ -421,7 +446,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                             <div className="text-xs text-gray-500 dark:text-gray-400">{a.student.email}</div>
                           </td>
                           <td className="p-3">
-                            <Badge variant="outline">{gradeDisplayName(a.grade)}</Badge>
+                            <Badge variant="outline">{rotationPlace(a)}</Badge>
                           </td>
                           <td className="p-3">
                             <span className="text-sm dark:text-gray-300">
@@ -477,7 +502,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
                 {assignments.map((a) => {
-                  const pct = a.totalWeeks > 0 ? Math.round((a.presentCount / a.totalWeeks) * 100) : 0
+                  const pct = Math.round(a.percentage ?? 0) // weeks so far; computed by the API
                   const pctColor = pct >= 75 ? 'text-green-700 dark:text-green-400' : pct >= 50 ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                   return (
                     <Card key={a.id}>
@@ -489,7 +514,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-1">
                               <Badge variant="outline" className="text-xs">
-                                {gradeDisplayName(a.grade)}
+                                {rotationPlace(a)}
                               </Badge>
                               {a.yearLevel && (
                                 <Badge variant="outline" className="text-xs">
@@ -570,22 +595,40 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
               </div>
             )}
 
-            {/* Grade selector */}
-            <div className="space-y-2">
-              <Label>SS Grade</Label>
-              <Select value={formGrade} onValueChange={(v) => setFormGrade(v as SundaySchoolGrade)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALL_GRADES.map((g) => (
-                    <SelectItem key={g} value={g}>
-                      {gradeDisplayName(g)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Class selector (Sunday School classes); grades only when no classes exist */}
+            {classOptions.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Sunday School class</Label>
+                <Select value={formClassId} onValueChange={setFormClassId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classOptions.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>SS Grade</Label>
+                <Select value={formGrade} onValueChange={(v) => setFormGrade(v as SundaySchoolGrade)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALL_GRADES.map((g) => (
+                      <SelectItem key={g} value={g}>
+                        {gradeDisplayName(g)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Academic year selector */}
             <div className="space-y-2">
@@ -1027,7 +1070,7 @@ function AttendanceTab({ canManageAttendance }: { canManageAttendance: boolean }
                 <SelectContent>
                   {assignments.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.student.name} - {gradeDisplayName(a.grade)}
+                      {a.student.name} - {rotationPlace(a)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1054,7 +1097,7 @@ function AttendanceTab({ canManageAttendance }: { canManageAttendance: boolean }
                     </div>
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Grade:</span>{' '}
-                      <span className="font-medium dark:text-white">{gradeDisplayName(selectedAssignment.grade)}</span>
+                      <span className="font-medium dark:text-white">{rotationPlace(selectedAssignment)}</span>
                     </div>
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Weeks:</span>{' '}

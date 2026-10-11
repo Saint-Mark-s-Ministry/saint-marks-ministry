@@ -15,6 +15,7 @@ import {
   feedbackIdeaSelect,
   loadFeedbackIdeaForViewer,
 } from '@/lib/sunday-school-feedback-server'
+import { deleteFeedbackIdea, setFeedbackStatus } from '@/lib/sunday-school-feedback-ops'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -96,11 +97,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         return NextResponse.json({ error: 'Invalid feedback status' }, { status: 400 })
       }
 
-      await prisma.sundaySchoolFeedbackIdea.update({
-        where: { id },
-        data: { status: payload.status as SundaySchoolFeedbackStatus },
-        select: feedbackIdeaSelect,
-      })
+      await setFeedbackStatus(id, payload.status as SundaySchoolFeedbackStatus)
     }
 
     const updated = await loadFeedbackIdeaForViewer(id, user.id, access)
@@ -137,7 +134,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
       )
     }
 
-    await prisma.sundaySchoolFeedbackIdea.delete({ where: { id } })
+    await deleteFeedbackIdea(id)
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     return handleApiError(error)

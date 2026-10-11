@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { SundaySchoolOrganization } from '@/lib/sunday-school-organization'
 
@@ -37,13 +37,16 @@ vi.mock('@/lib/swr', () => ({
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 
 describe('UserOrganizationDialog', () => {
-  it('shows the priest and age-group coordinator once before classes branch out', () => {
+  it('shows the priest and age-group coordinator once before centered class branches', async () => {
     render(<UserOrganizationDialog user={priest} onClose={vi.fn()} />)
 
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Organization' })).toHaveFocus())
     expect(screen.getAllByRole('button', { name: /View Fr\. Isaac's organization/ })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: /View Ehab Hanna's organization/ })).toHaveLength(1)
     expect(screen.getByRole('heading', { name: '6th Grade' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '7th Grade' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Middle School classes')).toHaveClass('justify-center')
+    expect(screen.getByLabelText('Middle School classes')).not.toHaveClass('overflow-x-auto')
   })
 
   it('keeps a servant view focused on only that servant’s class', () => {

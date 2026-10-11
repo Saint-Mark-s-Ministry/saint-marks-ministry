@@ -60,10 +60,11 @@ account access through a dated relationship.
 | `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`, and an explicit `isElementary` marker. At most one band per year is Elementary. |
 | `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. |
 | `SundaySchoolServantAssignment` | Year-bound authority with exactly one class or age-group scope and dated end history. |
-| `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, legacy guardian contact, `notes`, `isActive`. |
+| `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, optional child cell number and father-of-confession name, legacy guardian contact, `notes`, `isActive`. |
 | `SundaySchoolGuardianProfile` | Guardian identity/contact independent of whether the guardian has a login. |
 | `SundaySchoolChildGuardian` | Dated relationship between guardian, child, and optional parent user; this relationship grants parent scope. |
 | `SundaySchoolRosterImport` / `Row` | Idempotent import run and per-row outcome ledger. |
+| `SundaySchoolRosterLink` | A temporary, class-scoped sign-up link (QR code). Stores only the token's SHA-256, plus `expiresAt`, `maxUses`/`useCount`, and `revokedAt`. `SundaySchoolChild.rosterLinkId` records which link let a child in. |
 | `SundaySchoolRolloverRun` / `Item` | Resumable annual promotion run and per-enrollment result. |
 | `AuditEvent` | Append-only security/business audit event with actor, action, entity, result, and request correlation. |
 | `SundaySchoolFamily` | Shared family name, home address, separate mother/father contact, and every linked child. Children in the same family are siblings. |
@@ -77,6 +78,7 @@ account access through a dated relationship.
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
 | `SundaySchoolPhoneCall` | A dated, class-scoped follow-up call for a child, with outcome, concise note, and a snapshot of the authenticated caller's name. It does not change visitation status. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
+| `McpApiToken` | A hashed, revocable bearer token for the feedback MCP server, owned by one `SUPER_ADMIN`. Not Sunday School data; see "Feedback MCP server". |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
@@ -159,9 +161,11 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `classes` | GET, POST | Read: scoped. Create: `SUPER_ADMIN`, or band coordinator at that level |
 | `classes/[id]` | GET, PATCH, DELETE | View: scoped. Edit: class coordinator. Delete: band coordinator or `SUPER_ADMIN` |
 | `children` | GET, POST | People who serve the class |
+| `roster-links` | GET, POST | People who serve the class. POST returns the plaintext token exactly once |
+| `roster-links/[id]` | DELETE | People who serve the class — revokes the link; children already added stay |
 | `children/[id]` | GET, PATCH, DELETE | People who serve the child's class |
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
-| `lessons` | GET | Class-scoped servants/leaders, linked parents, and linked child accounts |
+| `lessons` | GET | Class-scoped servants/coordinators, linked parents, and linked child accounts |
 | `lessons/[id]` | PATCH | Any active servant assigned to the class assigns an active class servant as owner and edits title and links |
 | `homework` | GET, POST | Scoped reads for Elementary servants, linked parents/children, and read-only priests; assigned Elementary servants publish |
 | `homework/[id]` | PATCH, DELETE | Assigned Elementary servants edit or soft-archive a package |
@@ -178,11 +182,18 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
+| `feedback/[id]/response` | PUT, DELETE | `SUPER_ADMIN`: set or clear the single "Development Team" reply |
 
 `GET /api/cron/sunday-school-lessons` is outside that route group. It requires
 `Authorization: Bearer $CRON_SECRET` and is scheduled by `vercel.json` for
 Monday at 10:00 UTC. `bun lessons:generate` provides the same one-time rollout
 backfill and is safe to rerun.
+
+`app/api/public/roster-signup` is also outside that group, and is the only
+**unauthenticated** Sunday School route. `GET ?token=` returns just the class
+name and grade; `POST` adds one child. It is deliberately not under
+`app/api/sunday-school/` so that the absence of a session is obvious on sight.
+See "Roster sign-up links" below.
 
 Two that exist for specific reasons:
 
@@ -211,15 +222,18 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `roster/page.tsx` | Child roster CRUD, family/parent details, sibling connections, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
 | `visitations/page.tsx` | Per-child visitation status, dated history and notes, and a separate dated phone-call follow-up history, across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
-`components/navbar.tsx` shows a **mode switcher** between Servants Prep and
-Sunday School for anyone with a foot in both — which is how a `SERVANT_PREP`
-or `MENTOR` who also serves moves between them. A `SERVANT` has only one mode
-and sees no switcher.
+The app shell shows a **mode switcher** between Servants Prep and Sunday School
+for anyone with access to both. A Sunday School servant without an active
+Servants Prep Servant tag opens Sunday School by default, including when their
+legacy role is `MENTOR` or `SUPER_ADMIN`. Servants Prep servants keep Prep as
+their default. The switcher still gives access to the other ministry. A
+`SERVANT` has only one mode and sees no switcher.
 
 Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
 student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
@@ -228,6 +242,42 @@ a clear empty state without gaining access to any class.
 Elementary parents and linked child accounts also see homework cards and only
 their own completion status on those existing pages. Homework eligibility
 follows the age group's current levels rather than a hard-coded grade list.
+
+## Roster sign-up links (QR codes)
+
+A servant of a class mints a temporary link from **Roster → Sign-up QR**, prints
+or projects the QR, and families fill in the child's own details without an
+account. Every sign-up lands on that one class's roster.
+
+What makes it safe to expose publicly:
+
+- **The destination is never in the request.** Class, Sunday School year, and
+  therefore grade level are read from the `SundaySchoolRosterLink` row. A caller
+  cannot aim a sign-up at another class or choose their own grade. Anything
+  resembling `classId`, `level`, `userId`, or `isActive` in the body is ignored.
+- **The token is not stored.** Only its SHA-256 lives in `tokenHash`, so a
+  database dump yields no working link. 256 bits of entropy is why the route
+  needs no lockout — a token cannot be guessed.
+- **Exposure is bounded three ways:** `expiresAt` (default 8 hours, max 7 days),
+  `maxUses` (default 40, max 200), and `revokedAt`. The use is claimed with a
+  conditional `updateMany` that re-checks all three, so concurrent submissions
+  cannot exceed the cap and an expiry that passes mid-request is caught.
+- **Nothing about the roster comes back.** A visitor sees the class name and
+  grade so they know they scanned the right poster. No child list, no guardian
+  contact, not even whether their own name matched an existing row.
+- **A public write never destroys servant-entered data.** A submission matching a
+  child already in *that* class fills blank fields only.
+- Every sign-up writes an `AuditEvent` naming the link, so it is always possible
+  to ask what a given QR code let in. `SundaySchoolChild.rosterLinkId` answers
+  the same question from the roster side.
+
+Revoking a link stops new sign-ups; it does not remove children already added.
+Use the CSV import's undo, or archive the child, for that.
+
+Sign-ups go straight onto the roster rather than into a review queue — unlike
+`ChildRegistrationRequest`, which is the *parent-account* path and still needs a
+coordinator to place the child. The QR is a kiosk sign-up sheet handed out by a
+servant who is in the room; the bounds above are what stand in for the review.
 
 ## Extending it
 
@@ -272,8 +322,8 @@ Worth exercising when changing this area:
    and gets 403 from the API — the regression this model exists to prevent.
 2. Assigning that same person to a class gives them access and the mode
    switcher, without changing their role.
-3. Assigning a **`MENTOR`** keeps their mentor dashboard and adds Sunday School
-   to the mode switcher; their primary role does not change.
+3. Assigning a **`MENTOR`** keeps their mentor dashboard available in the mode
+   switcher, but opens Sunday School by default; their primary role does not change.
 4. A **band coordinator** sees every class in their band and none outside it,
    and can create a class at their levels but not others.
 5. A **class coordinator** can staff their class but cannot create or delete one.
@@ -310,3 +360,81 @@ After pulling this change, run `bun db:generate` and apply the Prisma schema to
 a local database or isolated Neon branch with `bun db:push`. The additive schema
 change is the overseer column, index, and foreign key. Production schema changes
 remain an explicit, separately reviewed deployment step.
+
+## Elementary servants meetings
+
+**Servant Attendance → Servants meetings** opens the dedicated meeting page
+(`/dashboard/servants/servant-attendance/meetings`). The dashboard no longer
+contains the meeting section. Meetings are visible to every
+servant assigned to an Elementary class, the band coordinators, super admins,
+and priests. Other bands cannot view that roster. Only the band's coordinators
+and super admins can create sessions or save attendance; priests remain read-only.
+
+Sessions are created on demand with **Add meeting**, a date, and an optional
+title. They have no weekly recurrence and do not reuse weekly class sessions.
+One session is allowed per band/year/date; repeat creation opens the existing
+session. Future sessions can be planned, but attendance opens on the meeting
+date. Coordinators may record or correct past meetings. Each servant must be
+explicitly marked present or absent before saving.
+
+`SundaySchoolServantsMeeting` stores the session and
+`SundaySchoolMeetingAttendance` stores one mark per meeting/servant. The roster
+combines active direct class assignments in the band and band assignments,
+deduplicates users, and retains saved attendees after assignments end. During
+the compatibility phase, sessions use the active legacy academic year, matching
+the existing dashboard and staffing resolver. No database is changed by a build;
+apply the committed migration explicitly during deployment.
+
+`/api/sunday-school/servants-meetings`: GET lists sessions or loads the selected
+session; POST creates an explicit session; PUT saves attendance transactionally.
+Every request resolves database authorization and band visibility. Opening the
+section never creates a session or attendance marks.
+
+## Feedback MCP server
+
+`POST /api/mcp` is a stateless Streamable-HTTP MCP server for moderating
+feedback. Tools: `list_feedback`, `get_feedback`, `reply_to_feedback`,
+`clear_feedback_reply`, `set_feedback_status`, `delete_feedback`. Mutations go
+through `lib/sunday-school-feedback-ops.ts`, shared with the web routes.
+
+```bash
+bun scripts/admin.ts mcp-token-create you@example.com "Claude Code"   # prints the token once
+claude mcp add --transport http st-marks-feedback \
+  https://servants-prep-app.vercel.app/api/mcp \
+  --header "Authorization: Bearer <token>"
+bun scripts/admin.ts mcp-token-revoke <id>
+```
+
+Auth is a bearer header, not OAuth, so claude.ai's "custom connector by URL"
+flow is not supported. Feedback text is user-written and returned to the model:
+tool descriptions mark it as untrusted data. Authorization details:
+[`permissions.md`](permissions.md#mcp-token-access-feedback).
+
+## Attendance drafts and connection recovery
+
+Web child attendance keeps every entered mark immediately on the current device,
+then saves only those pending marks after a short pause. The browser draft key
+includes the signed-in user, class, and exact calendar date. It contains child
+IDs and attendance statuses only; no roster names, photos, or guardian contacts.
+Server acknowledgment clears pending marks; a newer tap during an in-flight
+save stays pending. Network/server failures retry after five seconds and on
+reconnection while that same roster remains open. Authorization/validation
+failures require an explicit retry or roster reload.
+
+Returning to a draft first loads the authorized current roster. Removed child
+IDs are excluded, newly added children stay unmarked, and recovered marks require
+review and **Resume saving marks** before any submission. Browsing another class
+or date and signing out abort outstanding client requests and never submits a
+different draft. Both write routes reject a supplied `expectedUserId` if the
+actual authenticated account changed. Existing server class permission checks
+still apply to every write. Where supported, a browser lock prevents two tabs
+from editing the same user's class/date draft simultaneously.
+
+**Save attendance** remains the explicit final step that marks all children
+left unmarked as absent. Automatic saves never infer absence. A confirmed
+save and a draft kept only on the device are labeled separately. If browser
+storage is unavailable, the page warns that refresh can lose unsent marks;
+keep it open until the church save is confirmed. Reloading a roster in the same
+open editor preserves its in-memory pending marks even when storage fails.
+No database migration or service worker is needed. Draft recovery after a full
+page reload requires a connection to validate permission and the current roster.

@@ -188,7 +188,7 @@ describe('API Authorization Patterns', () => {
       it('only SUPER_ADMIN and PRIEST see Sunday School without an assignment', () => {
         expect(seesAllSundaySchoolClasses(UserRole.SUPER_ADMIN)).toBe(true)
         expect(seesAllSundaySchoolClasses(UserRole.PRIEST)).toBe(true)
-        // A prep leader reaches Sunday School only through their own
+        // A prep servant reaches Sunday School only through their own
         // assignments — running the prep program grants nothing here
         expect(seesAllSundaySchoolClasses(UserRole.SERVANT_PREP)).toBe(false)
         expect(seesAllSundaySchoolClasses(UserRole.SERVANT)).toBe(false)

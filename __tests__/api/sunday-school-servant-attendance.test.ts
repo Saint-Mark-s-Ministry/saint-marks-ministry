@@ -105,6 +105,7 @@ describe('Sunday School servant attendance API', () => {
           id: 'servant-1',
           name: 'Marina Fahmy',
           email: 'servant@church.com',
+          phone: '555-0100',
           profileImageUrl: null,
         },
       },
@@ -130,8 +131,12 @@ describe('Sunday School servant attendance API', () => {
     expect(response.status).toBe(200)
     expect(body.roster).toHaveLength(1)
     expect(body.roster[0].userId).toBe('servant-1')
+    expect(body.roster[0].phone).toBe('555-0100')
     expect(mocks.assignmentFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ endedAt: null }),
+      select: expect.objectContaining({
+        user: { select: expect.objectContaining({ phone: true }) },
+      }),
     }))
   })
 

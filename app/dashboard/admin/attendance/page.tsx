@@ -1,28 +1,35 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { AsyncBadge } from '@/components/async-badge'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PageLoading } from '@/components/ui/page-loading'
-import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
-import { PageHeader } from '@/components/admin/page-header'
+import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
 import { isAdmin, canManageData } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X, UserX, Plane } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCheck, Rows3, UserX, Plane } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+import { formatDateUTC, formatUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { AcademicYear } from '@/lib/types'
+import { asyncPeriodStart, isAsyncPeriodLesson } from '@/lib/attendance-utils'
 
 interface Lesson {
   id: string
   title: string
+  speaker?: string | null
   scheduledDate: string
   lessonNumber: number
   status: string
@@ -45,6 +52,7 @@ interface Student {
     yearLevel: string
     mentorId: string
     isAsyncStudent?: boolean
+    asyncApprovedAt?: string | null
   }>
 }
 
@@ -71,13 +79,13 @@ export default function AttendancePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterMentees, setFilterMentees] = useState(false)
-  const [showCompletedLessons, setShowCompletedLessons] = useState(false)
   const [lessonStatusFilter, setLessonStatusFilter] = useState<string>('all')
+  const [lessonView, setLessonView] = useState<'needs' | 'done'>('needs')
+  const deepLinkApplied = useRef(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [compactMode, setCompactMode] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
-  const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
   const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
   const [conductNoteInput, setConductNoteInput] = useState('')
   // Expected absences covering the selected lesson, keyed by studentId
@@ -144,7 +152,17 @@ export default function AttendancePage() {
           return
         }
         const lessonsData = await lessonsRes.json()
-        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
+        const list: Lesson[] = Array.isArray(lessonsData) ? lessonsData : []
+        setLessons(list)
+        // Calendar and agenda links open a lesson directly (?lesson=<id>).
+        if (!deepLinkApplied.current) {
+          const wanted = new URLSearchParams(window.location.search).get('lesson')
+          const match = wanted ? list.find((l) => l.id === wanted) : undefined
+          if (match) {
+            deepLinkApplied.current = true
+            setSelectedLesson(match)
+          }
+        }
       } catch {
         setLessons([])
       }
@@ -335,7 +353,15 @@ export default function AttendancePage() {
     }
   }
 
+  // Async students aren't on the roll call for lessons from the day they went
+  // async: their attendance is their Sunday School rotation (slips still count).
+  const isAsyncForLesson = (student: Student) =>
+    !!selectedLesson &&
+    student.enrollments.some((e) => isAsyncPeriodLesson(selectedLesson.scheduledDate, asyncPeriodStart(e)))
+  const asyncOffRollCall = students.filter(isAsyncForLesson)
+
   const filteredStudents = students.filter(student => {
+    if (isAsyncForLesson(student)) return false
     if (searchTerm && !student.name.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false
     }
@@ -401,296 +427,254 @@ export default function AttendancePage() {
     return <PageLoading />
   }
 
+  const marked = filteredStudents.reduce(
+    (acc, student) => {
+      const status = attendance.get(student.id)?.status
+      if (status) acc[status] += 1
+      else acc.unmarked += 1
+      return acc
+    },
+    { PRESENT: 0, LATE: 0, ABSENT: 0, EXCUSED: 0, unmarked: 0 }
+  )
+  const yearName = selectedYearId === 'all' ? 'All years' : academicYears.find((y) => y.id === selectedYearId)?.name.replace('-', '–')
+  const controlsDisabled = !userCanManageData || !isLessonEditable
+  const visibleLessons = lessonView === 'needs' ? scheduledLessons : completedLessons
+
   return (
-    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
-        {/* Header */}
-        <PageHeader
-          title="Take Attendance"
-          description={
-            selectedYearId === 'all'
-              ? 'All academic years'
-              : `${academicYears.find(y => y.id === selectedYearId)?.name || 'Selected year'} • ${lessons.length} lessons`
-          }
-          lastSaved={lastSaved}
-          actions={
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Take attendance"
+        meta={['Servants Prep', yearName, lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        actions={
+          selectedLesson ? (
+            <Button variant="outline" onClick={() => setSelectedLesson(null)}>
+              Change lesson
+            </Button>
+          ) : (
             <>
-              {!selectedLesson && (
-                <>
-                  <select
-                    value={selectedYearId}
-                    onChange={(e) => setSelectedYearId(e.target.value)}
-                    className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                  >
-                    <option value="all">All Years</option>
-                    {academicYears.map(year => (
-                      <option key={year.id} value={year.id}>
-                        {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={lessonStatusFilter}
-                    onChange={(e) => setLessonStatusFilter(e.target.value)}
-                    className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                  </select>
-                </>
-              )}
-              {selectedLesson && (
-                <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)} className="text-xs sm:text-sm">
-                  Change Lesson
-                </Button>
-              )}
+              <FilterSelect
+                aria-label="Academic year"
+                value={selectedYearId}
+                onChange={setSelectedYearId}
+                options={[
+                  { value: 'all', label: 'All years' },
+                  ...academicYears.map((year) => ({
+                    value: year.id,
+                    label: `${year.name.replace('Academic Year ', '').replace('-', '–')}${year.isActive ? ' (active)' : ''}`,
+                  })),
+                ]}
+              />
+              <FilterSelect
+                aria-label="Lesson status"
+                value={lessonStatusFilter}
+                onChange={setLessonStatusFilter}
+                options={[
+                  { value: 'all', label: 'All statuses' },
+                  { value: 'SCHEDULED', label: 'Scheduled' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                ]}
+              />
             </>
+          )
+        }
+      />
+
+      {!selectedLesson ? (
+        <Panel
+          toolbar={
+            <Segmented
+              label="Lessons"
+              value={lessonView}
+              onChange={setLessonView}
+              options={[
+                { value: 'needs', label: 'Need attendance', count: scheduledLessons.length },
+                { value: 'done', label: 'Taken', count: completedLessons.length },
+              ]}
+            />
           }
-        />
-
-        {/* Lesson Selection */}
-        {!selectedLesson ? (
-          <div className="space-y-4 sm:space-y-6">
-            {/* Scheduled Lessons (No attendance yet) - At the top */}
-            {scheduledLessons.length > 0 && (
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-maroon-600" />
-                  Needs Attendance ({scheduledLessons.length})
-                </h2>
-                <div className="grid gap-2">
-                  {scheduledLessons.map(lesson => (
-                    <LessonCard
-                      key={lesson.id}
-                      lesson={lesson}
-                      onClick={() => setSelectedLesson(lesson)}
-                      showYear={showingAllYears}
-                      yearName={yearNameMap.get(lesson.academicYearId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Completed Lessons (Has attendance) - At the bottom, collapsible */}
-            {completedLessons.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowCompletedLessons(!showCompletedLessons)}
-                  className="w-full flex items-center gap-2 text-base sm:text-lg font-semibold mb-2 sm:mb-3 hover:text-gray-700 transition-colors dark:hover:text-gray-300"
-                >
-                  {showCompletedLessons ? <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />}
-                  <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                  <span>Completed ({completedLessons.length})</span>
-                </button>
-                {showCompletedLessons && (
-                  <div className="grid gap-2">
-                    {completedLessons.map(lesson => (
-                      <LessonCard
-                        key={lesson.id}
-                        lesson={lesson}
-                        onClick={() => setSelectedLesson(lesson)}
-                        highlight="completed"
-                        showYear={showingAllYears}
-                        yearName={yearNameMap.get(lesson.academicYearId)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Selected Lesson Info */}
-            <Card>
-              <CardContent className="p-2.5 sm:p-4">
-                <div className="flex justify-between items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-sm sm:text-base truncate">L{selectedLesson.lessonNumber}: {selectedLesson.title}</div>
-                    <div className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 sm:gap-2 flex-wrap">
-                      <span>{formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                      <span className="hidden sm:inline">|</span>
-                      <Badge className="text-[10px] sm:text-xs px-1 sm:px-2">{selectedLesson.examSection.displayName}</Badge>
-                    </div>
-                  </div>
-                  <div className="text-xs sm:text-sm text-gray-600 shrink-0">
-                    {attendance.size}/{filteredStudents.length}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Future lesson warning */}
-            {!isLessonEditable && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                Attendance cannot be edited until the lesson date ({formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}).
-              </div>
-            )}
-
-            {/* Sticky Filters & Actions */}
-            <div className="sticky top-0 z-20 bg-gray-50 py-2 -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-8 md:px-8 space-y-2">
-              <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
-                <Input
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-8 sm:h-10 text-xs sm:text-sm w-28 sm:max-w-xs"
+        >
+          {visibleLessons.length === 0 ? (
+            <EmptyState
+              message={
+                lessonView === 'needs'
+                  ? 'Every lesson in this view has attendance. Switch to “Taken” to review or edit one.'
+                  : 'No lesson has attendance yet. Pick one from “Need attendance” to start.'
+              }
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {visibleLessons.map((lesson) => (
+                <LessonRow
+                  key={lesson.id}
+                  lesson={lesson}
+                  onClick={() => setSelectedLesson(lesson)}
+                  done={lessonView === 'done'}
+                  yearName={showingAllYears ? yearNameMap.get(lesson.academicYearId) : undefined}
                 />
-                <select
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                  value={filterYearLevel}
-                  onChange={(e) => setFilterYearLevel(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  <option value="YEAR_1">Y1</option>
-                  <option value="YEAR_2">Y2</option>
-                </select>
-                <label className="flex items-center gap-1.5 px-2 sm:px-3 h-8 sm:h-10 border rounded-md bg-background cursor-pointer text-xs sm:text-sm">
-                  <input
-                    type="checkbox"
-                    checked={filterMentees}
-                    onChange={(e) => setFilterMentees(e.target.checked)}
-                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                  />
-                  <span className="hidden sm:inline">My Mentees</span>
-                  <span className="sm:hidden">Mine</span>
-                </label>
-                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" disabled={!isLessonEditable} className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
-                  <span className="hidden sm:inline">Mark All Present</span>
-                  <span className="sm:hidden">All ✓</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCompactMode(!compactMode)}
-                  className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3 gap-1"
-                >
-                  <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">{compactMode ? 'Details' : 'Compact'}</span>
-                </Button>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      ) : (
+        <>
+          <Panel>
+            <div className="flex flex-wrap items-center gap-4 px-4 py-3.5">
+              <div className="flex size-14 shrink-0 flex-col items-center justify-center rounded-lg bg-accent-tint text-accent-ink">
+                <span className="text-[11px] font-semibold uppercase">
+                  {formatUTC(selectedLesson.scheduledDate, { month: 'short' })}
+                </span>
+                <span className="tabular text-xl leading-none font-semibold">
+                  {formatUTC(selectedLesson.scheduledDate, { day: 'numeric' })}
+                </span>
               </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-xs text-ink-3">
+                  {formatUTC(selectedLesson.scheduledDate, { weekday: 'long' })} · {selectedLesson.examSection.displayName}
+                </span>
+                <span className="truncate text-[15px] font-semibold text-ink">
+                  Lesson {selectedLesson.lessonNumber} · {selectedLesson.title}
+                </span>
+                {selectedLesson.speaker && <span className="text-[13px] text-ink-2">{selectedLesson.speaker}</span>}
+              </div>
+              <span className="tabular text-[13px] text-ink-2">
+                <b className="font-semibold text-ink">{filteredStudents.length - marked.unmarked}</b> of {filteredStudents.length} marked
+              </span>
+            </div>
+          </Panel>
 
-              {/* Status bar */}
-              <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-                {hasUnsavedChanges && (
-                  <span className="text-orange-600 font-medium">• Unsaved</span>
-                )}
-                {lastSaved && (
-                  <span className="text-gray-500">
-                    Saved {lastSaved.toLocaleString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                )}
-              </div>
+          {!isLessonEditable && (
+            <div role="status" className="flex items-center gap-2 rounded-lg bg-warn-tint px-4 py-2.5 text-[13px] text-warn">
+              Attendance opens on the lesson date (
+              {formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}).
+            </div>
+          )}
+
+          <Panel
+            toolbar={
+              <>
+                <Segmented
+                  label="Students"
+                  value={filterMentees ? 'mine' : 'all'}
+                  onChange={(v) => setFilterMentees(v === 'mine')}
+                  options={[
+                    { value: 'all', label: 'All', count: students.length },
+                    { value: 'mine', label: 'My mentees' },
+                  ]}
+                />
+                <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto">
+                  <FilterSelect
+                    aria-label="Year level"
+                    value={filterYearLevel}
+                    onChange={setFilterYearLevel}
+                    options={[
+                      { value: 'all', label: 'All years' },
+                      { value: 'YEAR_1', label: 'Year 1' },
+                      { value: 'YEAR_2', label: 'Year 2' },
+                    ]}
+                  />
+                  <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search students" className="flex-1 md:flex-none" />
+                  <Button variant="outline" onClick={handleMarkAllPresent} disabled={controlsDisabled}>
+                    <CheckCheck />
+                    Mark all present
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-pressed={compactMode}
+                    aria-label={compactMode ? 'Show arrival and notes' : 'Compact rows'}
+                    title={compactMode ? 'Show arrival and notes' : 'Compact rows'}
+                    onClick={() => setCompactMode(!compactMode)}
+                  >
+                    <Rows3 />
+                  </Button>
+                </div>
+              </>
+            }
+          >
+            <div className="border-b border-line px-4 py-2.5">
+              <AttendanceLegend />
+              {asyncOffRollCall.length > 0 && (
+                <p className="mt-1.5 text-xs text-ink-3">
+                  Not on this roll call (async): {asyncOffRollCall.map((s) => s.name).join(', ')}. Their attendance comes from
+                  their Sunday School rotation; an uploaded slip still marks a lesson Present.
+                </p>
+              )}
             </div>
 
-            {/* Excel-like Table - Desktop */}
-            <Card className="hidden md:block mb-20">
-              <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                    <tr>
-                      <th className="text-left p-2 font-medium text-gray-700 w-8 bg-gray-50">#</th>
-                      <th className="text-left p-2 font-medium text-gray-700 bg-gray-50">Name</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-16 bg-gray-50">Year</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-44 bg-gray-50">Status</th>
+            {filteredStudents.length === 0 ? (
+              <EmptyState message="No students match these filters." />
+            ) : (
+              <>
+                <table className="hidden w-full text-[13px] md:table">
+                  <thead className="bg-raised">
+                    <tr className="border-b border-line text-left text-xs text-ink-3">
+                      <th scope="col" className="h-9 px-3 font-medium">Name</th>
+                      <th scope="col" className="h-9 px-3 font-medium">Status</th>
                       {!compactMode && (
                         <>
-                          <th className="text-left p-2 font-medium text-gray-700 w-28 bg-gray-50">Arrived</th>
-                          <th className="text-left p-2 font-medium text-gray-700 bg-gray-50">Notes</th>
+                          <th scope="col" className="h-9 w-32 px-3 font-medium">Arrived</th>
+                          <th scope="col" className="h-9 px-3 font-medium">Notes</th>
                         </>
                       )}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStudents.map((student, index) => {
+                    {filteredStudents.map((student) => {
                       const record = attendance.get(student.id)
                       const ea = expectedAbsences.get(student.id)
-                      const yearBadge = student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'
-                      const currentStatus = record?.status || 'ABSENT'
-
+                      const enrollment = student.enrollments[0]
                       return (
-                        <tr key={student.id} className="border-b hover:bg-gray-50">
-                          <td className="p-2 text-gray-500">{index + 1}</td>
-                          <td className="p-2 font-medium">
-                            <div className="flex items-center gap-2">
-                              <Avatar
-                                className={`h-7 w-7 shrink-0 ${student.profileImageUrl ? 'cursor-pointer hover:ring-2 hover:ring-maroon-400' : ''}`}
-                                onClick={() => student.profileImageUrl && setViewingPhoto({ name: student.name, url: student.profileImageUrl })}
-                              >
-                                {student.profileImageUrl && (
-                                  <AvatarImage src={student.profileImageUrl} alt={student.name} />
-                                )}
-                                <AvatarFallback className="bg-maroon-600 text-white text-xs">
-                                  {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              {student.name}
+                        <tr key={student.id} className={`border-b border-line last:border-0 ${compactMode ? 'h-11' : 'h-[52px]'}`}>
+                          <td className="px-3">
+                            <div className="flex items-center gap-2.5">
+                              <Initials name={student.name} imageUrl={student.profileImageUrl} />
+                              <div className="flex min-w-0 flex-col leading-[1.3]">
+                                <span className="truncate font-medium text-ink">{student.name}</span>
+                                <span className="flex items-center gap-1.5 text-xs text-ink-3">
+                                  {enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                                  {enrollment?.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
+                                </span>
+                              </div>
                             </div>
                           </td>
-                          <td className="p-2 text-center">
-                            <Badge variant="outline" className="text-xs">
-                              {yearBadge}
-                            </Badge>
-                            {student.enrollments[0]?.isAsyncStudent && (
-                              <AsyncBadge className="text-xs ml-1" />
-                            )}
-                          </td>
-                          <td className="p-2">
-                            <div className="flex justify-center gap-1">
+                          <td className="px-3">
+                            <div className="flex items-center gap-1">
                               <AttendanceStatusButtons
-                                currentStatus={currentStatus}
+                                currentStatus={record?.status}
                                 onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
-                                disabled={!userCanManageData || !isLessonEditable}
-                                size="md"
+                                disabled={controlsDisabled}
+                                size={compactMode ? 'sm' : 'md'}
                               />
-                              <button
-                                type="button"
+                              <ConductButton
+                                active={!!record?.conductRemoval}
+                                note={record?.conductNote}
+                                disabled={controlsDisabled}
                                 onClick={() => handleConductRemovalClick(student.id, student.name)}
-                                disabled={!userCanManageData || !isLessonEditable}
-                                className={`p-1.5 rounded transition-colors ${
-                                  record?.conductRemoval
-                                    ? 'bg-orange-600 text-white'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-orange-100 hover:text-orange-600'
-                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
-                                title={record?.conductRemoval ? `Removed from lesson: ${record.conductNote}` : 'Remove from Lesson (conduct)'}
-                              >
-                                <UserX className="h-4 w-4" />
-                              </button>
+                              />
                             </div>
-                            {record?.conductRemoval && record.conductNote && (
-                              <p className="text-[10px] text-orange-600 mt-1 text-center max-w-[200px] mx-auto truncate" title={record.conductNote}>
-                                {record.conductNote}
-                              </p>
-                            )}
-                            {!record?.conductRemoval && ea && (
-                              <p className="text-[10px] text-blue-600 mt-1 flex items-center justify-center gap-1 max-w-[200px] mx-auto truncate" title={ea.reason}>
-                                <Plane className="h-2.5 w-2.5 shrink-0" />
-                                Expected{ea.markAsNA ? ' (N/A)' : ''}: {ea.reason}
-                              </p>
-                            )}
+                            <RowNote conductNote={record?.conductRemoval ? record.conductNote : undefined} expected={ea} />
                           </td>
                           {!compactMode && (
                             <>
-                              <td className="p-2">
+                              <td className="px-3">
                                 <Input
                                   type="time"
+                                  aria-label={`${student.name} arrival time`}
                                   value={record?.arrivedAt || ''}
                                   onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
-                                  className="h-7 text-xs"
+                                  disabled={controlsDisabled}
+                                  className="md:h-8"
                                 />
                               </td>
-                              <td className="p-2">
+                              <td className="px-3">
                                 <Input
                                   type="text"
-                                  placeholder="Notes..."
+                                  aria-label={`${student.name} notes`}
+                                  placeholder="Add notes…"
                                   value={record?.notes || ''}
                                   onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
-                                  className="h-7 text-xs"
+                                  disabled={controlsDisabled}
+                                  className="md:h-8"
                                 />
                               </td>
                             </>
@@ -700,161 +684,110 @@ export default function AttendancePage() {
                     })}
                   </tbody>
                 </table>
-              </div>
-            </Card>
 
-            {/* Mobile Card Layout - Compact */}
-            <div className="md:hidden space-y-2 pb-20 overflow-x-hidden">
-              {filteredStudents.map((student, index) => {
-                const record = attendance.get(student.id)
-                const ea = expectedAbsences.get(student.id)
-                const yearLevel = student.enrollments[0]?.yearLevel
-                const currentStatus = record?.status || 'ABSENT'
-                const isExpanded = expandedStudentId === student.id
-
-                return (
-                  <Card key={student.id} className="overflow-hidden">
-                    <CardContent className="px-2 py-1.5 sm:p-3">
-                      {/* Single row: # Avatar Name [Y1] [P][L][A][E] [>] */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-400 w-3 shrink-0 text-center">{index + 1}</span>
-                        <Avatar
-                          className={`h-7 w-7 shrink-0 ${student.profileImageUrl ? 'cursor-pointer hover:ring-2 hover:ring-maroon-400' : ''}`}
-                          onClick={() => student.profileImageUrl && setViewingPhoto({ name: student.name, url: student.profileImageUrl })}
-                        >
-                          {student.profileImageUrl && (
-                            <AvatarImage src={student.profileImageUrl} alt={student.name} className="object-cover" />
-                          )}
-                          <AvatarFallback className="bg-maroon-600 text-white text-[9px]">
-                            {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-sm leading-tight truncate flex-1 min-w-0">{student.name}</span>
-                        <Badge variant="outline" className="text-[9px] shrink-0 px-0.5 py-0">
-                          {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                        </Badge>
-                        {student.enrollments[0]?.isAsyncStudent && (
-                          <AsyncBadge className="text-[9px] shrink-0 px-0.5 py-0" />
-                        )}
-                        <div className="flex shrink-0">
-                          <AttendanceStatusButtons
-                            currentStatus={currentStatus}
-                            onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
-                            disabled={!userCanManageData || !isLessonEditable}
-                            size="sm"
-                          />
+                <ul className="divide-y divide-line md:hidden">
+                  {filteredStudents.map((student) => {
+                    const record = attendance.get(student.id)
+                    const ea = expectedAbsences.get(student.id)
+                    const isExpanded = expandedStudentId === student.id
+                    return (
+                      <li key={student.id} className="px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} />
                           <button
                             type="button"
-                            onClick={() => handleConductRemovalClick(student.id, student.name)}
-                            disabled={!userCanManageData || !isLessonEditable}
-                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
-                              record?.conductRemoval
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
-                            title={record?.conductRemoval ? `Removed: ${record.conductNote}` : 'Remove from Lesson'}
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left"
+                            aria-expanded={isExpanded}
+                            onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
                           >
-                            <UserX className="h-3.5 w-3.5" />
+                            <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                            {isExpanded ? <ChevronDown className="size-4 shrink-0 text-ink-3" /> : <ChevronRight className="size-4 shrink-0 text-ink-3" />}
                           </button>
                         </div>
-                        {!compactMode && (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                            className="p-0.5 text-gray-400 hover:text-gray-600 shrink-0"
-                          >
-                            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Expected absence indicator (mobile) */}
-                      {!record?.conductRemoval && ea && (
-                        <p className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 truncate" title={ea.reason}>
-                          <Plane className="h-2.5 w-2.5 shrink-0" />
-                          Expected{ea.markAsNA ? ' (N/A)' : ''}: {ea.reason}
-                        </p>
-                      )}
-
-                      {/* Expanded Details */}
-                      {!compactMode && isExpanded && (
-                        <div className="mt-3 pt-3 border-t space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-gray-500">Arrival Time</label>
+                        <div className="mt-2 flex items-center gap-1">
+                          <AttendanceStatusButtons
+                            currentStatus={record?.status}
+                            onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
+                            disabled={controlsDisabled}
+                          />
+                          <ConductButton
+                            active={!!record?.conductRemoval}
+                            note={record?.conductNote}
+                            disabled={controlsDisabled}
+                            onClick={() => handleConductRemovalClick(student.id, student.name)}
+                          />
+                        </div>
+                        <RowNote conductNote={record?.conductRemoval ? record.conductNote : undefined} expected={ea} />
+                        {isExpanded && (
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-2">
+                              Arrived
                               <Input
                                 type="time"
                                 value={record?.arrivedAt || ''}
                                 onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
-                                className="h-8 text-sm"
+                                disabled={controlsDisabled}
                               />
-                            </div>
-                            <div>
-                              <label className="text-xs text-gray-500">Notes</label>
+                            </label>
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-2">
+                              Notes
                               <Input
                                 type="text"
-                                placeholder="Add notes..."
+                                placeholder="Add notes…"
                                 value={record?.notes || ''}
                                 onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
-                                className="h-8 text-sm"
+                                disabled={controlsDisabled}
                               />
-                            </div>
+                            </label>
                           </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+          </Panel>
 
-            {/* Sticky Footer - Save Button */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
-              <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-gray-600">
-                    {attendance.size} / {filteredStudents.length} marked
-                  </span>
-                  {hasUnsavedChanges && (
-                    <span className="text-orange-600 font-medium">• Unsaved</span>
-                  )}
-                </div>
-                {userCanManageData && (
-                  <Button
-                    onClick={saveAttendance}
-                    disabled={saving || !isLessonEditable}
-                    size="lg"
-                    className="px-8"
-                  >
-                    {saving ? 'Saving...' : !isLessonEditable ? 'Future Lesson' : 'Save Attendance'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+          {/* Save bar: sticks to the bottom of the content column, above the phone tab bar. */}
+          <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+            <p className="tabular flex flex-wrap items-center gap-x-1.5 text-[13px] text-ink-2" aria-live="polite">
+              <span><b className="font-semibold text-ok">{marked.PRESENT}</b> present</span>·
+              <span><b className="font-semibold text-warn">{marked.LATE}</b> late</span>·
+              <span><b className="font-semibold text-bad">{marked.ABSENT}</b> absent</span>·
+              <span><b className="font-semibold text-ink">{marked.unmarked}</b> unmarked</span>
+              {hasUnsavedChanges && <StatusBadge tone="warn" className="ml-1">Unsaved</StatusBadge>}
+              {marked.unmarked > 0 && <span className="w-full text-xs text-ink-3">Unmarked students are saved as absent.</span>}
+            </p>
+            {userCanManageData && (
+              <Button onClick={saveAttendance} disabled={saving || !isLessonEditable} className="ml-auto">
+                {saving ? 'Saving…' : !isLessonEditable ? 'Future lesson' : 'Save attendance'}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
 
-      {/* Conduct Removal Dialog */}
       <Dialog open={!!conductRemovalDialog} onOpenChange={(open) => { if (!open) setConductRemovalDialog(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove from Lesson</DialogTitle>
+            <DialogTitle>Remove from lesson</DialogTitle>
             <DialogDescription>
               {conductRemovalDialog && (
                 <>
-                  You are marking <strong>{conductRemovalDialog.studentName}</strong> as removed from this lesson.
-                  This will count as an absence in their attendance record.
-                  A reason is required.
+                  <strong>{conductRemovalDialog.studentName}</strong> will be marked as removed from this lesson. It counts
+                  as an absence. A reason is required.
                 </>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <Label htmlFor="conduct-note">Reason for Removal <span className="text-red-500">*</span></Label>
+            <Label htmlFor="conduct-note">
+              Reason for removal <span className="text-bad">*</span>
+            </Label>
             <Textarea
               id="conduct-note"
-              placeholder="Describe the reason for removing this student from the lesson..."
+              placeholder="Describe why the student was removed…"
               value={conductNoteInput}
               onChange={(e) => setConductNoteInput(e.target.value)}
               rows={3}
@@ -863,132 +796,102 @@ export default function AttendancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConductRemovalDialog(null)}>Cancel</Button>
-            <Button
-              onClick={confirmConductRemoval}
-              disabled={!conductNoteInput.trim()}
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-            >
-              Confirm Removal
+            <Button variant="destructive" onClick={confirmConductRemoval} disabled={!conductNoteInput.trim()}>
+              Remove from lesson
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Photo Viewer Lightbox */}
-      {viewingPhoto && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6"
-          onClick={() => setViewingPhoto(null)}
-        >
-          <div className="relative max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL, sized to viewport */}
-            <img
-              src={viewingPhoto.url}
-              alt={viewingPhoto.name}
-              className="w-full rounded-xl object-cover aspect-square"
-            />
-            <p className="text-center text-white text-sm font-medium mt-3">{viewingPhoto.name}</p>
-            <button
-              onClick={() => setViewingPhoto(null)}
-              className="absolute -top-3 -right-3 bg-white dark:bg-gray-800 rounded-full p-1.5 shadow-lg text-gray-600 hover:text-gray-900 dark:text-gray-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-function LessonCard({
+function ConductButton({ active, note, disabled, onClick }: { active: boolean; note?: string; disabled: boolean; onClick: () => void }) {
+  const label = active ? `Removed from lesson: ${note ?? ''}` : 'Remove from lesson (conduct)'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      className={`ml-1 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[7px] border transition-colors md:size-[30px] ${
+        active ? 'border-bad bg-bad-tint text-bad' : 'border-transparent text-ink-3 hover:border-line-strong hover:text-bad'
+      } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+    >
+      <UserX className="size-4" />
+    </button>
+  )
+}
+
+function RowNote({
+  conductNote,
+  expected,
+}: {
+  conductNote?: string
+  expected?: { reason: string; markAsNA: boolean }
+}) {
+  if (conductNote) {
+    return (
+      <p className="mt-1 max-w-[260px] truncate text-[11.5px] text-bad" title={conductNote}>
+        Removed: {conductNote}
+      </p>
+    )
+  }
+  if (expected) {
+    return (
+      <p className="mt-1 flex max-w-[260px] items-center gap-1 truncate text-[11.5px] text-info" title={expected.reason}>
+        <Plane className="size-3 shrink-0" aria-hidden />
+        Expected absence{expected.markAsNA ? ' (N/A)' : ''}: {expected.reason}
+      </p>
+    )
+  }
+  return null
+}
+
+function LessonRow({
   lesson,
   onClick,
-  highlight,
-  showYear,
-  yearName
+  done,
+  yearName,
 }: {
   lesson: Lesson
   onClick: () => void
-  highlight?: 'upcoming' | 'recent' | 'past' | 'completed'
-  showYear?: boolean
+  done: boolean
   yearName?: string
 }) {
-  const bgColor =
-    highlight === 'upcoming' ? 'bg-maroon-50 border-maroon-200' :
-    highlight === 'recent' ? 'bg-orange-50 border-orange-200' :
-    highlight === 'completed' ? 'bg-green-50 border-green-200' :
-    highlight === 'past' ? 'bg-gray-50' :
-    'bg-white'
-
-  const attendanceCount = lesson._count?.attendanceRecords || 0
-
+  const attended = lesson._count?.attendanceRecords || 0
   return (
-    <Card
-      className={`cursor-pointer hover:shadow-md transition-all ${bgColor}`}
-      onClick={onClick}
-    >
-      {/* Desktop Layout */}
-      <CardContent className="hidden sm:block p-4">
-        <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <div className="font-semibold">Lesson {lesson.lessonNumber}: {lesson.title}</div>
-            <div className="text-sm text-gray-600 flex items-center gap-2">
-              {formatDateUTC(lesson.scheduledDate)}
-              {attendanceCount > 0 && (
-                <Badge variant="outline" className="text-xs">
-                  {attendanceCount} attended
-                </Badge>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {showYear && yearName && (
-              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                {yearName}
-              </Badge>
-            )}
-            <Badge>{lesson.examSection.displayName}</Badge>
-            {highlight === 'upcoming' && (
-              <Badge className="bg-maroon-600">This Week</Badge>
-            )}
-            {highlight === 'recent' && (
-              <Badge className="bg-orange-600">Recent</Badge>
-            )}
-            {highlight === 'completed' && (
-              <Badge className="bg-green-600">Complete</Badge>
-            )}
-          </div>
-        </div>
-      </CardContent>
-
-      {/* Mobile Layout - Compact */}
-      <CardContent className="sm:hidden p-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-sm">{formatDateUTC(lesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-              {attendanceCount > 0 && (
-                <span className="text-xs text-green-600">• {attendanceCount}</span>
-              )}
-            </div>
-            <div className="text-xs text-gray-500 truncate">
-              L{lesson.lessonNumber}: {lesson.title}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {showYear && yearName && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-200">
-                {yearName.replace('Academic Year ', '')}
-              </Badge>
-            )}
-            <Badge className="text-[10px] px-1.5 py-0">{lesson.examSection.displayName}</Badge>
-            {highlight === 'completed' && (
-              <Badge className="text-[10px] px-1 py-0 bg-green-600">✓</Badge>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-h-14 w-full cursor-pointer items-center gap-3.5 px-4 py-2.5 text-left hover:bg-hover/60"
+      >
+        <span className="flex w-11 shrink-0 flex-col items-center leading-tight">
+          <span className="text-[11px] font-medium text-ink-3 uppercase">
+            {formatUTC(lesson.scheduledDate, { month: 'short' })}
+          </span>
+          <span className="tabular text-lg font-semibold text-ink">{formatUTC(lesson.scheduledDate, { day: 'numeric' })}</span>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[13.5px] font-medium text-ink">
+            Lesson {lesson.lessonNumber} · {lesson.title}
+          </span>
+          <span className="truncate text-xs text-ink-3">
+            {formatUTC(lesson.scheduledDate, { weekday: 'long' })} · {lesson.examSection.displayName}
+            {yearName ? ` · ${yearName}` : ''}
+          </span>
+        </span>
+        {done ? (
+          <StatusBadge tone="ok">{attended} attended</StatusBadge>
+        ) : (
+          <StatusBadge tone="warn">Needs attendance</StatusBadge>
+        )}
+        <ChevronRight className="size-4 shrink-0 text-ink-3" aria-hidden />
+      </button>
+    </li>
   )
 }

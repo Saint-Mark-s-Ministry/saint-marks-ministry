@@ -7,9 +7,11 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   countAttendanceStatuses,
   calculateAttendancePercentage,
-  meetsAttendanceRequirement
+  meetsAttendanceRequirement,
+  isGraduationEligible,
+  excludeAsyncPeriodRecords,
 } from "@/lib/attendance-utils"
-import { calculateSSAttendance, getAssignmentWeeks } from "@/lib/sunday-school-utils"
+import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -128,10 +130,12 @@ export async function GET(
 
     // Get attendance records - only fetch needed fields for performance
     // Excludes exam day lessons
+    // Async students: lessons from the day they went async count only if a slip covered them
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
-        lesson: lessonFilter
+        lesson: lessonFilter,
+        ...excludeAsyncPeriodRecords([enrollment]),
       },
       select: {
         status: true,
@@ -285,7 +289,7 @@ export async function GET(
       })
 
       const assignmentData = ssAssignments.map(assignment => {
-        const attendance = calculateSSAttendance(assignment.logs, assignment.totalWeeks)
+        const attendance = rotationAttendanceToDate(assignment)
         const weeks = getAssignmentWeeks(assignment.startDate, assignment.totalWeeks)
         const weekDetails = weeks.map(w => {
           const log = assignment.logs.find(l => l.weekNumber === w.weekNumber)
@@ -316,23 +320,35 @@ export async function GET(
         }
       })
 
-      const year1Assignment = assignmentData.find(a => a.yearLevel === 'YEAR_1')
-      const year2Assignment = assignmentData.find(a => a.yearLevel === 'YEAR_2')
-      const year1Met = year1Assignment?.attendance ? year1Assignment.attendance.met : true
-      const year2Met = year2Assignment?.attendance ? year2Assignment.attendance.met : true
+      const metFor = (level: string) => {
+        const rotation = assignmentData.find(a => a.yearLevel === level && a.isActive)
+        if (!rotation) return level !== enrollment.yearLevel // the current year needs one
+        return rotation.attendance ? rotation.attendance.met : true
+      }
+      const requirement = rotationRequirementMet(assignmentData, enrollment.yearLevel)
 
       sundaySchool = {
         assignments: assignmentData,
-        year1Met,
-        year2Met,
-        allMet: year1Met && year2Met
+        year1Met: metFor('YEAR_1'),
+        year2Met: metFor('YEAR_2'),
+        needsRotation: requirement.needsRotation,
+        allMet: requirement.met
       }
 
       sundaySchoolMet = sundaySchool.allMet
     }
 
     // Graduation eligibility (includes Sunday School for async students)
-    const graduationEligible = attendanceMet && overallAverageMet && allSectionsPassing && sundaySchoolMet
+    // An async student's rotation is their attendance, so it counts as evidence
+    // even when no lessons are on record (async from the start, no slips).
+    const rotationPercentage = sundaySchool?.assignments.find(
+      (a) => a.isActive && a.yearLevel === enrollment.yearLevel
+    )?.attendance?.percentage ?? null
+    const graduationEligible = isGraduationEligible({
+      attendancePercentage: attendancePercentage ?? rotationPercentage,
+      examAverage: overallAverage,
+      requirementsMet: [attendanceMet, overallAverageMet, allSectionsPassing, sundaySchoolMet],
+    })
 
     return NextResponse.json({
       enrollment,

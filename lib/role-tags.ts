@@ -17,7 +17,7 @@ export const ROLE_TAG_OPTIONS: ReadonlyArray<{
   },
   {
     value: RoleTag.SERVANTS_PREP_SERVANT,
-    label: 'Servants Prep Leader',
+    label: 'Servants Prep Servant',
     description: 'Manage Servants Prep students, mentors, attendance, and curriculum.',
   },
   {

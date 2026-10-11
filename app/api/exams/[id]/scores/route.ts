@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
-import { isAdmin, canManageExams } from "@/lib/roles"
+import { isAdmin } from "@/lib/roles"
+import { requireExamScoreWriter } from '@/lib/exam-score-service'
+import { handleApiError } from '@/lib/api-utils'
 import { notifyGradePosted } from "@/lib/notifications"
 
 
@@ -66,21 +68,13 @@ export async function GET(
   }
 }
 
-// POST /api/exams/[id]/scores - Add score for a student (Priest/Servant)
+// POST /api/exams/[id]/scores - Add an original grade (prep staff only)
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth()
-
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exam scores
-    if (!canManageExams(user.role)) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
+    const user = await requireExamScoreWriter()
     const { id: examId } = await params
     const body = await request.json()
     const { studentId, score, notes } = body
@@ -104,6 +98,7 @@ export async function POST(
       )
     }
 
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > exam.totalPoints) return NextResponse.json({ error: 'Score must be between zero and the exam total points.' }, { status: 400 })
     const percentage = (score / exam.totalPoints) * 100
 
     // Check if score already exists
@@ -135,6 +130,8 @@ export async function POST(
         studentId,
         score,
         percentage,
+        originalScore: score,
+        originalPercentage: percentage,
         notes: notes || null,
         gradedBy: user.id,
       },
@@ -158,9 +155,6 @@ export async function POST(
 
     return NextResponse.json(examScore, { status: 201 })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create exam score" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
+    return handleApiError(error)
   }
 }

@@ -14,6 +14,7 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useSundaySchoolLessons: () => ({ data: { lessons: [] } }),
   useSundaySchoolDashboard: () => ({
     data: mocks.dashboard,
     isLoading: false,
@@ -55,31 +56,33 @@ describe('Sunday School dashboard shortcuts', () => {
     }
   })
 
-  it('links all three summary cards directly to the only assigned class', () => {
+  it('sends Take attendance straight to the only assigned class', () => {
     render(<SundaySchoolDashboardPage />)
-
-    expect(screen.getByRole('link', { name: '1 Class. Open 8th Grade' }))
-      .toHaveAttribute('href', '/dashboard/servants/classes/class-8')
-    expect(screen.getByRole('link', { name: '12 Children. Open 8th Grade roster' }))
-      .toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
-    expect(screen.getByRole('link', { name: '1 Need attendance this week. Take 8th Grade attendance' }))
-      .toHaveAttribute('href', '/dashboard/servants/attendance?classId=class-8')
+    expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute(
+      'href',
+      '/dashboard/servants/attendance?classId=class-8'
+    )
+    expect(screen.getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
   })
 
-  it('links coordinators with multiple classes to the corresponding list pages', () => {
+  it('sends coordinators with several classes to the attendance picker and lists what is due', () => {
     mocks.dashboard = {
       ...mocks.dashboard,
       classes: [classSummary('class-7', '7th Grade'), classSummary('class-8', '8th Grade')],
       totals: { classes: 2, children: 24, classesNeedingAttendance: 2 },
     }
-
     render(<SundaySchoolDashboardPage />)
-
-    expect(screen.getByRole('link', { name: '2 Classes. View all classes' }))
-      .toHaveAttribute('href', '/dashboard/servants/classes')
-    expect(screen.getByRole('link', { name: '24 Children. Open rosters' }))
-      .toHaveAttribute('href', '/dashboard/servants/roster')
-    expect(screen.getByRole('link', { name: '2 Need attendance this week. Open attendance' }))
-      .toHaveAttribute('href', '/dashboard/servants/attendance')
+    expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute('href', '/dashboard/servants/attendance')
+    expect(screen.getAllByRole('link', { name: 'Take' }).map((l) => l.getAttribute('href'))).toEqual([
+      '/dashboard/servants/attendance?classId=class-7',
+      '/dashboard/servants/attendance?classId=class-8',
+    ])
   })
+  it('does not put meeting attendance on the Elementary dashboard', () => {
+    mocks.dashboard.classes = [{ ...classSummary('elementary-class', '1st Grade'), level: SundaySchoolLevel.GRADE_1, ageGroup: { id: 'elementary', name: 'Elementary School' } }]
+    mocks.dashboard.ageGroups = [{ id: 'elementary', name: 'Elementary School', levels: [SundaySchoolLevel.GRADE_1], canCoordinate: false }]
+    render(<SundaySchoolDashboardPage />)
+    expect(screen.queryByText(/servants meetings/i)).not.toBeInTheDocument()
+  })
+
 })

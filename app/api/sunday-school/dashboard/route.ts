@@ -16,6 +16,7 @@ import {
   getClassMeetingDayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
+  sortClassesByAgeGroup,
 } from "@/lib/sunday-school-class"
 import {
   buildSundaySchoolAttendanceTrend,
@@ -154,7 +155,9 @@ export async function GET(request: Request) {
           : trendAccess.isAdmin ||
             trendAccess.readOnly ||
             trendAccess.coordinatorClassIds.size > 0
-      attendanceTrendClasses = canSelectTrendClass ? trendClasses : []
+      attendanceTrendClasses = canSelectTrendClass
+        ? sortClassesByAgeGroup(trendClasses, ageGroups).map(({ id, name }) => ({ id, name }))
+        : []
       selectedTrendClassId =
         trendClasses.some(cls => cls.id === requestedClassId)
           ? requestedClassId

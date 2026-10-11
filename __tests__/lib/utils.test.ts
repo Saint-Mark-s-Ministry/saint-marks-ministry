@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn, formatDateUTC } from '@/lib/utils'
+import { cn, formatDateUTC, formatUTC } from '@/lib/utils'
 
 describe('cn (className utility)', () => {
   it('should merge class names', () => {
@@ -118,5 +118,16 @@ describe('formatDateUTC', () => {
     expect(result).toContain('Feb')
     expect(result).toContain('29')
     expect(result).toContain('2024')
+  })
+})
+
+describe('formatUTC', () => {
+  it('uses only the requested parts', () => {
+    expect(formatUTC('2026-10-02T00:00:00.000Z', { month: 'short' })).toBe('Oct')
+    expect(formatUTC('2026-10-02T00:00:00.000Z', { day: 'numeric' })).toBe('2')
+  })
+
+  it('keeps midnight-UTC calendar days on their day', () => {
+    expect(formatUTC('2026-10-04T00:00:00.000Z', { weekday: 'long' })).toBe('Sunday')
   })
 })

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateInviteCode: vi.fn(),
   transaction: vi.fn(),
   notifyNewRegistration: vi.fn(),
+  emailReceived: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -22,6 +23,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/notifications', () => ({
   notifyNewRegistration: mocks.notifyNewRegistration,
 }))
+vi.mock('@/lib/mail/notify', () => ({ emailRegistrationReceived: mocks.emailReceived }))
 
 import { POST } from '@/app/api/registration/submit/route'
 
@@ -98,6 +100,7 @@ describe('registration submission', () => {
       applicantName: 'Student Name',
       registrationId: 'registration-1',
     })
+    expect(mocks.emailReceived).toHaveBeenCalledWith({ email: requiredApplication.email.toLowerCase(), name: 'Student Name' })
   })
 
   it('requires a location when the applicant previously served', async () => {

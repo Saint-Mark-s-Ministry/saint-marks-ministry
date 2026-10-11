@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RoleTag } from '@prisma/client'
 import { ROLE_TAG_OPTIONS } from '@/lib/role-tags'
 
@@ -8,6 +9,7 @@ interface UserRoleTagEditorProps {
   onChange: (value: RoleTag[]) => void
   disabled?: boolean
   compact?: boolean
+  children?: ReactNode
 }
 
 export function UserRoleTagEditor({
@@ -15,6 +17,7 @@ export function UserRoleTagEditor({
   onChange,
   disabled = false,
   compact = false,
+  children,
 }: UserRoleTagEditorProps) {
   const selected = new Set(value)
 
@@ -61,6 +64,7 @@ export function UserRoleTagEditor({
             </label>
           )
         })}
+        {children}
       </div>
     </fieldset>
   )

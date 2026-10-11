@@ -157,3 +157,62 @@ export function calculateAbsencesAllowed(
 
   return Math.floor(absencesAllowed)
 }
+
+/**
+ * Graduation needs evidence: the per-requirement "met" flags read true while a
+ * student has no attendance or exam data yet (on track, not penalized), but a
+ * student with nothing recorded is not eligible to graduate.
+ */
+export function isGraduationEligible(input: {
+  attendancePercentage: number | null
+  examAverage: number | null
+  requirementsMet: boolean[]
+}): boolean {
+  return input.attendancePercentage !== null && input.examAverage !== null && input.requirementsMet.every(Boolean)
+}
+
+// ============================================
+// Async students
+// ============================================
+//
+// From the day a student becomes async, Servants Prep lessons stop counting
+// for or against them; their attendance is their Sunday School rotation. A
+// lesson an attendance slip marked Present still counts. Lessons before that
+// day count as usual. asyncApprovedAt is when an admin switched them, so the
+// whole of that day (lesson dates are stored at UTC midnight) is async.
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Start of the UTC day a student became async, or null if they aren't async. */
+export function asyncPeriodStart(enrollment: {
+  isAsyncStudent?: boolean | null
+  asyncApprovedAt?: Date | string | null
+}, now = new Date()): Date | null {
+  if (!enrollment.isAsyncStudent) return null
+  // A legacy async flag without a date applies from today, leaving history alone.
+  const since = enrollment.asyncApprovedAt ? new Date(enrollment.asyncApprovedAt) : now
+  return new Date(Math.floor(since.getTime() / DAY_MS) * DAY_MS)
+}
+
+/** Whether a lesson on this date falls in the student's async period. */
+export function isAsyncPeriodLesson(lessonDate: Date | string, periodStart: Date | null): boolean {
+  return periodStart !== null && new Date(lessonDate).getTime() >= periodStart.getTime()
+}
+
+/**
+ * Attendance-record filter that drops async-period lessons not covered by a
+ * slip, for any async students among `enrollments`. Spread into a Prisma
+ * `where` on AttendanceRecord.
+ */
+export function excludeAsyncPeriodRecords(
+  enrollments: Array<{ studentId: string; isAsyncStudent?: boolean | null; asyncApprovedAt?: Date | string | null }>,
+  now = new Date()
+) {
+  const rules = enrollments.flatMap((enrollment) => {
+    const start = asyncPeriodStart(enrollment, now)
+    return start
+      ? [{ studentId: enrollment.studentId, slipId: null, lesson: { scheduledDate: { gte: start } } }]
+      : []
+  })
+  return rules.length > 0 ? { NOT: { OR: rules } } : {}
+}

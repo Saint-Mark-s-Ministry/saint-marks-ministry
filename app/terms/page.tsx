@@ -36,7 +36,7 @@ export function TermsPageContent() {
             <p>
               The portal is for people participating in or administering authorized St. Mark ministries. Children
               under 13 may not independently create an account or submit personal information. Their parent,
-              guardian, or an authorized ministry leader must act for them. Older minors may use an account only
+              guardian, or an authorized ministry servant must act for them. Older minors may use an account only
               with appropriate guardian permission and church authorization. The church may require confirmation
               of identity, age, authority, or guardianship.
             </p>
@@ -54,7 +54,7 @@ export function TermsPageContent() {
               <p>
                 The portal is an administrative tool. It is not an emergency service, medical record system,
                 professional counseling service, or replacement for direct communication with clergy, ministry
-                leaders, guardians, or emergency services.
+                servants, guardians, or emergency services.
               </p>
             </>
           ),
@@ -160,7 +160,7 @@ export function TermsPageContent() {
             <p>
               Attendance percentages, exam averages, alerts, and eligibility indicators may be generated from
               available records and can contain errors or incomplete information. They are administrative aids and
-              do not replace human review. Clergy and authorized ministry leaders retain responsibility for final
+              do not replace human review. Clergy and authorized ministry servants retain responsibility for final
               assignments, exceptions, eligibility, graduation, discipline, and other ministry decisions.
             </p>
           ),

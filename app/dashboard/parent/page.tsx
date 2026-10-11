@@ -1,16 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isParent } from '@/lib/roles'
 import { useParentChildren, useSundaySchoolHomework, useSundaySchoolLessons } from '@/lib/swr'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -28,9 +27,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { PageLoading } from '@/components/ui/page-loading'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { ResourceLink } from '@/components/ds/resource-link'
 import { LEVEL_ORDER, getLevelDisplayName } from '@/lib/sunday-school-class'
 import { SundaySchoolLevel } from '@prisma/client'
-import { CheckCircle, Clock, ExternalLink, Loader2, Plus, XCircle } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
@@ -49,183 +55,140 @@ interface FormData {
 }
 
 function statusBadge(status: RegistrationStatus) {
-  switch (status) {
-    case 'PENDING':
-      return (
-        <Badge variant="outline" className="border-yellow-500 text-yellow-700">
-          <Clock className="w-3 h-3 mr-1" />
-          Pending
-        </Badge>
-      )
-    case 'APPROVED':
-      return (
-        <Badge variant="outline" className="border-green-500 text-green-700">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Approved
-        </Badge>
-      )
-    case 'REJECTED':
-      return (
-        <Badge variant="outline" className="border-red-500 text-red-700">
-          <XCircle className="w-3 h-3 mr-1" />
-          Rejected
-        </Badge>
-      )
-  }
+  if (status === 'PENDING') return <StatusBadge tone="warn">Pending</StatusBadge>
+  if (status === 'APPROVED') return <StatusBadge tone="ok">Approved</StatusBadge>
+  return <StatusBadge tone="bad">Rejected</StatusBadge>
 }
 
 export default function ParentDashboardPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <ParentDashboardContent />
+    </Suspense>
+  )
+}
+
+function ParentDashboardContent() {
   const { session, status } = useAdminGuard(isParent)
   const { data, mutate } = useParentChildren()
   const { data: lessonData } = useSundaySchoolLessons()
   const { data: homeworkData } = useSundaySchoolHomework()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-  if (status === 'loading' || !session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-maroon-600" />
-      </div>
-    )
+  // The sidebar's "Register a child" links here with ?register=1.
+  useEffect(() => {
+    if (searchParams.get('register') === '1') setIsDialogOpen(true)
+  }, [searchParams])
+
+  const setDialog = (open: boolean) => {
+    setIsDialogOpen(open)
+    if (!open && searchParams.get('register')) router.replace('/dashboard/parent', { scroll: false })
   }
+
+  if (status === 'loading' || !session) return <PageLoading />
 
   const children = data?.children ?? []
   const pendingRequests = data?.pendingRequests ?? []
   const lessons = (lessonData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold">My Children</h1>
-            <p className="text-gray-600 mt-1">Manage your Sunday School registrations</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="My children"
+        meta={['Your Sunday School registrations and class lessons']}
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-maroon-600 hover:bg-maroon-700">
-                <Plus className="w-4 h-4 mr-1" />
-                Register a Child
+              <Button>
+                <Plus />
+                Register a child
               </Button>
             </DialogTrigger>
             <RegisterChildDialog
               onSuccess={() => {
                 mutate()
-                setIsDialogOpen(false)
+                setDialog(false)
               }}
             />
           </Dialog>
+        }
+      />
+
+      {children.length === 0 ? (
+        <Panel>
+          <EmptyState title="No children linked yet" message="Register a child and a coordinator will place them in a class." />
+        </Panel>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {children.map((child: { id: string; firstName: string; lastName: string; level: SundaySchoolLevel; isActive: boolean; class: { name: string } | null }) => (
+            <Panel key={child.id} bodyClassName="flex items-center gap-3 p-4">
+              <Initials name={`${child.firstName} ${child.lastName}`} size={40} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[15px] font-semibold text-ink">
+                  {child.firstName} {child.lastName}
+                </span>
+                <span className="truncate text-xs text-ink-3">
+                  {getLevelDisplayName(child.level)} · {child.class ? child.class.name : 'Class not assigned yet'}
+                </span>
+              </div>
+              {child.isActive ? <StatusBadge tone="ok">Active</StatusBadge> : <StatusBadge tone="neutral">Inactive</StatusBadge>}
+            </Panel>
+          ))}
         </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>My Children</CardTitle>
-            <CardDescription>Children linked to your account</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {children.length === 0 ? (
-              <p className="text-sm text-gray-500">No children linked yet.</p>
-            ) : (
-              children.map((child: {
-                id: string
-                firstName: string
-                lastName: string
-                level: SundaySchoolLevel
-                isActive: boolean
-                class: { name: string } | null
-              }) => (
-                <div
-                  key={child.id}
-                  className="flex items-center justify-between border rounded-lg p-3"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {child.firstName} {child.lastName}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {getLevelDisplayName(child.level)} &middot;{' '}
-                      {child.class ? child.class.name : 'Unassigned'}
-                    </div>
-                  </div>
-                  <Badge variant={child.isActive ? 'default' : 'outline'}>
-                    {child.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Lessons</CardTitle>
-            <CardDescription>Slides and resources shared by your children&apos;s classes</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {lessons.length === 0 ? (
-              <p className="text-sm text-gray-500">No upcoming lesson links have been shared yet.</p>
-            ) : lessons.map(lesson => (
-              <div key={lesson.id} className="rounded-lg border p-3">
+      <Panel title="Upcoming lessons" description="Slides and resources shared by your children’s classes">
+        {lessons.length === 0 ? (
+          <EmptyState message="No lesson links have been shared yet." />
+        ) : (
+          <ul className="divide-y divide-line">
+            {lessons.map((lesson) => (
+              <li key={lesson.id} className="flex flex-col gap-2 px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{lesson.title || lesson.class.name}</p>
-                    <p className="text-sm text-gray-600">
-                      {lesson.class.name} · {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-ink-3">
+                      {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })} · {lesson.class.name}
+                    </span>
+                    <span className="font-display text-[19px] leading-tight font-medium text-ink">{lesson.title || 'Upcoming lesson'}</span>
                   </div>
-                  {lesson.resources.length > 0 && <Badge className="bg-green-600">Ready</Badge>}
+                  {lesson.resources.length > 0 ? <StatusBadge tone="ok">Ready</StatusBadge> : <StatusBadge tone="warn">Links coming</StatusBadge>}
                 </div>
                 {lesson.resources.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {lesson.resources.map(resource => (
-                      <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-maroon-700 hover:underline">
-                        <ExternalLink className="h-3.5 w-3.5" /> {resource.title}
-                      </a>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {lesson.resources.map((resource) => (
+                      <ResourceLink key={resource.id} title={resource.title} url={resource.url} compact />
                     ))}
                   </div>
                 )}
-              </div>
+              </li>
             ))}
-          </CardContent>
-        </Card>
+          </ul>
+        )}
+      </Panel>
 
-        <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
+      <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>Registration requests you've submitted</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingRequests.length === 0 ? (
-              <p className="text-sm text-gray-500">No requests submitted yet.</p>
-            ) : (
-              pendingRequests.map((request: {
-                id: string
-                firstName: string
-                lastName: string
-                intendedLevel: SundaySchoolLevel
-                status: RegistrationStatus
-              }) => (
-                <div
-                  key={request.id}
-                  className="flex items-center justify-between border rounded-lg p-3"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {request.firstName} {request.lastName}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {getLevelDisplayName(request.intendedLevel)}
-                    </div>
-                  </div>
-                  {statusBadge(request.status)}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Panel title="Requests" description="Registration requests you’ve submitted">
+        {pendingRequests.length === 0 ? (
+          <EmptyState message="No requests submitted yet." />
+        ) : (
+          <ul className="divide-y divide-line">
+            {pendingRequests.map((request: { id: string; firstName: string; lastName: string; intendedLevel: SundaySchoolLevel; status: RegistrationStatus }) => (
+              <li key={request.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-[13.5px] font-medium text-ink">
+                    {request.firstName} {request.lastName}
+                  </span>
+                  <span className="text-xs text-ink-3">{getLevelDisplayName(request.intendedLevel)}</span>
+                </span>
+                {statusBadge(request.status)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </div>
   )
 }

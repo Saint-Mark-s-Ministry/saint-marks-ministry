@@ -83,7 +83,7 @@ describe('Year 2 mentor information reminder', () => {
     expect(mocks.createReminder).not.toHaveBeenCalled()
   })
 
-  it('does not prompt Year 1 or inactive students', async () => {
+  it('does not require annual reconfirmation until a student reaches Year 2', async () => {
     mocks.findEnrollment.mockResolvedValue({
       id: 'enrollment-1',
       isActive: true,

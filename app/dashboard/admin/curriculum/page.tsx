@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,7 +26,17 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { PageLoading } from '@/components/ui/page-loading'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Plus } from 'lucide-react'
+import styles from '@/components/curriculum/schedule.module.css'
 import { SortableRow } from '@/components/curriculum/sortable-row'
 import { MobileLessonCard } from '@/components/curriculum/mobile-lesson-card'
 import type { Lesson, Section, LessonEdits } from '@/components/curriculum/types'
@@ -299,7 +308,7 @@ export default function CurriculumPage() {
         if (filterSection !== 'all' && lesson.examSection.name !== filterSection) return false
         return true
       })
-      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
     const oldIndex = currentFiltered.findIndex(l => l.id === active.id)
     const newIndex = currentFiltered.findIndex(l => l.id === over.id)
@@ -312,7 +321,8 @@ export default function CurriculumPage() {
       const res = await fetch('/api/lessons/batch/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonIds: reorderedFiltered.map(l => l.id) }),
+        // The API assigns newest-first date slots; the table displays oldest first.
+        body: JSON.stringify({ lessonIds: [...reorderedFiltered].reverse().map(l => l.id) }),
       })
 
       if (!res.ok) {
@@ -445,7 +455,7 @@ export default function CurriculumPage() {
       const res = await fetch('/api/lessons/batch/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lessonIds: reordered.map(l => l.id) }),
+        body: JSON.stringify({ lessonIds: [...reordered].reverse().map(l => l.id) }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -478,7 +488,7 @@ export default function CurriculumPage() {
       }
       return true
     })
-    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
   if (loading || status === 'loading') {
     return <PageLoading />
@@ -486,166 +496,109 @@ export default function CurriculumPage() {
 
   const canEdit = session?.user?.role && canManageCurriculum(session.user.role)
 
+  const completed = lessons.filter((l) => l.status === 'COMPLETED').length
+  const yearName = selectedYearId === 'all' ? 'All years' : academicYears.find((y) => y.id === selectedYearId)?.name.replace('-', '–')
+  const field = (label: string, control: React.ReactNode, id?: string, required = false) => (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>
+        {label}
+        {required && <span className="text-bad"> *</span>}
+      </Label>
+      {control}
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
-        <PageHeader
-          title="Curriculum"
-          description={canEdit ? 'Edit lessons inline, drag to reorder, save all at once' : 'Lesson schedule and curriculum'}
-          lastSaved={lastSaved}
-          actions={canEdit && hasUnsavedChanges ? (
-            <>
-              <span className="text-sm text-amber-600 font-medium">
-                {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
-                Discard
-              </Button>
-              <Button size="sm" onClick={handleSaveAll} disabled={saving}>
-                {saving ? 'Saving...' : 'Save All Changes'}
-              </Button>
-            </>
-          ) : undefined}
-        />
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Curriculum"
+        meta={[
+          yearName,
+          `${lessons.length} lessons`,
+          `${completed} completed`,
+          lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null,
+        ]}
+        actions={
+          canEdit && (
+            <Button onClick={() => setShowAddRow(true)}>
+              <Plus />
+              Add lesson
+            </Button>
+          )
+        }
+      />
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex gap-4 flex-wrap items-center">
-              <Input
-                type="text"
-                placeholder="Search topics, speakers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-xs"
-              />
-              <select
-                value={selectedYearId}
-                onChange={(e) => setSelectedYearId(e.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
-              >
-                <option value="all">All Academic Years</option>
-                {academicYears.map(year => (
-                  <option key={year.id} value={year.id}>
-                    {year.name} {year.isActive ? '(Active)' : ''}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filterSection}
-                onChange={(e) => setFilterSection(e.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
-              >
-                <option value="all">All Sections</option>
-                {sections.map(section => (
-                  <option key={section.id} value={section.name}>
-                    {section.displayName}
-                  </option>
-                ))}
-              </select>
-              {canEdit && !showAddRow && (
-                <Button
-                  size="sm"
-                  className="ml-auto bg-maroon-600 hover:bg-maroon-700 text-white"
-                  onClick={() => setShowAddRow(true)}
-                >
-                  + Add Lesson
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <Panel
+        className="relative"
+        toolbar={
+          <>
+            <FilterSelect
+              aria-label="Academic year"
+              value={selectedYearId}
+              onChange={setSelectedYearId}
+              options={[
+                { value: 'all', label: 'All academic years' },
+                ...academicYears.map((year) => ({ value: year.id, label: `${year.name.replace('-', '–')}${year.isActive ? ' (active)' : ''}` })),
+              ]}
+            />
+            <FilterSelect
+              aria-label="Section"
+              value={filterSection}
+              onChange={setFilterSection}
+              options={[{ value: 'all', label: 'All sections' }, ...sections.map((section) => ({ value: section.name, label: section.displayName }))]}
+            />
+            <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search topics, speakers" className="md:ml-auto md:w-[240px]" />
+          </>
+        }
+        footer={
+          <span>
+            {filteredLessons.length} lessons
+            {canEdit && (filtersActive ? ' · clear filters to reorder' : ' · drag rows to reorder')}
+          </span>
+        }
+      >
+        {reordering && (
+          <div role="status" className="absolute inset-0 z-10 flex items-center justify-center bg-surface/60">
+            <span className="flex items-center gap-2 text-[13px] text-ink-2">
+              <span className="size-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+              Reordering…
+            </span>
+          </div>
+        )}
 
-        {/* Desktop: Spreadsheet Table */}
-        <Card className="hidden md:block relative">
-          {reordering && (
-            <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 z-10 flex items-center justify-center">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <div className="h-4 w-4 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
-                Reordering...
-              </div>
-            </div>
-          )}
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-                autoScroll={false}
-              >
-                <table className="w-full text-sm" style={{ minWidth: canEdit ? 820 : 640 }}>
-                  <thead className="bg-gray-50 border-b">
+        {filteredLessons.length === 0 ? (
+          <EmptyState message={canEdit ? 'No lessons match. Add one, or clear the filters.' : 'No lessons match these filters.'} />
+        ) : (
+          <>
+            <div className={`hidden md:block ${styles.scrollArea}`}>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} autoScroll={false}>
+                <table className={styles.schedule}>
+                  <colgroup>
+                    {canEdit && <col style={{ width: 28 }} />}
+                    <col style={{ width: 48 }} />
+                    <col style={{ width: 132 }} />
+                    <col style={{ width: 180 }} />
+                    <col style={{ width: 240 }} />
+                    <col style={{ width: 116 }} />
+                    <col style={{ width: 170 }} />
+                    <col style={{ width: 210 }} />
+                    <col style={{ width: canEdit ? 116 : 40 }} />
+                  </colgroup>
+                  <thead>
                     <tr>
-                      {canEdit && <th className="p-1 w-8"></th>}
-                      <th className="text-center p-2 w-8">#</th>
-                      <th className="text-left p-2 w-32">Date</th>
-                      <th className="text-left p-2">Topic</th>
-                      <th className="text-left p-2 w-32">Speaker</th>
-                      <th className="text-left p-2 w-36">Section</th>
-                      <th className="text-center p-2 w-14">Exam</th>
-                      <th className="text-center p-2 w-20">Status</th>
-                      <th className="text-center p-2 w-20"></th>
+                      {canEdit && <th scope="col"><span className="sr-only">Reorder</span></th>}
+                      <th scope="col">Meeting<br />No.</th>
+                      <th scope="col">Date</th>
+                      <th scope="col">Block</th>
+                      <th scope="col">Topic</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Speaker</th>
+                      <th scope="col">Notes</th>
+                      <th scope="col"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
-                  <SortableContext
-                    items={filteredLessons.map(l => l.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
+                  <SortableContext items={filteredLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
                     <tbody>
-                      {canEdit && showAddRow && (
-                        <tr className="border-b bg-green-50 dark:bg-green-900/20">
-                          <td colSpan={9} className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Add New Lesson</h3>
-                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowAddRow(false)}>
-                                ✕ Cancel
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Title *</label>
-                                <Input value={newLesson.title} onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Topic title" autoFocus />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Speaker</label>
-                                <Input value={newLesson.speaker} onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Speaker name" />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Date *</label>
-                                <Input type="date" value={newLesson.scheduledDate} onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))} className="h-8 text-sm mt-0.5" />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Section</label>
-                                <select value={newLesson.examSectionId} onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
-                                  {sections.map(section => (<option key={section.id} value={section.id}>{section.displayName}</option>))}
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Subtitle</label>
-                                <Input value={newLesson.subtitle} onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Subtitle (optional)" />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Description</label>
-                                <Input value={newLesson.description} onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Description (optional)" />
-                              </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500">Academic Year</label>
-                                <select value={formAcademicYearId} onChange={(e) => setFormAcademicYearId(e.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
-                                  {academicYears.map(year => (<option key={year.id} value={year.id}>{year.name} {year.isActive ? '(Active)' : ''}</option>))}
-                                </select>
-                              </div>
-                              <div className="flex items-end gap-3">
-                                <label className="flex items-center gap-1.5 cursor-pointer pb-1.5">
-                                  <input type="checkbox" checked={newLesson.isExamDay} onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))} className="h-4 w-4" />
-                                  <span className="text-xs">Exam Day</span>
-                                </label>
-                                <Button size="sm" className="h-8 px-4 text-xs" onClick={handleAddLesson}>Create Lesson</Button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                       {filteredLessons.map((lesson, index) => (
                         <SortableRow
                           key={lesson.id}
@@ -668,119 +621,98 @@ export default function CurriculumPage() {
                   </SortableContext>
                 </table>
               </DndContext>
-
-              {filteredLessons.length === 0 && !showAddRow && (
-                <div className="text-center py-8 text-gray-500">No lessons found</div>
-              )}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Mobile: Card Layout */}
-        <div className="md:hidden space-y-3">
-          {reordering && (
-            <Card className="bg-gray-50 border-gray-200 sticky top-0 z-10">
-              <CardContent className="p-3 flex items-center justify-center gap-2">
-                <div className="h-4 w-4 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-gray-600">Reordering...</span>
-              </CardContent>
-            </Card>
-          )}
-          {canEdit && hasUnsavedChanges && (
-            <Card className="bg-amber-50 border-amber-200 sticky top-0 z-10">
-              <CardContent className="p-3 flex items-center justify-between">
-                <span className="text-sm text-amber-700 font-medium">
-                  {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
-                </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleDiscardChanges}>Discard</Button>
-                  <Button size="sm" onClick={handleSaveAll} disabled={saving}>{saving ? 'Saving...' : 'Save All'}</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            <div className="flex flex-col gap-3 p-3 md:hidden">
+              {filteredLessons.map((lesson, index) => (
+                <MobileLessonCard
+                  key={lesson.id}
+                  lesson={lesson}
+                  index={index}
+                  totalCount={filteredLessons.length}
+                  canEdit={!!canEdit}
+                  canReorder={!filtersActive}
+                  isReordering={reordering}
+                  sections={sections}
+                  edits={editedLessons.get(lesson.id)}
+                  onEdit={handleEdit}
+                  onEditResources={handleEditResources}
+                  onDelete={handleDelete}
+                  onDuplicate={handleDuplicate}
+                  onResetAttendance={handleResetAttendance}
+                  onMoveUp={(id) => handleMobileMove(id, 'up')}
+                  onMoveDown={(id) => handleMobileMove(id, 'down')}
+                  isExpanded={expandedIds.has(lesson.id)}
+                  onToggleExpand={handleToggleExpand}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </Panel>
 
-          {canEdit && showAddRow && (
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-sm">Add New Lesson</h3>
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowAddRow(false)}>✕ Cancel</Button>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Topic *</label>
-                  <Input value={newLesson.title} onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Topic title" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Speaker</label>
-                  <Input value={newLesson.speaker} onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Speaker name" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Date *</label>
-                  <Input type="date" value={newLesson.scheduledDate} onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))} className="h-8 text-sm mt-0.5" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Section</label>
-                  <select value={newLesson.examSectionId} onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
-                    {sections.map(section => (<option key={section.id} value={section.id}>{section.displayName}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Academic Year</label>
-                  <select value={formAcademicYearId} onChange={(e) => setFormAcademicYearId(e.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
-                    {academicYears.map(year => (<option key={year.id} value={year.id}>{year.name} {year.isActive ? '(Active)' : ''}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Subtitle</label>
-                  <Input value={newLesson.subtitle} onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Subtitle (optional)" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500">Description</label>
-                  <Textarea value={newLesson.description} onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))} className="text-sm mt-0.5 min-h-[60px]" placeholder="Description (optional)" />
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={newLesson.isExamDay} onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))} className="h-4 w-4" />
-                  <span className="text-xs">Exam Day</span>
-                </label>
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" className="flex-1" onClick={handleAddLesson}>Create Lesson</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowAddRow(false)}>Cancel</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {filteredLessons.length === 0 && !showAddRow ? (
-            <Card>
-              <CardContent className="p-6 text-center text-gray-500">No lessons found</CardContent>
-            </Card>
-          ) : (
-            filteredLessons.map((lesson, index) => (
-              <MobileLessonCard
-                key={lesson.id}
-                lesson={lesson}
-                index={index}
-                totalCount={filteredLessons.length}
-                canEdit={!!canEdit}
-                canReorder={!filtersActive}
-                isReordering={reordering}
-                sections={sections}
-                edits={editedLessons.get(lesson.id)}
-                onEdit={handleEdit}
-                onEditResources={handleEditResources}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-                onResetAttendance={handleResetAttendance}
-                onMoveUp={(id) => handleMobileMove(id, 'up')}
-                onMoveDown={(id) => handleMobileMove(id, 'down')}
-                isExpanded={expandedIds.has(lesson.id)}
-                onToggleExpand={handleToggleExpand}
-              />
-            ))
-          )}
+      {canEdit && hasUnsavedChanges && (
+        <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+          <StatusBadge tone="warn">
+            {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
+          </StatusBadge>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={handleDiscardChanges}>Discard</Button>
+            <Button onClick={handleSaveAll} disabled={saving}>{saving ? 'Saving…' : 'Save all changes'}</Button>
+          </div>
         </div>
-      </div>
+      )}
+
+      <Dialog open={!!canEdit && showAddRow} onOpenChange={setShowAddRow}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add lesson</DialogTitle>
+            <DialogDescription>It appears in the schedule and attendance right away.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            {field('Topic', <Input id="new-title" placeholder="Topic title" value={newLesson.title} onChange={(e) => setNewLesson((prev) => ({ ...prev, title: e.target.value }))} />, 'new-title', true)}
+            {field('Subtitle', <Input id="new-subtitle" placeholder="Optional" value={newLesson.subtitle} onChange={(e) => setNewLesson((prev) => ({ ...prev, subtitle: e.target.value }))} />, 'new-subtitle')}
+            <div className="grid grid-cols-2 gap-3">
+              {field('Date', <Input id="new-date" type="date" value={newLesson.scheduledDate} onChange={(e) => setNewLesson((prev) => ({ ...prev, scheduledDate: e.target.value }))} />, 'new-date', true)}
+              {field('Speaker', <Input id="new-speaker" placeholder="Speaker name" value={newLesson.speaker} onChange={(e) => setNewLesson((prev) => ({ ...prev, speaker: e.target.value }))} />, 'new-speaker')}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {field('Section', (
+                <FilterSelect
+                  aria-label="Section"
+                  className="w-full md:h-9"
+                  value={newLesson.examSectionId}
+                  onChange={(v) => setNewLesson((prev) => ({ ...prev, examSectionId: v }))}
+                  options={sections.map((section) => ({ value: section.id, label: section.displayName }))}
+                />
+              ))}
+              {field('Academic year', (
+                <FilterSelect
+                  aria-label="Academic year"
+                  className="w-full md:h-9"
+                  value={formAcademicYearId}
+                  onChange={setFormAcademicYearId}
+                  options={academicYears.map((year) => ({ value: year.id, label: `${year.name.replace('-', '–')}${year.isActive ? ' (active)' : ''}` }))}
+                />
+              ))}
+            </div>
+            {field('Description', <Textarea id="new-description" rows={3} value={newLesson.description} onChange={(e) => setNewLesson((prev) => ({ ...prev, description: e.target.value }))} />, 'new-description')}
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-2">
+              <input
+                type="checkbox"
+                checked={newLesson.isExamDay}
+                onChange={(e) => setNewLesson((prev) => ({ ...prev, isExamDay: e.target.checked }))}
+                className="size-4 accent-brand"
+              />
+              Exam day — not counted as a lesson
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddRow(false)}>Cancel</Button>
+            <Button onClick={handleAddLesson}>Create lesson</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

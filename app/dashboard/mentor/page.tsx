@@ -2,15 +2,20 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { PageLoading } from '@/components/ui/page-loading'
-import { PageHeader } from '@/components/admin/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Panel } from '@/components/ds/panel'
+import { Metric } from '@/components/ds/metric'
+import { PersonCell } from '@/components/ds/person'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Legend } from '@/components/ds/stacked-bar'
+import { useAcademicYears } from '@/lib/swr'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { canBeMentor } from '@/lib/roles'
 import { useEnrollments, useClassAverages, useMenteeAnalytics } from '@/lib/swr'
-import { Users, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react'
 
 interface ClassAverageSection {
   sectionId: string
@@ -98,204 +103,119 @@ export default function MentorDashboard() {
   const atRiskCount = menteeCount - onTrackCount
 
   const isLoading = classLoading || menteeLoading
+  const { data: years } = useAcademicYears(!!userId)
 
   if (status === 'loading') {
     return <PageLoading />
   }
 
   const classData = classAverages as ClassAveragesData | undefined
+  const mentees = ((menteeAnalytics as StudentAnalytics[] | undefined) ?? []).slice().sort((a, b) => Number(a.graduationEligible) - Number(b.graduationEligible))
+  const classAvg = classData?.overallAverage ?? null
+  const diff = menteeOverallExamAvg !== null && classAvg !== null ? menteeOverallExamAvg - classAvg : null
+  const yearName = years?.find((y) => y.isActive)?.name.replace('-', '–')
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <PageHeader
-          title="Mentor Dashboard"
-          description={`Welcome, ${session?.user?.name ?? ''}. Track your mentees' performance against class averages.`}
-        />
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Mentor dashboard"
+        meta={[`Welcome back${session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}`, yearName]}
+      />
 
-        {/* Quick Actions + Mentee Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{menteeCount}</p>
-                  <p className="text-sm text-gray-500">Mentees</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <KpiStrip
+        items={[
+          { label: 'Mentees', value: menteeCount, hint: 'assigned to you' },
+          { label: 'On track', value: isLoading ? '—' : onTrackCount, hint: 'attendance + exams ≥ 75%' },
+          { label: 'At risk', value: isLoading ? '—' : atRiskCount, hint: 'need a check-in', tone: !isLoading && atRiskCount > 0 ? 'bad' : undefined },
+          {
+            label: 'Mentees avg',
+            value: menteeOverallExamAvg === null ? '—' : `${menteeOverallExamAvg.toFixed(1)}%`,
+            hint: classAvg === null ? 'exam average' : `class avg ${classAvg.toFixed(1)}%`,
+          },
+          {
+            label: 'Difference',
+            value: diff === null ? '—' : `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toFixed(1)}`,
+            hint: 'vs. class',
+            tone: diff === null || Math.abs(diff) < 0.5 ? undefined : diff > 0 ? 'ok' : 'bad',
+          },
+        ]}
+      />
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{onTrackCount}</p>
-                  <p className="text-sm text-gray-500">On Track</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{atRiskCount}</p>
-                  <p className="text-sm text-gray-500">At Risk</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="flex items-center justify-center">
-            <CardContent className="pt-6">
-              <Link href="/dashboard/mentor/my-mentees">
-                <Button className="w-full">
-                  View Mentees <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Class Average vs My Mentees Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Exam Section Averages: Class vs My Mentees</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8 text-gray-500">Loading averages...</div>
-            ) : !classData || classData.sectionAverages.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No exam data available yet.</div>
-            ) : (
-              <div className="space-y-4">
-                {/* Overall Average Row */}
-                <div className="bg-gray-50 rounded-lg p-4 border">
-                  <div className="grid grid-cols-4 gap-4 items-center">
-                    <div className="font-semibold text-gray-900">Overall Average</div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 uppercase">Class</p>
-                      <p className="text-lg font-bold">
-                        {classData.overallAverage !== null
-                          ? `${classData.overallAverage.toFixed(1)}%`
-                          : '—'}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 uppercase">My Mentees</p>
-                      <p className="text-lg font-bold">
-                        {menteeOverallExamAvg !== null
-                          ? `${menteeOverallExamAvg.toFixed(1)}%`
-                          : '—'}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      {classData.overallAverage !== null && menteeOverallExamAvg !== null ? (
-                        <DiffBadge diff={menteeOverallExamAvg - classData.overallAverage} />
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section Header */}
-                <div className="grid grid-cols-4 gap-4 px-4 text-xs text-gray-500 uppercase font-medium">
-                  <div>Section</div>
-                  <div className="text-center">Class Avg</div>
-                  <div className="text-center">Mentees Avg</div>
-                  <div className="text-center">Difference</div>
-                </div>
-
-                {/* Section Rows */}
-                {classData.sectionAverages.map((section) => {
-                  const menteeAvg = menteeSectionAverages[section.sectionName] ?? null
-                  const diff = section.average !== null && menteeAvg !== null
-                    ? menteeAvg - section.average
-                    : null
-
-                  return (
-                    <div
-                      key={section.sectionId}
-                      className="grid grid-cols-4 gap-4 px-4 py-3 border-b last:border-b-0 items-center"
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
+        <Panel
+          title="Exam section averages"
+          description="Class vs my mentees"
+          actions={<Legend items={[{ label: 'Class', className: 'bg-ink-3' }, { label: 'My mentees', className: 'bg-accent-ink' }]} />}
+        >
+          {!classData || classData.sectionAverages.length === 0 ? (
+            <EmptyState message={isLoading ? 'Loading section averages…' : 'No exam scores recorded yet.'} />
+          ) : (
+            <ul className="divide-y divide-line">
+              {classData.sectionAverages.map((section) => {
+                const mine = menteeSectionAverages[section.sectionName] ?? null
+                const delta = mine !== null && section.average !== null ? mine - section.average : null
+                const bar = (value: number | null, className: string) => (
+                  <span aria-hidden className="block h-1.5 overflow-hidden rounded-[3px] bg-track">
+                    <span className={`block h-full rounded-[3px] ${className}`} style={{ width: `${value ?? 0}%` }} />
+                  </span>
+                )
+                return (
+                  <li key={section.sectionId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)_64px]">
+                    <span className="truncate text-[13px] text-ink">{section.displayName}</span>
+                    <span className="order-3 col-span-2 flex flex-col gap-1.5 md:order-none md:col-span-1">
+                      <span className="grid grid-cols-[minmax(0,1fr)_52px] items-center gap-2">
+                        {bar(section.average, 'bg-ink-3')}
+                        <span className="tabular text-right text-xs text-ink-3">{section.average === null ? '—' : `${section.average.toFixed(1)}%`}</span>
+                      </span>
+                      <span className="grid grid-cols-[minmax(0,1fr)_52px] items-center gap-2">
+                        {bar(mine, 'bg-accent-ink')}
+                        <span className="tabular text-right text-xs font-medium text-ink">{mine === null ? '—' : `${mine.toFixed(1)}%`}</span>
+                      </span>
+                    </span>
+                    <span
+                      className={`tabular text-right text-[13px] font-semibold ${delta === null || Math.abs(delta) < 0.5 ? 'text-ink-3' : delta > 0 ? 'text-ok' : 'text-bad'}`}
                     >
-                      <div className="text-sm font-medium text-gray-700">
-                        {section.displayName}
-                      </div>
-                      <div className="text-center text-sm">
-                        {section.average !== null
-                          ? `${section.average.toFixed(1)}%`
-                          : '—'}
-                      </div>
-                      <div className="text-center text-sm">
-                        {menteeAvg !== null
-                          ? `${menteeAvg.toFixed(1)}%`
-                          : '—'}
-                      </div>
-                      <div className="text-center">
-                        {diff !== null ? (
-                          <DiffBadge diff={diff} />
-                        ) : (
-                          <span className="text-sm text-gray-400">—</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                      {delta === null ? '—' : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta).toFixed(1)}`}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
 
-                {/* Footer note */}
-                <p className="text-xs text-gray-400 pt-2">
-                  Class averages based on {classData.totalStudents} active students
-                  ({classData.totalScores} exam scores).
-                  {menteeCount === 0 && ' You have no mentees assigned yet.'}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Panel
+          title="My mentees"
+          description={`${menteeCount} student${menteeCount === 1 ? '' : 's'}`}
+          actions={
+            <Button asChild variant="outline" size="sm">
+              <Link href="/dashboard/mentor/my-mentees">View mentees</Link>
+            </Button>
+          }
+        >
+          {menteeCount === 0 ? (
+            <EmptyState title="No mentees yet" message="Ask an administrator to assign mentees to you." />
+          ) : (
+            <ul className="divide-y divide-line">
+              {mentees.map((m) => (
+                <li key={m.studentId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_120px_120px_88px]">
+                  <PersonCell name={m.studentName} href="/dashboard/mentor/my-mentees" />
+                  <span className="order-3 md:order-none">
+                    <Metric value={m.attendancePercentage} width={40} />
+                  </span>
+                  <span className="order-4 md:order-none">
+                    <Metric value={m.examAverage} width={40} />
+                  </span>
+                  <span className="order-2 md:order-none">
+                    {m.graduationEligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">At risk</StatusBadge>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
+
     </div>
-  )
-}
-
-function DiffBadge({ diff }: { diff: number }) {
-  const isPositive = diff > 0
-  const isNeutral = Math.abs(diff) < 0.5
-
-  if (isNeutral) {
-    return (
-      <Badge variant="outline" className="text-gray-600">
-        0.0
-      </Badge>
-    )
-  }
-
-  return (
-    <Badge
-      variant="outline"
-      className={isPositive
-        ? 'text-green-700 border-green-300 bg-green-50'
-        : 'text-red-700 border-red-300 bg-red-50'
-      }
-    >
-      {isPositive ? (
-        <TrendingUp className="h-3 w-3 mr-1 inline" />
-      ) : (
-        <TrendingDown className="h-3 w-3 mr-1 inline" />
-      )}
-      {isPositive ? '+' : ''}{diff.toFixed(1)}
-    </Badge>
   )
 }

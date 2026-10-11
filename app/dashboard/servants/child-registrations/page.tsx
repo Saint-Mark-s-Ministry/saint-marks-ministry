@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useChildRegistrationRequests, useSundaySchoolClasses } from '@/lib/swr'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useChildRegistrationRequests, useSundaySchoolAgeGroups, useSundaySchoolClasses } from '@/lib/swr'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -34,9 +34,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { getLevelDisplayName } from '@/lib/sunday-school-class'
+import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { SundaySchoolLevel } from '@prisma/client'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Initials } from '@/components/ds/person'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface ChildRegistrationRequest {
   id: string
@@ -61,13 +66,13 @@ interface SundaySchoolClassOption {
 
 export default function ChildRegistrationsPage() {
   const { session, status, hasAccess } = useSundaySchoolGuard()
-  const { data: requests, mutate } = useChildRegistrationRequests('PENDING')
+  const { data: requests, error: loadError, mutate } = useChildRegistrationRequests('PENDING')
   const [selectedRequest, setSelectedRequest] = useState<ChildRegistrationRequest | null>(null)
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false)
 
   if (status === 'loading' || !session || !hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-maroon-600" />
       </div>
     )
@@ -94,62 +99,62 @@ export default function ChildRegistrationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Child Registration Requests</h1>
-          <p className="text-gray-600 mt-1">Review and place parent-submitted registration requests</p>
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
+        <PageHeader title="Child registration requests" meta={['Review and place parent-submitted requests', 'levels you coordinate']} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Requests</CardTitle>
-            <CardDescription>Requests at levels you coordinate</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!requests || requests.length === 0 ? (
-              <p className="text-sm text-gray-500">No pending requests.</p>
-            ) : (
-              requests.map((request: ChildRegistrationRequest) => (
-                <div
-                  key={request.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border rounded-lg p-4"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {request.firstName} {request.lastName}
+        <Panel
+          title="Pending requests"
+          actions={requests && requests.length > 0 ? <StatusBadge tone="warn">{requests.length} pending</StatusBadge> : undefined}
+        >
+          {loadError ? (
+            <EmptyState
+              title="Couldn’t load requests"
+              message="Something went wrong on our side. Try again in a moment."
+              action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>}
+            />
+          ) : !requests || requests.length === 0 ? (
+            <EmptyState message="No pending requests. New ones appear here when a parent registers a child." />
+          ) : (
+            <ul className="divide-y divide-line">
+              {requests.map((request: ChildRegistrationRequest) => {
+                const name = `${request.firstName} ${request.lastName}`
+                return (
+                  <li key={request.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <Initials name={name} size={32} />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-[14px] font-medium text-ink">{name}</span>
+                          <StatusBadge tone="neutral" dot={false}>{getLevelDisplayName(request.intendedLevel)}</StatusBadge>
+                          <StatusBadge tone="warn">Pending</StatusBadge>
+                        </span>
+                        <span className="text-xs text-ink-3">
+                          {request.gender === 'MALE' ? 'Boy' : request.gender === 'FEMALE' ? 'Girl' : 'Gender not given'} · Guardian {request.submittedBy.name} ·{' '}
+                          <ContactLink kind="email" value={request.submittedBy.email} name={request.submittedBy.name} label="guardian's email" />
+                        </span>
+                        {request.notes && <span className="text-[13px] text-ink-2">Notes: {request.notes}</span>}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {getLevelDisplayName(request.intendedLevel)} &middot;{' '}
-                      {request.gender === 'MALE' ? 'Boy' : request.gender === 'FEMALE' ? 'Girl' : 'Gender not specified'} &middot; Submitted by{' '}
-                      {request.submittedBy.name} ({request.submittedBy.email})
+                    <div className="flex shrink-0 gap-2">
+                      <RejectAlertDialog requestName={name} onConfirm={(note) => handleReject(request.id, note)} />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRequest(request)
+                          setIsApproveDialogOpen(true)
+                        }}
+                      >
+                        <CheckCircle />
+                        Approve
+                      </Button>
                     </div>
-                    {request.notes && (
-                      <div className="text-sm text-gray-500 mt-1">{request.notes}</div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={() => {
-                        setSelectedRequest(request)
-                        setIsApproveDialogOpen(true)
-                      }}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve
-                    </Button>
-                    <RejectAlertDialog
-                      requestName={`${request.firstName} ${request.lastName}`}
-                      onConfirm={(note) => handleReject(request.id, note)}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
       </div>
 
       {selectedRequest && (
@@ -200,7 +205,7 @@ function RejectAlertDialog({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => onConfirm(note)}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-bad text-white hover:bg-bad/90"
           >
             Reject
           </AlertDialogAction>
@@ -222,11 +227,13 @@ function ApproveDialog({
   onSuccess: () => void
 }) {
   const { data: classes } = useSundaySchoolClasses()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [classId, setClassId] = useState('')
   const [isApproving, setIsApproving] = useState(false)
 
-  const matchingClasses = ((classes ?? []) as SundaySchoolClassOption[]).filter(
-    (c) => c.level === request.intendedLevel
+  const matchingClasses = sortClassesByAgeGroup(
+    ((classes ?? []) as SundaySchoolClassOption[]).filter(c => c.level === request.intendedLevel),
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   )
 
   const handleApprove = async () => {
@@ -290,8 +297,8 @@ function ApproveDialog({
           </div>
           <div className="text-sm text-gray-600 space-y-1 border-t pt-3">
             <div>Guardian: {request.guardianName}</div>
-            <div>Phone: {request.guardianPhone}</div>
-            {request.guardianEmail && <div>Email: {request.guardianEmail}</div>}
+            <div>Phone: <ContactLink kind="phone" value={request.guardianPhone} name={request.guardianName} label="guardian's phone number" /></div>
+            {request.guardianEmail && <div>Email: <ContactLink kind="email" value={request.guardianEmail} name={request.guardianName} label="guardian's email" /></div>}
           </div>
         </div>
         <DialogFooter>

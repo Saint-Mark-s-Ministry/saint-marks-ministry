@@ -9,6 +9,8 @@
  *   list-admins                List all admin users (SUPER_ADMIN, PRIEST, SERVANT_PREP)
  *   list-sections              List all exam sections
  *   db-stats                   Show database statistics
+ *   mcp-token-create <email> <name> | mcp-token-list | mcp-token-revoke <id>
+ *                              Manage feedback MCP API tokens
  *   migrate-academic-years     Migrate existing enrollments to active academic year
  */
 
@@ -365,6 +367,60 @@ async function setActiveAcademicYear(name: string) {
   console.log(`\n✅ Academic year "${name}" is now active!\n`)
 }
 
+// MCP tokens: keep the format in sync with lib/mcp-tokens.ts (this script avoids
+// the "@/" alias so it runs standalone).
+async function createMcpToken(email: string, name: string) {
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) {
+    console.error(`❌ User with email "${email}" not found`)
+    process.exit(1)
+  }
+  if (user.role !== UserRole.SUPER_ADMIN) {
+    console.error('❌ MCP tokens can only be issued to SUPER_ADMIN users')
+    process.exit(1)
+  }
+  const token = `smk_mcp_${crypto.randomBytes(32).toString('base64url')}`
+  const record = await prisma.mcpApiToken.create({
+    data: {
+      userId: user.id,
+      name,
+      tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+      tokenPrefix: token.slice(0, 14),
+    },
+  })
+  console.log('\n✅ MCP token created (shown once — store it now)\n')
+  console.log(`   Id:    ${record.id}`)
+  console.log(`   Owner: ${user.email}`)
+  console.log(`   Name:  ${name}`)
+  console.log(`   Token: ${token}\n`)
+}
+
+async function listMcpTokens() {
+  const tokens = await prisma.mcpApiToken.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { email: true } } },
+  })
+  if (tokens.length === 0) return console.log('No MCP tokens.')
+  for (const t of tokens) {
+    const state = t.revokedAt ? 'REVOKED' : t.expiresAt && t.expiresAt < new Date() ? 'EXPIRED' : 'active'
+    console.log(
+      `${t.id}  ${t.tokenPrefix}…  ${state.padEnd(7)}  ${t.user.email}  "${t.name}"  last used: ${t.lastUsedAt?.toISOString() ?? 'never'}`
+    )
+  }
+}
+
+async function revokeMcpToken(id: string) {
+  const result = await prisma.mcpApiToken.updateMany({
+    where: { id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+  if (result.count === 0) {
+    console.error('❌ No active token with that id')
+    process.exit(1)
+  }
+  console.log('✅ Token revoked')
+}
+
 function showHelp() {
   console.log(`
 Admin CLI Tool for Servants Prep App
@@ -377,6 +433,11 @@ Commands:
   list-admins                  List all admin users (SUPER_ADMIN, PRIEST, SERVANT_PREP)
   list-sections                List all exam sections
   db-stats                     Show database statistics
+
+  Feedback MCP Commands:
+  mcp-token-create <email> <name>  Issue an MCP API token to a SUPER_ADMIN
+  mcp-token-list               List MCP tokens
+  mcp-token-revoke <id>        Revoke an MCP token
 
   Academic Year Commands:
   list-years                   List all academic years
@@ -444,6 +505,26 @@ async function main() {
 
     case 'migrate-academic-years':
       await migrateEnrollmentsToAcademicYear()
+      break
+
+    case 'mcp-token-create':
+      if (!args[1] || !args[2]) {
+        console.error('❌ Usage: bun scripts/admin.ts mcp-token-create <email> <name>')
+        process.exit(1)
+      }
+      await createMcpToken(args[1], args[2])
+      break
+
+    case 'mcp-token-list':
+      await listMcpTokens()
+      break
+
+    case 'mcp-token-revoke':
+      if (!args[1]) {
+        console.error('❌ Usage: bun scripts/admin.ts mcp-token-revoke <id>')
+        process.exit(1)
+      }
+      await revokeMcpToken(args[1])
       break
 
     case 'list-years':

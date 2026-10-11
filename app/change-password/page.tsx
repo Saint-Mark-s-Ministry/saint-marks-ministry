@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PublicFrame } from '@/components/ds/public-frame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -98,7 +98,7 @@ export default function ChangePasswordPage() {
 
       const destination = typeof data.destination === 'string'
         ? data.destination
-        : defaultDashboardPath(session?.user?.role)
+        : defaultDashboardPath(session?.user)
       router.replace(destination)
       router.refresh()
     } catch (error: unknown) {
@@ -117,71 +117,66 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Change Your Password</CardTitle>
-          <CardDescription>
-            {session?.user?.mustChangePassword ? (
-              <span className="text-amber-600 font-medium">
-                You must change your password before continuing
-              </span>
-            ) : (
-              'Update your password to keep your account secure'
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <PublicFrame
+      title="Change your password"
+      description={
+        session?.user?.mustChangePassword ? (
+          <span className="font-medium text-warn">You must change your password before continuing.</span>
+        ) : (
+          'Update your password to keep your account secure.'
+        )
+      }
+    >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
+              <Label htmlFor="currentPassword">Current password</Label>
               <Input
                 id="currentPassword"
                 type="password"
                 value={formData.currentPassword}
                 onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
                 disabled={loading}
-                className={errors.currentPassword ? 'border-red-500' : ''}
+                aria-invalid={Boolean(errors.currentPassword)}
               />
               {errors.currentPassword && (
-                <p className="text-sm text-red-500">{errors.currentPassword}</p>
+                <p className="text-xs text-bad">{errors.currentPassword}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
+              <Label htmlFor="newPassword">New password</Label>
               <Input
                 id="newPassword"
                 type="password"
                 value={formData.newPassword}
                 onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                 disabled={loading}
-                className={errors.newPassword ? 'border-red-500' : ''}
+                aria-invalid={Boolean(errors.newPassword)}
                 placeholder="Minimum 8 characters"
               />
               {errors.newPassword && (
-                <p className="text-sm text-red-500">{errors.newPassword}</p>
+                <p className="text-xs text-bad">{errors.newPassword}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword">Confirm new password</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 disabled={loading}
-                className={errors.confirmPassword ? 'border-red-500' : ''}
+                aria-invalid={Boolean(errors.confirmPassword)}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+                <p className="text-xs text-bad">{errors.confirmPassword}</p>
               )}
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? 'Changing Password...' : 'Change Password'}
+              <Button type="submit" size="lg" disabled={loading} className="flex-1">
+                {loading ? 'Changing password…' : 'Change password'}
               </Button>
               {!session?.user?.mustChangePassword && (
                 <Button type="button" variant="outline" onClick={() => router.back()}>
@@ -195,15 +190,13 @@ export default function ChangePasswordPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-sm text-gray-600 hover:text-gray-900 underline"
+                  className="cursor-pointer text-[13px] text-ink-2 underline hover:text-ink"
                 >
-                  Logout instead
+                  Sign out instead
                 </button>
               </div>
             )}
           </form>
-        </CardContent>
-      </Card>
-    </div>
+    </PublicFrame>
   )
 }

@@ -4,6 +4,15 @@
 > Async students print a slip from `/dashboard/student/attendance-slip`, get each lesson signed, and a
 > servant uploads a photo of it (Async Students → Attendance Slips, or the student's Attendance tab),
 > which marks the covered lessons Present. See `app/api/slips`. The Sunday School sections below still apply.
+>
+> **Attendance rule (Oct 2026):** from the day a student becomes async (`asyncApprovedAt`, whole UTC
+> day), Servants Prep lessons stop counting for or against them and they are left off the roll call;
+> their attendance is their Sunday School rotation (75% of the weeks so far). Lessons before that day
+> count as usual, and a lesson an attendance slip marked Present still counts. One rule,
+> `excludeAsyncPeriodRecords` in `lib/attendance-utils.ts`, is applied by every attendance query
+> (analytics, dashboard, roll call save, backfill, per-lesson views). An async student with no active
+> rotation for their current year does not meet the Sunday School requirement. Rotations are placed in
+> a real Sunday School class (`SundaySchoolAssignment.classId`); the class level sets the code grade.
 
 ## Executive Summary
 

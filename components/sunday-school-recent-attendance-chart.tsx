@@ -54,12 +54,11 @@ export function SundaySchoolRecentAttendanceChart({
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-maroon-600" aria-hidden="true" />
             <CardTitle>Recent Attendance</CardTitle>
-            {isLoading && (
-              <LoaderCircle
-                className="h-4 w-4 animate-spin text-gray-500"
-                aria-label="Refreshing recent attendance"
-              />
-            )}
+            <LoaderCircle
+              className={`h-4 w-4 shrink-0 animate-spin text-gray-500 ${isLoading ? '' : 'invisible'}`}
+              aria-hidden={!isLoading}
+              aria-label={isLoading ? 'Refreshing recent attendance' : undefined}
+            />
           </div>
           <CardDescription>
             The last eight {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} for {className} through the selected week.

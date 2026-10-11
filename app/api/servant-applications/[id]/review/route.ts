@@ -5,8 +5,8 @@ import { canReviewServantApplications } from '@/lib/roles'
 import { NotificationType, RegistrationStatus, RoleGrantSource, RoleTag, UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { notifyServantApplicationReviewed } from '@/lib/notifications'
-
-const SERVANT_TEMP_PASSWORD = 'Welcome123!'
+import { generateTempPassword } from '@/lib/registration-utils'
+import { emailServantApplicationApproved, emailServantApplicationNotApproved } from '@/lib/mail/notify'
 
 /**
  * POST /api/servant-applications/[id]/review
@@ -57,7 +57,8 @@ export async function POST(
           throw new Error('A user with this email already exists')
         }
 
-        const tempPassword = SERVANT_TEMP_PASSWORD
+        // Fallback for the reviewer to share; the applicant is emailed a set-password link.
+        const tempPassword = generateTempPassword()
         const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
         const newUser = await tx.user.create({
@@ -102,7 +103,13 @@ export async function POST(
           },
         })
 
-        return { application: updatedApplication, tempPassword }
+        return { application: updatedApplication, tempPassword, account: { id: newUser.id, authVersion: newUser.authVersion } }
+      })
+
+      emailServantApplicationApproved({
+        ...result.account,
+        email: result.application.email,
+        name: result.application.fullName,
       })
 
       if (result.application.createdUser) {
@@ -154,6 +161,8 @@ export async function POST(
 
         return updated
       })
+
+      emailServantApplicationNotApproved({ email: updatedApplication.email, name: updatedApplication.fullName })
 
       return NextResponse.json({
         application: updatedApplication,

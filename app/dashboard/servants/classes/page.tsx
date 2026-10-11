@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { StatusBadge } from '@/components/ds/status-badge'
 import {
   Dialog,
   DialogContent,
@@ -146,15 +146,15 @@ export default function SundaySchoolClassesPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
-          title="Sunday School Classes"
-          description="Classes, their servants, and their rosters."
+          title="Classes"
+          meta={['Classes, their servants, and their rosters', `${classes.length} classes`]}
           actions={
             canManage ? (
               <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-1" />
+                <Plus />
                 New class
               </Button>
             ) : undefined
@@ -162,71 +162,46 @@ export default function SundaySchoolClassesPage() {
         />
 
         {classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState
-                message={
-                  canManage
-                    ? 'No classes yet. Create the first one to get started.'
-                    : 'You are not assigned to any Sunday School class yet.'
-                }
-              />
-            </CardContent>
-          </Card>
+          <Panel>
+            <EmptyState message={canManage ? 'No classes yet. Create the first one to get started.' : 'You are not assigned to a Sunday School class yet.'} />
+          </Panel>
         ) : (
           classGroups.map(([groupId, group]) => (
-            <Card key={groupId}>
-              <CardHeader>
-                <CardTitle>{group.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {group.classes.map(cls => (
-                    <div
-                      key={cls.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg dark:border-gray-800"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={`/dashboard/servants/classes/${cls.id}`}
-                            className="font-medium hover:underline"
-                          >
-                            {cls.name}
-                          </Link>
-                          <Badge variant="secondary">{getLevelDisplayName(cls.level)}</Badge>
-                          {cls.canCoordinate && <Badge className="bg-maroon-600">Coordinator</Badge>}
-                          {!cls.isActive && <Badge className="bg-gray-500">Inactive</Badge>}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {cls._count?.children ?? 0} children · {cls._count?.sessions ?? 0} sessions ·{' '}
-                          {cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {cls.canCoordinate && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label={`Edit ${cls.name} name`}
-                            onClick={() => openRenameDialog(cls)}
-                          >
-                            <Pencil className="h-4 w-4 mr-1" />
-                            Edit name
-                          </Button>
-                        )}
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/dashboard/servants/classes/${cls.id}`}>
-                            <Users className="h-4 w-4 mr-1" />
-                            Open
-                          </Link>
+            <Panel key={groupId} title={group.name} description={`${group.classes.length} ${group.classes.length === 1 ? 'class' : 'classes'}`}>
+              <ul className="divide-y divide-line">
+                {group.classes.map((cls) => (
+                  <li key={cls.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_120px_90px_90px_auto]">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Link href={`/dashboard/servants/classes/${cls.id}`} className="font-medium text-ink no-underline hover:underline">
+                          {cls.name}
+                        </Link>
+                        {!cls.isActive && <StatusBadge tone="neutral">Inactive</StatusBadge>}
+                      </span>
+                      <span className="text-xs text-ink-3 md:hidden">
+                        {getLevelDisplayName(cls.level)} · {cls._count?.children ?? 0} children · {cls.assignments.length} servants
+                      </span>
+                    </span>
+                    <span className="hidden text-[13px] text-ink-2 md:block">{getLevelDisplayName(cls.level)}</span>
+                    <span className="tabular hidden text-[13px] md:block">{cls._count?.children ?? 0} children</span>
+                    <span className="tabular hidden text-[13px] text-ink-2 md:block">{cls.assignments.length} servants</span>
+                    <span className="flex items-center gap-1">
+                      {cls.canCoordinate && (
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${cls.name} name`} onClick={() => openRenameDialog(cls)}>
+                          <Pencil />
                         </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                      )}
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/dashboard/servants/classes/${cls.id}`}>
+                          <Users />
+                          Open
+                        </Link>
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           ))
         )}
       </div>
@@ -255,7 +230,7 @@ export default function SundaySchoolClassesPage() {
                 id="level"
                 value={form.level}
                 onChange={e => setForm(prev => ({ ...prev, level: e.target.value as SundaySchoolLevel }))}
-                className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                className="h-11 w-full rounded-md border border-line-strong bg-surface px-2.5 text-base text-ink md:h-9 md:text-[13.5px]"
               >
                 <option value="">Select a grade…</option>
                 {creatableLevels.map(level => (

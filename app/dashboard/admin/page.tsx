@@ -1,29 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import useSWR from 'swr'
+import { ClipboardCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
-import { PageHeader } from '@/components/admin/page-header'
-import { AttendanceTrendChart, ExamTrendChart, type AttendancePoint, type ExamPoint } from '@/components/admin/trend-charts'
-import { isAdmin, canAssignMentors, canManageAllUsers } from '@/lib/roles'
-import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { useDashboardStats } from '@/lib/swr'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Panel } from '@/components/ds/panel'
+import { Metric, metricTone } from '@/components/ds/metric'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { PersonCell } from '@/components/ds/person'
+import { Legend, StackedBarRow } from '@/components/ds/stacked-bar'
 import {
-  Users,
-  ClipboardCheck,
-  GraduationCap,
-  BookOpen,
-  UserCheck,
-  Clock,
-  Settings,
-  AlertTriangle,
-  BarChart3,
-  Calendar
-} from 'lucide-react'
+  Agenda,
+  EventLegend,
+  MonthCalendar,
+  nextDays,
+  utcDayKey,
+  type CalendarEvent,
+} from '@/components/ds/calendar'
+import { AttendanceTrendChart, ExamTrendChart, type AttendancePoint, type ExamPoint } from '@/components/admin/trend-charts'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { isAdmin, canAssignMentors } from '@/lib/roles'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { fetcher, useAcademicYears, useDashboardStats, useExams, useLessons } from '@/lib/swr'
 
 interface ExamSectionScore {
   sectionId: string
@@ -99,755 +102,356 @@ interface Analytics {
 
 export default function AdminDashboard() {
   const { session, status } = useAdminGuard(isAdmin)
-  const [analytics, setAnalytics] = useState<Analytics | null>(null)
-  const [, setAnalyticsLoading] = useState(true)
-  const [trends, setTrends] = useState<{ attendance: AttendancePoint[]; exams: ExamPoint[] } | null>(null)
-
-  // Use SWR for caching - automatically revalidates and caches
+  const ready = status === 'authenticated'
   const { data: stats, isLoading } = useDashboardStats()
+  const { data: analytics } = useSWR<Analytics>(ready ? '/api/dashboard/analytics' : null, fetcher)
+  const { data: trends } = useSWR<{ attendance: AttendancePoint[]; exams: ExamPoint[] }>(
+    ready ? '/api/dashboard/trends' : null,
+    fetcher
+  )
+  const { data: years } = useAcademicYears(ready)
+  const activeYear = years?.find((y) => y.isActive)
+  const { data: lessons } = useLessons(activeYear?.id)
+  const { data: exams } = useExams(activeYear?.id)
+  const [month, setMonth] = useState(() => new Date())
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const res = await fetch('/api/dashboard/analytics')
-        if (res.ok) {
-          const data = await res.json()
-          setAnalytics(data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch analytics:', error)
-      } finally {
-        setAnalyticsLoading(false)
-      }
-    }
-
-    const fetchTrends = async () => {
-      try {
-        const res = await fetch('/api/dashboard/trends')
-        if (res.ok) {
-          const data = await res.json()
-          setTrends(data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch trends:', error)
-      }
-    }
-
-    if (status === 'authenticated') {
-      fetchAnalytics()
-      fetchTrends()
-    }
-  }, [status])
+  const events = useMemo<CalendarEvent[]>(() => {
+    const lessonEvents: CalendarEvent[] = (lessons ?? []).map((l) => ({
+      id: `lesson-${l.id}`,
+      day: utcDayKey(l.scheduledDate),
+      type: l.isExamDay ? 'exam' : 'prep-lesson',
+      title: l.isExamDay ? `Exam day · ${l.title}` : `Lesson ${l.lessonNumber}`,
+      meta: [l.title, l.speaker, l.status === 'CANCELLED' ? 'Cancelled' : l.status === 'NO_CLASS' ? 'No class' : null]
+        .filter(Boolean)
+        .join(' · '),
+      href: `/dashboard/admin/attendance?lesson=${l.id}`,
+      muted: l.status === 'CANCELLED' || l.status === 'NO_CLASS',
+    }))
+    const examEvents: CalendarEvent[] = (exams ?? []).map((e) => ({
+      id: `exam-${e.id}`,
+      day: utcDayKey(e.examDate),
+      type: 'exam',
+      title: e.examSection.displayName,
+      meta: `${e.yearLevel === 'BOTH' ? 'Both years' : e.yearLevel.replace('YEAR_', 'Year ')} · out of ${e.totalPoints}`,
+      href: `/dashboard/admin/exams?section=${e.examSection.id}`,
+    }))
+    return [...lessonEvents, ...examEvents]
+  }, [lessons, exams])
 
   if (status === 'loading' || isLoading) {
     return <DashboardSkeleton />
   }
 
-  const userRole = session?.user?.role
-  const canAssign = userRole ? canAssignMentors(userRole) : false
-  const canManage = userRole ? canManageAllUsers(userRole) : false
-
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-gray-400'
-    if (score >= 85) return 'text-green-600'
-    if (score >= 75) return 'text-blue-600'
-    if (score >= 60) return 'text-yellow-600'
-    return 'text-red-600'
-  }
-
-  const getScoreBgColor = (score: number | null) => {
-    if (score === null) return 'bg-gray-100'
-    if (score >= 85) return 'bg-green-100'
-    if (score >= 75) return 'bg-blue-100'
-    if (score >= 60) return 'bg-yellow-100'
-    return 'bg-red-100'
-  }
+  const canAssign = session?.user?.role ? canAssignMentors(session.user.role) : false
+  const overview = analytics?.programOverview
+  const yearLabel = activeYear?.name.replace('-', '–')
+  const examAvg = overview?.overallProgramAverage ?? null
+  const atRisk = analytics?.atRiskStudents ?? []
+  const agendaDays = nextDays(14)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <PageHeader
-          title="Dashboard"
-          description={`Welcome back, ${session?.user?.name}`}
-          actions={
-            <>
-              {/* Desktop: inline compact quick-action chips on the header row */}
-              <div className="hidden lg:flex items-center gap-1.5">
-                <Link
-                  href="/dashboard/admin/attendance"
-                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-maroon-50 hover:border-maroon-300 hover:text-maroon-700 dark:hover:bg-maroon-900/30 transition-colors"
-                  title="Take Attendance"
-                >
-                  <ClipboardCheck className="h-3.5 w-3.5 text-maroon-600" />
-                  Attendance
-                </Link>
-                <Link
-                  href="/dashboard/admin/exams"
-                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 dark:hover:bg-purple-900/30 transition-colors"
-                  title="Enter Exam Scores"
-                >
-                  <GraduationCap className="h-3.5 w-3.5 text-purple-600" />
-                  Scores
-                </Link>
-                <Link
-                  href="/dashboard/admin/curriculum"
-                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-green-50 hover:border-green-300 hover:text-green-700 dark:hover:bg-green-900/30 transition-colors"
-                  title="Manage Curriculum"
-                >
-                  <BookOpen className="h-3.5 w-3.5 text-green-600" />
-                  Curriculum
-                </Link>
-                <Link
-                  href="/dashboard/admin/mentees"
-                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 dark:hover:bg-orange-900/30 transition-colors"
-                  title="View My Mentees"
-                >
-                  <Users className="h-3.5 w-3.5 text-orange-600" />
-                  Mentees
-                </Link>
-                {canManage && (
-                  <Link
-                    href="/dashboard/admin/users"
-                    className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-blue-900/30 transition-colors"
-                    title="Manage Users"
-                  >
-                    <Users className="h-3.5 w-3.5 text-blue-600" />
-                    Users
-                  </Link>
-                )}
-                <span className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" aria-hidden />
-                <Link href="/dashboard/admin/settings">
-                  <Button variant="ghost" size="icon-sm" aria-label="Settings">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Mobile/tablet: just Settings on header */}
-              <Link href="/dashboard/admin/settings" className="lg:hidden">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
-              </Link>
-            </>
-          }
-        />
-
-        {/* Quick Actions - mobile/tablet tile strip (desktop uses inline chips in header) */}
-        <div className="lg:hidden grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Link
-            href="/dashboard/admin/attendance"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-maroon-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-maroon-100 text-maroon-700 group-hover:bg-maroon-600 group-hover:text-white transition-colors">
-              <ClipboardCheck className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Take Attendance</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/exams"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <GraduationCap className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enter Scores</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/curriculum"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-green-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-green-100 text-green-700 group-hover:bg-green-600 group-hover:text-white transition-colors">
-              <BookOpen className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Curriculum</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/mentees"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-orange-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-100 text-orange-700 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-              <Users className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">My Mentees</span>
-          </Link>
-          {canManage && (
-            <Link
-              href="/dashboard/admin/users"
-              className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 active:translate-y-0 transition-all"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Users className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Users</span>
+    <div className="content-reveal flex flex-col gap-5">
+      <PageHeader
+        title="Dashboard"
+        meta={['Servants Prep', yearLabel ? `${yearLabel} academic year` : null]}
+        actions={
+          <Button asChild>
+            <Link href="/dashboard/admin/attendance">
+              <ClipboardCheck />
+              Take attendance
             </Link>
+          </Button>
+        }
+      />
+
+      <KpiStrip
+        items={[
+          { label: 'Active students', value: stats?.activeStudents ?? 0, hint: `of ${stats?.totalStudents ?? 0} enrolled` },
+          {
+            label: 'Year 1 · Year 2',
+            value: (
+              <>
+                {overview?.year1StudentCount ?? 0}
+                <span className="font-normal text-ink-3"> · </span>
+                {overview?.year2StudentCount ?? 0}
+              </>
+            ),
+            hint: overview && overview.year1StudentCount === 0 ? 'no Year 1 cohort yet' : 'active students',
+          },
+          {
+            label: yearLabel ? `Lessons ${yearLabel}` : 'Lessons',
+            value: (
+              <>
+                {stats?.completedLessons ?? 0}
+                <span className="font-normal text-ink-3"> / {stats?.totalLessons ?? 0}</span>
+              </>
+            ),
+            hint: `${stats?.upcomingLessons ?? 0} upcoming`,
+          },
+          { label: 'Exams', value: stats?.totalExams ?? 0, hint: `${overview?.totalScoresRecorded ?? 0} scores recorded` },
+          {
+            label: 'Program exam avg',
+            value: examAvg === null ? '—' : `${examAvg.toFixed(1)}%`,
+            hint: 'target ≥ 75%',
+            tone: examAvg === null || examAvg >= 75 ? undefined : metricTone(examAvg) === 'bad' ? 'bad' : 'warn',
+          },
+          {
+            label: 'Need support',
+            value: analytics?.totalAtRisk ?? 0,
+            hint: 'below 75% in either',
+            tone: (analytics?.totalAtRisk ?? 0) > 0 ? 'bad' : undefined,
+          },
+        ]}
+      />
+
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Panel
+          title="Calendar"
+          actions={<EventLegend types={['prep-lesson', 'exam']} />}
+          className="hidden md:block"
+        >
+          <MonthCalendar month={month} events={events} onMonthChange={setMonth} />
+        </Panel>
+        <Panel
+          title="Next 14 days"
+          actions={
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/dashboard/admin/curriculum">Full schedule</Link>
+            </Button>
+          }
+        >
+          <Agenda
+            days={agendaDays}
+            events={events}
+            renderAction={(e) =>
+              e.type === 'prep-lesson' && e.day === agendaDays.find((d) => events.some((x) => x.day === d && x.type === 'prep-lesson')) ? (
+                <Button asChild size="sm">
+                  <Link href={e.href ?? '/dashboard/admin/attendance'}>Take attendance</Link>
+                </Button>
+              ) : null
+            }
+          />
+        </Panel>
+      </div>
+
+      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+        <Panel
+          title="Program readiness"
+          description={`Year 2 · ${overview?.totalActiveStudents ?? 0} active`}
+          actions={<Legend items={[{ label: '≥ 75%', className: 'bg-ok' }, { label: 'Below 75%', className: 'bg-bad' }]} />}
+          footer="Graduation track requires both attendance and exam average at 75% or above."
+        >
+          {overview ? (
+            <div className="py-1.5">
+              <StackedBarRow
+                label="Graduation track"
+                good={overview.studentsFullyOnTrack}
+                bad={overview.totalActiveStudents - overview.studentsFullyOnTrack}
+                badLabel="need support"
+              />
+              <StackedBarRow
+                label="Attendance"
+                good={overview.studentsWithGoodAttendance}
+                bad={overview.studentsWithLowAttendance}
+              />
+              <StackedBarRow label="Exam average" good={overview.studentsWithGoodExams} bad={overview.studentsWithLowExams} />
+            </div>
+          ) : (
+            <EmptyState message="Loading readiness…" />
           )}
-        </div>
+        </Panel>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalStudents || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats?.activeStudents || 0} active
-              </p>
-            </CardContent>
-          </Card>
+        <Panel title="Year over year" footer="Lessons exclude exam days.">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Year</TableHead>
+                <TableHead className="text-right">Lessons</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Exams</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">Scores</TableHead>
+                <TableHead>Attendance</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(analytics?.attendanceByYear ?? []).map((year) => (
+                <TableRow key={year.yearId}>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-2 font-medium">
+                      {year.yearName.replace('-', '–')}
+                      {year.isActive && <StatusBadge tone="accent">Active</StatusBadge>}
+                    </span>
+                  </TableCell>
+                  <TableCell className="tabular text-right">{overview?.lessonCountByYear[year.yearId] ?? 0}</TableCell>
+                  <TableCell className="tabular hidden text-right sm:table-cell">{overview?.examCountByYear[year.yearId] ?? 0}</TableCell>
+                  <TableCell className="tabular hidden text-right sm:table-cell">{overview?.examScoresCountByYear[year.yearId] ?? 0}</TableCell>
+                  <TableCell>
+                    <Metric value={year.attendanceRate} width={48} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Panel>
+      </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Lessons</CardTitle>
-              <BookOpen className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalLessons || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats?.completedLessons || 0} completed, {stats?.upcomingLessons || 0} upcoming
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Exams</CardTitle>
-              <GraduationCap className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics?.programOverview?.totalRelevantExams || stats?.totalExams || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {analytics?.programOverview?.totalScoresRecorded || 0} scores recorded
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">At-Risk Students</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{analytics?.totalAtRisk || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Below 75% attendance or exams
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid grid-cols-3 w-full sm:max-w-md">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="sections">Sections</TabsTrigger>
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6 mt-6">
-        {/* Program Health Overview */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Program Overview */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <div>
-                  <CardTitle>Program Overview</CardTitle>
-                  <CardDescription>Students by year level</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {analytics?.programOverview ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
-                      <div className="text-2xl font-bold text-blue-700">
-                        {analytics.programOverview.year1StudentCount}
-                      </div>
-                      <div className="text-xs text-blue-600">Year 1 Students</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {analytics.programOverview.year1ExamsNeeded} exams
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
-                      <div className="text-2xl font-bold text-purple-700">
-                        {analytics.programOverview.year2StudentCount}
-                      </div>
-                      <div className="text-xs text-purple-600">Year 2 Students</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {analytics.programOverview.year2ExamsNeeded} exams total
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Student Threshold Stats */}
-                  <div className="pt-3 border-t space-y-2">
-                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Graduation Track (≥75% both)</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
-                        <div className="text-xl font-bold text-green-700">
-                          {analytics.programOverview.studentsFullyOnTrack}
-                        </div>
-                        <div className="text-xs text-green-600">On Track</div>
-                      </div>
-                      <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
-                        <div className="text-xl font-bold text-red-700">
-                          {analytics.programOverview.totalActiveStudents - analytics.programOverview.studentsFullyOnTrack}
-                        </div>
-                        <div className="text-xs text-red-600">Need Support</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 text-center">
-                      Attendance + Exam avg both ≥75%
-                    </div>
-                  </div>
-
-                  {analytics.programOverview.overallProgramAverage !== null && (
-                    <div className="pt-2 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Program Exam Average</span>
-                        <span className={`font-bold ${getScoreColor(analytics.programOverview.overallProgramAverage)}`}>
-                          {analytics.programOverview.overallProgramAverage.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  Loading...
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Attendance Overview */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-maroon-600" />
-                <div>
-                  <CardTitle>Attendance Overview</CardTitle>
-                  <CardDescription>Lessons by academic year</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {analytics?.attendanceByYear && analytics.attendanceByYear.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Lessons by Year */}
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lessons (excl. exam days)</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {analytics.attendanceByYear.map(year => (
-                        <div
-                          key={year.yearId}
-                          className={`p-3 rounded border text-center ${year.isActive ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}
-                        >
-                          <div className={`text-2xl font-bold ${year.isActive ? 'text-blue-700' : 'text-gray-700'}`}>
-                            {analytics.programOverview?.lessonCountByYear?.[year.yearId] || 0}
-                          </div>
-                          <div className={`text-xs ${year.isActive ? 'text-blue-600' : 'text-gray-600'}`}>
-                            {year.yearName}
-                            {year.isActive && ' (Active)'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Student Attendance Thresholds */}
-                  {analytics?.programOverview && (
-                    <div className="pt-3 border-t space-y-2">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Student Attendance (≥75%)</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
-                          <div className="text-xl font-bold text-green-700">
-                            {analytics.programOverview.studentsWithGoodAttendance}
-                          </div>
-                          <div className="text-xs text-green-600">On Track</div>
-                        </div>
-                        <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
-                          <div className="text-xl font-bold text-red-700">
-                            {analytics.programOverview.studentsWithLowAttendance}
-                          </div>
-                          <div className="text-xs text-red-600">Below 75%</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  No attendance data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Exam Overview */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-purple-600" />
-                <div>
-                  <CardTitle>Exam Overview</CardTitle>
-                  <CardDescription>Exams by academic year</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Exams by Year */}
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Exams Created</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {analytics.examScoresByYear.map(year => (
-                        <div
-                          key={year.yearId}
-                          className={`p-3 rounded border text-center ${year.isActive ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}
-                        >
-                          <div className={`text-2xl font-bold ${year.isActive ? 'text-purple-700' : 'text-gray-700'}`}>
-                            {analytics.programOverview?.examCountByYear?.[year.yearId] || 0}
-                          </div>
-                          <div className={`text-xs ${year.isActive ? 'text-purple-600' : 'text-gray-600'}`}>
-                            {year.yearName}
-                            {year.isActive && ' (Active)'}
-                          </div>
-                          <div className="text-[10px] text-gray-500 mt-1">
-                            {analytics.programOverview?.examScoresCountByYear?.[year.yearId] || 0} scores recorded
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Student Exam Thresholds */}
-                  {analytics?.programOverview && (
-                    <div className="pt-3 border-t space-y-2">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Student Exam Avg (≥75%)</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
-                          <div className="text-xl font-bold text-green-700">
-                            {analytics.programOverview.studentsWithGoodExams}
-                          </div>
-                          <div className="text-xs text-green-600">On Track</div>
-                        </div>
-                        <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
-                          <div className="text-xl font-bold text-red-700">
-                            {analytics.programOverview.studentsWithLowExams}
-                          </div>
-                          <div className="text-xs text-red-600">Below 75%</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  No exam data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-        </div>
-
-          </TabsContent>
-
-          <TabsContent value="sections" className="space-y-6 mt-6">
-        {/* Exam Scores by Section - Combined View */}
-        {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-purple-600" />
-                <div>
-                  <CardTitle>Exam Performance by Section</CardTitle>
-                  <CardDescription>Click a section to view and manage exams</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Get unique sections and aggregate data across years */}
-              {(() => {
-                // Create a map of sections with their data from all years
-                const sectionMap = new Map<string, {
-                  sectionId: string
-                  displayName: string
-                  yearData: Array<{
-                    yearId: string
-                    yearName: string
-                    isActive: boolean
-                    average: number | null
-                    count: number
-                  }>
-                  totalCount: number
-                  overallAverage: number | null
-                }>()
-
-                // Aggregate section data across all years
-                analytics.examScoresByYear.forEach(year => {
-                  year.sections.forEach(section => {
-                    if (!sectionMap.has(section.sectionId)) {
-                      sectionMap.set(section.sectionId, {
-                        sectionId: section.sectionId,
-                        displayName: section.displayName,
-                        yearData: [],
-                        totalCount: 0,
-                        overallAverage: null
-                      })
-                    }
-                    const sectionData = sectionMap.get(section.sectionId)!
-                    sectionData.yearData.push({
-                      yearId: year.yearId,
-                      yearName: year.yearName,
-                      isActive: year.isActive,
-                      average: section.average,
-                      count: section.count
-                    })
-                    sectionData.totalCount += section.count
-                  })
-                })
-
-                // Calculate overall average for each section
-                sectionMap.forEach(section => {
-                  const validYears = section.yearData.filter(y => y.average !== null && y.count > 0)
-                  if (validYears.length > 0) {
-                    const totalWeightedScore = validYears.reduce((sum, y) => sum + (y.average! * y.count), 0)
-                    const totalCount = validYears.reduce((sum, y) => sum + y.count, 0)
-                    section.overallAverage = totalWeightedScore / totalCount
-                  }
-                })
-
-                const sections = Array.from(sectionMap.values())
-
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {sections.map(section => (
-                      <Link
-                        key={section.sectionId}
-                        href={`/dashboard/admin/exams?section=${section.sectionId}`}
-                        className={`p-4 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${section.overallAverage !== null ? getScoreBgColor(section.overallAverage) : 'bg-gray-50'}`}
-                      >
-                        <p className="text-sm font-medium truncate" title={section.displayName}>
-                          {section.displayName}
-                        </p>
-                        <div className="flex items-baseline gap-1 mt-1">
-                          <span className={`text-xl font-bold ${getScoreColor(section.overallAverage)}`}>
-                            {section.overallAverage?.toFixed(1) || '—'}
-                          </span>
-                          {section.overallAverage !== null && <span className="text-sm text-gray-500">%</span>}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {section.totalCount} {section.totalCount === 1 ? 'score' : 'scores'} total
-                        </p>
-                        {/* Year breakdown */}
-                        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
-                          {section.yearData.map(yearInfo => (
-                            <div key={yearInfo.yearId} className="flex items-center justify-between text-xs">
-                              <span className="flex items-center gap-1">
-                                <Badge
-                                  variant={yearInfo.isActive ? "default" : "outline"}
-                                  className={`text-[10px] px-1.5 py-0 ${yearInfo.isActive ? 'bg-blue-600' : ''}`}
-                                >
-                                  {yearInfo.yearName}
-                                </Badge>
-                              </span>
-                              <span className={getScoreColor(yearInfo.average)}>
-                                {yearInfo.average?.toFixed(1) || '—'}% ({yearInfo.count})
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )
-              })()}
-            </CardContent>
-          </Card>
-        )}
-
-          </TabsContent>
-
-          <TabsContent value="trends" className="space-y-6 mt-6">
-            {trends && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <AttendanceTrendChart data={trends.attendance} />
-                <ExamTrendChart data={trends.exams} />
-              </div>
-            )}
-
-        {/* Year-over-Year Comparison */}
-        {analytics?.attendanceByYear && analytics.attendanceByYear.length > 1 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
-                <div>
-                  <CardTitle>Year-over-Year Comparison</CardTitle>
-                  <CardDescription>Attendance and exam trends across academic years</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-3 font-medium">Academic Year</th>
-                      <th className="text-center py-2 px-3 font-medium">Attendance Rate</th>
-                      <th className="text-center py-2 px-3 font-medium">Exam Average</th>
-                      <th className="text-center py-2 px-3 font-medium">Total Records</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.attendanceByYear.map(year => {
-                      const examYear = analytics.examScoresByYear.find(e => e.yearId === year.yearId)
-                      return (
-                        <tr key={year.yearId} className={`border-b ${year.isActive ? 'bg-blue-50' : ''}`}>
-                          <td className="py-2 px-3">
-                            <div className="flex items-center gap-2">
-                              {year.yearName}
-                              {year.isActive && (
-                                <Badge variant="outline" className="text-xs">Active</Badge>
-                              )}
-                            </div>
-                          </td>
-                          <td className={`text-center py-2 px-3 font-medium ${getScoreColor(year.attendanceRate)}`}>
-                            {year.attendanceRate?.toFixed(2) || '—'}%
-                          </td>
-                          <td className={`text-center py-2 px-3 font-medium ${getScoreColor(examYear?.overallAverage ?? null)}`}>
-                            {examYear?.overallAverage?.toFixed(2) || '—'}%
-                          </td>
-                          <td className="text-center py-2 px-3 text-gray-500">
-                            {year.total} attendance
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-          </TabsContent>
-        </Tabs>
-
-        {/* Alerts */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* At-Risk Students */}
-          <div className="md:col-span-3 space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              Students Needing Support
-            </h2>
-
-            {analytics?.atRiskStudents && analytics.atRiskStudents.length > 0 ? (
-              <Card>
-                <CardContent className="p-0">
-                  <div className="divide-y">
-                    {analytics.atRiskStudents.slice(0, 5).map(student => (
-                      <div key={student.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                        <div>
-                          <p className="font-medium">{student.name}</p>
-                          <p className="text-xs text-gray-500">Year {student.yearLevel === 'YEAR_1' ? '1' : '2'}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            {student.attendanceRate !== null && (
-                              <p className={`text-sm ${getScoreColor(student.attendanceRate)}`}>
-                                {student.attendanceRate.toFixed(2)}% attendance
-                              </p>
-                            )}
-                            {student.examAverage !== null && (
-                              <p className={`text-sm ${getScoreColor(student.examAverage)}`}>
-                                {student.examAverage.toFixed(2)}% exam avg
-                              </p>
-                            )}
-                          </div>
-                          <Link href={`/dashboard/admin/students?student=${student.id}`}>
-                            <Button variant="ghost" size="sm">View</Button>
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {analytics.totalAtRisk > 5 && (
-                    <div className="p-3 text-center border-t bg-gray-50">
-                      <Link href="/dashboard/admin/students" className="text-sm text-maroon-600 hover:underline">
-                        View all {analytics.totalAtRisk} at-risk students →
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-green-200 bg-green-50">
-                <CardContent className="py-6 text-center">
-                  <p className="text-green-800">All students are on track!</p>
-                  <p className="text-sm text-green-600 mt-1">No students below 75% threshold</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Other Alerts */}
-            {stats && stats.unassignedStudents > 0 && (
-              <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/30">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                    <CardTitle className="text-yellow-900 dark:text-yellow-300">Unassigned Students</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-yellow-800 dark:text-yellow-400 mb-3">
-                    {stats.unassignedStudents} student{stats.unassignedStudents !== 1 ? 's' : ''} {stats.unassignedStudents !== 1 ? 'need' : 'needs'} a mentor assignment
-                  </p>
-                  {canAssign && (
-                    <Link href="/dashboard/admin/enrollments">
-                      <Button size="sm" variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-700 dark:text-yellow-300 dark:hover:bg-yellow-900/50">
-                        Assign Mentors
-                      </Button>
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {stats && stats.upcomingLessons > 0 && (
-              <Card className="border-maroon-200 bg-maroon-50 dark:border-maroon-800 dark:bg-maroon-900/30">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-maroon-600 dark:text-maroon-300" />
-                    <CardTitle className="text-maroon-900 dark:text-maroon-200">Upcoming Lessons</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-maroon-800 dark:text-maroon-300 mb-3">
-                    {stats.upcomingLessons} lesson{stats.upcomingLessons !== 1 ? 's' : ''} scheduled
-                  </p>
-                  <Link href="/dashboard/admin/curriculum">
-                    <Button size="sm" variant="outline" className="border-maroon-300 text-maroon-700 hover:bg-maroon-100 dark:border-maroon-700 dark:text-maroon-300 dark:hover:bg-maroon-900/50">
-                      View Schedule
-                    </Button>
+      <Panel
+        title="Students needing support"
+        description={`${analytics?.totalAtRisk ?? 0} students · sorted by attendance`}
+        actions={
+          (analytics?.totalAtRisk ?? 0) > 0 ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/dashboard/admin/students?filter=review">View all {analytics?.totalAtRisk}</Link>
+            </Button>
+          ) : null
+        }
+      >
+        {atRisk.length === 0 ? (
+          <EmptyState title="Everyone is on track" message="No student is below 75% in attendance or exams." />
+        ) : (
+          <>
+            <Table className="hidden md:table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead className="w-20">Year</TableHead>
+                  <TableHead className="w-44">Attendance</TableHead>
+                  <TableHead className="w-44">Exam avg</TableHead>
+                  <TableHead className="w-28">Flag</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...atRisk]
+                  .sort((a, b) => (a.attendanceRate ?? 0) - (b.attendanceRate ?? 0))
+                  .slice(0, 8)
+                  .map((student) => {
+                    const lowAtt = (student.attendanceRate ?? 100) < 75
+                    const lowExam = (student.examAverage ?? 100) < 75
+                    return (
+                      <TableRow key={student.id}>
+                        <TableCell>
+                          <PersonCell name={student.name} href={`/dashboard/admin/students?student=${student.id}`} />
+                        </TableCell>
+                        <TableCell className="text-ink-2">Year {student.yearLevel === 'YEAR_1' ? '1' : '2'}</TableCell>
+                        <TableCell>
+                          <Metric value={student.attendanceRate} />
+                        </TableCell>
+                        <TableCell>
+                          <Metric value={student.examAverage} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge tone={lowAtt && lowExam ? 'bad' : 'warn'}>
+                            {lowAtt && lowExam ? 'Both' : lowAtt ? 'Attendance' : 'Exams'}
+                          </StatusBadge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+              </TableBody>
+            </Table>
+            <ul className="divide-y divide-line md:hidden">
+              {atRisk.slice(0, 5).map((student) => (
+                <li key={student.id}>
+                  <Link
+                    href={`/dashboard/admin/students?student=${student.id}`}
+                    className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-ink no-underline"
+                  >
+                    <PersonCell
+                      name={student.name}
+                      meta={`Att ${student.attendanceRate?.toFixed(0) ?? '—'}% · Exam ${student.examAverage?.toFixed(0) ?? '—'}%`}
+                    />
                   </Link>
-                </CardContent>
-              </Card>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Panel>
+
+      {stats && stats.unassignedStudents > 0 && (
+        <Panel>
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <StatusBadge tone="warn">Mentors</StatusBadge>
+            <p className="text-[13px] text-ink-2">
+              {stats.unassignedStudents} student{stats.unassignedStudents !== 1 ? 's' : ''}{' '}
+              {stats.unassignedStudents !== 1 ? 'need' : 'needs'} a mentor.
+            </p>
+            {canAssign && (
+              <Button asChild variant="outline" size="sm" className="ml-auto">
+                <Link href="/dashboard/admin/enrollments">Assign mentors</Link>
+              </Button>
             )}
           </div>
+        </Panel>
+      )}
 
+      {analytics && analytics.examScoresByYear.length > 0 && (
+        <SectionPerformance years={analytics.examScoresByYear} />
+      )}
+
+      {trends && (
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+          <AttendanceTrendChart data={trends.attendance} />
+          <ExamTrendChart data={trends.exams} />
         </div>
-      </div>
+      )}
     </div>
+  )
+}
+
+/** Exam average per section across years; each links to that section's exams. */
+function SectionPerformance({ years }: { years: YearExamScores[] }) {
+  const sections = new Map<string, { id: string; name: string; total: number; weighted: number; perYear: { year: string; active: boolean; avg: number | null; count: number }[] }>()
+  for (const year of years) {
+    for (const s of year.sections) {
+      const entry = sections.get(s.sectionId) ?? { id: s.sectionId, name: s.displayName, total: 0, weighted: 0, perYear: [] }
+      entry.perYear.push({ year: year.yearName, active: year.isActive, avg: s.average, count: s.count })
+      if (s.average !== null && s.count > 0) {
+        entry.total += s.count
+        entry.weighted += s.average * s.count
+      }
+      sections.set(s.sectionId, entry)
+    }
+  }
+  const yearNames = years.map((y) => y.yearName)
+  return (
+    <Panel title="Exam performance by section" description="Weighted average across years · open a section to manage its exams">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Section</TableHead>
+            <TableHead className="w-44">Overall</TableHead>
+            {yearNames.map((y) => (
+              <TableHead key={y} className="hidden w-32 text-right lg:table-cell">
+                {y.replace('-', '–')}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[...sections.values()].map((s) => (
+            <TableRow key={s.id}>
+              <TableCell>
+                <Link href={`/dashboard/admin/exams?section=${s.id}`} className="font-medium text-ink no-underline hover:underline">
+                  {s.name}
+                </Link>
+                <span className="ml-2 text-xs text-ink-3">{s.total} scores</span>
+              </TableCell>
+              <TableCell>
+                <Metric value={s.total > 0 ? s.weighted / s.total : null} />
+              </TableCell>
+              {yearNames.map((y) => {
+                const entry = s.perYear.find((p) => p.year === y)
+                return (
+                  <TableCell key={y} className="tabular hidden text-right text-ink-2 lg:table-cell">
+                    {entry?.avg !== null && entry?.avg !== undefined ? `${entry.avg.toFixed(1)}%` : '—'}
+                    <span className="ml-1 text-xs text-ink-3">({entry?.count ?? 0})</span>
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Panel>
   )
 }

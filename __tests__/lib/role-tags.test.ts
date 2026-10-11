@@ -13,7 +13,7 @@ describe('role tag compatibility mapping', () => {
     expect(roleTagForLegacyRole(UserRole.MENTOR)).toBeNull()
   })
 
-  it('uses Servants Prep Leader as the compatibility role for a cross-program servant', () => {
+  it('uses Servants Prep Servant as the compatibility role for a cross-program servant', () => {
     expect(legacyRoleForTags([
       RoleTag.SUNDAY_SCHOOL_SERVANT,
       RoleTag.SERVANTS_PREP_SERVANT,

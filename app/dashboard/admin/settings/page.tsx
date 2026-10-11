@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -26,9 +24,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { StatusBadge } from '@/components/ds/status-badge'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
-import { Calendar, Plus, Pencil, Trash2, Check, BookOpen, GraduationCap } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 
 interface AcademicYear {
   id: string
@@ -241,116 +243,64 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-gray-600 mt-1">Manage system configuration</p>
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="w-full space-y-5">
+        <PageHeader title="Settings" meta={['Program configuration']} />
 
-        {/* Academic Years Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-maroon-600" />
-                <div>
-                  <CardTitle>Academic Years</CardTitle>
-                  <CardDescription>
-                    Manage academic years for lessons and exams
-                  </CardDescription>
-                </div>
-              </div>
-              <Button onClick={openCreateDialog} size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Add Year
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {academicYears.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No academic years configured</p>
-                <p className="text-sm mt-1">Create your first academic year to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {academicYears.map((year) => (
-                  <div
-                    key={year.id}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      year.isActive ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{year.name}</span>
-                          {year.isActive && (
-                            <Badge className="bg-green-100 text-green-800 border-green-300">
-                              <Check className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {formatDate(year.startDate)} - {formatDate(year.endDate)}
-                        </p>
-                        {year._count && (
-                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <BookOpen className="h-3 w-3" />
-                              {year._count.lessons} lessons
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <GraduationCap className="h-3 w-3" />
-                              {year._count.exams} exams
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!year.isActive && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSetActive(year)}
-                          disabled={saving}
-                        >
-                          Set Active
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(year)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDeleteDialog(year)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+        <Panel
+          title="Academic years"
+          description="Lessons, exams and attendance are organized by year; dashboards show the active one."
+          actions={
+            <Button size="sm" onClick={openCreateDialog}>
+              <Plus />
+              Add year
+            </Button>
+          }
+        >
+          {academicYears.length === 0 ? (
+            <EmptyState title="No academic years yet" message="Add the first year to start scheduling lessons and exams." />
+          ) : (
+            <ul className="divide-y divide-line">
+              {academicYears.map((year) => (
+                <li key={year.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+                  <div className="flex min-w-40 flex-1 flex-col">
+                    <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+                      {year.name.replace('-', '–')}
+                      {year.isActive && <StatusBadge tone="ok">Active</StatusBadge>}
+                    </span>
+                    <span className="text-xs text-ink-3">
+                      {formatDate(year.startDate)} – {formatDate(year.endDate)}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  {year._count && (
+                    <span className="tabular text-[13px] text-ink-2">
+                      {year._count.lessons} lessons · {year._count.exams} exams
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    {!year.isActive && (
+                      <Button variant="outline" size="sm" onClick={() => handleSetActive(year)} disabled={saving}>
+                        Set active
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${year.name}`} onClick={() => openEditDialog(year)}>
+                      <Pencil />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" aria-label={`Delete ${year.name}`} className="hover:text-bad" onClick={() => openDeleteDialog(year)}>
+                      <Trash2 />
+                    </Button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
         {/* Create Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Academic Year</DialogTitle>
+              <DialogTitle>Create academic year</DialogTitle>
               <DialogDescription>
                 Add a new academic year for organizing lessons and exams
               </DialogDescription>
@@ -391,7 +341,7 @@ export default function SettingsPage() {
                   id="isActive"
                   checked={formIsActive}
                   onChange={(e) => setFormIsActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="size-4 accent-brand"
                 />
                 <Label htmlFor="isActive" className="text-sm font-normal">
                   Set as active year (dashboards will show this year by default)
@@ -413,7 +363,7 @@ export default function SettingsPage() {
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Academic Year</DialogTitle>
+              <DialogTitle>Edit academic year</DialogTitle>
               <DialogDescription>
                 Update the academic year details
               </DialogDescription>
@@ -454,7 +404,7 @@ export default function SettingsPage() {
                   id="edit-isActive"
                   checked={formIsActive}
                   onChange={(e) => setFormIsActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="size-4 accent-brand"
                 />
                 <Label htmlFor="edit-isActive" className="text-sm font-normal">
                   Set as active year
@@ -480,7 +430,7 @@ export default function SettingsPage() {
               <AlertDialogDescription>
                 Are you sure you want to delete <strong>{selectedYear?.name}</strong>?
                 {selectedYear?._count && (selectedYear._count.lessons > 0 || selectedYear._count.exams > 0) && (
-                  <span className="block mt-2 text-red-600">
+                  <span className="mt-2 block text-bad">
                     Warning: This year has {selectedYear._count.lessons} lessons and {selectedYear._count.exams} exams associated with it. Deleting may cause data loss.
                   </span>
                 )}
@@ -490,7 +440,7 @@ export default function SettingsPage() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-bad text-white hover:bg-bad/90"
                 disabled={saving}
               >
                 {saving ? 'Deleting...' : 'Delete'}

@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge, type Tone } from '@/components/ds/status-badge'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -41,14 +43,16 @@ interface ConfessionSlip {
   uploader: { name: string } | null
 }
 
-const STATUS_BADGE: Record<ConfessionPeriodStatus, { label: string; className: string }> = {
-  slip: { label: 'Signed', className: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300' },
-  registration: { label: 'Registration', className: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300' },
-  missing: { label: 'Missing', className: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300' },
-  due: { label: 'Due', className: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300' },
-  upcoming: { label: 'Upcoming', className: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400' },
-  na: { label: 'N/A', className: 'bg-transparent text-gray-400 border-gray-200 dark:border-gray-700' },
+const STATUS_BADGE: Record<ConfessionPeriodStatus, { label: string; tone: Tone | null }> = {
+  slip: { label: 'Received', tone: 'ok' },
+  registration: { label: 'Registration', tone: 'info' },
+  missing: { label: 'Missed', tone: 'bad' },
+  due: { label: 'Due', tone: 'warn' },
+  upcoming: { label: 'Future', tone: 'neutral' },
+  na: { label: 'Not enrolled', tone: null },
 }
+
+type View = 'all' | 'due' | 'received' | 'missed'
 
 /**
  * Grid of students × 2-month confession periods for an academic year.
@@ -68,7 +72,8 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
   const [pickedYearId, setYearId] = useState('')
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [onlyMissing, setOnlyMissing] = useState(false)
+  const [view, setView] = useState<View>('all')
+  const [father, setFather] = useState('all')
 
   // Years come newest first; default to the active one
   const yearId = pickedYearId || (years.find(y => y.isActive) ?? years[0])?.id || ''
@@ -88,10 +93,26 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
     })
   }, [enrollments, slips, years, yearId])
 
+  const now = new Date()
+  const currentIndex = rows[0]?.cells.findIndex(({ period }) => period.start <= now && now < period.end) ?? -1
+  const current = currentIndex >= 0 ? rows[0]?.cells[currentIndex].period : undefined
+  const currentStatus = (r: (typeof rows)[number]) => (currentIndex >= 0 ? r.cells[currentIndex].status : undefined)
+  const counts = {
+    received: rows.filter((r) => currentStatus(r) === 'slip' || currentStatus(r) === 'registration').length,
+    due: rows.filter((r) => currentStatus(r) === 'due').length,
+    missed: rows.filter((r) => r.missing > 0).length,
+  }
+  const fathers = [...new Set(rows.map((r) => r.enrollment.fatherOfConfession?.name).filter((n): n is string => !!n))].sort()
+
   const visibleRows = rows.filter(r =>
-    (!onlyMissing || r.missing > 0) &&
+    (view === 'all' ||
+      (view === 'due' && currentStatus(r) === 'due') ||
+      (view === 'received' && (currentStatus(r) === 'slip' || currentStatus(r) === 'registration')) ||
+      (view === 'missed' && r.missing > 0)) &&
+    (father === 'all' || (r.enrollment.fatherOfConfession?.name ?? '') === father) &&
     (!search || r.enrollment.student.name.toLowerCase().includes(search.toLowerCase()))
   )
+  const daysLeft = current ? Math.ceil((current.end.getTime() - now.getTime()) / 86_400_000) : 0
 
   const handleUpload = async (key: string, studentId: string, period: ConfessionPeriod, file: File | undefined) => {
     if (!file) return
@@ -121,120 +142,164 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
   if (error) return <EmptyState message="Failed to load the confession tracker" />
   if (!enrollments) return <TableSkeleton />
 
-  return (
-    <div className="w-full min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect
-          aria-label="Academic year"
-          value={yearId}
-          onChange={setYearId}
-          options={years.map(y => ({ value: y.id, label: y.name }))}
-          className="h-9 py-1"
-        />
-        {!enrollment && (
-          <>
-            <Input
-              placeholder="Search students..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-full sm:w-56 text-sm"
-            />
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} className="h-4 w-4 rounded" />
-              Only missing ({rows.filter(r => r.missing > 0).length})
-            </label>
-          </>
-        )}
-      </div>
-      <p className="text-xs text-gray-500">
-        Students must confess at least once every 2 months. The registration form (on the student&apos;s Profile tab) covers
-        their first period; after that, upload a photo of the slip signed by their father of confession.
-      </p>
+  const table = visibleRows.length === 0 ? (
+    <EmptyState message={rows.length === 0 ? 'No active students this year.' : 'No students match these filters.'} />
+  ) : (
+    <div className="w-full overflow-x-auto">
+      <table className="w-full min-w-max border-collapse text-[13px] text-ink">
+        <thead className="bg-raised">
+          <tr className="border-b border-line text-left text-xs text-ink-3">
+            {!enrollment && (
+              <th scope="col" className="sticky left-0 z-10 h-9 min-w-48 border-r border-line bg-raised px-3 font-medium">Student</th>
+            )}
+            {visibleRows[0].cells.map(({ period }, i) => (
+              <th key={period.start.toISOString()} scope="col" className="px-3 font-medium whitespace-nowrap">
+                {formatConfessionPeriod(period)}
+                {i === currentIndex && <span className="ml-1 font-semibold text-accent-ink">· now</span>}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {visibleRows.map(({ enrollment: e, cells, missing }) => (
+            <tr key={e.studentId} className="border-b border-line last:border-0">
+              {!enrollment && (
+                <th scope="row" className="sticky left-0 z-10 max-w-56 border-r border-line bg-surface px-3 py-2 text-left font-normal">
+                  <div className="truncate font-medium">{e.student.name}</div>
+                  <div className="truncate text-xs text-ink-3">{e.fatherOfConfession?.name ?? 'No father of confession'}</div>
+                  {missing > 0 && <div className="text-xs text-bad">{missing} missed</div>}
+                </th>
+              )}
+              {cells.map(({ key, period, slip, status }, i) => {
+                const meta = STATUS_BADGE[status]
+                const badge = meta.tone ? <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge> : <span className="text-ink-3">—</span>
+                return (
+                  <td key={key} className={`px-3 py-2 align-middle ${i === currentIndex ? 'bg-accent-tint/50' : ''}`}>
+                    <div className="flex items-center gap-1.5">
+                      {slip ? (
+                        <a
+                          href={slip.imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="no-underline hover:opacity-80"
+                          title={`View slip · uploaded ${formatToastTimestamp(new Date(slip.createdAt))}${slip.uploader ? ` by ${slip.uploader.name}` : ''}`}
+                        >
+                          {badge}
+                        </a>
+                      ) : (
+                        badge
+                      )}
+                      {canEdit && status !== 'na' && status !== 'upcoming' && (
+                        <>
+                          <label className="inline-flex h-7 cursor-pointer items-center rounded-md px-1.5 text-xs font-medium text-accent-ink hover:bg-hover focus-within:outline-2 focus-within:outline-accent-ink">
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="sr-only"
+                              disabled={busyCell === key}
+                              aria-label={`${slip ? 'Replace' : 'Upload'} ${formatConfessionPeriod(period)} slip for ${e.student.name}`}
+                              onChange={(ev) => {
+                                const file = ev.target.files?.[0]
+                                ev.target.value = ''
+                                handleUpload(key, e.studentId, period, file)
+                              }}
+                            />
+                            {busyCell === key ? 'Uploading…' : slip ? 'Replace' : 'Upload'}
+                          </label>
+                          {slip && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemove(slip)}
+                              aria-label={`Remove ${formatConfessionPeriod(period)} slip`}
+                              className="cursor-pointer rounded-md p-1.5 text-ink-3 hover:text-bad"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 
-      <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
-        <CardContent className="w-full min-w-0 max-w-full overflow-x-auto p-0">
-          {visibleRows.length === 0 ? (
-            <EmptyState message="No students to show" />
-          ) : (
-            <table className="min-w-max text-sm">
-              <thead className="border-b bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  {!enrollment && <th className="text-left p-3 font-semibold sticky left-0 border-r bg-gray-50 dark:bg-gray-900">Student</th>}
-                  {visibleRows[0].cells.map(({ period }) => (
-                    <th key={period.start.toISOString()} className="p-3 font-semibold text-center whitespace-nowrap">
-                      {formatConfessionPeriod(period)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map(({ enrollment: e, cells, missing }) => (
-                  <tr key={e.studentId} className="border-b last:border-0">
-                    {!enrollment && (
-                      <td className="p-3 sticky left-0 border-r bg-card min-w-32 max-w-40 sm:min-w-44 sm:max-w-none">
-                        <div className="font-medium">{e.student.name}</div>
-                        <div className="text-xs text-gray-500">{e.fatherOfConfession?.name ?? 'No father of confession'}</div>
-                        {missing > 0 && <div className="text-xs text-red-600">{missing} missing</div>}
-                      </td>
-                    )}
-                    {cells.map(({ key, period, slip, status }) => {
-                      const badge = (
-                        <Badge variant="outline" className={`${STATUS_BADGE[status].className} ${slip ? 'hover:underline' : ''}`}>
-                          {STATUS_BADGE[status].label}
-                        </Badge>
-                      )
-                      return (
-                        <td key={key} className="p-2 text-center align-top">
-                          <div className="flex flex-col items-center gap-1">
-                            {slip ? (
-                              <a
-                                href={slip.imageUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={`Uploaded ${formatToastTimestamp(new Date(slip.createdAt))}${slip.uploader ? ` by ${slip.uploader.name}` : ''}`}
-                              >
-                                {badge}
-                              </a>
-                            ) : badge}
-                            {canEdit && status !== 'na' && status !== 'upcoming' && (
-                              <div className="flex items-center gap-1">
-                                <label className="cursor-pointer text-xs text-maroon-700 dark:text-maroon-300 hover:underline rounded px-2 py-1 focus-within:ring-2 focus-within:ring-maroon-500">
-                                  <input
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    className="sr-only"
-                                    disabled={busyCell === key}
-                                    onChange={(ev) => {
-                                      const file = ev.target.files?.[0]
-                                      ev.target.value = ''
-                                      handleUpload(key, e.studentId, period, file)
-                                    }}
-                                  />
-                                  {busyCell === key ? 'Uploading…' : slip ? 'Replace' : 'Upload'}
-                                </label>
-                                {slip && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemove(slip)}
-                                    aria-label={`Remove ${formatConfessionPeriod(period)} slip`}
-                                    className="rounded p-1.5 text-gray-400 hover:text-red-600"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
+  // Embedded in the student editor: just the row, with a year picker.
+  if (enrollment) {
+    return (
+      <div className="w-full min-w-0 space-y-3">
+        <FilterSelect aria-label="Academic year" value={yearId} onChange={setYearId} options={years.map((y) => ({ value: y.id, label: y.name }))} />
+        <div className="overflow-hidden rounded-lg border border-line">{table}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-5">
+      <KpiStrip
+        items={[
+          {
+            label: 'Current period',
+            value: <span className="text-[22px]">{current ? formatConfessionPeriod(current) : '—'}</span>,
+            hint: current ? `Closes ${new Date(current.end.getTime() - 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} · ${daysLeft} days left` : 'Outside the academic year',
+          },
+          { label: 'Slips received', value: counts.received, hint: `of ${rows.length} students` },
+          { label: 'Still due', value: counts.due, hint: 'this period', tone: counts.due > 0 ? 'warn' : undefined },
+          { label: 'Missed a past period', value: counts.missed, hint: counts.missed === 0 ? 'none yet this year' : 'students', tone: counts.missed > 0 ? 'bad' : undefined },
+        ]}
+      />
+
+      <Panel
+        toolbar={
+          <>
+            <Segmented
+              label="Confession status"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'all', label: 'All', count: rows.length },
+                { value: 'due', label: 'Due', count: counts.due },
+                { value: 'received', label: 'Received', count: counts.received },
+                { value: 'missed', label: 'Missed', count: counts.missed },
+              ]}
+            />
+            <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
+              <FilterSelect
+                aria-label="Academic year"
+                value={yearId}
+                onChange={setYearId}
+                options={years.map((y) => ({ value: y.id, label: y.name.replace('-', '–') }))}
+              />
+              <FilterSelect
+                aria-label="Father of confession"
+                value={father}
+                onChange={setFather}
+                options={[{ value: 'all', label: 'All fathers' }, ...fathers.map((f) => ({ value: f, label: f }))]}
+                className="max-w-56"
+              />
+              <SearchField value={search} onChange={setSearch} placeholder="Search students" className="flex-1 md:flex-none" />
+            </div>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-2 border-b border-line px-4 py-2.5 text-xs text-ink-3">
+          <p>
+            Every student confesses at least once per two-month period. The registration form covers the first period;
+            after that, upload a photo of the slip signed by the father of confession.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(['slip', 'due', 'missing', 'registration', 'upcoming'] as const).map((k) => (
+              <StatusBadge key={k} tone={STATUS_BADGE[k].tone as Tone}>{STATUS_BADGE[k].label}</StatusBadge>
+            ))}
+          </div>
+        </div>
+        {table}
+      </Panel>
     </div>
   )
 }

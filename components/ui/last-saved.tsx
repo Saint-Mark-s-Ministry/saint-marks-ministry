@@ -7,7 +7,7 @@ export function LastSaved({ date, className }: LastSavedProps) {
   if (!date) return null
 
   return (
-    <p className={`text-xs text-gray-500 mt-1 ${className ?? ''}`}>
+    <span className={`text-xs text-ink-3 ${className ?? ''}`}>
       Last saved {date.toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -15,6 +15,6 @@ export function LastSaved({ date, className }: LastSavedProps) {
         hour: 'numeric',
         minute: '2-digit'
       })}
-    </p>
+    </span>
   )
 }

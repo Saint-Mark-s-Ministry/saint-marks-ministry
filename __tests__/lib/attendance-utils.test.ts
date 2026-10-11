@@ -8,6 +8,7 @@ import {
   getAttendanceStatusLabel,
   calculateEffectiveAbsences,
   calculateAbsencesAllowed,
+  isGraduationEligible,
   type AttendanceCounts,
 } from '@/lib/attendance-utils'
 
@@ -230,5 +231,18 @@ describe('calculateAbsencesAllowed', () => {
     // allowed = 7 + 5 - 9.75 = 2.25 → floor = 2
     const counts: AttendanceCounts = { present: 7, late: 0, absent: 1, excused: 2 }
     expect(calculateAbsencesAllowed(counts, 5)).toBe(2)
+  })
+})
+
+describe('isGraduationEligible', () => {
+  const met = [true, true, true, true]
+  it('is false for a student with no attendance or exam data', () => {
+    expect(isGraduationEligible({ attendancePercentage: null, examAverage: null, requirementsMet: met })).toBe(false)
+    expect(isGraduationEligible({ attendancePercentage: 90, examAverage: null, requirementsMet: met })).toBe(false)
+    expect(isGraduationEligible({ attendancePercentage: null, examAverage: 90, requirementsMet: met })).toBe(false)
+  })
+  it('requires every requirement once data exists', () => {
+    expect(isGraduationEligible({ attendancePercentage: 90, examAverage: 90, requirementsMet: met })).toBe(true)
+    expect(isGraduationEligible({ attendancePercentage: 90, examAverage: 90, requirementsMet: [true, false, true, true] })).toBe(false)
   })
 })

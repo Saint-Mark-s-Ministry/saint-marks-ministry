@@ -113,56 +113,45 @@ export function YearEndReviewPanel({
 
   const showPanel = isVisible || (autoShow && daysUntilEnd !== null && daysUntilEnd <= 60)
 
-  if (!showPanel) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onToggle}
-        className="mb-4"
-      >
-        <Calendar className="h-4 w-4 mr-2" />
-        Year-End Review
-      </Button>
-    )
-  }
+  // Collapsed, the Students page header's "Year-end review" button opens it.
+  if (!showPanel) return null
 
   return (
     <>
-      <Card className="mb-6 border-amber-200 bg-amber-50">
+      <Card>
         <CardContent className="pt-4">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-amber-600" />
+              <Calendar className="h-5 w-5 text-ink-3" />
               <div>
-                <h3 className="font-semibold text-amber-900">Year-End Review</h3>
+                <h3 className="font-semibold text-ink">Year-End Review</h3>
                 {activeYear && daysUntilEnd !== null && (
-                  <p className="text-sm text-amber-700">
+                  <p className="text-[13px] text-ink-3">
                     {activeYear.name} {daysUntilEnd > 0 ? `ends in ${daysUntilEnd} days` : daysUntilEnd === 0 ? 'ends today' : `ended ${Math.abs(daysUntilEnd)} days ago`}
                   </p>
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={onToggle}>
+            <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-label="Close year-end review">
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="bg-white rounded-lg p-3 border border-amber-100">
+            <div className="rounded-md bg-raised p-3">
               <div className="text-2xl font-bold text-green-600">{eligibleForGraduation.length}</div>
               <div className="text-xs text-gray-600">Eligible to Graduate</div>
             </div>
-            <div className="bg-white rounded-lg p-3 border border-amber-100">
+            <div className="rounded-md bg-raised p-3">
               <div className="text-2xl font-bold text-yellow-600">{needsReview.length}</div>
               <div className="text-xs text-gray-600">Need Review</div>
             </div>
-            <div className="bg-white rounded-lg p-3 border border-amber-100">
+            <div className="rounded-md bg-raised p-3">
               <div className="text-2xl font-bold text-blue-600">{year1Students.length}</div>
               <div className="text-xs text-gray-600">Year 1 to Promote</div>
             </div>
-            <div className="bg-white rounded-lg p-3 border border-amber-100">
+            <div className="rounded-md bg-raised p-3">
               <div className="text-2xl font-bold text-gray-600">{year2Students.length}</div>
               <div className="text-xs text-gray-600">Total Year 2</div>
             </div>

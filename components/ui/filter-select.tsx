@@ -18,7 +18,7 @@ export function FilterSelect({ value, onChange, options, placeholder, className,
       value={value}
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
-      className={`h-10 rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600 ${className ?? ''}`}
+      className={`h-11 cursor-pointer rounded-md border border-line-strong bg-surface pr-7 pl-2.5 text-base font-medium text-ink outline-none focus-visible:border-accent-ink focus-visible:ring-[3px] focus-visible:ring-accent-tint md:h-8 md:text-[13px] ${className ?? ''}`}
     >
       {placeholder && <option value="all">{placeholder}</option>}
       {options.map(option => (

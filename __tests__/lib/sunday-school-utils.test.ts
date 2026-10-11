@@ -8,6 +8,9 @@ import {
   getAssignmentWeeks,
   getWeekNumber,
   GRADE_DISPLAY_NAMES,
+  elapsedRotationWeeks,
+  rotationAttendanceToDate,
+  rotationRequirementMet,
 } from '@/lib/sunday-school-utils'
 
 // Mock SundaySchoolLogStatus since it comes from Prisma
@@ -278,5 +281,37 @@ describe('GRADE_DISPLAY_NAMES', () => {
     expect(GRADE_DISPLAY_NAMES.KINDERGARTEN).toBe('Kindergarten')
     expect(GRADE_DISPLAY_NAMES.GRADE_1).toBe('1st Grade')
     expect(GRADE_DISPLAY_NAMES.GRADE_6_PLUS).toBe('6th Grade+')
+  })
+})
+
+describe('async rotations', () => {
+  const start = new Date('2026-10-04T00:00:00Z')
+  const verified = (weekNumber: number) => ({ weekNumber, status: SundaySchoolLogStatus.VERIFIED })
+
+  it('counts only weeks that have started', () => {
+    expect(elapsedRotationWeeks(start, 6, new Date('2026-10-03T12:00:00Z'))).toBe(0)
+    expect(elapsedRotationWeeks(start, 6, new Date('2026-10-04T12:00:00Z'))).toBe(1)
+    expect(elapsedRotationWeeks(start, 6, new Date('2026-10-12T00:00:00Z'))).toBe(2)
+    expect(elapsedRotationWeeks(start, 6, new Date('2027-03-01T00:00:00Z'))).toBe(6)
+  })
+
+  it("doesn't fail a rotation for weeks still ahead", () => {
+    const weekOne = new Date('2026-10-05T00:00:00Z')
+    expect(rotationAttendanceToDate({ startDate: start, totalWeeks: 6, logs: [verified(1)] }, weekOne)?.percentage).toBe(100)
+    expect(rotationAttendanceToDate({ startDate: start, totalWeeks: 6, logs: [] }, new Date('2026-10-01T00:00:00Z'))).toBeNull()
+    // Six weeks in with one attended: 1/6
+    expect(rotationAttendanceToDate({ startDate: start, totalWeeks: 6, logs: [verified(1)] }, new Date('2027-01-01T00:00:00Z'))?.met).toBe(false)
+  })
+
+  it('requires an active rotation for the current year level', () => {
+    expect(rotationRequirementMet([], 'YEAR_2')).toEqual({ needsRotation: true, met: false })
+    expect(rotationRequirementMet([{ yearLevel: 'YEAR_2', isActive: false, attendance: { met: true } }], 'YEAR_2'))
+      .toEqual({ needsRotation: true, met: false })
+    expect(rotationRequirementMet([{ yearLevel: 'YEAR_2', isActive: true, attendance: null }], 'YEAR_2'))
+      .toEqual({ needsRotation: false, met: true })
+    expect(rotationRequirementMet([
+      { yearLevel: 'YEAR_2', isActive: true, attendance: { met: true } },
+      { yearLevel: 'YEAR_1', isActive: true, attendance: { met: false } },
+    ], 'YEAR_2')).toEqual({ needsRotation: false, met: false })
   })
 })

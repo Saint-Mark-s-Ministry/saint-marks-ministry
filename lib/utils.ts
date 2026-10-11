@@ -24,6 +24,12 @@ export function formatDateUTC(dateStr: string | Date, options?: Intl.DateTimeFor
   return date.toLocaleDateString('en-US', { ...defaultOptions, ...options, timeZone: 'UTC' })
 }
 
+/** Like formatDateUTC, but uses exactly the options given (for date parts: `{ month: 'short' }`). */
+export function formatUTC(dateStr: string | Date, options: Intl.DateTimeFormatOptions) {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  return date.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' })
+}
+
 /**
  * Format a timestamp for toast notification descriptions.
  * Produces output like: "Jun 15, 2024, 2:30 PM"
@@ -59,13 +65,14 @@ export interface EnrollmentForStudentMap {
   student: { id: string; name: string; [key: string]: unknown }
   yearLevel: string
   isAsyncStudent?: boolean
+  asyncApprovedAt?: string | Date | null
   mentor?: { id: string; [key: string]: unknown } | null
 }
 
 export interface StudentWithEnrollments {
   id: string
   name: string
-  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean }>
+  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean; asyncApprovedAt?: string | Date | null }>
   [key: string]: unknown
 }
 
@@ -86,7 +93,8 @@ export function buildStudentMapFromEnrollments(
         studentMap.get(student.id)!.enrollments.push({
           yearLevel: enrollment.yearLevel,
           mentorId: enrollment.mentor?.id,
-          isAsyncStudent: enrollment.isAsyncStudent
+          isAsyncStudent: enrollment.isAsyncStudent,
+          asyncApprovedAt: enrollment.asyncApprovedAt,
         })
       }
     }

@@ -52,7 +52,13 @@ vi.mock('@/lib/swr', () => ({
           authority: SundaySchoolAuthority.COORDINATOR,
           classId: 'class-1',
           ageGroupId: null,
-          user: { id: 'coordinator-1', name: 'Current Coordinator', email: 'current@example.com' },
+          user: {
+            id: 'coordinator-1',
+            name: 'Current Coordinator',
+            email: 'current@example.com',
+            phone: '555-0100',
+            profileImageUrl: null,
+          },
         },
         {
           id: 'servant-assignment',
@@ -61,7 +67,13 @@ vi.mock('@/lib/swr', () => ({
           authority: SundaySchoolAuthority.SERVANT,
           classId: 'class-1',
           ageGroupId: null,
-          user: { id: 'servant-2', name: 'Next Coordinator', email: 'next@example.com' },
+          user: {
+            id: 'servant-2',
+            name: 'Next Coordinator',
+            email: 'next@example.com',
+            phone: '555-0101',
+            profileImageUrl: null,
+          },
         },
       ],
     },
@@ -72,6 +84,12 @@ vi.mock('@/lib/swr', () => ({
 
 vi.mock('sonner', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
+}))
+
+vi.mock('@/components/user-organization-dialog', () => ({
+  UserOrganizationDialog: ({ user }: { user: { name: string } }) => (
+    <div role="dialog">Organization for {user.name}</div>
+  ),
 }))
 
 import SundaySchoolClassDetailPage from '@/app/dashboard/servants/classes/[id]/page'
@@ -125,5 +143,35 @@ describe('Sunday School class staffing', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
       'Coordinator role removed from Current Coordinator'
     )
+  })
+
+  it('opens contact details from an assigned servant and offers the organization chart', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue([]),
+    }))
+
+    render(<SundaySchoolClassDetailPage />)
+
+    await user.click(screen.getByRole('button', {
+      name: "View Next Coordinator's contact information",
+    }))
+
+    await user.click(screen.getByRole('button', { name: /Contact options for servant's email/ }))
+    expect(await screen.findByRole('menuitem', { name: 'Send Email' })).toHaveAttribute(
+      'href',
+      'mailto:next@example.com'
+    )
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: /Contact options for servant's phone number/ }))
+    expect(await screen.findByRole('menuitem', { name: 'Call' })).toHaveAttribute(
+      'href',
+      'tel:5550101'
+    )
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'View organization' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Organization for Next Coordinator')
   })
 })
