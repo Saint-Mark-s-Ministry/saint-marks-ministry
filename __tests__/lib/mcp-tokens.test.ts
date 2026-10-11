@@ -82,6 +82,14 @@ describe('authenticateMcpToken', () => {
     expect(await authenticateMcpToken(header)).toMatchObject({ ok: false, status: 403 })
   })
 
+  it('rejects disabled administrators before deriving access', async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: 't', revokedAt: null, expiresAt: null, user: { ...admin, isDisabled: true },
+    })
+    expect(await authenticateMcpToken(header)).toMatchObject({ ok: false, status: 403 })
+    expect(mocks.getSundaySchoolAccess).not.toHaveBeenCalled()
+  })
+
   it('accepts a live SUPER_ADMIN token and records usage', async () => {
     mocks.findUnique.mockResolvedValue({ id: 't', revokedAt: null, expiresAt: null, user: admin })
     const result = await authenticateMcpToken(header)

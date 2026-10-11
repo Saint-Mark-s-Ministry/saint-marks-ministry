@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   authenticateMcpToken: vi.fn(),
   findUnique: vi.fn(),
   findMany: vi.fn(),
+  queryRecords: vi.fn(),
+  countRecords: vi.fn(),
+  health: vi.fn(),
   setFeedbackStatus: vi.fn(),
   setFeedbackTeamResponse: vi.fn(),
   clearFeedbackTeamResponse: vi.fn(),
@@ -15,6 +18,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/mcp-tokens', () => ({ authenticateMcpToken: mocks.authenticateMcpToken }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    user: { findMany: mocks.queryRecords, count: mocks.countRecords },
+    $queryRaw: mocks.health,
     sundaySchoolFeedbackIdea: { findUnique: mocks.findUnique, findMany: mocks.findMany },
   },
 }))
@@ -83,14 +88,18 @@ describe('/api/mcp', () => {
     expect(DELETE().status).toBe(405)
   })
 
-  it('lists the six feedback tools', async () => {
+  it('lists feedback and application inspection tools', async () => {
     const response = await POST(rpc({ jsonrpc: '2.0', id: 1, method: 'tools/list' }))
     const json = await response.json()
     expect(json.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([
       'clear_feedback_reply',
+      'count_app_records',
       'delete_feedback',
+      'get_app_health',
       'get_feedback',
+      'list_app_entities',
       'list_feedback',
+      'query_app_records',
       'reply_to_feedback',
       'set_feedback_status',
     ])
@@ -141,4 +150,73 @@ describe('/api/mcp', () => {
     expect(result.isError).toBe(true)
     expect(mocks.deleteFeedbackIdea).not.toHaveBeenCalled()
   })
+  it('discovers approved fields and enum values without querying private data', async () => {
+    const result = await callTool('list_app_entities', { entity: 'User' })
+    const catalog = JSON.parse(result.content[0].text)
+    expect(catalog[0].fields.map((field: { name: string }) => field.name)).toContain('role')
+    expect(catalog[0].fields.map((field: { name: string }) => field.name)).not.toContain('password')
+    expect(catalog[0].fields.find((field: { name: string }) => field.name === 'role').values).toContain('SUPER_ADMIN')
+    expect(mocks.queryRecords).not.toHaveBeenCalled()
+  })
+
+  it('queries selected fields with filters and stable bounded pagination', async () => {
+    mocks.queryRecords.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }, { id: 'u3' }])
+    const result = await callTool('query_app_records', {
+      entity: 'User', fields: ['id'], limit: 2, offset: 10, orderBy: 'name',
+      filters: [{ field: 'role', value: 'STUDENT' }],
+    })
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      entity: 'User', records: [{ id: 'u1' }, { id: 'u2' }], returned: 2, nextOffset: 12,
+    })
+    expect(mocks.queryRecords).toHaveBeenCalledWith({
+      where: { AND: [{ role: { equals: 'STUDENT' } }] }, select: { id: true },
+      skip: 10, take: 3, orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    })
+  })
+
+  it.each([
+    { entity: 'Account' },
+    { entity: 'SundaySchoolPriestNote' },
+    { entity: '__proto__' },
+    { entity: 'User', fields: ['password'] },
+    { entity: 'User', fields: ['roleAssignments'] },
+    { entity: 'SundaySchoolChild', fields: ['guardianPhone'] },
+    { entity: 'DigitalExamSheet', fields: ['answerKey'] },
+    { entity: 'User', filters: [{ field: 'password', value: 'guess' }] },
+    { entity: 'User', orderBy: 'password' },
+    { entity: 'User', limit: 101 },
+    { entity: 'User', offset: -1 },
+    { entity: 'User', filters: [{ field: 'role', value: 'UNKNOWN' }] },
+    { entity: 'User', filters: [{ field: 'isDisabled', operator: 'contains', value: true }] },
+  ])('rejects unsafe or invalid inspections %#', async args => {
+    expect((await callTool('query_app_records', args)).isError).toBe(true)
+    expect(mocks.queryRecords).not.toHaveBeenCalled()
+  })
+
+  it('counts matching records and sanitizes database failures', async () => {
+    mocks.countRecords.mockResolvedValue(12)
+    const result = await callTool('count_app_records', { entity: 'User' })
+    expect(JSON.parse(result.content[0].text)).toEqual({ entity: 'User', count: 12 })
+    mocks.countRecords.mockRejectedValue(new Error('postgres://private-password'))
+    const failed = await callTool('count_app_records', { entity: 'User' })
+    expect(failed.isError).toBe(true)
+    expect(failed.content[0].text).not.toContain('private-password')
+  })
+
+  it('checks database health without returning secret values', async () => {
+    mocks.health.mockRejectedValue(new Error('private connection string'))
+    const result = await callTool('get_app_health', {})
+    expect(JSON.parse(result.content[0].text)).toMatchObject({ database: 'error' })
+    expect(result.content[0].text).not.toContain('private connection string')
+  })
+
+  it.each(['list_app_entities', 'query_app_records', 'count_app_records', 'get_app_health'])('denies %s to non-admin contexts', async name => {
+    mocks.authenticateMcpToken.mockResolvedValue({ ok: true, context: { ...context, user: { ...context.user, role: 'SERVANT_PREP' } } })
+    const result = await callTool(name, name.includes('records') ? { entity: 'User' } : {})
+    expect(result.isError).toBe(true)
+    expect(mocks.queryRecords).not.toHaveBeenCalled()
+    expect(mocks.countRecords).not.toHaveBeenCalled()
+    expect(mocks.health).not.toHaveBeenCalled()
+  })
+
 })

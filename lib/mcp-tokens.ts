@@ -9,7 +9,7 @@ import { canModerateFeedback } from '@/lib/sunday-school-feedback'
 import type { UserRole } from '@prisma/client'
 
 /**
- * Machine credentials for the feedback MCP server (/api/mcp).
+ * Machine credentials for the application MCP server (/api/mcp).
  *
  * A token acts as the SUPER_ADMIN who owns it. Only a SHA-256 hash is stored
  * (tokens are 256 bits of randomness, so a fast hash is appropriate). Authority
@@ -58,7 +58,7 @@ export async function authenticateMcpToken(header: string | null): Promise<McpAu
       id: true,
       revokedAt: true,
       expiresAt: true,
-      user: { select: { id: true, role: true, name: true } },
+      user: { select: { id: true, role: true, name: true, isDisabled: true } },
     },
   })
   if (
@@ -70,7 +70,7 @@ export async function authenticateMcpToken(header: string | null): Promise<McpAu
   }
 
   // Re-derive authority from the current role, never from when the token was made.
-  if (!canAdministerSundaySchool(record.user.role)) {
+  if (record.user.isDisabled || !canAdministerSundaySchool(record.user.role)) {
     return { ok: false, status: 403, error: 'Token owner is no longer an administrator' }
   }
   const access = await getSundaySchoolAccess(record.user)
