@@ -92,7 +92,15 @@ export async function PATCH(
           ...(hasTitle
             ? { title: typeof body.title === "string" ? body.title.trim() || null : null }
             : {}),
-          ...(hasOwner ? { ownerId, assignedById: user.id } : {}),
+          ...(hasOwner
+            ? {
+                ownerId,
+                assignedById: user.id,
+                // A new teacher (or clearing one) needs their own week-prior
+                // reminder, not whatever was already sent to someone else.
+                ...(ownerId !== lesson.ownerId ? { reminderSentAt: null } : {}),
+              }
+            : {}),
         },
       })
 

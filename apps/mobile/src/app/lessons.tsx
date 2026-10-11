@@ -132,6 +132,20 @@ function LessonsScreen() {
           >
             <FilterChip label={OWNERSHIP_LABEL[ownership]} />
           </MenuView>
+          {!!classId && primaryClass?.canCoordinate && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Schedule lessons"
+              onPress={() => router.push({ pathname: "/lesson-scheduler", params: { classId } })}
+              style={({ pressed }) => [
+                styles.pill,
+                { backgroundColor: pressed ? colors.hover : colors.surface, borderWidth: 1, borderColor: colors.border, minHeight: 36 },
+              ]}
+            >
+              <Icon ios="calendar.badge.plus" android="event_available" size={14} color={colors.primary} />
+              <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>Scheduler</Copy>
+            </Pressable>
+          )}
         </View>
 
         {offline && resource.stale && (

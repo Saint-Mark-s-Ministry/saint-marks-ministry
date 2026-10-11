@@ -11,6 +11,7 @@ import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
 import LaunchScreen from "@/components/launch-screen";
 import { AttendanceAccessory } from "@/components/attendance-accessory";
+import { usePushNotificationRegistration } from "@/data/push-notifications";
 
 export { ErrorBoundary } from "expo-router";
 export const unstable_settings = { initialRouteName: "(tabs)" };
@@ -181,6 +182,8 @@ function AuthenticatedApp() {
   const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);
   const finishSplash = useCallback(() => setShowSplash(false), []);
+
+  usePushNotificationRegistration(user?.id);
 
   // Preserve the intended deep link across sign-in (SMM-59): while signed
   // out, there's no <Stack> mounted at all to receive one, so capture it —

@@ -108,6 +108,17 @@ describe("lessonSubtitle", () => {
     expect(lessonSubtitle(lesson({ status: "UNASSIGNED" }))).toBe("No teacher assigned");
     expect(lessonSubtitle(lesson({ status: "NEEDS_LINKS" }))).toBe("No links yet");
   });
+
+  it("leads with the teacher's name once assigned, so a coordinator's all-classes list shows who's teaching without opening each row", () => {
+    const owner = { id: "u1", name: "Mina Mark", profileImageUrl: null };
+    expect(lessonSubtitle(lesson({ status: "NEEDS_LINKS", owner }))).toBe("Mina Mark · No links yet");
+    const l = lesson({
+      status: "READY",
+      owner,
+      resources: [{ id: "r1", weeklyLessonId: "l1", title: "Slides", url: "https://x", sortOrder: 0, createdAt: "", updatedAt: "" }],
+    });
+    expect(lessonSubtitle(l)).toBe("Mina Mark · Slides");
+  });
 });
 
 describe("missingSummary / missingSummaryLabel", () => {
