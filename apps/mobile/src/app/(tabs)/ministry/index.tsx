@@ -31,7 +31,7 @@ export default function Ministry() {
   const access = ministryAccess(resource.data, classes);
   // Re-checked live, every time this menu renders — never a cached flag —
   // matching this ticket's own "re-check class authority and current
-  // Elementary grade membership through the API" (SMM-62).
+  // Elementary grade membership through the API" (SMM-71).
   const homework = useResource<SundaySchoolHomeworkResponse>(endpoint("homework"));
   const common: MinistryLink[] = [
     {
