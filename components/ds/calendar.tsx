@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Presentation } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight, Church, FileText, Presentation } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -11,12 +11,14 @@ import { cn } from '@/lib/utils'
  * Only types with a real data source are listed; add one here when a
  * feature starts producing dated items of that kind.
  */
-export type CalendarEventType = 'prep-lesson' | 'exam' | 'sunday-lesson'
+export type CalendarEventType = 'prep-lesson' | 'exam' | 'sunday-lesson' | 'feast'
 
 export const EVENT_TYPES: Record<CalendarEventType, { label: string; icon: LucideIcon; tint: string; ink: string }> = {
   'prep-lesson': { label: 'Prep lesson', icon: BookOpen, tint: 'bg-accent-tint', ink: 'text-accent-ink' },
   exam: { label: 'Exam', icon: FileText, tint: 'bg-info-tint', ink: 'text-info' },
   'sunday-lesson': { label: 'Sunday lesson', icon: Presentation, tint: 'bg-gold-tint', ink: 'text-gold' },
+  /** Church feasts from the Coptic calendar (Coptic IO). */
+  feast: { label: 'Feast', icon: Church, tint: 'bg-ok-tint', ink: 'text-ok' },
 }
 
 export interface CalendarEvent {
@@ -81,7 +83,7 @@ export function EventChip({ event }: { event: CalendarEvent }) {
   )
 }
 
-export function EventLegend({ types }: { types: CalendarEventType[] }) {
+export function EventLegend({ types, fastDays = false }: { types: CalendarEventType[]; fastDays?: boolean }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-ink-3">
       {types.map((t) => {
@@ -95,8 +97,41 @@ export function EventLegend({ types }: { types: CalendarEventType[] }) {
           </li>
         )
       })}
+      {fastDays && (
+        <li className="inline-flex items-center gap-1.5">
+          <FastMarker />
+          Fast day
+        </li>
+      )}
     </ul>
   )
+}
+
+/** The small "Fast" tag a fast day carries in its corner. */
+function FastMarker({ title }: { title?: string }) {
+  return (
+    <span
+      title={title}
+      aria-hidden
+      className="inline-flex h-4 items-center rounded-[4px] bg-warn-tint px-1 text-[10px] leading-none font-semibold text-warn"
+    >
+      Fast
+    </span>
+  )
+}
+
+/** Every day the month grid shows (Sunday first, including the spill-over from adjacent months), as day keys. */
+export function monthGridDays(month: Date): string[] {
+  return monthGridDates(month).map((date) => localDayKey(date))
+}
+
+function monthGridDates(month: Date): Date[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1)
+  const start = new Date(first)
+  start.setDate(1 - first.getDay())
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+  const weeks = Math.ceil((first.getDay() + last.getDate()) / 7)
+  return Array.from({ length: weeks * 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -107,18 +142,17 @@ export function MonthCalendar({
   events,
   onMonthChange,
   maxPerDay = 3,
+  fastDays,
 }: {
   month: Date
   events: CalendarEvent[]
   onMonthChange: (next: Date) => void
   maxPerDay?: number
+  /** Day key → the fast kept that day (e.g. "Nativity Fast"); marked in the day's corner. */
+  fastDays?: Record<string, string>
 }) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1)
-  const start = new Date(first)
-  start.setDate(1 - first.getDay())
-  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-  const weeks = Math.ceil((first.getDay() + last.getDate()) / 7)
-  const days = Array.from({ length: weeks * 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
+  const days = monthGridDates(month)
   const today = localDayKey()
   const byDay = new Map<string, CalendarEvent[]>()
   for (const e of events) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e])
@@ -161,6 +195,7 @@ export function MonthCalendar({
           const inMonth = date.getMonth() === month.getMonth()
           const dayEvents = byDay.get(key) ?? []
           const isToday = key === today
+          const fast = fastDays?.[key]
           const label =
             date.getDate() === 1 || i === 0
               ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -169,7 +204,7 @@ export function MonthCalendar({
             <div
               key={key}
               role="gridcell"
-              aria-label={`${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
+              aria-label={`${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${fast ? `, ${fast}` : ''}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
               className={cn(
                 'flex h-[104px] min-w-0 flex-col gap-[3px] overflow-hidden p-1.5',
                 i % 7 !== 0 && 'border-l border-line',
@@ -186,6 +221,11 @@ export function MonthCalendar({
                   </>
                 ) : (
                   <span className={cn('font-medium', inMonth ? 'text-ink' : 'text-ink-3')}>{label}</span>
+                )}
+                {fast && (
+                  <span className="ml-auto">
+                    <FastMarker title={fast} />
+                  </span>
                 )}
               </div>
               {dayEvents.slice(0, maxPerDay).map((e) => (

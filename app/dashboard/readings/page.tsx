@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDailyReadings, useLiturgicalDay } from '@/lib/swr'
@@ -25,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/ui/page-loading'
+import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 
 // Every signed-in role may read the Katameros; the page only needs a session.
 const anyRole = () => true
@@ -32,9 +34,23 @@ const anyRole = () => true
 const SERVICE_ORDER: ReadingService[] = ['vespers', 'matins', 'liturgy', 'evening']
 
 export default function DailyReadingsPage() {
+  // useSearchParams needs a Suspense boundary to prerender.
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <DailyReadings />
+    </Suspense>
+  )
+}
+
+function DailyReadings() {
   const { status } = useAdminGuard(anyRole)
+  const searchParams = useSearchParams()
   const [today] = useState(() => getSundaySchoolTodayDateInputValue())
-  const [date, setDate] = useState(today)
+  // Calendar feast chips link here with ?date=YYYY-MM-DD.
+  const [date, setDate] = useState(() => {
+    const requested = searchParams.get('date')
+    return isLiturgicalDateKey(requested) ? requested : today
+  })
   const [lang, setLang] = useState<LiturgicalLanguage>('en')
 
   const { data, error, isLoading } = useDailyReadings(date, lang)
@@ -86,6 +102,7 @@ export default function DailyReadingsPage() {
                 { value: 'ar', label: 'العربية' },
               ]}
             />
+            <CalendarSubscribeButton />
           </>
         }
       />

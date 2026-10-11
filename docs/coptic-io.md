@@ -13,14 +13,39 @@ it couples Servants Prep to Sunday School.
 
 | Who | Where | What |
 |---|---|---|
-| Admins, priests, prep servants | `/dashboard/admin` | "Today in the Church" card beside *Next 14 days* |
+| Admins, priests, prep servants | `/dashboard/admin` | "Today in the Church" card beside *Next 14 days*; feasts as chips on the month calendar and in *Next 14 days*, fast days marked |
 | Admins, curriculum editors | `/dashboard/admin/curriculum` | Feast and fast tags on every **upcoming** lesson date, so a meeting isn't planned on the Nativity or in Holy Week by accident |
 | Mentors | `/dashboard/mentor` | "Today in the Church" card |
 | Students | `/dashboard/student` | "Today in the Church" card in the side column |
-| Sunday School servants and coordinators | `/dashboard/servants` | "Today in the Church" card, plus the coming Sunday's feast/fast under *This Sunday* |
+| Sunday School servants and coordinators | `/dashboard/servants` | "Today in the Church" card, the coming Sunday's feast/fast under *This Sunday*, and feasts and fast days on the month calendar |
 | Sunday School servants | `/dashboard/servants/lessons` | Feast and fast tags under each Sunday, so lessons can follow the Church's year |
 | Parents | `/dashboard/parent` | "Today in the Church" card — the day's saints are a ready-made family conversation |
 | Everyone | `/dashboard/readings` ("Church → Daily readings" in the nav) | The full Katameros with verse text (English NKJV or Arabic, right-to-left), grouped by Vespers / Matins / Liturgy / Evening, and the Synaxarium stories; any date |
+
+Feast chips link to that day's readings (`/dashboard/readings?date=…`). Fast
+days carry a small "Fast" tag in the corner of the day (full name on hover and
+in the cell's accessible label) rather than a chip, so the Nativity Fast's 43
+days, or every Wednesday and Friday, don't crowd lessons out of the cell.
+
+### Subscribing in your own calendar
+
+Coptic IO publishes a live iCalendar feed of feasts, fasting periods and
+season starts (last year through two years ahead; calendar apps refresh it
+daily):
+
+```
+https://api.coptic.io/api/calendar/ical/subscribe
+```
+
+The **Subscribe** menu (`components/liturgical/calendar-subscribe-button.tsx`)
+offers it as a `webcal://` link (Apple Calendar, Outlook app, phones), a
+Google Calendar link, an Outlook.com link, and "Copy calendar link". It sits on
+both dashboard calendars, the readings page, and the footer of the "Today in the
+Church" card, so mentors, students and parents, who have no in-app calendar,
+get it too. The subscription is between the person's calendar app and Coptic
+IO directly; this app neither proxies nor sees it. The weekly Wednesday and
+Friday fasts are not in the feed (only named fasting periods), whereas the
+in-app calendar does mark them.
 
 The "Today in the Church" card shows: Coptic date (A.M.), feasts (feasts of the
 Lord in gold), liturgical season, the fast (or "No fast today"), the Lenten day
@@ -47,7 +72,7 @@ browser ──SWR──▶ /api/liturgical/{day,readings,calendar}   (requireAut
 | `app/api/liturgical/readings` | Full Katameros + Synaxarium text. 503 when Coptic IO is unreachable. |
 | `app/api/liturgical/calendar` | `?dates=a,b,c` (≤ 60): Coptic date, fast and feasts per day, for lesson schedules. |
 | `lib/swr.ts` | `useLiturgicalDay`, `useDailyReadings`, `useLiturgicalCalendar` (chunks >60 dates). |
-| `components/liturgical/` | `TodayInChurch` card and `LiturgicalDateTags`. |
+| `components/liturgical/` | `TodayInChurch` card, `LiturgicalDateTags`, `CalendarSubscribeButton`, and `useLiturgicalCalendarOverlay` (feast chips + fast markers for `MonthCalendar`). |
 
 The routes live under `app/api/liturgical/`, deliberately **not** under
 `app/api/sunday-school/`, to stay out of that directory's naming collision.
@@ -108,7 +133,5 @@ No API key is required.
   English prose gaps close.
 - **Feast reminders** via the existing web-push/cron plumbing (e.g. the evening
   before a feast of the Lord). Needs an opt-in so it never feels like spam.
-- **Calendar subscription link** (`webcal://api.coptic.io/api/calendar/ical/subscribe`)
-  on the settings page.
 - **Exam-section tie-ins**: link Synaxarium search results from the Church
   History section's lessons.

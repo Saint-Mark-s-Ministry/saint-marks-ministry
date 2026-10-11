@@ -12,7 +12,7 @@ import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
-import { EventLegend, MonthCalendar, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
+import { EventLegend, MonthCalendar, monthGridDays, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
 import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useLiturgicalCalendar, useSundaySchoolDashboard, useSundaySchoolLessons } from '@/lib/swr'
@@ -29,6 +29,8 @@ import type {
   SundaySchoolWeeklyLessonsResponse,
 } from '@/types/sunday-school'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
+import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
+import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
 
 const UNBANDED = '__unbanded__'
@@ -56,6 +58,10 @@ export default function SundaySchoolDashboardPage() {
   })
   const weeklyLessons = useMemo(() => (lessonsData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? [], [lessonsData])
 
+  // Feasts and fasts for the month on screen.
+  const liturgicalDays = useMemo(() => monthGridDays(month), [month])
+  const liturgical = useLiturgicalCalendarOverlay(liturgicalDays)
+
   // One calendar chip per Sunday: the lesson title when there is one class, else a count.
   const events = useMemo<CalendarEvent[]>(() => {
     const byDay = new Map<string, typeof weeklyLessons>()
@@ -63,7 +69,7 @@ export default function SundaySchoolDashboardPage() {
       const day = utcDayKey(l.sundayDate)
       byDay.set(day, [...(byDay.get(day) ?? []), l])
     }
-    return [...byDay.entries()].map(([day, list]) => ({
+    const lessonEvents: CalendarEvent[] = [...byDay.entries()].map(([day, list]) => ({
       id: `ss-${day}`,
       day,
       type: 'sunday-lesson' as const,
@@ -71,7 +77,8 @@ export default function SundaySchoolDashboardPage() {
       meta: `${list.filter((l) => l.status === 'READY').length} of ${list.length} ready`,
       href: '/dashboard/servants/lessons',
     }))
-  }, [weeklyLessons])
+    return [...lessonEvents, ...liturgical.events]
+  }, [weeklyLessons, liturgical.events])
 
   // An age-group coordinator runs several classes, so group the list by band.
   // A servant with one class sees a single group and never notices.
@@ -180,8 +187,17 @@ export default function SundaySchoolDashboardPage() {
       />
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Panel title="Calendar" actions={<EventLegend types={['sunday-lesson']} />} className="hidden md:block">
-          <MonthCalendar month={month} events={events} onMonthChange={setMonth} />
+        <Panel
+          title="Calendar"
+          actions={
+            <>
+              <EventLegend types={['sunday-lesson', 'feast']} fastDays />
+              <CalendarSubscribeButton variant="ghost" />
+            </>
+          }
+          className="hidden md:block"
+        >
+          <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} />
         </Panel>
 
         <div className="flex min-w-0 flex-col gap-5">

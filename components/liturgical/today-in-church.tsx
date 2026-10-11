@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ds/status-badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLiturgicalDay } from '@/lib/swr'
+import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { headlineReading, isLordlyFeast, notableFeasts, type LiturgicalDay } from '@/lib/liturgical'
 
 const SAINTS_SHOWN = 3
@@ -40,6 +41,14 @@ export function TodayInChurch({ className }: { className?: string }) {
         </Button>
       }
       bodyClassName="px-4 py-3"
+      footer={
+        <>
+          <span>Feasts and fasts in your own calendar</span>
+          <span className="ml-auto">
+            <CalendarSubscribeButton variant="ghost" />
+          </span>
+        </>
+      }
     >
       {isLoading ? (
         <div className="flex flex-col gap-2" aria-hidden>

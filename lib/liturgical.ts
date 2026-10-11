@@ -284,3 +284,33 @@ export function formatPassageReference(bookName: string, chapters: ScripturePass
   }
   return `${bookName} ${parts.join('; ')}`
 }
+
+// ── Calendar subscription ───────────────────────────────────────────────────
+
+/**
+ * Coptic IO's public iCalendar feed: feasts, fasting periods and season starts
+ * for last year through two years ahead, refreshed daily by the calendar app.
+ * People's calendar apps fetch it straight from Coptic IO; nothing about them
+ * passes through this app.
+ */
+export const COPTIC_CALENDAR_FEED_URL = 'https://api.coptic.io/api/calendar/ical/subscribe'
+export const COPTIC_CALENDAR_NAME = 'Coptic Orthodox Calendar'
+
+export interface CalendarSubscriptionLinks {
+  /** Apple Calendar, Outlook desktop and most phone calendars. */
+  webcal: string
+  google: string
+  outlookWeb: string
+  /** The plain feed URL, for "subscribe from URL" dialogs. */
+  https: string
+}
+
+export function calendarSubscriptionLinks(feedUrl: string = COPTIC_CALENDAR_FEED_URL): CalendarSubscriptionLinks {
+  const webcal = feedUrl.replace(/^https?:\/\//, 'webcal://')
+  return {
+    webcal,
+    google: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`,
+    outlookWeb: `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl)}&name=${encodeURIComponent(COPTIC_CALENDAR_NAME)}`,
+    https: feedUrl,
+  }
+}
