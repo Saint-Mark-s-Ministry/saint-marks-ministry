@@ -2,6 +2,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { UserRole } from '@prisma/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mocks = vi.hoisted(() => ({ hasMentees: false }))
+
+vi.mock('@/lib/swr', () => ({
+  useMenteePageAccess: () => ({ hasMentees: mocks.hasMentees }),
+  useDigitalExams: () => ({ data: undefined }),
+}))
+
 vi.mock('next-auth/react', () => ({
   useSession: () => ({ data: { user: { role: UserRole.SUPER_ADMIN } }, status: 'authenticated' }),
 }))
@@ -15,6 +22,7 @@ import { CommandPalette } from '@/components/command-palette'
 
 describe('CommandPalette shortcut hint', () => {
   beforeEach(() => {
+    mocks.hasMentees = false
     vi.stubGlobal('ResizeObserver', class {
       observe() {}
       unobserve() {}
@@ -26,6 +34,16 @@ describe('CommandPalette shortcut hint', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
+  it('hides the mentee shortcut until assignments exist', async () => {
+    const { rerender } = render(<CommandPalette />)
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    const dialog = await screen.findByRole('dialog', { name: 'Command Palette' })
+    expect(within(dialog).queryByText('Mentees')).not.toBeInTheDocument()
+    mocks.hasMentees = true
+    rerender(<CommandPalette />)
+    expect(within(dialog).getByText('Mentees')).toBeInTheDocument()
   })
 
   it('shows Ctrl+K on Windows desktop and hides the hint on phones', async () => {

@@ -70,6 +70,7 @@ export interface NavGroup {
 }
 
 export interface NavUser extends DashboardUser {
+  hasMentees?: boolean
   canAccessContactBook?: boolean
   isAsyncStudent?: boolean
   sundaySchool?: { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess?: boolean } | null
@@ -300,7 +301,12 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
 
 /** Super Admins use Users; the directory is for explicitly approved other users. */
 export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
-  const groups = ministryNavigationFor(user, ministry)
+  const groups = ministryNavigationFor(user, ministry).map(group => ({
+    ...group,
+    items: group.items.filter(item => user.hasMentees || (
+      item.href !== '/dashboard/admin/mentees' && item.href !== '/dashboard/mentor/my-mentees'
+    )),
+  }))
   groups.push({ label: 'Church', items: [{ href: DAILY_READINGS_HREF, label: 'Daily readings', icon: BookOpenText }] })
   if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
