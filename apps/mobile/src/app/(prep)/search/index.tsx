@@ -5,7 +5,7 @@ import { CompactRow, Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTit
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
-import { canViewStudentRoster, eligibilityLabel, searchStudents } from "@/data/prep-students";
+import { canViewStudentRoster, eligibilityLabel, isAdminLike, searchStudents } from "@/data/prep-students";
 
 type StudentAnalytics = {
   studentId: string;
@@ -82,7 +82,13 @@ export default function PrepSearch() {
                         soft={s.graduationEligible ? colors.successSoft : colors.warningSoft}
                       />
                     }
-                    onPress={() => router.push({ pathname: "/prep-student/[id]", params: { id: s.studentId } })}
+                    onPress={() =>
+                      router.push(
+                        isAdminLike(user?.role)
+                          ? { pathname: "/prep-student/[id]", params: { id: s.studentId } }
+                          : { pathname: "/prep-mentee/[id]", params: { id: s.studentId } },
+                      )
+                    }
                   />
                 ))}
               </ListSurface>

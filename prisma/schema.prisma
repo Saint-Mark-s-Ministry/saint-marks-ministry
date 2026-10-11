@@ -302,6 +302,11 @@ model User {
   mustChangePassword Boolean   @default(true)
   isDisabled         Boolean   @default(false)
   canAccessContactBook Boolean @default(false)
+  // SUPER_ADMIN-only view preference: which Sunday School classes this
+  // account defaults to seeing, instead of every class in the ministry.
+  // Pure UI convenience — never consulted for authorization. A class id
+  // dropped in a later academic year is simply ignored, not migrated.
+  pinnedSundaySchoolClassIds String[] @default([])
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

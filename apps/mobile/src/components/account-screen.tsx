@@ -107,6 +107,15 @@ export function AccountScreen() {
           onPress={() => router.push("/academic-years")}
         />
 
+        {user?.role === "SUPER_ADMIN" && (
+          <RowLink
+            title="My main classes"
+            subtitle="Which classes the Classes screen shows by default"
+            icon={<Icon ios="star" android="star" size={16} color={colors.warning} />}
+            onPress={() => router.push("/main-classes")}
+          />
+        )}
+
         <View style={{ gap: 10 }}>
           <RowLink
             title="Privacy Policy"
