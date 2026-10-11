@@ -249,7 +249,7 @@ database; keep new logic in that shape where you can.
    flagged `isExamDay` are excluded entirely.
 2. Overall exam average ≥ 75% across all sections.
 3. At least 60% in every individual exam section.
-4. Both `YEAR_1` and `YEAR_2` completed.
+4. Both curriculum years completed. Async students have no cohort year; their serving requirement uses active rotations. See `docs/async-student-year-migration.md` for the database invariant and release workflow.
 
 **Key fields**
 
@@ -261,7 +261,7 @@ database; keep new logic in that shape where you can.
 **Enums** (all from `@prisma/client`)
 
 - `UserRole`: SUPER_ADMIN, PRIEST, SERVANT_PREP, MENTOR, STUDENT, SERVANT
-- `YearLevel`: YEAR_1, YEAR_2
+- `YearLevel`: YEAR_1, YEAR_2 — enrollment years are null for async students; in-person enrollments require a year
 - `AttendanceStatus`: PRESENT, LATE, ABSENT, EXCUSED
 - `LessonStatus`: SCHEDULED, CANCELLED, NO_CLASS, COMPLETED
 - `ExamSectionType`: 8 sections (BIBLE_STUDIES, DOGMA, …)

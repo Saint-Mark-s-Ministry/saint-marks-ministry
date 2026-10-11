@@ -11,6 +11,7 @@ import {
   elapsedRotationWeeks,
   rotationAttendanceToDate,
   rotationRequirementMet,
+  rotationAttendancePercentage,
 } from '@/lib/sunday-school-utils'
 
 // Mock SundaySchoolLogStatus since it comes from Prisma
@@ -313,5 +314,27 @@ describe('async rotations', () => {
       { yearLevel: 'YEAR_2', isActive: true, attendance: { met: true } },
       { yearLevel: 'YEAR_1', isActive: true, attendance: { met: false } },
     ], 'YEAR_2')).toEqual({ needsRotation: false, met: false })
+  })
+
+  it('uses the lowest active rotation percentage as graduation evidence', () => {
+    expect(rotationAttendancePercentage([])).toBeNull()
+    expect(rotationAttendancePercentage([
+      { isActive: true, attendance: { percentage: 100 } },
+      { isActive: true, attendance: { percentage: 50 } },
+      { isActive: false, attendance: { percentage: 0 } },
+      { isActive: true, attendance: null },
+    ])).toBe(50)
+  })
+
+  it('checks all active yearless rotations without requiring a cohort year', () => {
+    expect(rotationRequirementMet([], null)).toEqual({ needsRotation: true, met: false })
+    expect(rotationRequirementMet([{ yearLevel: null, isActive: false, attendance: { met: true } }], null))
+      .toEqual({ needsRotation: true, met: false })
+    expect(rotationRequirementMet([{ yearLevel: null, isActive: true, attendance: null }], null))
+      .toEqual({ needsRotation: false, met: true })
+    expect(rotationRequirementMet([
+      { yearLevel: null, isActive: true, attendance: { met: true } },
+      { yearLevel: null, isActive: true, attendance: { met: false } },
+    ], null)).toEqual({ needsRotation: false, met: false })
   })
 })

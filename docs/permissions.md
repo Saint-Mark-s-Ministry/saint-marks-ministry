@@ -73,7 +73,7 @@ Active Servants Prep students may create, reschedule, and cancel their own
 makeup exam bookings through `/api/makeup-exams`. This self-service exception
 does not grant exam or score editing. The route resolves current role tags
 from the database, filters eligible failed or missed exams to the student's program
-years and enrollment academic years (the active academic year when the
+years (both curriculum years for async students) and enrollment academic years (the active academic year when the
 starting year is unknown), and ignores client-supplied student identities.
 Only prep administrators and priests can read the full booking list; mentors
 and Sunday School-only participants have no access to it.

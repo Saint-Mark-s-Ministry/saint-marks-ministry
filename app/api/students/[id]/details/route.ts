@@ -1,3 +1,4 @@
+import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -151,9 +152,8 @@ export async function GET(
       where: {
         ...examFilter,
         yearLevel: {
-          in: student.enrollments?.[0]?.yearLevel ?
-            ['BOTH', student.enrollments[0].yearLevel] :
-            ['BOTH']
+          in: student.enrollments?.[0] ?
+            applicableExamYears(student.enrollments[0].yearLevel, student.enrollments[0].isAsyncStudent) : []
         },
         examDate: {
           gte: sixMonthsAgo

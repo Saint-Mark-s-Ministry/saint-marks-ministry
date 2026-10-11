@@ -34,7 +34,7 @@ interface SSWeek {
 interface SSAssignment {
   id: string
   grade: string
-  yearLevel: string
+  yearLevel: string | null
   academicYear: { id: string; name: string }
   totalWeeks: number
   startDate: string
@@ -54,8 +54,7 @@ interface SSProgress {
   studentId: string
   assignments: SSAssignment[]
   graduation: {
-    year1Met: boolean
-    year2Met: boolean
+    needsRotation: boolean
     allMet: boolean
   }
 }
@@ -164,7 +163,7 @@ export default function SundaySchoolPage() {
           <Panel
             key={assignment.id}
             title="Serving stint"
-            description={`${GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${assignment.academicYear.name}`}
+            description={`${GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.academicYear.name}`}
             actions={assignment.isActive ? <StatusBadge tone="gold">Active</StatusBadge> : <StatusBadge tone="neutral">Finished</StatusBadge>}
           >
             <div className="flex flex-col gap-4 px-4 py-4">

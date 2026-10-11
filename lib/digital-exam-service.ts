@@ -27,8 +27,8 @@ export function publicAttempt(attempt: DigitalExamAttempt | null, released = fal
 export const examSummarySelect = { id: true, examDate: true, yearLevel: true, totalPoints: true, academicYear: { select: { name: true } }, examSection: { select: { displayName: true } } } as const
 export async function eligibleForExam(db: Tx | typeof prisma, studentId: string, exam: Pick<Exam, 'id' | 'academicYearId' | 'yearLevel'>) {
   if (await db.examScore.findUnique({ where: { examId_studentId: { examId: exam.id, studentId } }, select: { id: true } }) && !await db.digitalExamAttempt.findFirst({ where: { examId: exam.id, studentId, attemptNumber: { gt: 1 } }, select: { id: true } })) return false
-  const enrollment = await db.studentEnrollment.findUnique({ where: { studentId }, select: { isActive: true, status: true, yearLevel: true, academicYear: { select: { startDate: true } } } })
-  if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || !eligibleYear(enrollment.yearLevel, exam.yearLevel)) return false
+  const enrollment = await db.studentEnrollment.findUnique({ where: { studentId }, select: { isActive: true, status: true, yearLevel: true, isAsyncStudent: true, academicYear: { select: { startDate: true } } } })
+  if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || !eligibleYear(enrollment.yearLevel, exam.yearLevel, enrollment.isAsyncStudent)) return false
   const year = await db.academicYear.findUnique({ where: { id: exam.academicYearId }, select: { startDate: true, isActive: true } })
   return !!year && (enrollment.academicYear ? year.startDate >= enrollment.academicYear.startDate : year.isActive)
 }
@@ -99,7 +99,7 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
       // Verify enrollment separately: an existing grade alone does not confer access.
       const enrollment = await tx.studentEnrollment.findUnique({ where: { studentId }, include: { academicYear: true } })
       const year = await tx.academicYear.findUniqueOrThrow({ where: { id: exam.academicYearId } })
-      if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || !eligibleYear(enrollment.yearLevel, exam.yearLevel) || (enrollment.academicYear ? year.startDate < enrollment.academicYear.startDate : !year.isActive)) throw new Error('Forbidden')
+      if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || !eligibleYear(enrollment.yearLevel, exam.yearLevel, enrollment.isAsyncStudent) || (enrollment.academicYear ? year.startDate < enrollment.academicYear.startDate : !year.isActive)) throw new Error('Forbidden')
       if (prior) await tx.digitalExamAttemptArchive.create({ data: { attemptId: prior.id, attemptNumber: prior.attemptNumber, approvedBy: user.id, snapshot: JSON.parse(JSON.stringify({ ...prior, sessionHash: undefined, previousScore: score })) } })
       const data = { answers: Array(QUESTION_COUNT).fill('') as string[], sessionHash: sessionHash(randomUUID()), state: 'PAUSED' as const, retakeReady: true, attemptNumber: (prior?.attemptNumber ?? 1) + 1, resultReleasedAt: null, correctCount: null, submittedAt: null, pausedAt: null, pageVisible: true, startedAt: new Date(), lastSeenAt: new Date() }
       const next = prior ? await tx.digitalExamAttempt.update({ where: { id: prior.id }, data: { ...data, revision: { increment: 1 } } }) : await tx.digitalExamAttempt.create({ data: { ...data, examId, studentId } })

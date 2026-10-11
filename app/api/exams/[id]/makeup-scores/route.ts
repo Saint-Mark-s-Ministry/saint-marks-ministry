@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: Context) {
     if (!exam) throw new Error('Not found')
     const [scores, enrollments] = await Promise.all([
       prisma.examScore.findMany({ where: { examId: id }, include: { student: { select: { id: true, name: true } }, makeupScores: { orderBy: { takenDate: 'desc' } } } }),
-      prisma.studentEnrollment.findMany({ where: { isActive: true, status: 'ACTIVE', ...(exam.yearLevel === 'YEAR_2' ? { yearLevel: 'YEAR_2' } : {}) }, select: { student: { select: { id: true, name: true } } } }),
+      prisma.studentEnrollment.findMany({ where: { isActive: true, status: 'ACTIVE', ...(exam.yearLevel === 'YEAR_2' ? { OR: [{ yearLevel: 'YEAR_2' }, { isAsyncStudent: true }] } : {}) }, select: { student: { select: { id: true, name: true } } } }),
     ])
     const people = new Map(enrollments.map(row => [row.student.id, row.student]))
     scores.filter(row => row.makeupScores.length).forEach(row => people.set(row.student.id, row.student))
@@ -52,7 +52,7 @@ async function save(request: Request, { params }: Context, editing: boolean) {
         if (!record?.makeupScores.some(attempt => attempt.id === input.attemptId)) throw new Error('Not found')
       } else {
         const enrollment = await tx.studentEnrollment.findUnique({ where: { studentId: input.studentId } })
-        if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || (exam.yearLevel === 'YEAR_2' && enrollment.yearLevel !== 'YEAR_2')) return null
+        if (!enrollment?.isActive || enrollment.status !== 'ACTIVE' || (exam.yearLevel === 'YEAR_2' && !enrollment.isAsyncStudent && enrollment.yearLevel !== 'YEAR_2')) return null
         if (exam.examDate.toISOString().slice(0, 10) >= makeupToday()) return null
         if (record && record.percentage >= exam.examSection.passingScore) return null
       }

@@ -26,7 +26,7 @@ export interface EditableStudent {
   enrollments?: Array<{
     id: string
     studentId: string
-    yearLevel: YearLevel
+    yearLevel: YearLevel | null
     status: EnrollmentStatus
     academicYearId: string | null
     attendanceStartDate: string | null
@@ -115,6 +115,7 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
   const { data: fathers = [] } = useSWR<Option[]>('/api/fathers-of-confession', fetcher, staticDataConfig)
   const { data: years = [] } = useSWR<Option[]>('/api/academic-years', fetcher, staticDataConfig)
   const [saving, setSaving] = useState(false)
+  const [choosingInPersonYearFor, setChoosingInPersonYearFor] = useState<string | null>(null)
 
   const save = async (url: string, body: object, message: string, method = 'PATCH') => {
     setSaving(true)
@@ -124,8 +125,10 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       toast.success(message, { description: formatToastTimestamp() })
       onRefresh()
+      return true
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to save')
+      return false
     } finally {
       setSaving(false)
     }
@@ -200,17 +203,26 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                   Enroll in {yearLevel === YearLevel.YEAR_1 ? 'Year 1' : 'Year 2'}
                 </Button>
               ))}
+              {canEdit && (
+                <Button size="sm" variant="outline" disabled={saving}
+                  onClick={() => save('/api/enrollments', { studentId: student.id, isAsyncStudent: true, isActive: true }, 'Student enrolled as async', 'POST')}
+                >
+                  Enroll as async
+                </Button>
+              )}
             </div>
           ) : (
             <>
-              <SelectField
-                id="student-year-level"
-                label="Year level"
-                value={enrollment.yearLevel}
-                disabled={enrollmentLocked}
-                options={[{ value: YearLevel.YEAR_1, label: 'Year 1' }, { value: YearLevel.YEAR_2, label: 'Year 2' }]}
-                onChange={(yearLevel) => saveEnrollment({ yearLevel }, 'Year level updated')}
-              />
+              {!enrollment.isAsyncStudent && (
+                <SelectField
+                  id="student-year-level"
+                  label="Year level"
+                  value={enrollment.yearLevel}
+                  disabled={enrollmentLocked}
+                  options={[{ value: YearLevel.YEAR_1, label: 'Year 1' }, { value: YearLevel.YEAR_2, label: 'Year 2' }]}
+                  onChange={(yearLevel) => saveEnrollment({ yearLevel }, 'Year level updated')}
+                />
+              )}
               <SelectField
                 id="student-status"
                 label="Enrollment status"
@@ -260,13 +272,31 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                       className="h-4 w-4 rounded"
                       checked={enrollment.isAsyncStudent}
                       disabled={enrollmentLocked}
-                      onChange={(e) => saveEnrollment(
-                        { isAsyncStudent: e.target.checked },
-                        e.target.checked ? 'Marked as async — attendance is recorded from signed slips' : 'Async status removed'
-                      )}
+                      onChange={(e) => {
+                        if (!e.target.checked) {
+                          setChoosingInPersonYearFor(enrollment.id)
+                        } else {
+                          saveEnrollment({ isAsyncStudent: true }, 'Marked as async — attendance is recorded from signed slips')
+                        }
+                      }}
                     />
                     Attends asynchronously (signed attendance slips)
                   </label>
+                  {enrollment.isAsyncStudent && choosingInPersonYearFor === enrollment.id && (
+                    <div className="space-y-2">
+                      <label htmlFor="student-in-person-year" className="text-sm">Choose a year to switch to in-person</label>
+                      <select id="student-in-person-year" className={selectClass} value="" disabled={enrollmentLocked}
+                        onChange={async (e) => {
+                          if (await saveEnrollment({ isAsyncStudent: false, yearLevel: e.target.value }, 'Switched to in-person')) setChoosingInPersonYearFor(null)
+                        }}
+                      >
+                        <option value="" disabled>Choose year</option>
+                        <option value={YearLevel.YEAR_1}>Year 1</option>
+                        <option value={YearLevel.YEAR_2}>Year 2</option>
+                      </select>
+                      <Button size="sm" variant="ghost" disabled={saving} onClick={() => setChoosingInPersonYearFor(null)}>Cancel</Button>
+                    </div>
+                  )}
                   {enrollment.isAsyncStudent && (
                     <Input
                       key={enrollment.asyncReason ?? ''}

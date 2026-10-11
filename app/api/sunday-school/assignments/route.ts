@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { UserRole, SundaySchoolGrade, YearLevel } from "@prisma/client"
+import { UserRole, SundaySchoolGrade } from "@prisma/client"
 import { canManageSundaySchool, isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
 import { rotationAttendanceToDate, rotationGradeForClassLevel } from "@/lib/sunday-school-utils"
@@ -228,7 +228,7 @@ export async function POST(request: Request) {
         grade: grade as SundaySchoolGrade,
         classId: classId || null,
         academicYearId,
-        yearLevel: enrollment.yearLevel as YearLevel,
+        yearLevel: null,
         totalWeeks: weeks,
         startDate: parsedStartDate,
         assignedBy: user.id,

@@ -1,3 +1,4 @@
+import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from 'next/server'
 import { Prisma, RoleTag } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -24,7 +25,7 @@ async function eligibleExams(studentId: string) {
   const exams = await prisma.exam.findMany({
     where: {
       // Year 2 students may also retake failed or missed Year 1 exams.
-      yearLevel: { in: enrollment.yearLevel === 'YEAR_2' ? ['YEAR_1', 'YEAR_2', 'BOTH'] : ['YEAR_1', 'BOTH'] },
+      yearLevel: { in: applicableExamYears(enrollment.yearLevel, enrollment.isAsyncStudent, true) },
       examDate: { lt: new Date(`${makeupToday()}T00:00:00Z`) },
       ...(enrollment.academicYear ? { academicYear: { startDate: { gte: enrollment.academicYear.startDate } } } : { academicYear: { isActive: true } }),
     },

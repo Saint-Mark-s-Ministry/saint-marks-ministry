@@ -13,7 +13,8 @@ interface SortableStudent {
   id: string
   name: string
   enrollments?: Array<{
-    yearLevel: 'YEAR_1' | 'YEAR_2'
+    yearLevel: 'YEAR_1' | 'YEAR_2' | null
+    isAsyncStudent?: boolean
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
   }>
 }
@@ -38,7 +39,7 @@ function eligibilityValue(
   studentAnalytics: SortableStudentAnalytics | undefined
 ): string | null {
   const enrollment = student.enrollments?.[0]
-  if (enrollment?.yearLevel === 'YEAR_2' && enrollment.status === 'ACTIVE') {
+  if ((enrollment?.isAsyncStudent || enrollment?.yearLevel === 'YEAR_2') && enrollment.status === 'ACTIVE') {
     return studentAnalytics?.graduationEligible ? 'Eligible' : 'Review'
   }
   return enrollment?.status === 'GRADUATED' ? 'Graduated' : null

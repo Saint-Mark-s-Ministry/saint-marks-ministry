@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: Context) {
     }
     const [enrollments, attempts, scores] = await Promise.all([
       prisma.studentEnrollment.findMany({
-        where: { isActive: true, status: 'ACTIVE', yearLevel: exam.yearLevel === 'BOTH' ? undefined : exam.yearLevel,
+        where: { isActive: true, status: 'ACTIVE', ...(exam.yearLevel === 'BOTH' ? {} : { AND: [{ OR: [{ isAsyncStudent: true }, { yearLevel: exam.yearLevel }] }] }),
           OR: [{ academicYear: { startDate: { lte: exam.academicYear.startDate } } }, ...(exam.academicYear.isActive ? [{ academicYearId: null }] : [])],
           student: { isDisabled: false, roleAssignments: { some: { tag: 'SERVANTS_PREP_STUDENT', revokedAt: null } } },
         },

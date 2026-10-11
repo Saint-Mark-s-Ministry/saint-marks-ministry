@@ -11,7 +11,7 @@ import {
   excludeAsyncPeriodRecords,
   type AttendanceCounts
 } from "@/lib/attendance-utils"
-import { rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
+import { rotationAttendanceToDate, rotationRequirementMet, rotationAttendancePercentage } from "@/lib/sunday-school-utils"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -129,7 +129,8 @@ export async function GET(request: Request) {
     // Year mapping is PER-STUDENT based on their current year level:
     // - Year 2 students: Year 1 = previous year, Year 2 = current year
     // - Year 1 students: Year 1 = current year, Year 2 = N/A (not started yet)
-    const getStudentYearMapping = (studentYearLevel: string) => {
+    const getStudentYearMapping = (studentYearLevel: string | null) => {
+      if (studentYearLevel === null) return { year1AcademicYearId: null, year2AcademicYearId: null }
       if (studentYearLevel === 'YEAR_2') {
         return {
           year1AcademicYearId: previousYearId,
@@ -290,7 +291,7 @@ export async function GET(request: Request) {
     }
 
     // Build SS assignment lookup per student
-    type SSAssignment = { studentId: string; yearLevel: string; isActive: boolean; startDate: Date; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
+    type SSAssignment = { studentId: string; yearLevel: string | null; isActive: boolean; startDate: Date; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
     const ssAssignmentsByStudent = new Map<string, SSAssignment[]>()
     for (const assignment of ssAssignments as SSAssignment[]) {
       if (!ssAssignmentsByStudent.has(assignment.studentId)) {
@@ -391,7 +392,7 @@ export async function GET(request: Request) {
           attendance: rotationAttendanceToDate(ssa),
         }))
         sundaySchoolMet = rotationRequirementMet(rotations, enrollment.yearLevel).met
-        rotationPercentage = rotations.find((r) => r.isActive && r.yearLevel === enrollment.yearLevel)?.attendance?.percentage ?? null
+        rotationPercentage = rotationAttendancePercentage(rotations)
       }
 
       const graduationEligible = isGraduationEligible({

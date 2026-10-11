@@ -195,7 +195,7 @@ export async function GET() {
     const atRiskStudents: Array<{
       id: string
       name: string
-      yearLevel: string
+      yearLevel: string | null
       attendanceRate: number | null
       examAverage: number | null
       issues: string[]

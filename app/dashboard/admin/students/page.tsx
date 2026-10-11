@@ -44,7 +44,7 @@ interface Student {
   profileImageUrl?: string | null
   enrollments?: Array<{
     id: string
-    yearLevel: 'YEAR_1' | 'YEAR_2'
+    yearLevel: 'YEAR_1' | 'YEAR_2' | null
     isActive: boolean
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
     notes?: string
@@ -59,7 +59,7 @@ interface Student {
 interface StudentAnalytics {
   studentId: string
   studentName: string
-  yearLevel: 'YEAR_1' | 'YEAR_2'
+  yearLevel: 'YEAR_1' | 'YEAR_2' | null
   attendancePercentage: number | null
   year1AttendancePercentage: number | null
   year2AttendancePercentage: number | null  // null for Year 1 students (not in Year 2 yet)
@@ -339,11 +339,13 @@ function StudentsManagementContent() {
     try {
       // Get enrollment IDs
       const enrollmentIds = studentIds
-        .map(id => students.find(s => s.id === id)?.enrollments?.[0]?.id)
+        .map(id => students.find(s => s.id === id)?.enrollments?.[0])
+        .filter(enrollment => !enrollment?.isAsyncStudent)
+        .map(enrollment => enrollment?.id)
         .filter((id): id is string => !!id)
 
       if (enrollmentIds.length === 0) {
-        toast.error('No valid enrollments found')
+        toast.error('No in-person enrollments selected')
         return
       }
 
@@ -526,7 +528,7 @@ function StudentsManagementContent() {
       const enrollment = student.enrollments?.[0]
       if (filterStatus === 'review') {
         const a = analytics.find((x) => x.studentId === student.id)
-        if (!(enrollment?.yearLevel === 'YEAR_2' && enrollment.status === 'ACTIVE' && !a?.graduationEligible)) return false
+        if (!((enrollment?.isAsyncStudent || enrollment?.yearLevel === 'YEAR_2') && enrollment.status === 'ACTIVE' && !a?.graduationEligible)) return false
       } else if (filterStatus !== 'all' && enrollment?.status !== filterStatus) {
         return false
       }
@@ -562,7 +564,7 @@ function StudentsManagementContent() {
   const reviewCount = students.filter((s) => {
     const e = s.enrollments?.[0]
     const a = analytics.find((x) => x.studentId === s.id)
-    return e?.yearLevel === 'YEAR_2' && e.status === 'ACTIVE' && !a?.graduationEligible
+    return (e?.isAsyncStudent || e?.yearLevel === 'YEAR_2') && e.status === 'ACTIVE' && !a?.graduationEligible
   }).length
   const withdrawnCount = students.filter((s) => s.enrollments?.[0]?.status === 'WITHDRAWN').length
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
@@ -601,7 +603,7 @@ function StudentsManagementContent() {
         onGraduateEligible={() => {
           const eligibleStudents = students.filter((s) => {
             const studentAnalytics = analytics.find((a) => a.studentId === s.id)
-            return s.enrollments?.[0]?.yearLevel === 'YEAR_2' && s.enrollments?.[0]?.status === 'ACTIVE' && studentAnalytics?.graduationEligible
+            return (s.enrollments?.[0]?.isAsyncStudent || s.enrollments?.[0]?.yearLevel === 'YEAR_2') && s.enrollments?.[0]?.status === 'ACTIVE' && studentAnalytics?.graduationEligible
           })
           setSelectedStudents(new Set(eligibleStudents.map((s) => s.id)))
           if (eligibleStudents.length > 0) setShowGraduateDialog(true)
@@ -757,7 +759,7 @@ function StudentsManagementContent() {
                             </td>
                           )}
                           <td className="px-3">
-                            <Metric value={preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={!preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
+                            <Metric value={enrollment?.isAsyncStudent ? a?.attendancePercentage : preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={!preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
                           </td>
                           <td className="px-3">
                             <Metric value={a?.avgExamScore} detail={!preview && a && a.avgExamScore !== null ? `${a.examCount} exam${a.examCount !== 1 ? 's' : ''}` : undefined} width={48} />
@@ -795,8 +797,8 @@ function StudentsManagementContent() {
                         <span className="flex min-w-0 flex-col">
                           <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
                           <span className="truncate text-xs text-ink-3">
-                            {enrollment ? (enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
-                            {' · '}Att {(enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
+                            {enrollment ? (enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
+                            {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
                             {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
                           </span>
                         </span>
@@ -824,7 +826,7 @@ function StudentsManagementContent() {
                   <div className="flex flex-wrap gap-1.5">
                     {preview.enrollments?.[0] && <EnrollmentBadge status={preview.enrollments[0].status} />}
                     <EligibilityBadge enrollment={preview.enrollments?.[0]} eligible={previewAnalytics?.graduationEligible} />
-                    {preview.enrollments?.[0] && (
+                    {preview.enrollments?.[0] && !preview.enrollments[0].isAsyncStudent && (
                       <StatusBadge tone="neutral" dot={false}>
                         {preview.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
                       </StatusBadge>
@@ -847,8 +849,12 @@ function StudentsManagementContent() {
             <div className="flex flex-col gap-4">
               <div className="grid gap-3">
                 {[
-                  { label: 'Year 1 attendance', value: previewAnalytics?.year1AttendancePercentage, detail: previewAnalytics ? `${previewAnalytics.year1AttendedLessons} of ${previewAnalytics.year1TotalLessons} lessons` : undefined },
-                  { label: 'Year 2 attendance', value: previewAnalytics?.year2AttendancePercentage, detail: previewAnalytics?.year2TotalLessons ? `${previewAnalytics.year2AttendedLessons} of ${previewAnalytics.year2TotalLessons} lessons` : undefined },
+                  ...(preview.enrollments?.[0]?.isAsyncStudent ? [
+                    { label: 'Attendance', value: previewAnalytics?.attendancePercentage, detail: previewAnalytics ? `${previewAnalytics.attendedLessons} of ${previewAnalytics.totalLessons} lessons` : undefined },
+                  ] : [
+                    { label: 'Year 1 attendance', value: previewAnalytics?.year1AttendancePercentage, detail: previewAnalytics ? `${previewAnalytics.year1AttendedLessons} of ${previewAnalytics.year1TotalLessons} lessons` : undefined },
+                    { label: 'Year 2 attendance', value: previewAnalytics?.year2AttendancePercentage, detail: previewAnalytics?.year2TotalLessons ? `${previewAnalytics.year2AttendedLessons} of ${previewAnalytics.year2TotalLessons} lessons` : undefined },
+                  ]),
                   { label: 'Exam average', value: previewAnalytics?.avgExamScore, detail: previewAnalytics ? `${previewAnalytics.examCount} exams` : undefined },
                 ].map((m) => (
                   <div key={m.label} className="flex flex-col gap-1.5 rounded-md bg-raised px-3 py-2.5">
@@ -907,7 +913,7 @@ function YearCell({ enrollment }: { enrollment?: Enrollment }) {
   if (!enrollment) return <span className="text-ink-3">Not enrolled</span>
   return (
     <span className="inline-flex items-center gap-1.5 text-ink-2">
-      {enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+      {!enrollment.isAsyncStudent && (enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2')}
       {enrollment.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
     </span>
   )
@@ -916,7 +922,7 @@ function YearCell({ enrollment }: { enrollment?: Enrollment }) {
 function EligibilityBadge({ enrollment, eligible }: { enrollment?: Enrollment; eligible?: boolean }) {
   if (enrollment?.status === 'GRADUATED') return <StatusBadge tone="accent">Graduated</StatusBadge>
   if (enrollment?.status === 'WITHDRAWN') return <StatusBadge tone="neutral">Withdrawn</StatusBadge>
-  if (enrollment?.yearLevel === 'YEAR_2' && enrollment.status === 'ACTIVE') {
+  if ((enrollment?.isAsyncStudent || enrollment?.yearLevel === 'YEAR_2') && enrollment.status === 'ACTIVE') {
     return eligible ? <StatusBadge tone="ok">Eligible</StatusBadge> : <StatusBadge tone="warn">Review</StatusBadge>
   }
   return <span className="text-ink-3">—</span>
