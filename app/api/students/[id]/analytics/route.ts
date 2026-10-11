@@ -1,3 +1,5 @@
+import { getStudentMentorContact } from "@/lib/student-mentor-contact"
+import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -11,8 +13,7 @@ import {
   isGraduationEligible,
   excludeAsyncPeriodRecords,
 } from "@/lib/attendance-utils"
-import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
-import { getStudentMentorContact } from "@/lib/student-mentor-contact"
+import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet, rotationAttendancePercentage } from "@/lib/sunday-school-utils"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -101,7 +102,7 @@ export async function GET(
     // - Year 1 students: Only see active academic year data
     // - Year 2 students: See all data (no filter)
     // Admins and mentors can optionally filter by academicYearId via query param
-    if (user.role === UserRole.STUDENT && enrollment.yearLevel === 'YEAR_1') {
+    if (user.role === UserRole.STUDENT && !enrollment.isAsyncStudent && enrollment.yearLevel === 'YEAR_1') {
       const activeAcademicYear = await prisma.academicYear.findFirst({
         where: { isActive: true },
         select: { id: true }
@@ -176,11 +177,8 @@ export async function GET(
     const attendanceMet = attendancePercentage === null ? true : meetsAttendanceRequirement(attendancePercentage)
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
-    // Map yearLevel to ExamYearLevel (BOTH is always included, plus the student's current year)
-    // Year 2 students see exams for both years
-    const validYearLevels: ExamYearLevel[] = enrollment.yearLevel === 'YEAR_2'
-      ? [ExamYearLevel.BOTH, ExamYearLevel.YEAR_1, ExamYearLevel.YEAR_2]
-      : [ExamYearLevel.BOTH, ExamYearLevel.YEAR_1]
+    // Year 2 and async students need exams from both curriculum years
+    const validYearLevels: ExamYearLevel[] = applicableExamYears(enrollment.yearLevel, enrollment.isAsyncStudent, true)
 
     const examWhereClause = academicYearId
       ? {
@@ -321,17 +319,10 @@ export async function GET(
         }
       })
 
-      const metFor = (level: string) => {
-        const rotation = assignmentData.find(a => a.yearLevel === level && a.isActive)
-        if (!rotation) return level !== enrollment.yearLevel // the current year needs one
-        return rotation.attendance ? rotation.attendance.met : true
-      }
       const requirement = rotationRequirementMet(assignmentData, enrollment.yearLevel)
 
       sundaySchool = {
         assignments: assignmentData,
-        year1Met: metFor('YEAR_1'),
-        year2Met: metFor('YEAR_2'),
         needsRotation: requirement.needsRotation,
         allMet: requirement.met
       }
@@ -342,9 +333,7 @@ export async function GET(
     // Graduation eligibility (includes Sunday School for async students)
     // An async student's rotation is their attendance, so it counts as evidence
     // even when no lessons are on record (async from the start, no slips).
-    const rotationPercentage = sundaySchool?.assignments.find(
-      (a) => a.isActive && a.yearLevel === enrollment.yearLevel
-    )?.attendance?.percentage ?? null
+    const rotationPercentage = rotationAttendancePercentage(sundaySchool?.assignments ?? [])
     const graduationEligible = isGraduationEligible({
       attendancePercentage: attendancePercentage ?? rotationPercentage,
       examAverage: overallAverage,

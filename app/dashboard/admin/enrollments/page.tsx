@@ -37,7 +37,7 @@ interface FatherOfConfession {
 
 interface Enrollment {
   id: string
-  yearLevel: string
+  yearLevel: string | null
   isActive: boolean
   isAsyncStudent: boolean
   status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
@@ -483,7 +483,7 @@ export default function EnrollmentsPage() {
                             href={`/dashboard/admin/students?student=${enrollment.student.id}`}
                           />
                         </td>
-                        <td className="px-3 text-ink-2">{enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</td>
+                        <td className="px-3 text-ink-2">{enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</td>
                         <td className="px-3">
                           <StatusBadge tone={statusTone[enrollment.status]}>{statusLabel[enrollment.status]}</StatusBadge>
                         </td>
@@ -511,7 +511,7 @@ export default function EnrollmentsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <PersonCell
                         name={enrollment.student.name}
-                        meta={`${enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${enrollment.academicYear?.name ?? '—'}`}
+                        meta={`${enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${enrollment.academicYear?.name ?? '—'}`}
                         href={`/dashboard/admin/students?student=${enrollment.student.id}`}
                       />
                       <div className="flex shrink-0 gap-1.5">

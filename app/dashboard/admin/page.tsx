@@ -62,7 +62,7 @@ interface YearAttendance {
 interface AtRiskStudent {
   id: string
   name: string
-  yearLevel: string
+  yearLevel: string | null
   attendanceRate: number | null
   examAverage: number | null
   issues: string[]
@@ -346,7 +346,7 @@ export default function AdminDashboard() {
                         <TableCell>
                           <PersonCell name={student.name} href={`/dashboard/admin/students?student=${student.id}`} />
                         </TableCell>
-                        <TableCell className="text-ink-2">Year {student.yearLevel === 'YEAR_1' ? '1' : '2'}</TableCell>
+                        <TableCell className="text-ink-2">{student.yearLevel ? `Year ${student.yearLevel === 'YEAR_1' ? '1' : '2'}` : 'Async'}</TableCell>
                         <TableCell>
                           <Metric value={student.attendanceRate} />
                         </TableCell>

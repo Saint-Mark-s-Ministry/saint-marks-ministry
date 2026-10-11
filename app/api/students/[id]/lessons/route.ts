@@ -39,13 +39,13 @@ export async function GET(
 
     // Build lesson filter based on year level
     // Year 1 students: Only see active academic year lessons
-    // Year 2 students: See lessons from all years (both Year 1 and Year 2)
+    // Year 2 and async students: See lessons from all academic years
     const lessonWhereClause: Record<string, unknown> = {
       status: { notIn: ['CANCELLED', 'NO_CLASS'] },
       isExamDay: false
     }
 
-    if (enrollment.yearLevel === 'YEAR_1') {
+    if (!enrollment.isAsyncStudent && enrollment.yearLevel === 'YEAR_1') {
       // Year 1 students only see current academic year
       const activeAcademicYear = await prisma.academicYear.findFirst({
         where: { isActive: true },

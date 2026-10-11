@@ -12,7 +12,7 @@ import { GraduationCap, CheckCircle, AlertTriangle, XCircle } from 'lucide-react
 interface StudentAnalytics {
   studentId: string
   studentName: string
-  yearLevel: 'YEAR_1' | 'YEAR_2'
+  yearLevel: 'YEAR_1' | 'YEAR_2' | null
   attendancePercentage: number | null
   examAverage: number | null
   graduationEligible: boolean
@@ -28,7 +28,7 @@ interface Student {
   email: string
   enrollments?: Array<{
     id: string
-    yearLevel: 'YEAR_1' | 'YEAR_2'
+    yearLevel: 'YEAR_1' | 'YEAR_2' | null
     isActive: boolean
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
   }>

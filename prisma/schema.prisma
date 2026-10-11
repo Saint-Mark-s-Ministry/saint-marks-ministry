@@ -489,7 +489,8 @@ model StudentEnrollment {
   studentId               String           @unique
   academicYearId          String? // The academic year this enrollment started in
   graduatedAcademicYearId String? // The academic year the student graduated in (if graduated)
-  yearLevel               YearLevel
+  /// Async students have no cohort year; in-person students require one.
+  yearLevel               YearLevel?
   mentorId                String?
   mentorName              String?
   mentorPhone             String?
@@ -798,7 +799,8 @@ model SundaySchoolAssignment {
   /// Optional: rotations created before classes were linked have only a grade.
   classId        String?
   academicYearId String
-  yearLevel      YearLevel
+  /// Legacy cohort label. Async serving rotations are yearless.
+  yearLevel      YearLevel?
   totalWeeks     Int               @default(6)
   startDate      DateTime
   isActive       Boolean           @default(true)

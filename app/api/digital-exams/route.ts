@@ -1,3 +1,4 @@
+import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { examAccess, examApiError, examSummarySelect } from '@/lib/digital-exam-service'
@@ -11,7 +12,7 @@ export async function GET() {
       where: staff ? {} : {
         digitalSheet: { state: 'OPEN' },
         OR: [{ digitalSheet: { releasedAt: null }, scores: { none: { studentId: user.id } } }, { digitalSheet: { attempts: { some: { studentId: user.id, attemptNumber: { gt: 1 }, resultReleasedAt: null } } } }],
-        yearLevel: { in: [enrollment!.yearLevel, 'BOTH'] },
+        yearLevel: { in: applicableExamYears(enrollment!.yearLevel, enrollment!.isAsyncStudent) },
         academicYear: enrollment!.academicYear ? { startDate: { gte: enrollment!.academicYear.startDate } } : { isActive: true },
       },
       select: { ...examSummarySelect, digitalSheet: { select: { state: true, releasedAt: true, attempts: { where: { studentId: user.id }, select: { state: true } } } } },

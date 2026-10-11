@@ -104,7 +104,7 @@ interface SSAssignment {
   totalLogged: number
   /** Attendance over the weeks that have started; null before week 1. */
   percentage: number | null
-  yearLevel?: string
+  yearLevel?: string | null
 }
 
 interface SSCode {
@@ -132,7 +132,7 @@ interface SSProgress {
   studentId: string
   studentName: string
   grade: SundaySchoolGrade
-  yearLevel?: string
+  yearLevel?: string | null
   presentCount: number
   totalWeeks: number
   percentage: number
@@ -452,11 +452,6 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                             <span className="text-sm dark:text-gray-300">
                               {a.academicYear?.name ?? '---'}
                             </span>
-                            {a.yearLevel && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {a.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                              </Badge>
-                            )}
                           </td>
                           <td className="p-3 text-center dark:text-gray-300">
                             {a.presentCount}/{a.totalWeeks}
@@ -516,11 +511,6 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                               <Badge variant="outline" className="text-xs">
                                 {rotationPlace(a)}
                               </Badge>
-                              {a.yearLevel && (
-                                <Badge variant="outline" className="text-xs">
-                                  {a.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                                </Badge>
-                              )}
                             </div>
                           </div>
                           <div className="text-right shrink-0 ml-2">
@@ -1412,7 +1402,6 @@ function ProgressTab() {
                     <tr>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Student</th>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Grade</th>
-                      <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Year</th>
                       <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Present / Total</th>
                       <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Percentage</th>
                       <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Status</th>
@@ -1428,15 +1417,6 @@ function ProgressTab() {
                           <td className="p-3 font-medium dark:text-white">{p.studentName}</td>
                           <td className="p-3">
                             <Badge variant="outline">{gradeDisplayName(p.grade)}</Badge>
-                          </td>
-                          <td className="p-3 text-center">
-                            {p.yearLevel ? (
-                              <Badge variant="outline" className="text-xs">
-                                {p.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                              </Badge>
-                            ) : (
-                              <span className="text-gray-400">---</span>
-                            )}
                           </td>
                           <td className="p-3 text-center dark:text-gray-300">
                             {p.presentCount}/{p.totalWeeks}
@@ -1480,11 +1460,6 @@ function ProgressTab() {
                               <Badge variant="outline" className="text-xs">
                                 {gradeDisplayName(p.grade)}
                               </Badge>
-                              {p.yearLevel && (
-                                <Badge variant="outline" className="text-xs">
-                                  {p.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                                </Badge>
-                              )}
                             </div>
                           </div>
                           <div className="text-right shrink-0 ml-2">

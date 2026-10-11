@@ -31,7 +31,8 @@ interface StudentNote {
 interface Mentee {
   id: string
   student: { id: string; name: string; email: string; phone?: string; profileImageUrl?: string | null }
-  yearLevel: string
+  yearLevel: string | null
+  isAsyncStudent?: boolean
   status: string
   fatherOfConfession?: { name: string } | null
   analytics?: MenteeAnalytics
@@ -258,7 +259,7 @@ function MenteeCard({
               {a && (a.graduation.eligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">At risk</StatusBadge>)}
             </div>
             <span className="truncate text-xs text-ink-3">
-              Year {mentee.yearLevel === 'YEAR_1' ? '1' : '2'}
+              {mentee.isAsyncStudent ? 'Async' : `Year ${mentee.yearLevel === 'YEAR_1' ? '1' : '2'}`}
               {mentee.fatherOfConfession?.name ? ` · ${mentee.fatherOfConfession.name}` : ` · ${mentee.student.email}`}
             </span>
           </div>

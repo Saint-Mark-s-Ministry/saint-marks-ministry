@@ -23,6 +23,13 @@ describe('makeup exam API', () => {
     expect((await GET()).status).toBe(200)
     expect(mocks.bookings.mock.calls[0][0].where).toEqual({ studentId: 'student' })
   })
+
+  it('offers both curriculum years for a yearless async student', async () => {
+    mocks.enrollment.mockResolvedValue({ isActive: true, status: 'ACTIVE', isAsyncStudent: true, yearLevel: null, academicYear: null })
+    expect((await GET()).status).toBe(200)
+    expect(mocks.exams.mock.calls[0][0].where.yearLevel).toEqual({ in: ['YEAR_1', 'YEAR_2', 'BOTH'] })
+    expect(mocks.exams.mock.calls[0][0].where.academicYear).toEqual({ isActive: true })
+  })
   it('ignores a supplied student ID and reschedules only the authenticated student', async () => {
     expect((await POST(request({ examId: 'exam', studentId: 'someone-else', scheduledDate: upcomingMakeupFridays()[0] }))).status).toBe(200)
     expect(mocks.upsert.mock.calls[0][0].where).toEqual({ studentId_examId: { studentId: 'student', examId: 'exam' } })

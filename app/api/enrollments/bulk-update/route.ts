@@ -1,3 +1,4 @@
+import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -41,8 +42,8 @@ export async function POST(req: NextRequest) {
     // Build the update data
     const updateData: Record<string, unknown> = {}
 
-    if (updates.yearLevel) {
-      updateData.yearLevel = updates.yearLevel
+    if (updates.yearLevel !== undefined) {
+      updateData.yearLevel = resolveEnrollmentYear({ isAsyncStudent: false, yearLevel: null }, { yearLevel: updates.yearLevel })
     }
 
     if (updates.status) {
@@ -55,12 +56,16 @@ export async function POST(req: NextRequest) {
 
     // Perform bulk update using a transaction
     const result = await prisma.$transaction(async (tx) => {
-      const currentEnrollments = updates.yearLevel === 'YEAR_2'
+      const currentEnrollments = updates.yearLevel !== undefined
         ? await tx.studentEnrollment.findMany({
             where: { id: { in: enrollmentIds } },
-            select: { id: true, studentId: true, yearLevel: true, isActive: true },
+            select: { id: true, studentId: true, yearLevel: true, isActive: true, isAsyncStudent: true },
           })
         : []
+
+      if (currentEnrollments.some(enrollment => enrollment.isAsyncStudent)) {
+        throw new EnrollmentYearError('Async students cannot be moved to a year level; switch them to in-person first')
+      }
 
       let activeAcademicYearId: string | null = null
       let attendanceRecordsCreated = 0
@@ -132,6 +137,7 @@ export async function POST(req: NextRequest) {
         : null,
     })
   } catch (error: unknown) {
+    if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     console.error('Bulk update error:', error)
     const message = error instanceof Error ? error.message : 'Failed to update enrollments'
     return NextResponse.json(

@@ -40,7 +40,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     identity.id = fixture.studentId; identity.tag = 'SERVANTS_PREP_STUDENT'; identity.readOnly = false
     await db.digitalExamSheet.deleteMany({ where: { examId: fixture.examId } })
     await db.examScore.deleteMany({ where: { examId: fixture.examId } })
-    await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { isActive: true, yearLevel: 'YEAR_1' } })
+    await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { isActive: true, isAsyncStudent: false, yearLevel: 'YEAR_1' } })
     const counts = Array(50).fill(4); counts[0] = 5; counts[7] = 8
     const key = Array(50).fill('A'); key[0] = 'E'; key[7] = 'H'
     await admin('configure', { choiceCounts: counts, answerKey: key }); await admin('open')
@@ -51,6 +51,20 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     if (ids.length) { await db.userRoleAssignment.deleteMany({ where: { userId: { in: ids } } }); await db.user.deleteMany({ where: { id: { in: ids } } }) }
     if (fixture.yearId) await db.academicYear.delete({ where: { id: fixture.yearId } })
     await db.$disconnect()
+  }, 30000)
+  it('lists and starts a Year 2 exam for a yearless async student', async () => {
+    await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { isAsyncStudent: true, yearLevel: null } })
+    await db.exam.update({ where: { id: fixture.examId }, data: { yearLevel: 'YEAR_2' } })
+    try {
+      const list = await (await listExams()).json()
+      expect(list.exams.map((exam: { id: string }) => exam.id)).toContain(fixture.examId)
+      await act('start')
+      identity.tag = 'SERVANTS_PREP_SERVANT'
+      const view = await (await get()).json()
+      expect(view.roster.find((row: { student: { id: string } }) => row.student.id === fixture.studentId)?.eligible).toBe(true)
+    } finally {
+      await db.exam.update({ where: { id: fixture.examId }, data: { yearLevel: 'YEAR_1' } })
+    }
   }, 30000)
   it('saves mixed choices, hides keys and grades, publishes only on release', async () => {
     const start = await act('start')

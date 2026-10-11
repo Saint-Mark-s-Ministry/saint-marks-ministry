@@ -1,3 +1,4 @@
+import { EnrollmentYearError, resolveEnrollmentYear } from "@/lib/enrollment-year"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -33,7 +34,6 @@ export async function PATCH(
     const updateData: Record<string, unknown> = {}
     const mentorAssignmentRequested = mentorId !== undefined
     const nextMentorId = mentorId || null
-    if (yearLevel) updateData.yearLevel = yearLevel
     // Only SUPER_ADMIN/SERVANT_PREP can change mentor assignment
     if (mentorId !== undefined && canAssignMentors(user.role)) {
       if (mentorId) {
@@ -98,12 +98,13 @@ export async function PATCH(
     }
 
     const enrollment = await prisma.$transaction(async (tx) => {
-      const currentEnrollment = mentorAssignmentRequested
-        ? await tx.studentEnrollment.findUniqueOrThrow({
-            where: { id },
-            select: { mentorId: true },
-          })
-        : null
+      const currentEnrollment = await tx.studentEnrollment.findUniqueOrThrow({
+        where: { id },
+        select: { mentorId: true, yearLevel: true, isAsyncStudent: true },
+      })
+      if (yearLevel !== undefined || isAsyncStudent !== undefined) {
+        updateData.yearLevel = resolveEnrollmentYear(currentEnrollment, { yearLevel, isAsyncStudent })
+      }
       const updated = await tx.studentEnrollment.update({
         where: { id },
         data: updateData,
@@ -186,6 +187,7 @@ export async function PATCH(
 
     return NextResponse.json(enrollment)
   } catch (error: unknown) {
+    if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update enrollment" },
       { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }

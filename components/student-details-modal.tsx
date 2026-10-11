@@ -585,7 +585,7 @@ export function StudentDetailsModal({
             <span>{studentName} - Details</span>
             <div className="flex items-center gap-2 text-sm font-normal">
               {isAsyncStudent && <AsyncBadge />}
-              {enrollment && (
+              {enrollment && !isAsyncStudent && (
                 <Badge variant="outline">{enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</Badge>
               )}
               {enrollment?.mentor && (
