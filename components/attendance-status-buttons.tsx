@@ -19,12 +19,28 @@ const STATUS_CONFIG: {
   title: string
   activeColor: string
   hoverColor: string
+  ink: string
 }[] = [
-  { status: 'PRESENT', icon: Check, title: 'Present', activeColor: 'bg-green-500 text-white', hoverColor: 'hover:bg-green-100 hover:text-green-600' },
-  { status: 'LATE', icon: Clock, title: 'Late', activeColor: 'bg-yellow-500 text-white', hoverColor: 'hover:bg-yellow-100 hover:text-yellow-600' },
-  { status: 'ABSENT', icon: X, title: 'Absent', activeColor: 'bg-red-500 text-white', hoverColor: 'hover:bg-red-100 hover:text-red-600' },
-  { status: 'EXCUSED', icon: Shield, title: 'Excused (not counted)', activeColor: 'bg-blue-500 text-white', hoverColor: 'hover:bg-blue-100 hover:text-blue-600' },
+  { status: 'PRESENT', icon: Check, title: 'Present', activeColor: 'border-ok bg-ok text-white dark:text-canvas', hoverColor: 'hover:border-ok hover:text-ok', ink: 'text-ok' },
+  { status: 'LATE', icon: Clock, title: 'Late', activeColor: 'border-warn bg-warn text-white dark:text-canvas', hoverColor: 'hover:border-warn hover:text-warn', ink: 'text-warn' },
+  { status: 'ABSENT', icon: X, title: 'Absent', activeColor: 'border-bad bg-bad text-white dark:text-canvas', hoverColor: 'hover:border-bad hover:text-bad', ink: 'text-bad' },
+  { status: 'EXCUSED', icon: Shield, title: 'Excused (not counted)', activeColor: 'border-info bg-info text-white dark:text-canvas', hoverColor: 'hover:border-info hover:text-info', ink: 'text-info' },
 ]
+
+/** Icon + word legend: status never relies on color alone (design system §04). */
+export function AttendanceLegend({ showExcused = true, note }: { showExcused?: boolean; note?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
+      {STATUS_CONFIG.filter(({ status }) => showExcused || status !== 'EXCUSED').map(({ status, icon: Icon, title, ink }) => (
+        <span key={status} className="inline-flex items-center gap-[5px]">
+          <Icon className={`size-3.5 ${ink}`} strokeWidth={2.25} aria-hidden />
+          {status === 'EXCUSED' ? 'Excused · not counted' : title}
+        </span>
+      ))}
+      {note && <span className="w-full sm:ml-auto sm:w-auto">{note}</span>}
+    </div>
+  )
+}
 
 export function AttendanceStatusButtons({
   currentStatus,
@@ -34,15 +50,13 @@ export function AttendanceStatusButtons({
   showExcused = true,
   absentLabel = 'Absent',
 }: AttendanceStatusButtonsProps) {
-  const sizeClasses = size === 'sm'
-    ? 'h-8 w-8'
-    : 'p-1.5'
-
-  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
+  // 44px touch targets on phones with 4px gaps; 30px (28px compact) on desktop.
+  const sizeClasses = size === 'sm' ? 'size-11 md:size-7' : 'size-11 md:size-[30px]'
+  const iconSize = size === 'sm' ? 'size-4 md:size-3.5' : 'size-[18px] md:size-4'
   const visibleStatuses = STATUS_CONFIG.filter(({ status }) => showExcused || status !== 'EXCUSED')
 
   return (
-    <div className="flex">
+    <div className="flex gap-1">
       {visibleStatuses.map(({ status, icon: Icon, title, activeColor, hoverColor }) => {
         const accessibleLabel = status === 'ABSENT' ? absentLabel : title
 
@@ -54,14 +68,14 @@ export function AttendanceStatusButtons({
             disabled={disabled}
             aria-label={accessibleLabel}
             aria-pressed={currentStatus === status}
-            className={`${sizeClasses} rounded flex items-center justify-center transition-colors ${
+            className={`${sizeClasses} flex shrink-0 cursor-pointer items-center justify-center rounded-[7px] border transition-colors ${
               currentStatus === status
                 ? activeColor
-                : `bg-gray-100 text-gray-400 ${hoverColor}`
+                : `border-line-strong bg-surface text-ink-3 ${hoverColor}`
             } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
             title={accessibleLabel}
           >
-            <Icon className={iconSize} />
+            <Icon className={iconSize} strokeWidth={2.25} />
           </button>
         )
       })}

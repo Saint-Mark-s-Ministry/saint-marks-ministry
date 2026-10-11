@@ -202,4 +202,87 @@ describe('post-approval application', () => {
       },
     })
   })
+
+  it('replaces the mentor on the Year 1 application when a Year 2 student confirms a new one', async () => {
+    // A Year 2 student who still has their approved admission application on
+    // file. The current mentor is kept in one place, so confirming this year's
+    // mentor overwrites the one recorded at admission; AnnualMentorInformation
+    // is what preserves the year-by-year trail.
+    mocks.findApplication.mockResolvedValue({
+      id: 'registration-1',
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://blob.example/form.pdf',
+      approvalFormFilename: 'form.pdf',
+      mentorName: 'Year 1 Mentor',
+      mentorPhone: '555-0001',
+      mentorEmail: 'year1.mentor@example.com',
+    })
+    mocks.getAnnualMentorRequirement.mockResolvedValue({
+      activeYear: { id: 'year-2026', name: '2026-2027' },
+      enrollment: {
+        id: 'enrollment-1',
+        isActive: true,
+        yearLevel: 'YEAR_2',
+        mentorName: 'Year 1 Mentor',
+        mentorPhone: '555-0001',
+      },
+      information: null,
+    })
+    mocks.updateApplication.mockImplementation(async ({ data }) => ({
+      id: 'registration-1',
+      approvalFormUrl: 'https://blob.example/form.pdf',
+      approvalFormFilename: 'form.pdf',
+      ...data,
+    }))
+    mocks.upsertAnnualMentorInformation.mockResolvedValue({ id: 'annual-1' })
+
+    const response = await PATCH(patchRequest({
+      fatherOfConfessionName: 'Fr. Mark',
+      mentorName: 'Year 2 Mentor',
+      mentorPhone: '555-0002',
+      mentorEmail: 'year2.mentor@example.com',
+    }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.complete).toBe(true)
+
+    // The admission record now carries this year's mentor.
+    expect(mocks.updateApplication).toHaveBeenCalledWith({
+      where: { id: 'registration-1' },
+      data: {
+        fatherOfConfessionName: 'Fr. Mark',
+        mentorName: 'Year 2 Mentor',
+        mentorPhone: '555-0002',
+        mentorEmail: 'year2.mentor@example.com',
+      },
+      select: expect.any(Object),
+    })
+
+    // So does the enrollment, which is what the mentor-facing screens read.
+    expect(mocks.updateEnrollment).toHaveBeenCalledWith({
+      where: { studentId: 'student-1' },
+      data: expect.objectContaining({
+        mentorName: 'Year 2 Mentor',
+        mentorPhone: '555-0002',
+      }),
+    })
+
+    // And this year gets its own row, keyed to the active academic year.
+    expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          studentId_academicYearId: {
+            studentId: 'student-1',
+            academicYearId: 'year-2026',
+          },
+        },
+        create: expect.objectContaining({
+          academicYearId: 'year-2026',
+          mentorName: 'Year 2 Mentor',
+          mentorEmail: 'year2.mentor@example.com',
+        }),
+      })
+    )
+  })
 })

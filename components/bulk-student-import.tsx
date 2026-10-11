@@ -120,8 +120,8 @@ export function BulkStudentImport({ onSuccess }: BulkStudentImportProps) {
   return (
     <>
       <Button
+        variant="outline"
         onClick={() => setIsOpen(true)}
-        className="gap-2"
       >
         <Upload className="h-4 w-4" />
         Bulk Add Students

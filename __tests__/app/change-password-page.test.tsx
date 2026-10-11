@@ -51,10 +51,10 @@ describe('ChangePasswordPage', () => {
   it('creates a fresh session and sends a standalone mentor to the mentor dashboard', async () => {
     render(<ChangePasswordPage />)
 
-    fireEvent.change(screen.getByLabelText('Current Password'), { target: { value: 'Welcome123!' } })
-    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'NewPassword123!' } })
-    fireEvent.change(screen.getByLabelText('Confirm New Password'), { target: { value: 'NewPassword123!' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }))
+    fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'Welcome123!' } })
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword123!' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Change password' }))
 
     await waitFor(() => {
       expect(mocks.signIn).toHaveBeenCalledWith('credentials', {

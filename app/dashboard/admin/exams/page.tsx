@@ -1,19 +1,34 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { refreshMakeupExamScores } from '@/lib/swr'
+import { MakeupExamScores } from '@/components/makeup-exam-scores'
+import { MakeupExamBookings } from '@/components/makeup-exam-bookings'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isAdmin, canManageExams } from "@/lib/roles"
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Metric } from '@/components/ds/metric'
+import { PersonCell } from '@/components/ds/person'
 import { PageLoading } from '@/components/ui/page-loading'
 import { toast } from 'sonner'
-import { Trash2 } from 'lucide-react'
+import { ChevronLeft, PencilLine, Plus, Trash2 } from 'lucide-react'
 import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+
+const YEAR_LABEL: Record<string, string> = { BOTH: 'Both years', YEAR_1: 'Year 1', YEAR_2: 'Year 2' }
 import type { AcademicYear, ExamSection } from '@/lib/types'
 
 interface Exam {
@@ -41,6 +56,8 @@ interface ExamScore {
   id: string
   score: number
   percentage: number
+  originalScore: number | null
+  originalPercentage: number | null
   notes?: string
   student: {
     id: string
@@ -75,6 +92,7 @@ function ExamsPageContent() {
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMentees, setFilterMentees] = useState(false)
+  const [onlyMissing, setOnlyMissing] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
   // New exam form
@@ -208,6 +226,7 @@ function ExamsPageContent() {
 
     try {
       const res = await fetch(`/api/exams/${exam.id}/scores`)
+      if (!res.ok) throw new Error('Unable to load exam scores.')
       const scoresData = await res.json()
 
       const scoresMap = new Map()
@@ -216,7 +235,7 @@ function ExamsPageContent() {
 
       scoresData.forEach((score: ExamScore) => {
         scoresMap.set(score.student.id, score)
-        enteredScoresMap.set(score.student.id, score.score)
+        if (score.originalScore !== null) enteredScoresMap.set(score.student.id, score.originalScore)
         if (score.notes) {
           notesMap.set(score.student.id, score.notes)
         }
@@ -284,7 +303,12 @@ function ExamsPageContent() {
         }
       })
 
-      await Promise.all(scorePromises)
+      const responses = await Promise.all(scorePromises)
+      const failed = responses.find(response => !response.ok)
+      if (failed) {
+        const result = await failed.json().catch(() => ({}))
+        throw new Error(result.error || 'Unable to save exam scores.')
+      }
 
       const now = new Date()
       setLastSaved(now)
@@ -302,7 +326,7 @@ function ExamsPageContent() {
 
       scoresData.forEach((score: ExamScore) => {
         existingScoresMap.set(score.student.id, score)
-        enteredScoresMap.set(score.student.id, score.score)
+        if (score.originalScore !== null) enteredScoresMap.set(score.student.id, score.originalScore)
         if (score.notes) {
           notesMap.set(score.student.id, score.notes)
         }
@@ -311,6 +335,7 @@ function ExamsPageContent() {
       setExistingScores(existingScoresMap)
       setScores(enteredScoresMap)
       setNotes(notesMap)
+      await refreshMakeupExamScores(selectedExam.id)
 
       // Update exam count locally without full refetch
       setExams(exams.map(exam =>
@@ -329,7 +354,7 @@ function ExamsPageContent() {
   const deleteExam = async (examId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent opening the exam for scoring
 
-    if (!confirm('Are you sure you want to delete this exam? This will also delete all associated scores.')) {
+    if (!confirm('Are you sure you want to delete this exam? Only exams without saved grades or student attempts can be deleted.')) {
       return
     }
 
@@ -376,6 +401,8 @@ function ExamsPageContent() {
       }
     }
 
+    if (onlyMissing && scores.has(student.id)) return false
+
     return true
   })
 
@@ -386,444 +413,303 @@ function ExamsPageContent() {
     return <PageLoading />
   }
 
+  const setSection = (value: string) => {
+    setSelectedSectionId(value)
+    const params = new URLSearchParams(window.location.search)
+    if (value === 'all') params.delete('section')
+    else params.set('section', value)
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    router.replace(newUrl, { scroll: false })
+  }
+  const eligibleFor = (exam: Exam) =>
+    students.filter((st) => exam.yearLevel === 'BOTH' || st.enrollments[0]?.yearLevel === exam.yearLevel).length
+  const visibleExams = exams
+    .filter((e) => selectedSectionId === 'all' || e.examSection.id === selectedSectionId)
+    .sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime())
+  const totalScores = exams.reduce((n, e) => n + (e._count?.scores || 0), 0)
+  const missingCount = eligibleStudents.filter((st) => !scores.has(st.id)).length
+  const unsaved = eligibleStudents.some((st) => {
+    const prev = existingScores.get(st.id)
+    return scores.get(st.id) !== (prev?.originalScore ?? undefined) || (notes.get(st.id) || '') !== (prev?.notes || '')
+  })
+
+  if (selectedExam) {
+    const title = `${selectedExam.examSection.displayName} · ${YEAR_LABEL[selectedExam.yearLevel] ?? selectedExam.yearLevel}`
+    return (
+      <div className="content-reveal flex min-w-0 flex-col gap-5">
+        <PageHeader
+          title={title}
+          meta={['Original and makeup exam scores', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+          actions={
+            <Button variant="outline" onClick={() => setSelectedExam(null)}>
+              <ChevronLeft />
+              All exams
+            </Button>
+          }
+        />
+
+        <KpiStrip
+          items={[
+            { label: 'Section', value: <span className="text-[17px] leading-tight font-semibold">{selectedExam.examSection.displayName}</span> },
+            { label: 'Exam date', value: <span className="text-[17px] font-semibold">{formatDateUTC(selectedExam.examDate)}</span> },
+            { label: 'Total points', value: selectedExam.totalPoints },
+            {
+              label: 'Entered',
+              value: (
+                <>
+                  {eligibleStudents.length - missingCount}
+                  <span className="font-normal text-ink-3"> of {eligibleStudents.length}</span>
+                </>
+              ),
+            },
+          ]}
+        />
+
+        <Panel
+          title="Original exam scores"
+          toolbar={
+            <>
+              <Segmented
+                label="Students"
+                value={filterMentees ? 'mine' : onlyMissing ? 'missing' : 'all'}
+                onChange={(v) => {
+                  setFilterMentees(v === 'mine')
+                  setOnlyMissing(v === 'missing')
+                }}
+                options={[
+                  { value: 'all', label: 'All', count: eligibleStudents.length },
+                  { value: 'missing', label: 'Not entered', count: missingCount },
+                  { value: 'mine', label: 'My mentees' },
+                ]}
+              />
+              <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search students" className="md:ml-auto" />
+            </>
+          }
+        >
+          {filteredStudents.length === 0 ? (
+            <EmptyState message={eligibleStudents.length === 0 ? 'No students are enrolled at this exam’s year level.' : 'No students match these filters.'} />
+          ) : (
+            <ul className="divide-y divide-line md:table md:w-full md:border-collapse">
+              <li className="hidden bg-raised text-xs font-medium text-ink-3 md:table-row" aria-hidden>
+                <span className="md:table-cell md:h-9 md:px-3 md:align-middle">Name</span>
+                <span className="md:table-cell md:w-36 md:px-3 md:align-middle">Score</span>
+                <span className="md:table-cell md:w-44 md:px-3 md:align-middle">Percentage</span>
+                <span className="md:table-cell md:px-3 md:align-middle">Notes</span>
+                <span className="md:table-cell md:w-28 md:px-3 md:align-middle">Status</span>
+              </li>
+              {filteredStudents.map((student) => {
+                const score = scores.get(student.id)
+                const percentage = score !== undefined ? (score / selectedExam.totalPoints) * 100 : null
+                const isMentee = student.enrollments.some((e) => e.mentorId === session?.user?.id)
+                const prev = existingScores.get(student.id)
+                const dirty = score !== (prev?.originalScore ?? undefined) || (notes.get(student.id) || '') !== (prev?.notes || '')
+                return (
+                  <li key={student.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 md:table-row md:border-t md:border-line md:p-0">
+                    <span className="md:table-cell md:h-[52px] md:px-3 md:align-middle">
+                      <PersonCell name={student.name} meta={isMentee ? 'Your mentee' : student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} />
+                    </span>
+                    <span className="row-span-2 self-center md:table-cell md:px-3 md:align-middle">
+                      <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          aria-label={`${student.name} score`}
+                          placeholder="—"
+                          value={score !== undefined ? score : ''}
+                          onChange={(e) => handleScoreChange(student.id, e.target.value)}
+                          disabled={!canEdit}
+                          min={0}
+                          max={selectedExam.totalPoints}
+                          step="any"
+                          className="tabular w-20 text-right md:h-8"
+                        />
+                        / {selectedExam.totalPoints}
+                      </span>
+                    </span>
+                    <span className="md:table-cell md:px-3 md:align-middle">
+                      <Metric value={percentage} target={75} floor={60} width={48} />
+                    </span>
+                    <span className="col-span-2 md:table-cell md:px-3 md:align-middle">
+                      <Input
+                        aria-label={`${student.name} notes`}
+                        placeholder="Add notes…"
+                        value={notes.get(student.id) || ''}
+                        onChange={(e) => handleNotesChange(student.id, e.target.value)}
+                        disabled={!canEdit}
+                        className="md:h-8"
+                      />
+                    </span>
+                    <span className="hidden md:table-cell md:px-3 md:align-middle">
+                      {dirty ? (
+                        <StatusBadge tone="warn">Edited</StatusBadge>
+                      ) : prev ? (
+                        <StatusBadge tone="ok">Saved</StatusBadge>
+                      ) : (
+                        <StatusBadge tone="neutral">Not entered</StatusBadge>
+                      )}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        <MakeupExamScores key={selectedExam.id} examId={selectedExam.id} canEdit={!!canEdit} originalUnsaved={unsaved} onSaved={() => openEnterScores(selectedExam)} />
+
+        {canEdit && (
+          <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+            <p className="tabular text-[13px] text-ink-2" aria-live="polite">
+              <b className="font-semibold text-ink">{eligibleStudents.length - missingCount}</b> of {eligibleStudents.length} entered
+              {unsaved && <StatusBadge tone="warn" className="ml-2">Unsaved changes</StatusBadge>}
+            </p>
+            <Button onClick={saveScores} disabled={saving || !unsaved} className="ml-auto">
+              {saving ? 'Saving…' : 'Save scores'}
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Exam Management</h1>
-            <p className="text-sm text-gray-600">Create exams and enter scores</p>
-            {lastSaved && (
-              <p className="text-xs text-gray-500 mt-1">
-                Last saved {formatToastTimestamp(lastSaved)}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            {!selectedExam && (
-              <>
-                <select
-                  value={selectedSectionId}
-                  onChange={(e) => {
-                    setSelectedSectionId(e.target.value)
-                    // Update URL param
-                    const params = new URLSearchParams(window.location.search)
-                    if (e.target.value === 'all') {
-                      params.delete('section')
-                    } else {
-                      params.set('section', e.target.value)
-                    }
-                    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
-                    router.replace(newUrl, { scroll: false })
-                  }}
-                  className="h-10 px-3 rounded-md border border-input bg-background text-sm flex-1 sm:flex-none min-w-0"
-                >
-                  <option value="all">All Sections</option>
-                  {examSections.map(section => (
-                    <option key={section.id} value={section.id}>
-                      {section.displayName}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={selectedYearId}
-                  onChange={(e) => setSelectedYearId(e.target.value)}
-                  className="h-10 px-3 rounded-md border border-input bg-background text-sm flex-1 sm:flex-none min-w-0"
-                >
-                  <option value="all">All Academic Years</option>
-                  {academicYears.map(year => (
-                    <option key={year.id} value={year.id}>
-                      {year.name}{year.isActive ? ' (Active)' : ''}
-                    </option>
-                  ))}
-                </select>
-                {canEdit && (
-                  <Button onClick={() => setShowCreateExam(true)} className="w-full sm:w-auto">
-                    Create New Exam
-                  </Button>
-                )}
-              </>
-            )}
-            {selectedExam && (
-              <Button variant="outline" onClick={() => setSelectedExam(null)}>
-                Back to Exams
-              </Button>
-            )}
-          </div>
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Exams"
+        meta={['Create exams and enter scores', `${exams.length} exams`, `${totalScores} scores`, lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        actions={<>
+          <Button variant="outline" asChild><Link href="/dashboard/admin/exam-monitoring">Exam Monitoring</Link></Button>
+          {canEdit && (
+            <Button onClick={() => setShowCreateExam(true)}>
+              <Plus />
+              Create exam
+            </Button>
+          )}
+        </>}
+      />
 
-        {/* Exam List or Score Entry */}
-        {!selectedExam ? (
-          <div className="space-y-6">
-            {examSections
-              .filter(section => selectedSectionId === 'all' || section.id === selectedSectionId)
-              .map(section => {
-              const sectionExams = exams.filter(e => e.examSection.name === section.name)
+      <MakeupExamBookings staff />
 
+      <Panel
+        toolbar={
+          <>
+            <FilterSelect
+              aria-label="Exam section"
+              value={selectedSectionId}
+              onChange={setSection}
+              options={[{ value: 'all', label: 'All sections' }, ...examSections.map((section) => ({ value: section.id, label: section.displayName }))]}
+            />
+            <FilterSelect
+              aria-label="Academic year"
+              value={selectedYearId}
+              onChange={setSelectedYearId}
+              options={[
+                { value: 'all', label: 'All academic years' },
+                ...academicYears.map((year) => ({ value: year.id, label: `${year.name.replace('-', '–')}${year.isActive ? ' (active)' : ''}` })),
+              ]}
+            />
+          </>
+        }
+        footer={<span className="tabular">{visibleExams.length} exams</span>}
+      >
+        {visibleExams.length === 0 ? (
+          <EmptyState
+            message={canEdit ? 'No exams here yet. Create one to start entering scores.' : 'No exams here yet.'}
+            action={canEdit && <Button variant="outline" onClick={() => setShowCreateExam(true)}>Create exam</Button>}
+          />
+        ) : (
+          <ul className="divide-y divide-line">
+            {visibleExams.map((exam) => {
+              const eligible = eligibleFor(exam)
+              const entered = exam._count?.scores || 0
+              const future = new Date(exam.examDate) > new Date()
               return (
-                <div key={section.id} className="space-y-3">
-                  <h2 className="text-lg font-semibold">{section.displayName}</h2>
-
-                  {sectionExams.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-6 text-center text-sm text-gray-500">
-                        No exams created yet
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-3">
-                      {sectionExams.map(exam => (
-                        <Card
-                          key={exam.id}
-                          className="cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => openEnterScores(exam)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <div className="font-semibold flex items-center gap-2">
-                                  {section.displayName} Exam
-                                  <Badge variant="outline">
-                                    {exam.yearLevel === 'BOTH' ? 'All' : exam.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                                  </Badge>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  {formatDateUTC(exam.examDate, { weekday: undefined })} | {exam.totalPoints} points
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="text-sm text-gray-600">
-                                  {exam._count?.scores || 0} scores entered
-                                </div>
-                                {canEdit && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => deleteExam(exam.id, e)}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <li key={exam.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+                  <button type="button" onClick={() => openEnterScores(exam)} className="flex min-w-0 flex-1 cursor-pointer flex-col text-left">
+                    <span className="truncate text-[13.5px] font-medium text-ink hover:underline">{exam.examSection.displayName}</span>
+                    <span className="text-xs text-ink-3">
+                      {YEAR_LABEL[exam.yearLevel] ?? exam.yearLevel} · {formatDateUTC(exam.examDate)} · {exam.totalPoints} points
+                    </span>
+                  </button>
+                  <span className="tabular w-20 text-[13px] text-ink-2">
+                    {entered} / {eligible}
+                  </span>
+                  <span className="w-24">
+                    {entered === 0 ? (
+                      <StatusBadge tone={future ? 'info' : 'warn'}>{future ? 'Scheduled' : 'No scores'}</StatusBadge>
+                    ) : entered < eligible ? (
+                      <StatusBadge tone="warn">Partial</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="ok">Graded</StatusBadge>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" asChild><Link href={`/dashboard/admin/exams/${exam.id}/monitor`}>Answer sheet</Link></Button>
+                    <Button variant="outline" size="sm" onClick={() => openEnterScores(exam)}>
+                      <PencilLine />
+                      {canEdit ? 'Enter scores' : 'View scores'}
+                    </Button>
+                    {canEdit && (
+                      <Button variant="ghost" size="icon-sm" aria-label={`Delete ${exam.examSection.displayName} exam`} onClick={(e) => deleteExam(exam.id, e)} className="hover:text-bad">
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </span>
+                </li>
               )
             })}
-          </div>
-        ) : (
-          <>
-            {/* Selected Exam Info */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">{selectedExam.examSection.displayName} Exam</div>
-                    <div className="text-sm text-gray-600">
-                      {formatDateUTC(selectedExam.examDate, { weekday: undefined })} | Out of {selectedExam.totalPoints} points
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {scores.size} / {filteredStudents.length} scores entered
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Filters & Actions */}
-            <div className="flex flex-wrap gap-2 items-center">
-              <Input
-                placeholder="Search students..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-xs"
-              />
-              <label className="flex items-center gap-2 px-3 h-10 border rounded-md bg-background cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={filterMentees}
-                  onChange={(e) => setFilterMentees(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm">My Mentees</span>
-              </label>
-              {canEdit && (
-                <Button
-                  onClick={saveScores}
-                  disabled={saving || scores.size === 0}
-                  size="sm"
-                  className="ml-auto"
-                >
-                  {saving ? 'Saving...' : 'Save Scores'}
-                </Button>
-              )}
-            </div>
-
-            {/* Excel-like Table - Desktop */}
-            <Card className="hidden md:block">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left p-2 font-medium text-gray-700 w-8">#</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Name</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-20">Year</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-32">Score</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-24">Percentage</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-24">Status</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStudents.map((student, index) => {
-                      const score = scores.get(student.id)
-                      const percentage = score !== undefined && selectedExam
-                        ? (score / selectedExam.totalPoints * 100)
-                        : null
-                      const yearLevel = student.enrollments[0]?.yearLevel
-                      const isMentee = student.enrollments.some(e => e.mentorId === session?.user?.id)
-                      const isPassing = percentage !== null && percentage >= 60
-
-                      return (
-                        <tr
-                          key={student.id}
-                          className={`border-b hover:bg-gray-50 ${isMentee ? 'bg-maroon-50' : ''}`}
-                        >
-                          <td className="p-2 text-gray-500">{index + 1}</td>
-                          <td className="p-2">
-                            <div className="font-medium">{student.name}</div>
-                            {isMentee && <span className="text-xs text-maroon-600">Your Mentee</span>}
-                          </td>
-                          <td className="p-2 text-center">
-                            <Badge variant="outline" className="text-xs">
-                              {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <div className="flex items-center justify-center gap-2">
-                              <input
-                                type="number"
-                                placeholder="0"
-                                value={score !== undefined ? score : ''}
-                                onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                                disabled={!canEdit}
-                                className={`w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-maroon-500 ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                min={0}
-                                max={selectedExam?.totalPoints}
-                                step="any"
-                              />
-                              <span className="text-gray-500">/ {selectedExam.totalPoints}</span>
-                            </div>
-                          </td>
-                          <td className="p-2 text-center">
-                            {percentage !== null ? (
-                              <span className={`font-medium ${isPassing ? 'text-green-600' : 'text-red-600'}`}>
-                                {percentage.toFixed(2)}%
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="p-2 text-center">
-                            {percentage !== null && (
-                              <Badge className={isPassing ? 'bg-green-500' : 'bg-red-500'}>
-                                {isPassing ? '✓ Pass' : '✗ Fail'}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="p-2">
-                            <Textarea
-                              placeholder="Optional notes..."
-                              value={notes.get(student.id) || ''}
-                              onChange={(e) => handleNotesChange(student.id, e.target.value)}
-                              disabled={!canEdit}
-                              className={`w-full text-xs min-h-[60px] ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                              rows={2}
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-
-                {filteredStudents.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    No eligible students for this exam
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Mobile Card Layout */}
-            <div className="md:hidden space-y-3">
-              {filteredStudents.length === 0 ? (
-                <Card>
-                  <CardContent className="p-6 text-center text-gray-500">
-                    No eligible students for this exam
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredStudents.map((student, index) => {
-                  const score = scores.get(student.id)
-                  const percentage = score !== undefined && selectedExam
-                    ? (score / selectedExam.totalPoints * 100)
-                    : null
-                  const yearLevel = student.enrollments[0]?.yearLevel
-                  const isMentee = student.enrollments.some(e => e.mentorId === session?.user?.id)
-                  const isPassing = percentage !== null && percentage >= 60
-
-                  return (
-                    <Card key={student.id} className={isMentee ? 'border-maroon-300 bg-maroon-50' : ''}>
-                      <CardContent className="p-4 space-y-3">
-                        {/* Student Header */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-500">#{index + 1}</span>
-                              <h3 className="font-semibold">{student.name}</h3>
-                            </div>
-                            {isMentee && (
-                              <span className="text-xs text-maroon-600">Your Mentee</span>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                          </Badge>
-                        </div>
-
-                        {/* Score Input */}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Score</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              placeholder="0"
-                              value={score !== undefined ? score : ''}
-                              onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                              disabled={!canEdit}
-                              className={`flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-maroon-500 ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                              min={0}
-                              max={selectedExam?.totalPoints}
-                              step="any"
-                            />
-                            <span className="text-gray-600">/ {selectedExam.totalPoints}</span>
-                          </div>
-                        </div>
-
-                        {/* Percentage & Status */}
-                        {percentage !== null && (
-                          <div className="flex items-center justify-between pt-2 border-t">
-                            <div>
-                              <div className="text-xs text-gray-500">Percentage</div>
-                              <div className={`text-lg font-bold ${isPassing ? 'text-green-600' : 'text-red-600'}`}>
-                                {percentage.toFixed(2)}%
-                              </div>
-                            </div>
-                            <Badge className={isPassing ? 'bg-green-500' : 'bg-red-500'}>
-                              {isPassing ? 'Pass' : 'Fail'}
-                            </Badge>
-                          </div>
-                        )}
-
-                        {/* Notes */}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700">Notes (Optional)</label>
-                          <Textarea
-                            placeholder="Add notes for this student..."
-                            value={notes.get(student.id) || ''}
-                            onChange={(e) => handleNotesChange(student.id, e.target.value)}
-                            disabled={!canEdit}
-                            className={`w-full text-sm ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            rows={3}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })
-              )}
-            </div>
-          </>
+          </ul>
         )}
+      </Panel>
 
-        {/* Create Exam Dialog */}
-        <Dialog open={showCreateExam} onOpenChange={setShowCreateExam}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Exam</DialogTitle>
-              <DialogDescription>
-                Create a new exam for students to take
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Exam Section</label>
-                <select
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
-                  value={newExam.examSectionId}
-                  onChange={(e) => setNewExam({ ...newExam, examSectionId: e.target.value })}
-                >
-                  <option value="">Select section...</option>
-                  {examSections.map(section => (
-                    <option key={section.id} value={section.id}>
-                      {section.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Year Level</label>
-                <select
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
-                  value={newExam.yearLevel}
-                  onChange={(e) => setNewExam({ ...newExam, yearLevel: e.target.value as 'YEAR_1' | 'YEAR_2' | 'BOTH' })}
-                >
-                  <option value="BOTH">All Students (Both Years)</option>
-                  <option value="YEAR_1">Year 1 Only</option>
-                  <option value="YEAR_2">Year 2 Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Exam Date</label>
-                <Input
-                  type="date"
-                  value={newExam.examDate}
-                  onChange={(e) => setNewExam({ ...newExam, examDate: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Total Points</label>
-                <Input
-                  type="number"
-                  value={newExam.totalPoints}
-                  onChange={(e) => setNewExam({ ...newExam, totalPoints: parseInt(e.target.value) })}
-                  className="mt-1"
-                />
-              </div>
-
-              <Button
-                onClick={createExam}
-                disabled={!newExam.examSectionId || !newExam.examDate}
-                className="w-full"
-              >
-                Create Exam
-              </Button>
+      <Dialog open={showCreateExam} onOpenChange={setShowCreateExam}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create exam</DialogTitle>
+            <DialogDescription>Scores can be entered once it is created.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="exam-section">Exam section <span className="text-bad">*</span></Label>
+              <FilterSelect
+                aria-label="Exam section"
+                value={newExam.examSectionId}
+                onChange={(v) => setNewExam({ ...newExam, examSectionId: v })}
+                className="w-full md:h-9"
+                options={[{ value: '', label: 'Select section…' }, ...examSections.map((section) => ({ value: section.id, label: section.displayName }))]}
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div className="grid gap-1.5">
+              <Label>Year level</Label>
+              <FilterSelect
+                aria-label="Year level"
+                value={newExam.yearLevel}
+                onChange={(v) => setNewExam({ ...newExam, yearLevel: v as 'YEAR_1' | 'YEAR_2' | 'BOTH' })}
+                className="w-full md:h-9"
+                options={[
+                  { value: 'BOTH', label: 'All students (both years)' },
+                  { value: 'YEAR_1', label: 'Year 1 only' },
+                  { value: 'YEAR_2', label: 'Year 2 only' },
+                ]}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="exam-date">Exam date <span className="text-bad">*</span></Label>
+                <Input id="exam-date" type="date" value={newExam.examDate} onChange={(e) => setNewExam({ ...newExam, examDate: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="exam-points">Total points</Label>
+                <Input id="exam-points" type="number" value={newExam.totalPoints} onChange={(e) => setNewExam({ ...newExam, totalPoints: parseInt(e.target.value) })} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateExam(false)}>Cancel</Button>
+              <Button onClick={createExam} disabled={!newExam.examSectionId || !newExam.examDate}>Create exam</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

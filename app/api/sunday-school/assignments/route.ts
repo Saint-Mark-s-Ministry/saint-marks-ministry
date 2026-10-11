@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole, SundaySchoolGrade, YearLevel } from "@prisma/client"
 import { canManageSundaySchool, isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
+import { rotationAttendanceToDate, rotationGradeForClassLevel } from "@/lib/sunday-school-utils"
 
 // GET /api/sunday-school/assignments - List assignments with filters
 // Query params:
@@ -11,11 +12,47 @@ import { getMentorStudentIds } from "@/lib/api-utils"
 //   ?academicYearId=xxx - filter by academic year
 //   ?grade=GRADE_1 - filter by Sunday School grade
 //   ?isActive=true - filter by active status
+//   ?classOptions=true - instead: this year's active Sunday School classes to place a rotation in
+//   ?unassigned=true - instead: active async students with no rotation in the
+//     academic year (academicYearId, or the active year), for the assign dialog
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
+
+    if (searchParams.get("classOptions") === "true") {
+      if (!canManageSundaySchool(user.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      const classes = await prisma.sundaySchoolClass.findMany({
+        where: { isActive: true, status: "ACTIVE", sundaySchoolYear: { status: "OPEN" } },
+        select: { id: true, name: true, level: true },
+        orderBy: [{ level: "asc" }, { name: "asc" }],
+      })
+      return NextResponse.json(classes)
+    }
+
+    if (searchParams.get("unassigned") === "true") {
+      if (!canManageSundaySchool(user.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      const yearId =
+        searchParams.get("academicYearId") ||
+        (await prisma.academicYear.findFirst({ where: { isActive: true }, select: { id: true } }))?.id
+      if (!yearId) return NextResponse.json([])
+      const enrollments = await prisma.studentEnrollment.findMany({
+        where: {
+          isAsyncStudent: true,
+          isActive: true,
+          student: { sundaySchoolAssignments: { none: { academicYearId: yearId } } },
+        },
+        select: { student: { select: { id: true, name: true, email: true } } },
+        orderBy: { student: { name: "asc" } },
+      })
+      return NextResponse.json(enrollments.map((e) => e.student))
+    }
+
     const studentId = searchParams.get("studentId")
     const academicYearId = searchParams.get("academicYearId")
     const grade = searchParams.get("grade")
@@ -55,6 +92,7 @@ export async function GET(request: Request) {
             name: true,
           },
         },
+        class: { select: { id: true, name: true } },
         assigner: {
           select: {
             id: true,
@@ -68,7 +106,15 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json(assignments)
+    // Progress for the list: weeks attended, and the rate over weeks so far
+    return NextResponse.json(
+      assignments.map((assignment) => ({
+        ...assignment,
+        presentCount: assignment.logs.filter((log) => log.status === "VERIFIED" || log.status === "MANUAL").length,
+        totalLogged: assignment.logs.length,
+        percentage: rotationAttendanceToDate(assignment)?.percentage ?? null,
+      }))
+    )
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch assignments" },
@@ -88,11 +134,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { studentId, grade, academicYearId, totalWeeks, startDate } = body
+    const { studentId, classId, academicYearId, totalWeeks, startDate } = body
+    let { grade } = body
+
+    // A class (preferred) sets the grade from its level; a bare grade still works.
+    if (classId) {
+      const ssClass = await prisma.sundaySchoolClass.findFirst({
+        where: { id: classId, isActive: true },
+        select: { level: true },
+      })
+      if (!ssClass) {
+        return NextResponse.json({ error: "Sunday School class not found" }, { status: 400 })
+      }
+      grade = rotationGradeForClassLevel(ssClass.level)
+    }
 
     if (!studentId || !grade || !academicYearId || !startDate) {
       return NextResponse.json(
-        { error: "Missing required fields: studentId, grade, academicYearId, startDate" },
+        { error: "Missing required fields: studentId, classId, academicYearId, startDate" },
         { status: 400 }
       )
     }
@@ -161,12 +220,13 @@ export async function POST(request: Request) {
     }
 
     // Normalize startDate to midnight
-    parsedStartDate.setHours(0, 0, 0, 0)
+    parsedStartDate.setUTCHours(0, 0, 0, 0) // a date-only value is UTC midnight; keep that day
 
     const assignment = await prisma.sundaySchoolAssignment.create({
       data: {
         studentId,
         grade: grade as SundaySchoolGrade,
+        classId: classId || null,
         academicYearId,
         yearLevel: enrollment.yearLevel as YearLevel,
         totalWeeks: weeks,
@@ -187,6 +247,7 @@ export async function POST(request: Request) {
             name: true,
           },
         },
+        class: { select: { id: true, name: true } },
         assigner: {
           select: {
             id: true,

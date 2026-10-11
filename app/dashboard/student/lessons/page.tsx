@@ -3,20 +3,19 @@
 import { useEffect, useState } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { PageLoading } from '@/components/ui/page-loading'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { FilterSelect } from '@/components/ui/filter-select'
-import { PageHeader } from '@/components/admin/page-header'
-import { formatDateUTC } from '@/lib/utils'
-import {
-  extractGoogleDriveFileId,
-  getGoogleDriveThumbnail,
-  getGoogleDriveFileIcon,
-  isGoogleDriveLink,
-  extractDomain,
-} from '@/lib/link-metadata'
-import { Check, Clock, X, Shield, Calendar, BookOpen, ExternalLink, ChevronDown, ChevronRight, AlertTriangle, Minus } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ds/page-header'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { DetailPanel, SplitView } from '@/components/ds/detail-panel'
+import { KeyValueList } from '@/components/ds/kv-list'
+import { ResourceLink } from '@/components/ds/resource-link'
+import { formatDateUTC, formatUTC } from '@/lib/utils'
+import { Paperclip } from 'lucide-react'
 
 interface LessonResource {
   id: string
@@ -27,6 +26,8 @@ interface LessonResource {
 
 interface Lesson {
   id: string
+  /** On or after the day the student went async (no roll call). */
+  asyncPeriod?: boolean
   title: string
   subtitle: string | null
   speaker: string | null
@@ -64,6 +65,7 @@ export default function StudentLessonsPage() {
   const [filterSection, setFilterSection] = useState<string>('all')
   const [filterAttendance, setFilterAttendance] = useState<string>('all')
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null)
+  const [view, setView] = useState<'upcoming' | 'completed' | 'all'>('all')
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -110,53 +112,29 @@ export default function StudentLessonsPage() {
     return true
   })
 
-  const getAttendanceIcon = (attendance: Lesson['attendance']) => {
-    if (!attendance) return <X className="h-4 w-4 text-gray-400" />
-    // Lessons before the student joined, or covered by an N/A expected
-    // absence, are not counted (shown as N/A)
-    if (attendance.notEnrolledYet || attendance.expectedAbsenceNA) return <Minus className="h-4 w-4 text-gray-400" />
+  const now = new Date()
+  const isUpcoming = (l: Lesson) => l.status === 'SCHEDULED' && new Date(l.scheduledDate) >= new Date(now.toDateString())
+  const viewLessons = filteredLessons.filter((l) => (view === 'all' ? true : view === 'upcoming' ? isUpcoming(l) : !isUpcoming(l)))
+  const ordered = view === 'upcoming' ? [...viewLessons].sort((a, b) => +new Date(a.scheduledDate) - +new Date(b.scheduledDate)) : [...viewLessons].sort((a, b) => +new Date(b.scheduledDate) - +new Date(a.scheduledDate))
+  const thisYear = lessons.filter((l) => l.academicYear.isActive)
+  const counted = thisYear.filter((l) => l.attendance && !l.attendance.notEnrolledYet && !l.attendance.expectedAbsenceNA)
+  const attended = counted.filter((l) => l.attendance?.status === 'PRESENT' || l.attendance?.status === 'LATE').length
+  const next = [...lessons].filter(isUpcoming).sort((a, b) => +new Date(a.scheduledDate) - +new Date(b.scheduledDate))[0]
+  const selected = lessons.find((l) => l.id === expandedLesson) ?? null
 
-    switch (attendance.status) {
-      case 'PRESENT':
-        return <Check className="h-4 w-4 text-green-600" />
-      case 'LATE':
-        return <Clock className="h-4 w-4 text-yellow-600" />
-      case 'ABSENT':
-        return <X className="h-4 w-4 text-red-600" />
-      case 'EXCUSED':
-        return <Shield className="h-4 w-4 text-blue-600" />
+  const attendanceBadge = (lesson: Lesson) => {
+    const a = lesson.attendance
+    if (lesson.asyncPeriod && !a) {
+      return isUpcoming(lesson)
+        ? <StatusBadge tone="neutral" dot={false}>Async</StatusBadge>
+        : <StatusBadge tone="neutral" dot={false}>Async · rotation</StatusBadge>
     }
-  }
-
-  const getAttendanceBadge = (attendance: Lesson['attendance']) => {
-    if (!attendance) return <Badge variant="outline" className="text-xs">No Record</Badge>
-    if (attendance.notEnrolledYet) {
-      return <Badge className="bg-gray-100 text-gray-600 text-xs" title="Before you joined — not counted">N/A</Badge>
-    }
-    if (attendance.expectedAbsenceNA) {
-      return <Badge className="bg-gray-100 text-gray-600 text-xs" title="Expected absence — not counted">N/A</Badge>
-    }
-
-    switch (attendance.status) {
-      case 'PRESENT':
-        return <Badge className="bg-green-100 text-green-800 text-xs">Present</Badge>
-      case 'LATE':
-        return <Badge className="bg-yellow-100 text-yellow-800 text-xs">Late</Badge>
-      case 'ABSENT':
-        return <Badge className="bg-red-100 text-red-800 text-xs">Absent</Badge>
-      case 'EXCUSED':
-        return <Badge className="bg-blue-100 text-blue-800 text-xs">Excused</Badge>
-    }
-  }
-
-  const getLessonStatusBadge = (lessonStatus: string) => {
-    if (lessonStatus === 'COMPLETED') {
-      return <Badge className="bg-green-100 text-green-800 text-xs">Completed</Badge>
-    }
-    if (lessonStatus === 'SCHEDULED') {
-      return <Badge className="bg-blue-100 text-blue-800 text-xs">Upcoming</Badge>
-    }
-    return null
+    if (lesson.status === 'SCHEDULED' && !a) return <StatusBadge tone="info">Upcoming</StatusBadge>
+    if (!a) return <span className="text-ink-3">—</span>
+    if (a.notEnrolledYet) return <StatusBadge tone="neutral" dot={false}>Before you joined</StatusBadge>
+    if (a.expectedAbsenceNA) return <StatusBadge tone="neutral" dot={false}>Not counted</StatusBadge>
+    const meta = { PRESENT: ['ok', 'Present'], LATE: ['warn', 'Late'], ABSENT: ['bad', 'Absent'], EXCUSED: ['info', 'Excused'] } as const
+    return <StatusBadge tone={meta[a.status][0]}>{meta[a.status][1]}</StatusBadge>
   }
 
   if (loading || status === 'loading') {
@@ -164,258 +142,124 @@ export default function StudentLessonsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
-        {/* Header */}
-        <PageHeader
-          title="My Lessons"
-          description="View your lessons, resources, and attendance"
-        />
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader title="My lessons" meta={['Your lessons, resources and attendance']} />
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-wrap gap-2">
-              <Input
-                placeholder="Search lessons..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 sm:h-10 text-xs sm:text-sm w-full sm:max-w-xs"
-              />
-              <FilterSelect
-                value={filterSection}
-                onChange={setFilterSection}
-                options={sections.map(section => ({ value: section, label: section }))}
-                placeholder="All Sections"
-              />
-              <FilterSelect
-                value={filterAttendance}
-                onChange={setFilterAttendance}
+      <KpiStrip
+        items={[
+          { label: 'Total lessons', value: thisYear.length, hint: `${thisYear.filter((l) => l.status === 'COMPLETED').length} completed` },
+          { label: 'Attended', value: <>{attended}<span className="font-normal text-ink-3"> / {counted.length}</span></>, hint: 'this year' },
+          {
+            label: 'Next',
+            value: <span className="text-[22px]">{next ? formatUTC(next.scheduledDate, { month: 'short', day: 'numeric' }) : '—'}</span>,
+            hint: next ? `Lesson ${next.lessonNumber} · ${next.title}` : 'Nothing scheduled',
+          },
+        ]}
+      />
+
+      <SplitView>
+        <Panel
+          className="flex-1"
+          toolbar={
+            <>
+              <Segmented
+                label="Lessons"
+                value={view}
+                onChange={setView}
                 options={[
-                  { value: 'present', label: 'Present' },
-                  { value: 'late', label: 'Late' },
-                  { value: 'absent', label: 'Absent' },
+                  { value: 'upcoming', label: 'Upcoming' },
+                  { value: 'completed', label: 'Past' },
+                  { value: 'all', label: 'All' },
                 ]}
-                placeholder="All Attendance"
               />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Lessons</div>
-              <div className="text-xl sm:text-2xl font-bold dark:text-white">{lessons.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Present</div>
-              <div className="text-xl sm:text-2xl font-bold text-green-700">
-                {lessons.filter(l => l.attendance?.status === 'PRESENT').length}
+              <div className="flex w-full flex-wrap items-center gap-2 md:ml-auto md:w-auto">
+                <FilterSelect
+                  aria-label="Section"
+                  value={filterSection}
+                  onChange={setFilterSection}
+                  options={[{ value: 'all', label: 'All sections' }, ...sections.map((x) => ({ value: x, label: x }))]}
+                />
+                <FilterSelect
+                  aria-label="Attendance"
+                  value={filterAttendance}
+                  onChange={setFilterAttendance}
+                  options={[
+                    { value: 'all', label: 'All attendance' },
+                    { value: 'present', label: 'Present' },
+                    { value: 'late', label: 'Late' },
+                    { value: 'absent', label: 'Absent or missing' },
+                  ]}
+                />
+                <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search lessons" className="flex-1 md:flex-none" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Late</div>
-              <div className="text-xl sm:text-2xl font-bold text-yellow-700">
-                {lessons.filter(l => l.attendance?.status === 'LATE').length}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Absent</div>
-              <div className="text-xl sm:text-2xl font-bold text-red-700">
-                {lessons.filter(l => l.attendance?.status === 'ABSENT').length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Lessons List */}
-        <div className="space-y-2 sm:space-y-3">
-          {filteredLessons.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-gray-500 dark:text-gray-400">
-                No lessons found
-              </CardContent>
-            </Card>
+            </>
+          }
+          footer={<span className="tabular">{ordered.length} lessons</span>}
+        >
+          {ordered.length === 0 ? (
+            <EmptyState message={view === 'upcoming' ? 'No upcoming lessons.' : 'No lessons match.'} />
           ) : (
-            filteredLessons.map(lesson => {
-              const isExpanded = expandedLesson === lesson.id
-
-              return (
-                <Card key={lesson.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                  <CardContent className="p-0">
-                    {/* Lesson Header - Always Visible */}
-                    <button
-                      onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
-                      className="w-full p-3 sm:p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <div className="flex items-start gap-2 sm:gap-3">
-                        {/* Attendance Icon */}
-                        <div className="shrink-0 mt-1">
-                          {getAttendanceIcon(lesson.attendance)}
-                        </div>
-
-                        {/* Lesson Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-semibold text-sm sm:text-base dark:text-white">
-                                  L{lesson.lessonNumber}: {lesson.title}
-                                </h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {lesson.examSection.displayName}
-                                </Badge>
-                                {getLessonStatusBadge(lesson.status)}
-                              </div>
-                              {lesson.subtitle && (
-                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {lesson.subtitle}
-                                </p>
-                              )}
-                              {lesson.speaker && (
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                  Speaker: {lesson.speaker}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-2 sm:gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {formatDateUTC(lesson.scheduledDate, {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                  })}
-                                </span>
-                                {lesson.resources.length > 0 && (
-                                  <span className="flex items-center gap-1">
-                                    <BookOpen className="h-3 w-3" />
-                                    {lesson.resources.length} resource{lesson.resources.length !== 1 ? 's' : ''}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Attendance Badge & Expand Icon */}
-                            <div className="flex items-center gap-2 shrink-0">
-                              {lesson.attendance?.conductRemoval && (
-                                <Badge className="bg-orange-100 text-orange-800 text-xs flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  Conduct
-                                </Badge>
-                              )}
-                              {getAttendanceBadge(lesson.attendance)}
-                              {isExpanded ?
-                                <ChevronDown className="h-4 w-4 text-gray-400" /> :
-                                <ChevronRight className="h-4 w-4 text-gray-400" />
-                              }
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-
-                    {/* Expanded Content */}
-                    {isExpanded && (
-                      <div className="border-t dark:border-gray-700 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50 dark:bg-gray-800/50">
-                        {/* Description */}
-                        {lesson.description && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-2 dark:text-white">Description</h4>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                              {lesson.description}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Resources */}
-                        {lesson.resources.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-2 dark:text-white">Resources</h4>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {lesson.resources.map(resource => {
-                                const isDrive = isGoogleDriveLink(resource.url)
-                                const fileId = isDrive ? extractGoogleDriveFileId(resource.url) : null
-                                const icon = isDrive ? getGoogleDriveFileIcon(resource.url) : '🔗'
-
-                                return (
-                                  <a
-                                    key={resource.id}
-                                    href={resource.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm transition-all group"
-                                  >
-                                    {/* Thumbnail or Icon */}
-                                    {isDrive && fileId ? (
-                                      <div className="shrink-0 w-12 h-12 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element -- Google Drive thumbnail URL with onError fallback */}
-                                        <img
-                                          src={getGoogleDriveThumbnail(fileId)}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            e.currentTarget.style.display = 'none'
-                                            const parent = e.currentTarget.parentElement
-                                            if (parent) {
-                                              const span = document.createElement('span')
-                                              span.className = 'text-2xl'
-                                              span.textContent = icon
-                                              parent.replaceChildren(span)
-                                            }
-                                          }}
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="shrink-0 w-12 h-12 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-2xl">
-                                        {icon}
-                                      </div>
-                                    )}
-
-                                    {/* Resource Info */}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-sm truncate dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                                        {resource.title}
-                                      </div>
-                                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                        {isDrive ? 'Google Drive' : extractDomain(resource.url)}
-                                      </div>
-                                    </div>
-
-                                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 shrink-0" />
-                                  </a>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Attendance Notes */}
-                        {lesson.attendance?.notes && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-2 dark:text-white">Attendance Notes</h4>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 italic">
-                              {lesson.attendance.notes}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            })
+            <ul className="divide-y divide-line">
+              {ordered.map((lesson) => (
+                <li key={lesson.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedLesson(lesson.id)}
+                    className={`grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left md:grid-cols-[40px_110px_minmax(0,1fr)_130px_110px] ${expandedLesson === lesson.id ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
+                  >
+                    <span className="tabular text-[13px] font-medium text-ink-3">{lesson.lessonNumber}</span>
+                    <span className="hidden text-[13px] text-ink-2 md:block">{formatUTC(lesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-[13.5px] font-medium text-ink">{lesson.title}</span>
+                      <span className="truncate text-xs text-ink-3">
+                        <span className="md:hidden">{formatUTC(lesson.scheduledDate, { month: 'short', day: 'numeric' })} · </span>
+                        {lesson.speaker || lesson.examSection.displayName}
+                      </span>
+                    </span>
+                    <span>{attendanceBadge(lesson)}</span>
+                    <span className="hidden items-center gap-1 text-xs text-ink-3 md:flex">
+                      <Paperclip className="size-3.5" aria-hidden />
+                      {lesson.resources.length || '—'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-      </div>
+        </Panel>
+
+        {selected && (
+          <DetailPanel open onClose={() => setExpandedLesson(null)} title={`Lesson ${selected.lessonNumber} · ${selected.title}`}>
+            <div className="flex flex-col gap-4">
+              <KeyValueList
+                items={[
+                  { label: 'Date', value: formatDateUTC(selected.scheduledDate) },
+                  { label: 'Section', value: selected.examSection.displayName },
+                  ...(selected.speaker ? [{ label: 'Speaker', value: selected.speaker }] : []),
+                  { label: 'Your attendance', value: attendanceBadge(selected) },
+                  ...(selected.attendance?.arrivedAt ? [{ label: 'Arrived', value: selected.attendance.arrivedAt }] : []),
+                  ...(selected.attendance?.conductRemoval ? [{ label: 'Note', value: <span className="text-bad">Removed from this lesson</span> }] : []),
+                ]}
+              />
+              {(selected.subtitle || selected.description) && (
+                <section className="flex flex-col gap-1">
+                  <h3 className="text-xs font-medium tracking-[0.06em] text-ink-3 uppercase">Description</h3>
+                  {selected.subtitle && <p className="text-[13px] font-medium text-ink">{selected.subtitle}</p>}
+                  {selected.description && <p className="text-[13px] whitespace-pre-wrap text-ink-2">{selected.description}</p>}
+                </section>
+              )}
+              <section className="flex flex-col gap-2">
+                <h3 className="text-xs font-medium tracking-[0.06em] text-ink-3 uppercase">Resources</h3>
+                {selected.resources.length === 0 ? (
+                  <p className="text-[13px] text-ink-3">No resources for this lesson yet.</p>
+                ) : (
+                  selected.resources.map((r) => <ResourceLink key={r.id} title={r.title} url={r.url} type={r.type} />)
+                )}
+              </section>
+            </div>
+          </DetailPanel>
+        )}
+      </SplitView>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { RegistrationStatus } from '@prisma/client'
 import { notifyNewServantApplication } from '@/lib/notifications'
 import { normalizeEmail } from '@/lib/email'
+import { emailServantApplicationReceived } from '@/lib/mail/notify'
 
 /**
  * POST /api/servant-applications/submit
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     } catch (notificationError) {
       console.error('Failed to create servant application notifications:', notificationError)
     }
+    emailServantApplicationReceived({ email: normalizedEmail, name: normalizedName })
 
     return NextResponse.json(
       {

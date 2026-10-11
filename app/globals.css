@@ -4,6 +4,34 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* St. Mark Ministry design system tokens (see the redesign canvas, "Design system").
+     Values live in :root / .dark below; these expose them as Tailwind colors. */
+  --font-display: var(--font-newsreader), Georgia, serif;
+  --color-canvas: var(--ds-canvas);
+  --color-surface: var(--ds-surface);
+  --color-raised: var(--ds-raised);
+  --color-hover: var(--ds-hover);
+  --color-sidebar-bg: var(--ds-sidebar);
+  --color-line: var(--ds-border);
+  --color-line-strong: var(--ds-border-strong);
+  --color-ink: var(--ds-text);
+  --color-ink-2: var(--ds-text-2);
+  --color-ink-3: var(--ds-text-3);
+  --color-brand: var(--ds-primary);
+  --color-brand-hover: var(--ds-primary-hover);
+  --color-accent-ink: var(--ds-accent);
+  --color-accent-tint: var(--ds-accent-tint);
+  --color-gold: var(--ds-gold);
+  --color-gold-tint: var(--ds-gold-tint);
+  --color-ok: var(--ds-ok);
+  --color-ok-tint: var(--ds-ok-tint);
+  --color-warn: var(--ds-warn);
+  --color-warn-tint: var(--ds-warn-tint);
+  --color-bad: var(--ds-bad);
+  --color-bad-tint: var(--ds-bad-tint);
+  --color-info: var(--ds-info);
+  --color-info-tint: var(--ds-info-tint);
+  --color-track: var(--ds-track);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -49,14 +77,34 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 5px;  /* badge */
+  --radius-md: 6px;  /* control */
+  --radius-lg: 10px; /* card */
+  --radius-xl: 14px; /* sheet */
+  /* Light shades (50-300) are translucent tints, which suit fills and borders but
+     wash text out (dark mode leans on text-*-200/300). Text always uses the
+     full-strength status color; Tailwind reads --text-color-* before --color-*. */
+  --text-color-green-50: var(--ds-ok); --text-color-green-100: var(--ds-ok); --text-color-green-200: var(--ds-ok); --text-color-green-300: var(--ds-ok);
+  --text-color-emerald-50: var(--ds-ok); --text-color-emerald-100: var(--ds-ok); --text-color-emerald-200: var(--ds-ok); --text-color-emerald-300: var(--ds-ok);
+  --text-color-lime-50: var(--ds-ok); --text-color-lime-100: var(--ds-ok); --text-color-lime-200: var(--ds-ok); --text-color-lime-300: var(--ds-ok);
+  --text-color-teal-50: var(--ds-ok); --text-color-teal-100: var(--ds-ok); --text-color-teal-200: var(--ds-ok); --text-color-teal-300: var(--ds-ok);
+  --text-color-amber-50: var(--ds-warn); --text-color-amber-100: var(--ds-warn); --text-color-amber-200: var(--ds-warn); --text-color-amber-300: var(--ds-warn);
+  --text-color-yellow-50: var(--ds-warn); --text-color-yellow-100: var(--ds-warn); --text-color-yellow-200: var(--ds-warn); --text-color-yellow-300: var(--ds-warn);
+  --text-color-orange-50: var(--ds-warn); --text-color-orange-100: var(--ds-warn); --text-color-orange-200: var(--ds-warn); --text-color-orange-300: var(--ds-warn);
+  --text-color-red-50: var(--ds-bad); --text-color-red-100: var(--ds-bad); --text-color-red-200: var(--ds-bad); --text-color-red-300: var(--ds-bad);
+  --text-color-rose-50: var(--ds-bad); --text-color-rose-100: var(--ds-bad); --text-color-rose-200: var(--ds-bad); --text-color-rose-300: var(--ds-bad);
+  --text-color-blue-50: var(--ds-info); --text-color-blue-100: var(--ds-info); --text-color-blue-200: var(--ds-info); --text-color-blue-300: var(--ds-info);
+  --text-color-sky-50: var(--ds-info); --text-color-sky-100: var(--ds-info); --text-color-sky-200: var(--ds-info); --text-color-sky-300: var(--ds-info);
+  --text-color-cyan-50: var(--ds-info); --text-color-cyan-100: var(--ds-info); --text-color-cyan-200: var(--ds-info); --text-color-cyan-300: var(--ds-info);
+  --text-color-indigo-50: var(--ds-info); --text-color-indigo-100: var(--ds-info); --text-color-indigo-200: var(--ds-info); --text-color-indigo-300: var(--ds-info);
+  --text-color-purple-50: var(--ds-info); --text-color-purple-100: var(--ds-info); --text-color-purple-200: var(--ds-info); --text-color-purple-300: var(--ds-info);
+  --text-color-violet-50: var(--ds-info); --text-color-violet-100: var(--ds-info); --text-color-violet-200: var(--ds-info); --text-color-violet-300: var(--ds-info);
+  --text-color-fuchsia-50: var(--ds-info); --text-color-fuchsia-100: var(--ds-info); --text-color-fuchsia-200: var(--ds-info); --text-color-fuchsia-300: var(--ds-info);
+  --text-color-pink-50: var(--ds-info); --text-color-pink-100: var(--ds-info); --text-color-pink-200: var(--ds-info); --text-color-pink-300: var(--ds-info);
 }
 
-/* Page changes use a short vertical transition while the two ministry modes
-   retain their directional switch. Reduced-motion users keep instant navigation. */
+/* Page changes use a short vertical transition. Reduced-motion users keep
+   instant navigation. */
 @media (prefers-reduced-motion: no-preference) {
   [data-slot="dialog-overlay"][data-state="open"],
   [data-slot="alert-dialog-overlay"][data-state="open"] {
@@ -86,29 +134,14 @@
     animation: top-modal-content-out 150ms ease-in both;
   }
 
-  html.page-transition-out #app-content {
+  /* Page changes animate only the content; the sidebar and top bar stay put. */
+  html.page-transition-out #main {
     animation: page-content-out 120ms ease-in both;
     pointer-events: none;
   }
 
-  html.page-transition-in #app-content {
+  html.page-transition-in #main {
     animation: page-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  html.mode-transition-fallback-out[data-mode-transition="to-sunday-school"] #app-content {
-    animation: mode-content-out-left 160ms ease-in both;
-  }
-
-  html.mode-transition-fallback-in[data-mode-transition="to-sunday-school"] #app-content {
-    animation: mode-content-in-right 220ms ease-out both;
-  }
-
-  html.mode-transition-fallback-out[data-mode-transition="to-servants-prep"] #app-content {
-    animation: mode-content-out-right 160ms ease-in both;
-  }
-
-  html.mode-transition-fallback-in[data-mode-transition="to-servants-prep"] #app-content {
-    animation: mode-content-in-left 220ms ease-out both;
   }
 }
 
@@ -180,6 +213,48 @@
   }
 }
 
+/* Make room for desktop record details gradually, keeping the panel's
+   contents at their final width so text does not reflow during the reveal. */
+@keyframes detail-panel-expand {
+  from {
+    width: 0;
+    margin-left: -1.25rem;
+    opacity: 0;
+  }
+  to {
+    width: 360px;
+    margin-left: 0;
+    opacity: 1;
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .detail-panel-desktop {
+    animation: detail-panel-expand 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Animate newly mounted content, including data that arrives after navigation.
+   Opacity alone keeps fixed dialogs and sticky headers in their usual position.
+   No fill mode: content stays visible once the animation ends or is disabled. */
+@keyframes loaded-content-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .content-reveal {
+    animation: loaded-content-in 240ms ease-out;
+  }
+
+  /* Rows can mount later than their page when a roster or filter finishes loading.
+     Animate their arrival together, without a delay per row on large tables. */
+  .content-reveal tbody > tr,
+  .content-reveal ul.divide-y > li {
+    animation: loaded-content-in 180ms ease-out;
+  }
+}
+
 @keyframes feedback-vote-pop-up {
   0% {
     transform: translateY(2px) scale(0.72);
@@ -232,125 +307,438 @@
   }
 }
 
-@keyframes mode-content-out-left {
-  to {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-}
-
-@keyframes mode-content-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-
-@keyframes mode-content-out-right {
-  to {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-
-@keyframes mode-content-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-}
-
 :root {
   --radius: 0.625rem;
-  --app-canvas: #f9fafb;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Light — warm neutrals, one maroon accent, gold for Sunday School,
+     status color only where it means something. */
+  --ds-canvas: #F5F3F0;
+  --ds-surface: #FFFFFF;
+  --ds-raised: #FAF8F6;
+  --ds-hover: #F1EEEA;
+  --ds-sidebar: #FBFAF8;
+  --ds-border: #E6E1DB;
+  --ds-border-strong: #D5CEC6;
+  --ds-text: #1B1817;
+  --ds-text-2: #57504B;
+  --ds-text-3: #736B65;
+  --ds-primary: #800020;
+  --ds-primary-hover: #6B001A;
+  --ds-accent: #800020;
+  --ds-accent-tint: #F8EBEE;
+  --ds-gold: #8A6A1C;
+  --ds-gold-tint: #F6EFDD;
+  --ds-ok: #1E7A4C;
+  --ds-ok-tint: #E5F2EA;
+  --ds-warn: #955A00;
+  --ds-warn-tint: #FBF0DB;
+  --ds-bad: #B93A26;
+  --ds-bad-tint: #FBE9E5;
+  --ds-info: #2D5F9A;
+  --ds-info-tint: #E8EEF7;
+  --ds-track: #ECE7E1;
+
+  /* Tailwind's gray scale, warmed so legacy gray-* markup sits on the system. */
+  --color-gray-50: #FAF8F6;
+  --color-gray-100: #F1EEEA;
+  --color-gray-200: #E6E1DB;
+  --color-gray-300: #D5CEC6;
+  --color-gray-400: #A39B94;
+  --color-gray-500: #736B65;
+  --color-gray-600: #57504B;
+  --color-gray-700: #3F3935;
+  --color-gray-800: #2B2826;
+  --color-gray-900: #1B1817;
+  --color-gray-950: #131211;
+
+
+  /* Status palettes: Tailwind hues collapse onto the four status tokens, so legacy
+     green/amber/red/blue/purple markup reads as ok/warn/bad/info in both themes.
+     "Color means state" (design system principle 3). */
+  --color-green-50: var(--ds-ok-tint);
+  --color-green-100: var(--ds-ok-tint);
+  --color-green-200: color-mix(in srgb, var(--ds-ok) 28%, transparent);
+  --color-green-300: color-mix(in srgb, var(--ds-ok) 40%, transparent);
+  --color-green-400: var(--ds-ok);
+  --color-green-500: var(--ds-ok);
+  --color-green-600: var(--ds-ok);
+  --color-green-700: var(--ds-ok);
+  --color-green-800: var(--ds-ok);
+  --color-green-900: var(--ds-ok);
+  --color-green-950: var(--ds-ok);
+  --color-emerald-50: var(--ds-ok-tint);
+  --color-emerald-100: var(--ds-ok-tint);
+  --color-emerald-200: color-mix(in srgb, var(--ds-ok) 28%, transparent);
+  --color-emerald-300: color-mix(in srgb, var(--ds-ok) 40%, transparent);
+  --color-emerald-400: var(--ds-ok);
+  --color-emerald-500: var(--ds-ok);
+  --color-emerald-600: var(--ds-ok);
+  --color-emerald-700: var(--ds-ok);
+  --color-emerald-800: var(--ds-ok);
+  --color-emerald-900: var(--ds-ok);
+  --color-emerald-950: var(--ds-ok);
+  --color-teal-50: var(--ds-ok-tint);
+  --color-teal-100: var(--ds-ok-tint);
+  --color-teal-200: color-mix(in srgb, var(--ds-ok) 28%, transparent);
+  --color-teal-300: color-mix(in srgb, var(--ds-ok) 40%, transparent);
+  --color-teal-400: var(--ds-ok);
+  --color-teal-500: var(--ds-ok);
+  --color-teal-600: var(--ds-ok);
+  --color-teal-700: var(--ds-ok);
+  --color-teal-800: var(--ds-ok);
+  --color-teal-900: var(--ds-ok);
+  --color-teal-950: var(--ds-ok);
+  --color-lime-50: var(--ds-ok-tint);
+  --color-lime-100: var(--ds-ok-tint);
+  --color-lime-200: color-mix(in srgb, var(--ds-ok) 28%, transparent);
+  --color-lime-300: color-mix(in srgb, var(--ds-ok) 40%, transparent);
+  --color-lime-400: var(--ds-ok);
+  --color-lime-500: var(--ds-ok);
+  --color-lime-600: var(--ds-ok);
+  --color-lime-700: var(--ds-ok);
+  --color-lime-800: var(--ds-ok);
+  --color-lime-900: var(--ds-ok);
+  --color-lime-950: var(--ds-ok);
+  --color-amber-50: var(--ds-warn-tint);
+  --color-amber-100: var(--ds-warn-tint);
+  --color-amber-200: color-mix(in srgb, var(--ds-warn) 28%, transparent);
+  --color-amber-300: color-mix(in srgb, var(--ds-warn) 40%, transparent);
+  --color-amber-400: var(--ds-warn);
+  --color-amber-500: var(--ds-warn);
+  --color-amber-600: var(--ds-warn);
+  --color-amber-700: var(--ds-warn);
+  --color-amber-800: var(--ds-warn);
+  --color-amber-900: var(--ds-warn);
+  --color-amber-950: var(--ds-warn);
+  --color-yellow-50: var(--ds-warn-tint);
+  --color-yellow-100: var(--ds-warn-tint);
+  --color-yellow-200: color-mix(in srgb, var(--ds-warn) 28%, transparent);
+  --color-yellow-300: color-mix(in srgb, var(--ds-warn) 40%, transparent);
+  --color-yellow-400: var(--ds-warn);
+  --color-yellow-500: var(--ds-warn);
+  --color-yellow-600: var(--ds-warn);
+  --color-yellow-700: var(--ds-warn);
+  --color-yellow-800: var(--ds-warn);
+  --color-yellow-900: var(--ds-warn);
+  --color-yellow-950: var(--ds-warn);
+  --color-orange-50: var(--ds-warn-tint);
+  --color-orange-100: var(--ds-warn-tint);
+  --color-orange-200: color-mix(in srgb, var(--ds-warn) 28%, transparent);
+  --color-orange-300: color-mix(in srgb, var(--ds-warn) 40%, transparent);
+  --color-orange-400: var(--ds-warn);
+  --color-orange-500: var(--ds-warn);
+  --color-orange-600: var(--ds-warn);
+  --color-orange-700: var(--ds-warn);
+  --color-orange-800: var(--ds-warn);
+  --color-orange-900: var(--ds-warn);
+  --color-orange-950: var(--ds-warn);
+
+  --color-red-50: var(--ds-bad-tint);
+  --color-red-100: var(--ds-bad-tint);
+  --color-red-200: color-mix(in srgb, var(--ds-bad) 28%, transparent);
+  --color-red-300: color-mix(in srgb, var(--ds-bad) 40%, transparent);
+  --color-red-400: var(--ds-bad);
+  --color-red-500: var(--ds-bad);
+  --color-red-600: var(--ds-bad);
+  --color-red-700: var(--ds-bad);
+  --color-red-800: var(--ds-bad);
+  --color-red-900: var(--ds-bad);
+  --color-red-950: var(--ds-bad);
+  --color-rose-50: var(--ds-bad-tint);
+  --color-rose-100: var(--ds-bad-tint);
+  --color-rose-200: color-mix(in srgb, var(--ds-bad) 28%, transparent);
+  --color-rose-300: color-mix(in srgb, var(--ds-bad) 40%, transparent);
+  --color-rose-400: var(--ds-bad);
+  --color-rose-500: var(--ds-bad);
+  --color-rose-600: var(--ds-bad);
+  --color-rose-700: var(--ds-bad);
+  --color-rose-800: var(--ds-bad);
+  --color-rose-900: var(--ds-bad);
+  --color-rose-950: var(--ds-bad);
+  --color-blue-50: var(--ds-info-tint);
+  --color-blue-100: var(--ds-info-tint);
+  --color-blue-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-blue-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-blue-400: var(--ds-info);
+  --color-blue-500: var(--ds-info);
+  --color-blue-600: var(--ds-info);
+  --color-blue-700: var(--ds-info);
+  --color-blue-800: var(--ds-info);
+  --color-blue-900: var(--ds-info);
+  --color-blue-950: var(--ds-info);
+  --color-sky-50: var(--ds-info-tint);
+  --color-sky-100: var(--ds-info-tint);
+  --color-sky-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-sky-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-sky-400: var(--ds-info);
+  --color-sky-500: var(--ds-info);
+  --color-sky-600: var(--ds-info);
+  --color-sky-700: var(--ds-info);
+  --color-sky-800: var(--ds-info);
+  --color-sky-900: var(--ds-info);
+  --color-sky-950: var(--ds-info);
+  --color-cyan-50: var(--ds-info-tint);
+  --color-cyan-100: var(--ds-info-tint);
+  --color-cyan-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-cyan-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-cyan-400: var(--ds-info);
+  --color-cyan-500: var(--ds-info);
+  --color-cyan-600: var(--ds-info);
+  --color-cyan-700: var(--ds-info);
+  --color-cyan-800: var(--ds-info);
+  --color-cyan-900: var(--ds-info);
+  --color-cyan-950: var(--ds-info);
+  --color-indigo-50: var(--ds-info-tint);
+  --color-indigo-100: var(--ds-info-tint);
+  --color-indigo-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-indigo-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-indigo-400: var(--ds-info);
+  --color-indigo-500: var(--ds-info);
+  --color-indigo-600: var(--ds-info);
+  --color-indigo-700: var(--ds-info);
+  --color-indigo-800: var(--ds-info);
+  --color-indigo-900: var(--ds-info);
+  --color-indigo-950: var(--ds-info);
+  --color-violet-50: var(--ds-info-tint);
+  --color-violet-100: var(--ds-info-tint);
+  --color-violet-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-violet-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-violet-400: var(--ds-info);
+  --color-violet-500: var(--ds-info);
+  --color-violet-600: var(--ds-info);
+  --color-violet-700: var(--ds-info);
+  --color-violet-800: var(--ds-info);
+  --color-violet-900: var(--ds-info);
+  --color-violet-950: var(--ds-info);
+  --color-purple-50: var(--ds-info-tint);
+  --color-purple-100: var(--ds-info-tint);
+  --color-purple-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-purple-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-purple-400: var(--ds-info);
+  --color-purple-500: var(--ds-info);
+  --color-purple-600: var(--ds-info);
+  --color-purple-700: var(--ds-info);
+  --color-purple-800: var(--ds-info);
+  --color-purple-900: var(--ds-info);
+  --color-purple-950: var(--ds-info);
+  --color-fuchsia-50: var(--ds-info-tint);
+  --color-fuchsia-100: var(--ds-info-tint);
+  --color-fuchsia-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-fuchsia-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-fuchsia-400: var(--ds-info);
+  --color-fuchsia-500: var(--ds-info);
+  --color-fuchsia-600: var(--ds-info);
+  --color-fuchsia-700: var(--ds-info);
+  --color-fuchsia-800: var(--ds-info);
+  --color-fuchsia-900: var(--ds-info);
+  --color-fuchsia-950: var(--ds-info);
+  --color-pink-50: var(--ds-info-tint);
+  --color-pink-100: var(--ds-info-tint);
+  --color-pink-200: color-mix(in srgb, var(--ds-info) 28%, transparent);
+  --color-pink-300: color-mix(in srgb, var(--ds-info) 40%, transparent);
+  --color-pink-400: var(--ds-info);
+  --color-pink-500: var(--ds-info);
+  --color-pink-600: var(--ds-info);
+  --color-pink-700: var(--ds-info);
+  --color-pink-800: var(--ds-info);
+  --color-pink-900: var(--ds-info);
+  --color-pink-950: var(--ds-info);
+
+
+  /* Maroon utilities follow the brand: tints take the ministry accent, solid shades the
+     theme-correct primary, so legacy maroon markup reads right in both themes and modes. */
+  --color-maroon-50: var(--ds-accent-tint);
+  --color-maroon-100: var(--ds-accent-tint);
+  --color-maroon-200: color-mix(in srgb, var(--ds-accent) 28%, transparent);
+  --color-maroon-300: var(--ds-accent);
+  --color-maroon-400: var(--ds-accent);
+  --color-maroon-500: var(--ds-accent);
+  --color-maroon-600: var(--ds-primary);
+  --color-maroon-700: var(--ds-primary);
+  --color-maroon-800: var(--ds-primary);
+  --color-maroon-900: var(--ds-primary);
+  --color-maroon-950: var(--ds-primary);
+
+  --app-canvas: var(--ds-canvas);
+  --background: var(--ds-canvas);
+  --foreground: var(--ds-text);
+  --card: var(--ds-surface);
+  --card-foreground: var(--ds-text);
+  --popover: var(--ds-surface);
+  --popover-foreground: var(--ds-text);
+  --primary: var(--ds-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--ds-hover);
+  --secondary-foreground: var(--ds-text);
+  --muted: var(--ds-hover);
+  --muted-foreground: var(--ds-text-3);
+  --accent: var(--ds-hover);
+  --accent-foreground: var(--ds-text);
+  --destructive: var(--ds-bad);
+  --border: var(--ds-border);
+  --input: var(--ds-border-strong);
+  --ring: var(--ds-primary);
+  --chart-1: #800020;
+  --chart-2: #1E7A4C;
+  --chart-3: #2D5F9A;
+  --chart-4: #8A6A1C;
+  --chart-5: #955A00;
   --chart-attendance: #800020;
-  --chart-exam: #7c3aed;
-  --chart-roster: #64748b;
-  --chart-target: #ef4444;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --chart-exam: #2D5F9A;
+  --chart-roster: #736B65;
+  --chart-target: #B93A26;
+  --sidebar: var(--ds-sidebar);
+  --sidebar-foreground: var(--ds-text-2);
+  --sidebar-primary: var(--ds-primary);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--ds-accent-tint);
+  --sidebar-accent-foreground: var(--ds-accent);
+  --sidebar-border: var(--ds-border);
+  --sidebar-ring: var(--ds-primary);
+}
+
+/* Sunday School mode swaps the accent to gold; the shell sets this attribute. */
+[data-ministry="sunday-school"] {
+  --ds-accent: var(--ds-gold);
+  --ds-accent-tint: var(--ds-gold-tint);
+  --chart-attendance: var(--ds-gold);
 }
 
 .dark {
-  /* Neutral, ink-black dark palette inspired by agentsbuilt.io. Tailwind's
-     default gray scale leans blue, so override it only while dark mode is on. */
-  --color-gray-50: #f5f5f7;
-  --color-gray-100: #e0e0e2;
-  --color-gray-200: #c7c7cc;
-  --color-gray-300: #aeaeb2;
-  --color-gray-400: #98989d;
-  --color-gray-500: #7c7c82;
-  --color-gray-600: #636366;
-  --color-gray-700: #48484a;
-  --color-gray-800: #2c2c2e;
-  --color-gray-900: #1c1c1e;
-  --color-gray-950: #161618;
+  --ds-canvas: #131211;
+  --ds-surface: #1A1918;
+  --ds-raised: #201E1D;
+  --ds-hover: #282523;
+  --ds-sidebar: #161514;
+  --ds-border: #2B2826;
+  --ds-border-strong: #3A3633;
+  --ds-text: #EEEAE6;
+  --ds-text-2: #B6AFA9;
+  --ds-text-3: #958E88;
+  --ds-primary: #A3213F;
+  --ds-primary-hover: #B72A4A;
+  --ds-accent: #F08BA3;
+  --ds-accent-tint: rgba(240, 139, 163, 0.11);
+  --ds-gold: #D6B062;
+  --ds-gold-tint: rgba(214, 176, 98, 0.12);
+  --ds-ok: #62C08E;
+  --ds-ok-tint: rgba(98, 192, 142, 0.12);
+  --ds-warn: #E6A94F;
+  --ds-warn-tint: rgba(230, 169, 79, 0.13);
+  --ds-bad: #F0806F;
+  --ds-bad-tint: rgba(240, 128, 111, 0.13);
+  --ds-info: #86AEE0;
+  --ds-info-tint: rgba(134, 174, 224, 0.13);
+  --ds-track: #2E2B29;
 
-  --app-canvas: #161618;
-  --background: #1c1c1e;
-  --foreground: #f5f5f7;
-  --card: #242426;
-  --card-foreground: #f5f5f7;
-  --popover: #242426;
-  --popover-foreground: #f5f5f7;
-  --primary: #f5f5f7;
-  --primary-foreground: #1c1c1e;
-  --secondary: #2c2c2e;
-  --secondary-foreground: #f5f5f7;
-  --muted: #2c2c2e;
-  --muted-foreground: #98989d;
-  --accent: #2c2c2e;
-  --accent-foreground: #f5f5f7;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: rgb(255 255 255 / 8%);
-  --input: #2c2c2e;
-  --ring: #5a5a5e;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --chart-attendance: #ec7693;
-  --chart-exam: #c4b5fd;
-  --chart-roster: #aeaeb2;
-  --chart-target: #fca5a5;
-  --sidebar: #242426;
-  --sidebar-foreground: #f5f5f7;
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: #f5f5f7;
-  --sidebar-accent: #2c2c2e;
-  --sidebar-accent-foreground: #f5f5f7;
-  --sidebar-border: rgb(255 255 255 / 8%);
-  --sidebar-ring: #5a5a5e;
+  /* Legacy dark overrides map bg-white → gray-900 (surface), gray-800 → hover,
+     gray-700 → border, gray-600 → border-strong, gray-400 → meta text. */
+  --color-gray-50: #EEEAE6;
+  --color-gray-100: #E0DBD6;
+  --color-gray-200: #B6AFA9;
+  --color-gray-300: #A39C96;
+  --color-gray-400: #958E88;
+  --color-gray-500: #7D7671;
+  --color-gray-600: #3A3633;
+  --color-gray-700: #2B2826;
+  --color-gray-800: #282523;
+  --color-gray-900: #1A1918;
+  --color-gray-950: #131211;
+
+  --chart-1: #F08BA3;
+  --chart-2: #62C08E;
+  --chart-3: #86AEE0;
+  --chart-4: #D6B062;
+  --chart-5: #E6A94F;
+  --chart-attendance: #F08BA3;
+  --chart-exam: #86AEE0;
+  --chart-roster: #958E88;
+  --chart-target: #F0806F;
+}
+
+
+/* App shell sidebar: 236px, a 64px rail on tablets or when collapsed (design system §07). */
+/* Its current width, for things that must clear it (toasts in a left corner). */
+:root {
+  --sidebar-width: 0px;
+}
+@media (min-width: 768px) {
+  :root:has([data-sidebar]) {
+    --sidebar-width: 64px;
+  }
+}
+@media (min-width: 1280px) {
+  :root:has([data-sidebar][data-rail="false"]) {
+    --sidebar-width: 236px;
+  }
+}
+/* Toasts can be dragged to a corner on desktop (components/ui/sonner.tsx). */
+@media (min-width: 768px) and (pointer: fine) {
+  [data-sonner-toast] {
+    cursor: grab;
+  }
+  html[data-toast-dragging] [data-sonner-toast],
+  html[data-toast-dragging] {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
+[data-sidebar] {
+  width: 236px;
+  transition: width 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Reduced motion: one rule for every animation and transition (Radix sheets and
+   menus set theirs through data-state variants that per-element classes can't override). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  [data-sidebar] {
+    width: 64px;
+  }
+  [data-sidebar] .sidebar-label {
+    display: none;
+  }
+}
+[data-sidebar][data-rail="true"] {
+  width: 64px;
+}
+[data-sidebar][data-rail="true"] .sidebar-label {
+  display: none;
+}
+@media (max-width: 1279.98px) {
+  [data-sidebar] .sidebar-item,
+  [data-sidebar] .sidebar-search {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  [data-sidebar] .sidebar-user {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  [data-sidebar] .sidebar-switcher {
+    justify-content: center;
+    padding-inline: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+}
+[data-sidebar][data-rail="true"] .sidebar-item,
+[data-sidebar][data-rail="true"] .sidebar-search,
+[data-sidebar][data-rail="true"] .sidebar-user,
+[data-sidebar][data-rail="true"] .sidebar-switcher {
+  justify-content: center;
+  padding-inline: 0;
+}
+[data-sidebar][data-rail="true"] .sidebar-switcher {
+  border-color: transparent;
+  background: transparent;
 }
 
 @layer base {
@@ -366,17 +754,46 @@
     overflow-y: scroll;
     scrollbar-gutter: stable;
   }
+  /* Phones: the app shell is exactly the visible height (100dvh) and scrolls
+     inside #main, so the page itself must never be taller or scrollable. In
+     Safari 100vh is taller than the area the browser toolbars leave; a taller
+     page shifted the whole shell up and left a gap under the tab bar. */
+  @media (max-width: 767.98px) {
+    html:has([data-ministry]),
+    html:has([data-ministry]) body {
+      overflow: hidden;
+    }
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas text-ink;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ds-accent);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Radix keeps modal focus and background scrolling locked by marking the
-     body. Preserve the native scrollbar track while locked so opening a
-     dialog never changes the page width or makes the interface jump. */
+  /* The root owns the desktop scrollbar and its stable gutter. Remove Radix's
+     body width compensation so opening a modal does not shift the page. */
   html body[data-scroll-locked] {
-    overflow-y: scroll !important;
     margin-right: 0 !important;
     padding-right: 0 !important;
+  }
+
+  @media (min-width: 768px) {
+    /* Radix adds overflow:hidden to body, which makes it the sticky sidebar's
+       scroll container even though the root is the element that scrolled.
+       Clip the body without creating a scroll container, and lock the root. */
+    html:has(body[data-scroll-locked]) {
+      overflow-y: hidden;
+    }
+    html body[data-scroll-locked] {
+      overflow: clip !important;
+    }
   }
 
 }

@@ -1,0 +1,181 @@
+.scrollArea {
+  max-height: 74vh;
+  overflow: auto;
+}
+
+.schedule {
+  width: 100%;
+  min-width: 1200px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  color: var(--ds-text, #27252d);
+}
+
+.schedule th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 38px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--ds-border, #e2e1e6);
+  background: var(--ds-raised, #f3f3f5);
+  color: var(--ds-text-3, #716b78);
+  font-weight: 500;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.schedule th:first-child, .schedule th:nth-child(2) {
+  text-align: center;
+}
+
+.row {
+  background: var(--ds-surface, #fff);
+}
+
+.row:nth-child(even) {
+  background: color-mix(in srgb, var(--ds-raised, #f3f3f5) 45%, var(--ds-surface, #fff));
+}
+
+.row:hover {
+  background: var(--ds-hover, #f7f6f8);
+}
+
+.row td {
+  height: 36px;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--ds-border, #e2e1e6);
+  vertical-align: middle;
+  text-align: left;
+}
+
+.row[data-edited='true'] td:first-child {
+  box-shadow: inset 3px 0 var(--ds-warn, #d99b22);
+}
+
+.cellInput {
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.cellInput:hover {
+  border-color: var(--ds-border-strong, #c6bdd8);
+}
+
+.cellInput:focus-visible {
+  background: var(--ds-surface, #fff);
+  border-color: var(--ds-primary, #800020);
+  box-shadow: 0 0 0 2px var(--ds-accent-tint, #80002015);
+}
+
+.notesInput, .notesText {
+  color: var(--ds-text-2, #51475e);
+  text-align: left;
+}
+
+.notesText {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.block, .status {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.block {
+  --block-accent: #64606b;
+  background: color-mix(in srgb, var(--block-accent) 10%, var(--ds-surface, #fff));
+  color: color-mix(in srgb, var(--block-accent) 75%, var(--ds-text, #27252d));
+  text-align: left;
+}
+
+.block[data-section='SPIRITUALITY_OF_SERVANT'] { --block-accent: #7046a0; }
+.block[data-section='RITUAL_THEOLOGY_SACRAMENTS'] { --block-accent: #23734f; }
+.block[data-section='CHURCH_HISTORY_COPTIC_HERITAGE'] { --block-accent: #2b619b; }
+.block[data-section='PSYCHOLOGY_METHODOLOGY'] { --block-accent: #85517e; }
+.block[data-section='BIBLE_STUDIES'] { --block-accent: #89620e; }
+.block[data-section='DOGMA'] { --block-accent: #256d78; }
+.block[data-section='COMPARATIVE_THEOLOGY'] { --block-accent: #a05b35; }
+
+:global(.dark) .block {
+  background: color-mix(in srgb, var(--block-accent) 23%, var(--ds-surface, #1a1918));
+  color: color-mix(in srgb, var(--block-accent) 25%, var(--ds-text, #eeeae6));
+}
+
+.block option, .status option {
+  background: var(--ds-surface, #fff);
+  color: var(--ds-text, #27252d);
+}
+
+.block:focus-visible, .status:focus-visible {
+  outline: 2px solid var(--ds-primary, #800020);
+  outline-offset: 2px;
+}
+
+.status {
+  background: var(--ds-info-tint, #edf3fb);
+  color: var(--ds-info, #34689b);
+}
+.status[data-status='COMPLETED'] {
+  background: var(--ds-ok-tint, #e9f5ec);
+  color: var(--ds-ok, #21683e);
+}
+.status[data-status='CANCELLED'], .status[data-status='NO_CLASS'] {
+  background: var(--ds-bad-tint, #fdebea);
+  color: var(--ds-bad, #9c201e);
+}
+
+.examToggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ds-text-3, #716b78);
+  padding: 2px 4px;
+  font-size: 9px;
+  cursor: pointer;
+}
+.examToggle:has(input:checked) {
+  color: var(--ds-warn, #916118);
+  background: var(--ds-warn-tint, #fff3dc);
+  border-radius: 4px;
+  font-weight: 600;
+}
+.examToggle input {
+  width: 12px;
+  height: 12px;
+  accent-color: var(--ds-primary, #800020);
+}
+.attendance {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--ds-text-3, #716b78);
+  font-size: 10px;
+}
+.dragging { box-shadow: 0 5px 16px #0002; }
+
+.examBadge {
+  border-color: transparent;
+  background: var(--ds-warn-tint, #fff3dc);
+  color: var(--ds-warn, #916118);
+  font-size: 10px;
+}

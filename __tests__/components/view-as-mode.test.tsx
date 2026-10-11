@@ -78,6 +78,13 @@ describe('ViewAsMode', () => {
     })
   })
 
+  it('keeps the active View as banner readable against its warning background', () => {
+    render(<ViewAsMode />)
+
+    // Ink text on the warning tint: both tokens swap together in dark mode.
+    expect(screen.getByRole('status')).toHaveClass('bg-warn-tint', 'text-ink')
+  })
+
   it('falls back to the restored account dashboard when no return page was saved', async () => {
     mocks.update.mockResolvedValue({
       user: { id: 'admin', role: UserRole.SUPER_ADMIN },

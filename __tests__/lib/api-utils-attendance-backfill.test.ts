@@ -8,8 +8,12 @@ describe('attendance backfill for promoted students', () => {
   it('creates only missing active-year records and leaves existing history untouched', async () => {
     const tx = {
       lesson: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'lesson-1' }, { id: 'lesson-2' }]),
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'lesson-1', scheduledDate: new Date('2026-09-25T00:00:00Z') },
+          { id: 'lesson-2', scheduledDate: new Date('2026-10-02T00:00:00Z') },
+        ]),
       },
+      studentEnrollment: { findMany: vi.fn().mockResolvedValue([]) },
       attendanceRecord: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'student-1', lessonId: 'lesson-1' },
@@ -32,7 +36,7 @@ describe('attendance backfill for promoted students', () => {
         isExamDay: false,
         attendanceRecords: { some: {} },
       },
-      select: { id: true },
+      select: { id: true, scheduledDate: true },
     })
     expect(tx.attendanceRecord.createMany).toHaveBeenCalledWith({
       data: [
@@ -69,5 +73,32 @@ describe('attendance backfill for promoted students', () => {
     ).resolves.toBe(0)
     expect(tx.attendanceRecord.findMany).not.toHaveBeenCalled()
     expect(tx.attendanceRecord.createMany).not.toHaveBeenCalled()
+  })
+
+  it('gives async students no default absence for lessons from the day they went async', async () => {
+    const tx = {
+      lesson: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'before', scheduledDate: new Date('2026-09-25T00:00:00Z') },
+          { id: 'same-day', scheduledDate: new Date('2026-10-02T00:00:00Z') },
+        ]),
+      },
+      studentEnrollment: {
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'async-1', isAsyncStudent: true, asyncApprovedAt: new Date('2026-10-02T18:59:00Z') },
+        ]),
+      },
+      attendanceRecord: {
+        findMany: vi.fn().mockResolvedValue([]),
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    }
+
+    await backfillAttendanceForStudents(['async-1'], 'active-year', tx as never)
+
+    expect(tx.attendanceRecord.createMany).toHaveBeenCalledWith({
+      data: [{ lessonId: 'before', studentId: 'async-1', status: 'ABSENT', recordedBy: null }],
+      skipDuplicates: true,
+    })
   })
 })

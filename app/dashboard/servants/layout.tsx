@@ -10,13 +10,22 @@ export const metadata: Metadata = {
         type: 'image/png',
       },
       {
-        url: '/sunday-school-favicon.png',
+        url: '/sunday-school-icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        url: '/sunday-school-icon-512.png',
         sizes: '512x512',
         type: 'image/png',
       },
     ],
     shortcut: '/sunday-school-favicon-32.png',
-    apple: '/sunday-school-apple-touch-icon.png',
+    apple: {
+      url: '/sunday-school-apple-touch-icon-v2.png',
+      sizes: '180x180',
+      type: 'image/png',
+    },
   },
 }
 

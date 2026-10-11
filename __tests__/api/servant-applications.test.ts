@@ -15,12 +15,20 @@ const mocks = vi.hoisted(() => ({
   notifyNewApplication: vi.fn(),
   notifyReviewedApplication: vi.fn(),
   hash: vi.fn(),
+  emailApproved: vi.fn(),
+  emailNotApproved: vi.fn(),
+  emailReceived: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/notifications', () => ({
   notifyNewServantApplication: mocks.notifyNewApplication,
   notifyServantApplicationReviewed: mocks.notifyReviewedApplication,
+}))
+vi.mock('@/lib/mail/notify', () => ({
+  emailServantApplicationApproved: mocks.emailApproved,
+  emailServantApplicationNotApproved: mocks.emailNotApproved,
+  emailServantApplicationReceived: mocks.emailReceived,
 }))
 vi.mock('bcryptjs', () => ({
   default: { hash: mocks.hash },
@@ -59,9 +67,10 @@ describe('servant applications API', () => {
     })
     mocks.findUser.mockResolvedValue(null)
     mocks.createApplication.mockResolvedValue({ id: 'application-1' })
-    mocks.createUser.mockResolvedValue({ id: 'servant-1' })
+    mocks.createUser.mockResolvedValue({ id: 'servant-1', authVersion: 0 })
     mocks.updateApplication.mockResolvedValue({
       id: 'application-1',
+      email: 'servant@example.com',
       fullName: 'Sunday Servant',
       createdUser: { id: 'servant-1' },
     })
@@ -216,14 +225,22 @@ describe('servant applications API', () => {
         createdUserId: 'servant-1',
       }),
     }))
-    expect(mocks.hash).toHaveBeenCalledWith('Welcome123!', 10)
+    // Each approval gets its own random temporary password, never a shared one.
+    expect(result.tempPassword).toMatch(/^.{12}$/)
+    expect(result.tempPassword).not.toBe('Welcome123!')
+    expect(mocks.hash).toHaveBeenCalledWith(result.tempPassword, 10)
     expect(mocks.deleteNotifications).toHaveBeenCalledWith({
       where: {
         type: 'SERVANT_APPLICATION_RECEIVED',
         metadata: { path: ['applicationId'], equals: 'application-1' },
       },
     })
-    expect(result.tempPassword).toBe('Welcome123!')
+    expect(mocks.emailApproved).toHaveBeenCalledWith({
+      id: 'servant-1',
+      authVersion: 0,
+      email: 'servant@example.com',
+      name: 'Sunday Servant',
+    })
     expect(mocks.notifyReviewedApplication).toHaveBeenCalledWith({
       userId: 'servant-1',
       status: 'APPROVED',
@@ -254,6 +271,7 @@ describe('servant applications API', () => {
         reviewNote: 'Not this year',
       }),
     }))
+    expect(mocks.emailNotApproved).toHaveBeenCalledWith({ email: 'servant@example.com', name: 'Sunday Servant' })
     expect(mocks.deleteNotifications).toHaveBeenCalledWith({
       where: {
         type: 'SERVANT_APPLICATION_RECEIVED',
@@ -262,7 +280,7 @@ describe('servant applications API', () => {
     })
   })
 
-  it('does not allow Servants Prep leaders to approve applications', async () => {
+  it('does not allow Servants Prep servants to approve applications', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'prep-1', role: 'SERVANT_PREP' })
     const request = new NextRequest(
       'http://localhost/api/servant-applications/application-1/review',

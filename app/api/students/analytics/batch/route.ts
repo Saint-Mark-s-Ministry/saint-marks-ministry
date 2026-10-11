@@ -7,9 +7,11 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   calculateAttendancePercentage,
   meetsAttendanceRequirement,
+  isGraduationEligible,
+  excludeAsyncPeriodRecords,
   type AttendanceCounts
 } from "@/lib/attendance-utils"
-import { calculateSSAttendance } from "@/lib/sunday-school-utils"
+import { rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -79,6 +81,7 @@ export async function GET(request: Request) {
         studentId: true,
         yearLevel: true,
         isAsyncStudent: true,
+        asyncApprovedAt: true,
         student: {
           select: {
             id: true,
@@ -89,6 +92,8 @@ export async function GET(request: Request) {
     })
 
     const studentIds = enrollments.map(e => e.studentId)
+    // Async students: lessons from the day they went async count only if a slip covered them
+    const asyncExclusion = excludeAsyncPeriodRecords(enrollments)
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
     // Only count lessons that have attendance records (i.e., attendance was taken)
@@ -154,7 +159,8 @@ export async function GET(request: Request) {
         by: ['studentId', 'status'],
         where: {
           studentId: { in: studentIds },
-          lesson: lessonsWithAttendanceFilter
+          lesson: lessonsWithAttendanceFilter,
+          ...asyncExclusion,
         },
         _count: { status: true }
       }),
@@ -195,7 +201,8 @@ export async function GET(request: Request) {
       prisma.attendanceRecord.findMany({
         where: {
           studentId: { in: studentIds },
-          lesson: lessonsWithAttendanceFilter
+          lesson: lessonsWithAttendanceFilter,
+          ...asyncExclusion,
         },
         select: {
           studentId: true,
@@ -283,7 +290,7 @@ export async function GET(request: Request) {
     }
 
     // Build SS assignment lookup per student
-    type SSAssignment = { studentId: string; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
+    type SSAssignment = { studentId: string; yearLevel: string; isActive: boolean; startDate: Date; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
     const ssAssignmentsByStudent = new Map<string, SSAssignment[]>()
     for (const assignment of ssAssignments as SSAssignment[]) {
       if (!ssAssignmentsByStudent.has(assignment.studentId)) {
@@ -373,19 +380,26 @@ export async function GET(request: Request) {
       // allSectionsMet is already true by default, only set to false if a section < 60%
 
       // Sunday School check for async students
+      // (same rules as /api/students/[id]/analytics: weeks still ahead don't count,
+      // and the current year needs a rotation)
       let sundaySchoolMet = true
+      let rotationPercentage: number | null = null
       if (enrollment.isAsyncStudent) {
-        const studentSSAssignments = ssAssignmentsByStudent.get(studentId) || []
-        for (const ssa of studentSSAssignments) {
-          const ssAttendance = calculateSSAttendance(ssa.logs, ssa.totalWeeks)
-          if (ssAttendance && !ssAttendance.met) {
-            sundaySchoolMet = false
-            break
-          }
-        }
+        const rotations = (ssAssignmentsByStudent.get(studentId) || []).map((ssa) => ({
+          yearLevel: ssa.yearLevel,
+          isActive: ssa.isActive,
+          attendance: rotationAttendanceToDate(ssa),
+        }))
+        sundaySchoolMet = rotationRequirementMet(rotations, enrollment.yearLevel).met
+        rotationPercentage = rotations.find((r) => r.isActive && r.yearLevel === enrollment.yearLevel)?.attendance?.percentage ?? null
       }
 
-      const graduationEligible = attendanceMet && examAverageMet && allSectionsMet && sundaySchoolMet
+      const graduationEligible = isGraduationEligible({
+        // An async student's rotation is their attendance evidence
+        attendancePercentage: overallAttendancePercentage ?? rotationPercentage,
+        examAverage,
+        requirementsMet: [attendanceMet, examAverageMet, allSectionsMet, sundaySchoolMet],
+      })
 
       return {
         studentId,

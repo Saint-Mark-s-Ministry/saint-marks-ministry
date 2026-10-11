@@ -16,6 +16,7 @@ interface ChildAttendanceRecord {
 }
 
 interface BatchRequest {
+  expectedUserId?: string
   sessionId: string
   records: ChildAttendanceRecord[]
 }
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
     const user = await requireAuth()
 
     const body: BatchRequest = await request.json()
+    // A restored browser draft must never be submitted under a different login.
+    if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+      return NextResponse.json({ error: "Your signed-in account changed. Reload attendance before saving." }, { status: 409 })
+    }
+
     const { sessionId, records } = body
 
     if (!sessionId || !records || !Array.isArray(records)) {
@@ -39,19 +45,6 @@ export async function POST(request: Request) {
         { error: "Missing sessionId or records array" },
         { status: 400 }
       )
-    }
-
-    const session = await prisma.sundaySchoolSession.findUnique({
-      where: { id: sessionId },
-      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
-    })
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 })
-    }
-    // Serving this class is what grants this — PRIEST reads but never writes
-    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
-    if (!canServeClass(access, session.classId)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     for (const record of records) {
@@ -66,6 +59,18 @@ export async function POST(request: Request) {
       }
     }
 
+    const session = await prisma.sundaySchoolSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
+    })
+    if (!session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 })
+    }
+    // Serving this class is what grants this — PRIEST reads but never writes
+    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
+    if (!canServeClass(access, session.classId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
     // Children must actually belong to this session's class
     const childIds = records.map(r => r.childId)
     const childrenInClass = await prisma.sundaySchoolChild.findMany({

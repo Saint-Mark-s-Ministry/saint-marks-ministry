@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   BookOpen,
+  ContactRound,
   Cake,
   CalendarCheck,
   ClipboardCheck,
@@ -35,6 +36,7 @@ import {
   canViewRegistrations,
   isAdmin,
 } from '@/lib/roles'
+import { defaultDashboardPath, type DashboardUser } from '@/lib/dashboard-navigation'
 
 /**
  * The app shell's navigation, by ministry and role.
@@ -63,8 +65,8 @@ export interface NavGroup {
   items: NavItem[]
 }
 
-export interface NavUser {
-  role: UserRole
+export interface NavUser extends DashboardUser {
+  canAccessContactBook?: boolean
   isAsyncStudent?: boolean
   sundaySchool?: { hasAccess: boolean; isCoordinator: boolean; hasHomeworkAccess?: boolean } | null
 }
@@ -98,8 +100,8 @@ export function prepHome(role: UserRole): string {
 
 /**
  * The ministries this person can open, in switcher order. With one, the
- * switcher becomes a plain label. Prep leaders and mentors who also serve
- * Sunday School get both; a SERVANT and a PARENT have only one.
+ * switcher becomes a plain label. People with both modes see their default
+ * first; a SERVANT and a PARENT have only one.
  */
 export function availableMinistries(user: NavUser): MinistryOption[] {
   const hasSundaySchool = user.sundaySchool?.hasAccess ?? false
@@ -111,18 +113,21 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
     return [{ id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/parent' }]
   }
   if (hasSundaySchool && (isAdmin(user.role) || user.role === 'MENTOR')) {
-    return [prep, { id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/servants' }]
+    const sundaySchool: MinistryOption = { id: 'sunday-school', name: MINISTRY_NAMES['sunday-school'], href: '/dashboard/servants' }
+    return defaultDashboardPath(user) === sundaySchool.href ? [sundaySchool, prep] : [prep, sundaySchool]
   }
   return [prep]
 }
 
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
- * shared pages (/settings, /dashboard/files); someone with both follows the path.
+ * shared pages; someone with both follows the path and uses their default on
+ * account settings.
  */
 export function resolveMinistry(user: NavUser, pathname: string): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
+  if (pathname === '/settings' || pathname === '/dashboard' || pathname === '/dashboard/contact-book') return options[0].id
   return ministryForPath(pathname)
 }
 
@@ -143,6 +148,7 @@ function prepAdminNav(role: UserRole): NavGroup[] {
         { href: '/dashboard/admin/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
         { href: '/dashboard/admin/students', label: 'Students', icon: Users, tab: true },
         { href: '/dashboard/admin/exams', label: 'Exams', icon: FileText },
+        { href: '/dashboard/admin/exam-monitoring', label: 'Exam Monitoring', icon: Activity },
         { href: '/dashboard/admin/curriculum', label: 'Curriculum', icon: BookOpen },
         { href: '/dashboard/admin/confession', label: 'Confession', icon: Cross, tab: true },
         { href: '/dashboard/admin/mentees', label: 'Mentees', icon: UserCheck },
@@ -157,12 +163,12 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   const role = user.role
   const ssAdmin = canAdministerSundaySchool(role)
 
-  const leaders: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
-  if (ssAdmin) leaders.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
+  const servants: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
+  if (ssAdmin) servants.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
   if (ssAdmin || user.sundaySchool?.isCoordinator) {
-    leaders.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
+    servants.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
   }
-  leaders.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
+  servants.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
 
   const admin: NavItem[] = []
   if (canReviewServantApplications(role)) {
@@ -188,12 +194,12 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   if (admin.length > 0) admin.push(feedback)
   else main.push(feedback)
 
-  const groups: NavGroup[] = [{ items: main }, { label: 'Leaders', items: leaders }]
+  const groups: NavGroup[] = [{ items: main }, { label: 'Servants', items: servants }]
   if (admin.length > 0) groups.push({ label: 'Admin', items: admin })
   return groups
 }
 
-export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
+function ministryNavigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   const role = user.role
 
   if (ministry === 'sunday-school' && (role === 'SERVANT' || user.sundaySchool?.hasAccess)) {
@@ -208,6 +214,8 @@ export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
             { href: '/dashboard/student', label: 'My progress', icon: Home, tab: true, tabLabel: 'Progress' },
             { href: '/dashboard/student/lessons', label: 'My lessons', icon: BookOpen, tab: true, tabLabel: 'Lessons' },
             { href: '/dashboard/student/class-lessons', label: 'Class lessons', icon: Presentation, tab: true, tabLabel: 'Class' },
+            { href: '/dashboard/student/exams', label: 'Live Exam', icon: CalendarCheck },
+            { href: '/dashboard/student/makeup-exams', label: 'Makeup exams', icon: CalendarCheck },
             { href: '/dashboard/files', label: 'Files', icon: Folder, tab: true },
           ],
         },
@@ -281,4 +289,13 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
     if (!best || item.href.length > best.href.length) best = item
   }
   return best?.label ?? null
+}
+
+/** Super Admins use Users; the directory is for explicitly approved other users. */
+export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
+  const groups = ministryNavigationFor(user, ministry)
+  if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
+    groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
+  }
+  return groups
 }

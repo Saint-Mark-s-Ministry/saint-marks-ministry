@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 import { LessonStatus } from "@prisma/client"
+import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
 
 // GET /api/students/[id]/details - Get detailed student data for editing
 // NOTE: academicYearId parameter is optional. If not provided, returns data across ALL academic years.
@@ -113,10 +114,12 @@ export async function GET(
 
     // Get all attendance records with lesson details
     // Include isExamDay field so frontend can filter/display appropriately
+    // Async-period lessons without a slip aren't counted, so they aren't listed either
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
-        lesson: lessonFilter
+        lesson: lessonFilter,
+        ...excludeAsyncPeriodRecords(student.enrollments.map((e) => ({ ...e, studentId }))),
       },
       include: {
         lesson: {

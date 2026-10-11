@@ -1,19 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Navbar } from "@/components/navbar";
+import { AppShell } from "@/components/shell/app-shell";
 import { CommandPalette } from "@/components/command-palette";
 import { ViewAsMode } from "@/components/view-as-mode";
-import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
 import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
-import { SiteFooter } from "@/components/site-footer";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { NavigationTransition } from "@/components/navigation-transition";
+
+// Display face for page titles only; Geist does the rest of the work.
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "St. Mark Ministry Portal",
@@ -27,13 +34,22 @@ export const metadata: Metadata = {
         type: 'image/png',
       },
       {
-        url: '/sunday-school-favicon.png',
+        url: '/sunday-school-icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        url: '/sunday-school-icon-512.png',
         sizes: '512x512',
         type: 'image/png',
       },
     ],
     shortcut: '/sunday-school-favicon-32.png',
-    apple: '/sunday-school-apple-touch-icon.png',
+    apple: {
+      url: '/sunday-school-apple-touch-icon-v2.png',
+      sizes: '180x180',
+      type: 'image/png',
+    },
   },
   appleWebApp: {
     capable: true,
@@ -45,8 +61,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f9fafb" },
-    { media: "(prefers-color-scheme: dark)", color: "#161618" },
+    { media: "(prefers-color-scheme: light)", color: "#F5F3F0" },
+    { media: "(prefers-color-scheme: dark)", color: "#131211" },
   ],
 };
 
@@ -58,7 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} flex min-h-screen flex-col bg-[var(--app-canvas)] antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${newsreader.variable} flex min-h-dvh flex-col bg-canvas antialiased`}
         suppressHydrationWarning
       >
         <Providers>
@@ -67,13 +83,12 @@ export default function RootLayout({
           <div className="contents print:hidden">
             <NotificationProvider />
             <ViewAsMode />
-            <Navbar />
             <CommandPalette />
-            <ProfilePhotoReminder />
           </div>
-          <div id="app-content" className="w-full min-w-0 flex-1 bg-[var(--app-canvas)]">{children}</div>
+          <div id="app-content" className="w-full min-w-0 flex-1 bg-canvas">
+            <AppShell>{children}</AppShell>
+          </div>
           <div className="contents print:hidden">
-            <SiteFooter />
             <PushNotificationPrompt />
             <Toaster />
           </div>

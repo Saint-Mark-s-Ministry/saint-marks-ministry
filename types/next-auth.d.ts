@@ -11,14 +11,21 @@ export interface SundaySchoolStanding {
   hasHomeworkAccess: boolean
 }
 
+export interface MinistryMembership {
+  sundaySchoolServant: boolean
+  servantsPrepLeader: boolean
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
       id: string
       role: UserRole
+      canAccessContactBook: boolean
       mustChangePassword: boolean
       isAsyncStudent: boolean
       sundaySchool: SundaySchoolStanding
+      ministryMembership: MinistryMembership
       profileImageUrl?: string | null
     } & DefaultSession["user"]
     // Read-only View as mode. user.* is the effective identity while this
@@ -34,10 +41,12 @@ declare module "next-auth" {
 
   interface User {
     role: UserRole
+    canAccessContactBook?: boolean
     authVersion: number
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding
+    ministryMembership?: MinistryMembership
     profileImageUrl?: string | null
   }
 }
@@ -45,11 +54,13 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role: UserRole
+    canAccessContactBook?: boolean
     id: string
     authVersion?: number
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding
+    ministryMembership?: MinistryMembership
     profileImageUrl?: string | null
     validatedAt?: number
     invalidated?: boolean

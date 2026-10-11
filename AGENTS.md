@@ -137,6 +137,11 @@ comment at the top of a route before editing it.
 | `assignments/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — verifying that *async prep students* served their required weeks |
 | `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` | **Sunday School mode** — the actual ministry |
 
+One Sunday School route sits outside that directory on purpose:
+`app/api/public/roster-signup` is **unauthenticated** (the roster sign-up QR
+flow). New public routes belong under `app/api/public/` so the absence of a
+session is visible in the path.
+
 The same trap exists in the schema and the enums:
 
 | Prep-side | Sunday School mode |
@@ -316,6 +321,23 @@ Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch
 connection strings.
+
+### Email (Resend)
+
+Account emails (registration, servant applications, parent sign-up, password
+reset/changed) go through `lib/mail/`. Env vars:
+
+| Var | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Send-only Resend key. Without it, emails are skipped and logged. |
+| `APP_URL` | Base URL for links in emails; falls back to `NEXTAUTH_URL`. |
+| `EMAIL_FROM` | Optional; defaults to `St. Mark Ministry <no-reply@stmarkministry.app>`. |
+| `EMAIL_DEV_ALLOWLIST` | Comma list of addresses or `@domains` that non-production may email. |
+
+Only production (`VERCEL_ENV=production`, or `EMAIL_DELIVERY=live`) emails real
+people. Local and preview share the production database, so elsewhere only
+`*@resend.dev` and the allowlist receive mail. Password links are signed with
+`NEXTAUTH_SECRET` and bound to `User.authVersion`, so they work once.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

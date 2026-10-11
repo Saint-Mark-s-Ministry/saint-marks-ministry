@@ -41,26 +41,33 @@ export default function AttendanceSlipPage() {
   if (status === 'loading' || !years || lessonsLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8 print:p-0 print:bg-white">
-      <div className="max-w-4xl mx-auto space-y-4">
+    <div className="content-reveal flex min-w-0 flex-col print:bg-white print:p-0">
+      <div className="flex w-full flex-col gap-5">
         <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/student')} className="gap-1">
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="ghost" onClick={() => router.push('/dashboard/student')}>
+            <ChevronLeft />
             Back
           </Button>
-          <Button onClick={() => window.print()} className="gap-2">
-            <Printer className="h-4 w-4" />
+          <Button onClick={() => window.print()}>
+            <Printer />
             Print / Save as PDF
           </Button>
         </div>
 
-        <div className="rounded-lg border bg-white p-6 text-black dark:bg-gray-900 dark:text-white md:p-10 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black">
-          <div className="border-b-2 border-black pb-3 mb-4">
-            <h1 className="text-2xl font-bold">Servants Preparation Program</h1>
-            <p className="text-lg">Async Student Attendance Slip</p>
+        {/* The slip is paper in both themes: it gets printed and signed. */}
+        <div className="mx-auto w-full max-w-[816px] bg-white p-6 text-[#1B1817] shadow-[0_8px_30px_rgba(0,0,0,0.18)] md:p-14 print:max-w-none print:p-0 print:shadow-none">
+          <div className="mb-6 flex items-center gap-3.5">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-black p-1">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static logo, also used when printing */}
+              <img src="/sp-logo.png" alt="Servants Prep" className="size-full object-contain" />
+            </span>
+            <div>
+              <p className="text-xs tracking-[0.08em] text-[#57504B] uppercase">Servants Preparation Program</p>
+              <h1 className="font-display text-[28px] leading-tight font-medium">Async Student Attendance Slip</h1>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm mb-4">
+          <div className="mb-4 flex flex-wrap gap-x-10 gap-y-2 text-[13.5px]">
             <div><span className="font-semibold">Student:</span> {session?.user?.name}</div>
             <div><span className="font-semibold">Academic year:</span> {activeYear?.name ?? '__________'}</div>
           </div>
@@ -74,11 +81,11 @@ export default function AttendanceSlipPage() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr>
-                <th className="border border-black p-2 text-left w-10">#</th>
-                <th className="border border-black p-2 text-left w-28">Lesson date</th>
-                <th className="border border-black p-2 text-left">Lesson</th>
-                <th className="border border-black p-2 text-left w-28">Completed on</th>
-                <th className="border border-black p-2 text-left w-48">Verified by (name &amp; signature)</th>
+                <th className="w-10 border border-black bg-[#F1EEEA] p-2 text-left text-xs">#</th>
+                <th className="w-28 border border-black bg-[#F1EEEA] p-2 text-left text-xs">Lesson date</th>
+                <th className="border border-black bg-[#F1EEEA] p-2 text-left text-xs">Lesson</th>
+                <th className="w-28 border border-black bg-[#F1EEEA] p-2 text-left text-xs">Completed on</th>
+                <th className="w-48 border border-black bg-[#F1EEEA] p-2 text-left text-xs">Verified by (name &amp; signature)</th>
               </tr>
             </thead>
             <tbody>

@@ -169,10 +169,10 @@ describe('Sunday School classes', () => {
       ],
     }
 
-    const { container } = render(<SundaySchoolClassesPage />)
-    const cards = Array.from(container.querySelectorAll('[data-slot="card"]'))
+    render(<SundaySchoolClassesPage />)
+    const cards = screen.getAllByRole('heading', { level: 2 }).map(heading => heading.closest('section') as HTMLElement)
 
-    expect(cards.map(card => card.querySelector('[data-slot="card-title"]')?.textContent)).toEqual([
+    expect(cards.map(card => card.querySelector('h2')?.textContent)).toEqual([
       'Elementary School',
       'Middle School',
       'High School',

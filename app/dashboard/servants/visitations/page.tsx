@@ -1,21 +1,23 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
+import { SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
 import {
-  CalendarCheck,
-  CheckCircle2,
-  ClipboardList,
   LockKeyhole,
   MessageSquareText,
   Phone,
-  Search,
 } from 'lucide-react'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { KpiStrip } from '@/components/ds/kpi-strip'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -30,8 +32,8 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Textarea } from '@/components/ui/textarea'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { getLevelDisplayName } from '@/lib/sunday-school-class'
-import { useSundaySchoolVisitations } from '@/lib/swr'
+import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { useSundaySchoolAgeGroups, useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import type {
   SundaySchoolPriestNote,
@@ -50,11 +52,16 @@ const CALL_OUTCOME_LABELS: Record<SundaySchoolPhoneCallOutcome, string> = {
 export default function SundaySchoolVisitationsPage() {
   const { status } = useSundaySchoolGuard()
   const { data, error, isLoading, mutate } = useSundaySchoolVisitations()
+  const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const response = data as SundaySchoolVisitationsResponse | undefined
-  const classes = useMemo(() => response?.classes ?? [], [response])
+  const classes = useMemo(() => sortClassesByAgeGroup(
+    response?.classes ?? [],
+    (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
+  ), [ageGroupsData, response])
 
   const [selectedClassId, setSelectedClassId] = useState('')
   const [search, setSearch] = useState('')
+  const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [visitationStatus, setVisitationStatus] = useState<SundaySchoolVisitationStatus>(
     SundaySchoolVisitationStatus.DONE
@@ -210,166 +217,105 @@ export default function SundaySchoolVisitationsPage() {
     return <PageLoading />
   }
 
+  const isDoneChild = (child: (typeof visibleChildren)[number]) => child.visitations[0]?.status === SundaySchoolVisitationStatus.DONE
+  const listed = visibleChildren.filter((child) => (visitView === 'all' ? true : visitView === 'done' ? isDoneChild(child) : !isDoneChild(child)))
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <PageHeader
-          title="Visitations"
-          description="Track visitations and phone call follow-up for every child in your Sunday School classes."
-        />
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
+        <PageHeader title="Visitations" meta={['Visits and phone call follow-up for every child in your classes']} />
 
         {response?.standing.readOnly && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+          <div role="status" className="rounded-lg bg-info-tint px-4 py-2.5 text-[13px] text-info">
             You have read-only access to ministry records. You can review visitations and phone calls for every class
             {isPriest ? ' and add confidential priest notes.' : '.'}
           </div>
         )}
 
         {error ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="Visitations could not be loaded. Please try again." />
-            </CardContent>
-          </Card>
+          <Panel>
+            <EmptyState title="Couldn’t load visitations" message="Something went wrong on our side. Try again in a moment." />
+          </Panel>
         ) : classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="You are not assigned to any Sunday School class yet." />
-            </CardContent>
-          </Card>
+          <Panel>
+            <EmptyState message="You are not assigned to a Sunday School class yet." />
+          </Panel>
         ) : (
           <>
-            <Card>
-              <CardContent className="grid gap-4 pt-6 sm:grid-cols-[minmax(240px,1fr)_minmax(220px,1fr)]">
-                <div className="space-y-2">
-                  <Label htmlFor="visitation-class">Class</Label>
-                  <select
-                    id="visitation-class"
-                    value={selectedClass?.id ?? ''}
-                    onChange={event => {
-                      setSelectedClassId(event.target.value)
-                      setSelectedChildId(null)
-                    }}
-                    className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    {classes.map(classroom => (
-                      <option key={classroom.id} value={classroom.id}>
-                        {classroom.name} — {getLevelDisplayName(classroom.level)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="visitation-search">Find a child</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      id="visitation-search"
-                      value={search}
-                      onChange={event => setSearch(event.target.value)}
-                      placeholder="Search by name"
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <KpiStrip
+              items={[
+                { label: 'Children', value: selectedClass?.children.length ?? 0, hint: selectedClass?.name },
+                { label: 'Latest visit done', value: completedCount, hint: 'children' },
+                { label: 'Not done', value: notDoneCount, hint: 'children', tone: notDoneCount > 0 ? 'warn' : undefined },
+              ]}
+            />
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <SummaryCard
-                icon={<ClipboardList className="h-5 w-5 text-maroon-600" />}
-                value={selectedClass?.children.length ?? 0}
-                label="Children"
-              />
-              <SummaryCard
-                icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
-                value={completedCount}
-                label="Latest visit done"
-              />
-              <SummaryCard
-                icon={<CalendarCheck className="h-5 w-5 text-amber-600" />}
-                value={notDoneCount}
-                label="Not done"
-              />
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{selectedClass?.name ?? 'Class roster'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {visibleChildren.length === 0 ? (
-                  <EmptyState
-                    message={search ? 'No children match that search.' : 'No children are on this roster yet.'}
+            <Panel
+              toolbar={
+                <>
+                  <Segmented
+                    label="Visitation status"
+                    value={visitView}
+                    onChange={setVisitView}
+                    options={[
+                      { value: 'all', label: 'All', count: selectedClass?.children.length ?? 0 },
+                      { value: 'not-done', label: 'Not done', count: notDoneCount },
+                      { value: 'done', label: 'Done', count: completedCount },
+                    ]}
                   />
-                ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {visibleChildren.map(child => {
-                      const latest = child.visitations[0]
-                      const isDone = latest?.status === SundaySchoolVisitationStatus.DONE
-                      const latestCall = child.phoneCalls[0]
-
-                      return (
-                        <div
-                          key={child.id}
-                          className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium">
-                                {child.firstName} {child.lastName}
-                              </p>
-                              <Badge
-                                className={
-                                  isDone
-                                    ? 'bg-emerald-600 hover:bg-emerald-600'
-                                    : 'bg-amber-600 hover:bg-amber-600'
-                                }
-                              >
-                                {isDone ? 'Done' : 'Not done'}
-                              </Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                              {isDone && latest.visitedAt
-                                ? `Last visited ${formatDateUTC(latest.visitedAt, {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                  })}`
-                                : latest
-                                  ? 'Follow-up recorded as not done'
-                                  : 'No visitations recorded yet'}
-                              {child.visitations.length > 0 &&
-                                ` · ${child.visitations.length} ${child.visitations.length === 1 ? 'entry' : 'entries'}`}
-                            </p>
-                            {latest?.notes && (
-                              <p className="mt-1 max-w-2xl truncate text-sm text-gray-500 dark:text-gray-500">
-                                {latest.notes}
-                              </p>
-                            )}
-                            {child.phoneCalls.length > 0 && (
-                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-                                <Phone className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                                {child.phoneCalls.length} {child.phoneCalls.length === 1 ? 'call' : 'calls'} logged · Latest: {CALL_OUTCOME_LABELS[latestCall.outcome]}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openChild(child)}
-                            className="shrink-0 self-start sm:self-auto"
-                          >
-                            <MessageSquareText className="mr-1 h-4 w-4" />
-                            {child.visitations.length > 0 || child.phoneCalls.length > 0 ? 'View history' : 'Add visitation'}
-                          </Button>
-                        </div>
-                      )
-                    })}
+                  <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
+                    <FilterSelect
+                      aria-label="Class"
+                      value={selectedClass?.id ?? ''}
+                      onChange={(v) => {
+                        setSelectedClassId(v)
+                        setSelectedChildId(null)
+                      }}
+                      options={classes.map((c) => ({ value: c.id, label: `${c.name} — ${getLevelDisplayName(c.level)}` }))}
+                    />
+                    <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </>
+              }
+            >
+              {listed.length === 0 ? (
+                <EmptyState message={search || visitView !== 'all' ? 'No children match.' : 'No children are on this roster yet.'} />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {listed.map((child) => {
+                    const latest = child.visitations[0]
+                    const done = latest?.status === SundaySchoolVisitationStatus.DONE
+                    const name = `${child.firstName} ${child.lastName}`
+                    return (
+                      <li key={child.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_100px_130px_auto]">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <Initials name={name} />
+                          <span className="flex min-w-0 flex-col leading-tight">
+                            <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>
+                            <span className="truncate text-xs text-ink-3">
+                              {latest?.notes || (child.visitations.length > 0 ? `${child.visitations.length} ${child.visitations.length === 1 ? 'visit' : 'visits'}` : 'No visits recorded yet')}
+                            </span>
+                            {child.phoneCalls.length > 0 && (
+                              <span className="truncate text-xs text-ink-3">
+                                {child.phoneCalls.length} {child.phoneCalls.length === 1 ? 'call' : 'calls'} logged · Latest: {CALL_OUTCOME_LABELS[child.phoneCalls[0].outcome]}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <span>{latest ? done ? <StatusBadge tone="ok">Done</StatusBadge> : <StatusBadge tone="warn">Not done</StatusBadge> : <StatusBadge tone="neutral">None yet</StatusBadge>}</span>
+                        <span className="hidden text-[13px] text-ink-2 md:block">
+                          {done && latest.visitedAt ? formatDateUTC(latest.visitedAt, { weekday: undefined, month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </span>
+                        <Button variant="outline" size="sm" className="col-span-2 justify-self-start md:col-span-1 md:justify-self-end" onClick={() => openChild(child)}>
+                          <MessageSquareText />
+                          Follow up
+                        </Button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </Panel>
           </>
         )}
       </div>
@@ -643,27 +589,5 @@ export default function SundaySchoolVisitationsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function SummaryCard({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode
-  value: number
-  label: string
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 pt-6">
-        {icon}
-        <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

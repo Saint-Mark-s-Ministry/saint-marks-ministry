@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PublicFrame } from '@/components/ds/public-frame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -206,20 +206,10 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
   if (step === 'CODE') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md border-2 border-maroon-600 shadow-lg">
-          <CardHeader className="text-center space-y-4 pt-8 pb-6">
-            <div className="flex justify-center">
-              <div className="w-24 h-24 bg-maroon-600 rounded-full flex items-center justify-center text-white font-bold text-4xl">
-                SP
-              </div>
-            </div>
-            <CardTitle className="text-2xl sm:text-3xl">St. Paul&apos;s Servants Prep</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Registration for Servants Prep{yearName && ` ${yearName}`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 px-6 pb-8">
+      <PublicFrame
+        title="Servants Prep registration"
+        description={`St. Paul’s Servants Prep${yearName ? ` · ${yearName.replace('-', '–')}` : ''}. Enter the invite code you were given to begin.`}
+      >
             <div>
               <Label htmlFor="inviteCode">Invite Code</Label>
               <Input
@@ -231,87 +221,64 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 onKeyDown={(e) => e.key === 'Enter' && handleValidateCode()}
               />
               <p className="text-sm text-gray-500 mt-2">
-                An invite code is required to apply. Contact your mentor or church leader if you don&apos;t have one.
+                An invite code is required to apply. Contact your mentor or church servant if you don&apos;t have one.
               </p>
             </div>
             <Button
               onClick={handleValidateCode}
               disabled={isValidating || !inviteCode.trim()}
-              className="w-full bg-maroon-600 hover:bg-maroon-700"
+              className="w-full"
             >
               {isValidating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
+                  Verifying…
                 </>
               ) : (
                 'Continue'
               )}
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+      </PublicFrame>
     )
   }
 
   if (step === 'CONFIRMATION') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md border-2 border-green-600 shadow-lg">
-          <CardHeader className="text-center space-y-4 pt-8 pb-6">
-            <div className="flex justify-center">
-              <CheckCircle2 className="w-24 h-24 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl sm:text-3xl text-green-600">Registration Submitted!</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Your registration has been received and is under review.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 px-6 pb-8">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
-              <p className="font-semibold text-green-900 mb-2">What happens next?</p>
-              <ul className="list-disc list-inside space-y-1 text-green-800">
-                <li>Our admins will review your registration</li>
-                <li>You&apos;ll be notified once a decision is made</li>
-                <li>If approved, you&apos;ll receive login credentials via your mentor</li>
-                <li>After approval, sign in to complete the rest of your application</li>
-              </ul>
-            </div>
-            <p className="text-center text-sm text-gray-600">
-              Questions? Contact us at the Coptic Orthodox Church of Saint Mark, Jersey City, NJ.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <PublicFrame title="Registration submitted" description="Your registration was received and is under review.">
+        <div className="flex justify-center">
+          <span className="flex size-14 items-center justify-center rounded-full bg-ok-tint text-ok">
+            <CheckCircle2 className="size-8" aria-hidden />
+          </span>
+        </div>
+        <div className="rounded-md bg-raised px-4 py-3 text-[13px]">
+          <p className="mb-1.5 font-semibold text-ink">What happens next</p>
+          <ul className="list-inside list-disc space-y-1 text-ink-2">
+            <li>Our admins review your registration.</li>
+            <li>You’ll be notified once a decision is made.</li>
+            <li>If approved, you’ll receive sign-in details through your mentor.</li>
+            <li>After approval, sign in to complete the rest of your application.</li>
+          </ul>
+        </div>
+        <p className="text-center text-[13px] text-ink-3">Questions? Contact the Coptic Orthodox Church of Saint Mark, Jersey City, NJ.</p>
+      </PublicFrame>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Card className="border-2 border-maroon-600 shadow-lg">
-          <CardHeader className="space-y-4 pb-6">
-            <div className="flex items-center justify-between mb-2">
-              <CardTitle className="text-2xl sm:text-3xl">Servants Prep Registration</CardTitle>
-              {codeLabel && (
-                <Badge variant="outline" className="text-xs">
-                  {codeLabel}
-                </Badge>
-              )}
+    <PublicFrame
+      title="Servants Prep registration"
+      description={`St. Paul’s Servants Prep${yearName ? ` · ${yearName.replace('-', '–')} academic year` : ''}`}
+      badges={codeLabel ? <Badge variant="outline">{codeLabel}</Badge> : undefined}
+      width="xl"
+    >
+            <div className="flex flex-col gap-1.5">
+              <Progress value={calculateProgress()} aria-label="Registration progress" />
+              <p className="text-xs text-ink-3">{Math.round(calculateProgress())}% complete</p>
             </div>
-            <CardDescription>
-              St. Paul&apos;s Servants Prep{yearName && ` - ${yearName} Academic Year`}
-            </CardDescription>
-            <Progress value={calculateProgress()} className="mt-4" />
-            <p className="text-xs text-gray-500 mt-1">
-              {Math.round(calculateProgress())}% complete
-            </p>
-          </CardHeader>
-          <CardContent className="px-6 sm:px-8 pb-8">
             <form onSubmit={handleSubmit} className="space-y-10">
               {/* Personal Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Personal Information</h3>
+                <h3 className="border-b border-line pb-2 text-sm font-semibold tracking-[0.04em] text-accent-ink uppercase">Personal Information</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="fullName">Full Name *</Label>
@@ -413,7 +380,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
               {/* Service History */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Service History</h3>
+                <h3 className="border-b border-line pb-2 text-sm font-semibold tracking-[0.04em] text-accent-ink uppercase">Service History</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="previouslyServed">Have you previously served? *</Label>
@@ -506,7 +473,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
               {/* Academic Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Academic Information</h3>
+                <h3 className="border-b border-line pb-2 text-sm font-semibold tracking-[0.04em] text-accent-ink uppercase">Academic Information</h3>
                 <div className="space-y-2">
                   <Label htmlFor="grade">Which Grade are you in? *</Label>
                   <Select
@@ -533,16 +500,16 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 <Button
                   type="submit"
                   disabled={isSubmitting || isUploadingProfilePic || !formData.profileImageUrl}
-                  className="w-full bg-maroon-600 hover:bg-maroon-700"
+                  className="w-full"
                   size="lg"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
+                      Submitting…
                     </>
                   ) : (
-                    'Submit Registration'
+                    'Submit registration'
                   )}
                 </Button>
                 <p className="text-xs text-center text-gray-500 mt-2">
@@ -550,9 +517,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 </p>
               </div>
             </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </PublicFrame>
   )
 }

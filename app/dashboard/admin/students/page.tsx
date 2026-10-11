@@ -1,13 +1,10 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from '@/lib/roles'
 import type { AcademicYear } from '@/lib/types'
@@ -18,13 +15,26 @@ import {
   type StudentTableSortKey,
 } from '@/lib/student-table-sort'
 import { toast } from 'sonner'
-import { ChevronUp, ChevronDown, ChevronRight, ArrowUpDown, X, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, GraduationCap, UserX } from 'lucide-react'
+import { ChevronUp, ChevronDown, ArrowUpDown, X, Trash2, UserPlus, Pencil, GraduationCap, UserX, ClipboardList } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
 import { GraduationDialog } from '@/components/graduation-dialog'
 import { AsyncBadge } from '@/components/async-badge'
 import type { EditableStudent } from '@/components/student-program-editor'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge, type Tone } from '@/components/ds/status-badge'
+import { Metric } from '@/components/ds/metric'
+import { Initials, PersonCell } from '@/components/ds/person'
+import { DetailPanel, SplitView } from '@/components/ds/detail-panel'
+import { KeyValueList } from '@/components/ds/kv-list'
+import { BulkBar } from '@/components/ds/bulk-bar'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
 
 interface Student {
   id: string
@@ -157,7 +167,9 @@ function SortableTableHeader({
   activeColumn,
   direction,
   onSort,
+  className,
 }: {
+  className?: string
   column: StudentTableSortKey
   label: string
   activeColumn: StudentTableSortKey | null
@@ -170,22 +182,22 @@ function SortableTableHeader({
     : 'none'
 
   return (
-    <th className="p-0 text-left font-semibold" aria-sort={ariaSort}>
+    <th scope="col" className={`p-0 text-left text-xs font-medium text-ink-3 ${className ?? ''}`} aria-sort={ariaSort}>
       <button
         type="button"
         onClick={() => onSort(column)}
-        className="flex w-full items-center gap-1.5 whitespace-nowrap p-3 text-left hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon-500 dark:hover:bg-gray-900"
+        className="flex h-9 w-full cursor-pointer items-center gap-1 px-3 text-left whitespace-nowrap hover:text-ink"
         title={`Sort by ${label}`}
       >
         <span>{label}</span>
         {isActive ? (
           direction === 'asc' ? (
-            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+            <ChevronUp className="size-3.5 text-ink" aria-hidden="true" />
           ) : (
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            <ChevronDown className="size-3.5 text-ink" aria-hidden="true" />
           )
         ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+          <ArrowUpDown className="size-3 opacity-60" aria-hidden="true" />
         )}
       </button>
     </th>
@@ -207,7 +219,7 @@ function StudentsManagementContent() {
   const [showYearEndPanel, setShowYearEndPanel] = useState(false)
   const [activeYear, setActiveYear] = useState<AcademicYear | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
   const [viewingStudent, setViewingStudent] = useState<string | null>(null)
   const [studentDetails, setStudentDetails] = useState<StudentDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -221,6 +233,11 @@ function StudentsManagementContent() {
     }
   }, [session])
 
+  // ?filter=review (from the dashboard) opens the list on students needing review.
+  useEffect(() => {
+    if (searchParams.get('filter') === 'review') setFilterStatus('review')
+  }, [searchParams])
+
   // Handle URL parameter to open student details modal directly
   useEffect(() => {
     const studentId = searchParams.get('student')
@@ -228,7 +245,7 @@ function StudentsManagementContent() {
       // Check if the student exists
       const student = students.find(s => s.id === studentId)
       if (student) {
-        openStudentDetails(studentId)
+        setPreviewId(studentId)
         // Clear the URL parameter after opening
         router.replace('/dashboard/admin/students', { scroll: false })
       }
@@ -506,7 +523,11 @@ function StudentsManagementContent() {
         return false
       }
 
-      if (filterStatus !== 'all' && student.enrollments?.[0]?.status !== filterStatus) {
+      const enrollment = student.enrollments?.[0]
+      if (filterStatus === 'review') {
+        const a = analytics.find((x) => x.studentId === student.id)
+        if (!(enrollment?.yearLevel === 'YEAR_2' && enrollment.status === 'ACTIVE' && !a?.graduationEligible)) return false
+      } else if (filterStatus !== 'all' && enrollment?.status !== filterStatus) {
         return false
       }
 
@@ -538,605 +559,331 @@ function StudentsManagementContent() {
   const year1Count = students.filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE').length
   const year2Count = students.filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_2' && s.enrollments?.[0]?.status === 'ACTIVE').length
 
+  const reviewCount = students.filter((s) => {
+    const e = s.enrollments?.[0]
+    const a = analytics.find((x) => x.studentId === s.id)
+    return e?.yearLevel === 'YEAR_2' && e.status === 'ACTIVE' && !a?.graduationEligible
+  }).length
+  const withdrawnCount = students.filter((s) => s.enrollments?.[0]?.status === 'WITHDRAWN').length
+  const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
+  const preview = previewId ? students.find((s) => s.id === previewId) : undefined
+  const previewAnalytics = preview ? analytics.find((a) => a.studentId === preview.id) : undefined
+  const selectedIds = Array.from(selectedStudents)
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Student Management</h1>
-          <p className="text-gray-600 mt-1">Manage student year levels, graduation status, and notes</p>
-          {lastSaved && (
-            <p className="text-xs text-gray-500 mt-1">
-              Last saved {formatToastTimestamp(lastSaved)}
-            </p>
-          )}
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Students"
+        meta={[
+          `${students.length} total`,
+          `${activeCount} active`,
+          `${year1Count} in Year 1`,
+          `${year2Count} in Year 2`,
+          `${graduatedCount} graduated`,
+          lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null,
+        ]}
+        actions={
+          <>
+            <Button variant="outline" aria-expanded={showYearEndPanel} onClick={() => setShowYearEndPanel(!showYearEndPanel)}>
+              <ClipboardList />
+              Year-end review
+            </Button>
+            {isSuperAdmin && <BulkStudentImport onSuccess={fetchStudents} />}
+          </>
+        }
+      />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{activeCount}</div>
-              <div className="text-sm text-gray-600">Active Students</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{year1Count}</div>
-              <div className="text-sm text-gray-600">Year 1 Students</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{year2Count}</div>
-              <div className="text-sm text-gray-600">Year 2 Students</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{graduatedCount}</div>
-              <div className="text-sm text-gray-600">Graduated</div>
-            </CardContent>
-          </Card>
-        </div>
+      <YearEndReviewPanel
+        activeYear={activeYear}
+        analytics={analytics}
+        isVisible={showYearEndPanel}
+        onToggle={() => setShowYearEndPanel(!showYearEndPanel)}
+        onGraduateEligible={() => {
+          const eligibleStudents = students.filter((s) => {
+            const studentAnalytics = analytics.find((a) => a.studentId === s.id)
+            return s.enrollments?.[0]?.yearLevel === 'YEAR_2' && s.enrollments?.[0]?.status === 'ACTIVE' && studentAnalytics?.graduationEligible
+          })
+          setSelectedStudents(new Set(eligibleStudents.map((s) => s.id)))
+          if (eligibleStudents.length > 0) setShowGraduateDialog(true)
+          else toast.error('No eligible students found')
+        }}
+        onPromoteYear1={() => {
+          const year1StudentIds = students
+            .filter((s) => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE')
+            .map((s) => s.id)
+          if (year1StudentIds.length > 0) {
+            setSelectedStudents(new Set(year1StudentIds))
+            updateYearLevel(year1StudentIds, 'YEAR_2')
+          } else {
+            toast.error('No Year 1 students found')
+          }
+        }}
+        onYearCreated={fetchStudents}
+      />
 
-        {/* Year-End Review Panel */}
-        <YearEndReviewPanel
-          activeYear={activeYear}
-          analytics={analytics}
-          isVisible={showYearEndPanel}
-          onToggle={() => setShowYearEndPanel(!showYearEndPanel)}
-          onGraduateEligible={() => {
-            // Select all eligible Year 2 students
-            const eligibleStudents = students.filter(s => {
-              const studentAnalytics = analytics.find(a => a.studentId === s.id)
-              return s.enrollments?.[0]?.yearLevel === 'YEAR_2' &&
-                     s.enrollments?.[0]?.status === 'ACTIVE' &&
-                     studentAnalytics?.graduationEligible
-            })
-            setSelectedStudents(new Set(eligibleStudents.map(s => s.id)))
-            if (eligibleStudents.length > 0) {
-              setShowGraduateDialog(true)
-            } else {
-              toast.error('No eligible students found')
-            }
-          }}
-          onPromoteYear1={() => {
-            // Select all Year 1 students
-            const year1StudentIds = students
-              .filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE')
-              .map(s => s.id)
-            if (year1StudentIds.length > 0) {
-              setSelectedStudents(new Set(year1StudentIds))
-              updateYearLevel(year1StudentIds, 'YEAR_2')
-            } else {
-              toast.error('No Year 1 students found')
-            }
-          }}
-          onYearCreated={fetchStudents}
-        />
-
-        {/* Filters and Bulk Actions */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <CardTitle>Students ({filteredStudents.length})</CardTitle>
-              <div className="flex flex-wrap justify-end gap-2">
-                {session?.user?.role === 'SUPER_ADMIN' && (
-                  <BulkStudentImport onSuccess={fetchStudents} />
-                )}
-                <Input
-                  placeholder="Search students..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-48"
-                />
-                <select
-                  value={filterYearLevel}
-                  onChange={(e) => setFilterYearLevel(e.target.value)}
-                  className="border rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="all">All Years</option>
-                  <option value="YEAR_1">Year 1</option>
-                  <option value="YEAR_2">Year 2</option>
-                </select>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="GRADUATED">Graduated</option>
-                  <option value="WITHDRAWN">Withdrawn</option>
-                </select>
-                <div
-                  className={`overflow-hidden transition-[max-width,opacity] duration-300 ease-out motion-reduce:transition-none ${
-                    hasActiveSort
-                      ? 'max-w-32 opacity-100'
-                      : 'pointer-events-none max-w-0 opacity-0'
-                  }`}
-                  aria-hidden={!hasActiveSort}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSortColumn(null)
-                      setSortDirection('asc')
-                    }}
-                    tabIndex={hasActiveSort ? 0 : -1}
-                    className="w-28 gap-1.5"
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
+      <SplitView>
+        <Panel
+          className="flex-1"
+          toolbar={
+            <>
+              <Segmented
+                label="Enrollment status"
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={[
+                  { value: 'all', label: 'All', count: students.length },
+                  { value: 'ACTIVE', label: 'Active', count: activeCount },
+                  { value: 'review', label: 'Review', count: reviewCount },
+                  { value: 'GRADUATED', label: 'Graduated', count: graduatedCount },
+                  { value: 'WITHDRAWN', label: 'Withdrawn', count: withdrawnCount },
+                ]}
+              />
+              <div className="flex w-full flex-wrap items-center gap-2 xl:ml-auto xl:w-auto">
+                {hasActiveSort && (
+                  <Button variant="ghost" size="sm" onClick={() => { setSortColumn(null); setSortDirection('asc') }}>
+                    <X />
                     Clear sort
                   </Button>
-                </div>
+                )}
+                <FilterSelect
+                  aria-label="Year level"
+                  value={filterYearLevel}
+                  onChange={setFilterYearLevel}
+                  options={[
+                    { value: 'all', label: 'All years' },
+                    { value: 'YEAR_1', label: 'Year 1' },
+                    { value: 'YEAR_2', label: 'Year 2' },
+                  ]}
+                />
+                <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search students" className="flex-1 md:flex-none" />
               </div>
-            </div>
-          </CardHeader>
+            </>
+          }
+          footer={<span className="tabular">Showing {filteredStudents.length} of {students.length}</span>}
+        >
+          <BulkBar count={selectedStudents.size} noun={selectedStudents.size === 1 ? 'student selected' : 'students selected'} onClear={() => setSelectedStudents(new Set())}>
+            <Button size="sm" variant="outline" onClick={() => updateYearLevel(selectedIds, 'YEAR_1')}>
+              <ChevronDown />
+              Move to Year 1
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => updateYearLevel(selectedIds, 'YEAR_2')}>
+              <ChevronUp />
+              Move to Year 2
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => createEnrollments(selectedIds, 'YEAR_1')}>
+              <UserPlus />
+              Enroll Year 1
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => createEnrollments(selectedIds, 'YEAR_2')}>
+              <UserPlus />
+              Enroll Year 2
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowGraduateDialog(true)}>
+              <GraduationCap />
+              Graduate
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => updateEnrollmentStatus(selectedIds, 'WITHDRAWN')}>
+              Withdraw
+            </Button>
+            {isSuperAdmin && (
+              <Button size="sm" variant="destructive" onClick={() => bulkDeleteUsers(selectedIds)}>
+                <Trash2 />
+                Delete
+              </Button>
+            )}
+          </BulkBar>
 
-          {selectedStudents.size > 0 && (
-            <div className="px-6 pb-4">
-              <Card className="bg-maroon-50 border-maroon-200">
-                <CardContent className="pt-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-medium">
-                      {selectedStudents.size} student(s) selected
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateYearLevel(Array.from(selectedStudents), 'YEAR_1')}
-                        className="gap-1"
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                        Move to Year 1
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateYearLevel(Array.from(selectedStudents), 'YEAR_2')}
-                        className="gap-1"
-                      >
-                        <ChevronUp className="h-3 w-3" />
-                        Move to Year 2
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => createEnrollments(Array.from(selectedStudents), 'YEAR_1')}
-                        className="gap-1 text-maroon-700 border-maroon-300 hover:bg-maroon-50"
-                      >
-                        <UserPlus className="h-3 w-3" />
-                        Enroll in Year 1
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => createEnrollments(Array.from(selectedStudents), 'YEAR_2')}
-                        className="gap-1 text-maroon-700 border-maroon-300 hover:bg-maroon-50"
-                      >
-                        <UserPlus className="h-3 w-3" />
-                        Enroll in Year 2
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowGraduateDialog(true)}
-                        className="gap-1 text-green-700 border-green-300 hover:bg-green-50"
-                      >
-                        <GraduationCap className="h-3 w-3" />
-                        Mark as Graduated
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateEnrollmentStatus(Array.from(selectedStudents), 'WITHDRAWN')}
-                        className="gap-1 text-orange-700 border-orange-300 hover:bg-orange-50"
-                      >
-                        Mark as Withdrawn
-                      </Button>
-                      {session?.user?.role === 'SUPER_ADMIN' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => bulkDeleteUsers(Array.from(selectedStudents))}
-                          className="gap-1 text-red-700 border-red-300 hover:bg-red-50"
+          {filteredStudents.length === 0 ? (
+            <EmptyState message="No students match these filters." />
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full text-[13px] text-ink">
+                  <thead className="bg-raised">
+                    <tr className="border-b border-line">
+                      <th scope="col" className="w-10 pl-3">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all"
+                          checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
+                          onChange={selectAll}
+                          className="size-[15px] accent-brand"
+                        />
+                      </th>
+                      <SortableTableHeader column="name" label="Student" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                      {!preview && <SortableTableHeader column="year" label="Year" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-24" />}
+                      {!preview && <SortableTableHeader column="year1Attendance" label="Y1 attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />}
+                       <SortableTableHeader column="year2Attendance" label={preview ? 'Attendance' : 'Y2 attendance'} activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />
+                      <SortableTableHeader column="examAverage" label="Exam avg" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-40" />
+                      <SortableTableHeader column="eligibility" label="Eligibility" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-28" />
+                      <th scope="col" className="w-10"><span className="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.map((student) => {
+                      const a = analytics.find((x) => x.studentId === student.id)
+                      const enrollment = student.enrollments?.[0]
+                      const selected = selectedStudents.has(student.id)
+                      return (
+                        <tr
+                          key={student.id}
+                          className={`h-[52px] border-b border-line last:border-0 ${selected || previewId === student.id ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
                         >
-                          <Trash2 className="h-3 w-3" />
-                          Delete Users
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedStudents(new Set())}
-                      >
-                        Clear Selection
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                          <td className="pl-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${student.name}`}
+                              checked={selected}
+                              onChange={() => toggleStudent(student.id)}
+                              className="size-[15px] accent-brand"
+                            />
+                          </td>
+                          <td className="px-3">
+                            <PersonCell
+                              name={student.name}
+                              imageUrl={student.profileImageUrl}
+                              meta={student.email || 'No email on file'}
+                              onClick={() => setPreviewId(student.id)}
+                            />
+                          </td>
+                          {!preview && (
+                            <td className="px-3">
+                              <YearCell enrollment={enrollment} />
+                            </td>
+                          )}
+                          {!preview && (
+                            <td className="px-3">
+                              <Metric value={a?.year1AttendancePercentage} detail={a && a.year1AttendancePercentage !== null ? `${a.year1AttendedLessons}/${a.year1TotalLessons}` : undefined} width={48} />
+                            </td>
+                          )}
+                          <td className="px-3">
+                            <Metric value={preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={!preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
+                          </td>
+                          <td className="px-3">
+                            <Metric value={a?.avgExamScore} detail={!preview && a && a.avgExamScore !== null ? `${a.examCount} exam${a.examCount !== 1 ? 's' : ''}` : undefined} width={48} />
+                          </td>
+                          <td className="px-3">
+                            <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
+                          </td>
+                          <td className="pr-2">
+                            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${student.name}`} title="Edit student" onClick={() => openStudentDetails(student.id)}>
+                              <Pencil />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          <CardContent>
-            {/* Desktop View */}
-            <div className="hidden lg:block max-h-[calc(100vh-12rem)] overflow-auto rounded-md">
-              <table className="w-full">
-                <thead className="sticky top-0 z-20 border-b bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950">
-                  <tr>
-                    <th className="text-left p-3">
+              <ul className="divide-y divide-line lg:hidden">
+                {filteredStudents.map((student) => {
+                  const a = analytics.find((x) => x.studentId === student.id)
+                  const enrollment = student.enrollments?.[0]
+                  return (
+                    <li key={student.id} className="flex items-center gap-3 px-3 py-2.5">
                       <input
                         type="checkbox"
-                        checked={selectedStudents.size === filteredStudents.length && filteredStudents.length > 0}
-                        onChange={selectAll}
-                        className="rounded"
+                        aria-label={`Select ${student.name}`}
+                        checked={selectedStudents.has(student.id)}
+                        onChange={() => toggleStudent(student.id)}
+                        className="size-5 shrink-0 accent-brand"
                       />
-                    </th>
-                    <SortableTableHeader column="name" label="Name" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="year" label="Year" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="year1Attendance" label="Year 1 Attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="year2Attendance" label="Year 2 Attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="examAverage" label="Exam Avg" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="eligibility" label="Eligibility" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <SortableTableHeader column="status" label="Status" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
-                    <th className="text-left p-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map(student => {
-                    const studentAnalytics = analytics.find(a => a.studentId === student.id)
-                    const year1Color = !studentAnalytics || studentAnalytics.year1AttendancePercentage === null ? 'text-gray-400' :
-                      studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
-                      studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                    const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
-                      studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
-                      studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                    const examColor = !studentAnalytics || studentAnalytics.avgExamScore === null ? 'text-gray-400' :
-                      studentAnalytics.avgExamScore >= 75 ? 'text-green-700' :
-                      studentAnalytics.avgExamScore >= 60 ? 'text-yellow-700' : 'text-red-700'
+                      <button type="button" onClick={() => setPreviewId(student.id)} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
+                        <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                          <span className="truncate text-xs text-ink-3">
+                            {enrollment ? (enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
+                            {' · '}Att {(enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
+                            {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
+                          </span>
+                        </span>
+                      </button>
+                      <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+        </Panel>
 
-                    return (
-                      <tr key={student.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedStudents.has(student.id)}
-                            onChange={() => toggleStudent(student.id)}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 shrink-0">
-                              {student.profileImageUrl && (
-                                <AvatarImage src={student.profileImageUrl} alt={student.name} />
-                              )}
-                              <AvatarFallback className="bg-maroon-600 text-white text-xs">
-                                {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{student.name}</div>
-                              <div className="text-xs text-gray-500">{student.email}</div>
-                              {student.phone && (
-                                <div className="text-xs text-gray-500">{student.phone}</div>
-                              )}
-                              {studentAnalytics && studentAnalytics.conductDismissalCount > 0 && (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-700 border-orange-300 bg-orange-50">
-                                    <UserX className="h-2.5 w-2.5 mr-0.5" />
-                                    {studentAnalytics.conductDismissalCount} removal{studentAnalytics.conductDismissalCount !== 1 ? 's' : ''}
-                                  </Badge>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          {student.enrollments?.[0] ? (
-                            <div className="flex flex-wrap gap-1">
-                              <Badge variant="outline">
-                                {student.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                              </Badge>
-                              {student.enrollments[0].isAsyncStudent && (
-                                <AsyncBadge />
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Not enrolled</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {studentAnalytics ? (
-                            studentAnalytics.year1AttendancePercentage !== null ? (
-                              <div>
-                                <div className={`font-semibold ${year1Color}`}>
-                                  {studentAnalytics.year1AttendancePercentage.toFixed(2)}%
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {studentAnalytics.year1AttendedLessons}/{studentAnalytics.year1TotalLessons} lessons
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-sm">N/A</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {studentAnalytics ? (
-                            studentAnalytics.year2AttendancePercentage !== null ? (
-                              <div>
-                                <div className={`font-semibold ${year2Color}`}>
-                                  {studentAnalytics.year2AttendancePercentage.toFixed(2)}%
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {studentAnalytics.year2AttendedLessons}/{studentAnalytics.year2TotalLessons} lessons
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-sm">N/A</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {studentAnalytics ? (
-                            studentAnalytics.avgExamScore !== null ? (
-                              <div>
-                                <div className={`font-semibold ${examColor}`}>
-                                  {studentAnalytics.avgExamScore.toFixed(2)}%
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {studentAnalytics.examCount} exam{studentAnalytics.examCount !== 1 ? 's' : ''}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm">—</span>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-sm">N/A</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {student.enrollments?.[0]?.yearLevel === 'YEAR_2' && student.enrollments?.[0]?.status === 'ACTIVE' ? (
-                            studentAnalytics?.graduationEligible ? (
-                              <Badge className="bg-green-100 text-green-800 border border-green-300">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Eligible
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                Review
-                              </Badge>
-                            )
-                          ) : student.enrollments?.[0]?.status === 'GRADUATED' ? (
-                            <Badge className="bg-green-100 text-green-800 border border-green-300">
-                              <GraduationCap className="h-3 w-3 mr-1" />
-                              Graduated
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          {student.enrollments?.[0]?.status === 'ACTIVE' && (
-                            <Badge className="bg-green-100 text-green-800">Active</Badge>
-                          )}
-                          {student.enrollments?.[0]?.status === 'GRADUATED' && (
-                            <Badge className="bg-maroon-100 text-maroon-800">Graduated</Badge>
-                          )}
-                          {student.enrollments?.[0]?.status === 'WITHDRAWN' && (
-                            <Badge className="bg-gray-100 text-gray-800">Withdrawn</Badge>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openStudentDetails(student.id)}
-                              className="gap-1"
-                              title="Edit Student"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile View */}
-            <div className="lg:hidden space-y-3">
-              {filteredStudents.map(student => {
-                const studentAnalytics = analytics.find(a => a.studentId === student.id)
-                const isExpanded = expandedStudent === student.id
-                const year1Color = !studentAnalytics || studentAnalytics.year1AttendancePercentage === null ? 'text-gray-400' :
-                  studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
-                  studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
-                  studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
-                  studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                const examColor = !studentAnalytics || studentAnalytics.avgExamScore === null ? 'text-gray-400' :
-                  studentAnalytics.avgExamScore >= 75 ? 'text-green-700' :
-                  studentAnalytics.avgExamScore >= 60 ? 'text-yellow-700' : 'text-red-700'
-
-                return (
-                  <Card key={student.id} className="overflow-hidden">
-                    <div className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 flex-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedStudents.has(student.id)}
-                            onChange={() => toggleStudent(student.id)}
-                            className="rounded mt-1"
-                          />
-                          <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                            {student.profileImageUrl && (
-                              <AvatarImage src={student.profileImageUrl} alt={student.name} />
-                            )}
-                            <AvatarFallback className="bg-maroon-600 text-white text-xs">
-                              {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900 truncate">{student.name}</div>
-                            <div className="text-sm text-gray-500 truncate">{student.email}</div>
-                            {student.phone && (
-                              <div className="text-sm text-gray-500">{student.phone}</div>
-                            )}
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {student.enrollments?.[0] && (
-                                <Badge variant="outline" className="text-xs">
-                                  {student.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                                </Badge>
-                              )}
-                              {student.enrollments?.[0]?.isAsyncStudent && (
-                                <AsyncBadge className="text-xs" />
-                              )}
-                              {student.enrollments?.[0]?.status === 'ACTIVE' && (
-                                <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>
-                              )}
-                              {student.enrollments?.[0]?.status === 'GRADUATED' && (
-                                <Badge className="bg-maroon-100 text-maroon-800 text-xs">Graduated</Badge>
-                              )}
-                              {student.enrollments?.[0]?.status === 'WITHDRAWN' && (
-                                <Badge className="bg-gray-100 text-gray-800 text-xs">Withdrawn</Badge>
-                              )}
-                              {studentAnalytics && studentAnalytics.conductDismissalCount > 0 && (
-                                <Badge variant="outline" className="text-xs text-orange-700 border-orange-300 bg-orange-50">
-                                  <UserX className="h-3 w-3 mr-0.5" />
-                                  {studentAnalytics.conductDismissalCount} removal{studentAnalytics.conductDismissalCount !== 1 ? 's' : ''}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setExpandedStudent(isExpanded ? null : student.id)}
-                          className="ml-2"
-                        >
-                          <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        </Button>
-                      </div>
-
-                      {/* Quick Stats */}
-                      {studentAnalytics && (
-                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t">
-                          <div>
-                            <div className="text-xs text-gray-500">Year 1</div>
-                            <div className={`text-base font-semibold ${year1Color}`}>
-                              {studentAnalytics.year1AttendancePercentage !== null
-                                ? `${studentAnalytics.year1AttendancePercentage.toFixed(2)}%`
-                                : '—'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Year 2</div>
-                            <div className={`text-base font-semibold ${year2Color}`}>
-                              {studentAnalytics.year2AttendancePercentage !== null
-                                ? `${studentAnalytics.year2AttendancePercentage.toFixed(2)}%`
-                                : '—'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Exam Avg</div>
-                            <div className={`text-base font-semibold ${examColor}`}>
-                              {studentAnalytics.avgExamScore !== null
-                                ? `${studentAnalytics.avgExamScore.toFixed(2)}%`
-                                : '—'}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Expanded Details */}
-                      {isExpanded && (
-                        <div className="mt-3 pt-3 border-t space-y-2">
-                          {studentAnalytics && (
-                            <>
-                              <div className="text-sm">
-                                <span className="text-gray-600">Year 1 lessons:</span>
-                                <span className="ml-2 font-medium">
-                                  {studentAnalytics.year1AttendedLessons}/{studentAnalytics.year1TotalLessons}
-                                </span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-gray-600">Year 2 lessons:</span>
-                                <span className="ml-2 font-medium">
-                                  {studentAnalytics.year2AttendedLessons !== null
-                                    ? `${studentAnalytics.year2AttendedLessons}/${studentAnalytics.year2TotalLessons}`
-                                    : '—'}
-                                </span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-gray-600">Exams taken:</span>
-                                <span className="ml-2 font-medium">{studentAnalytics.examCount}</span>
-                              </div>
-                            </>
-                          )}
-                          {student.enrollments?.[0]?.mentor && (
-                            <div className="text-sm">
-                              <span className="text-gray-600">Mentor:</span>
-                              <span className="ml-2 font-medium">{student.enrollments[0].mentor.name}</span>
-                            </div>
-                          )}
-                          <div className="mt-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openStudentDetails(student.id)}
-                              className="w-full gap-1"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              Edit Student
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
-
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No students found matching your filters
+        <DetailPanel
+          open={!!preview}
+          onClose={() => setPreviewId(null)}
+          label={preview?.name}
+          title={
+            preview ? (
+              <div className="flex items-center gap-3">
+                <Initials name={preview.name} imageUrl={preview.profileImageUrl} size={40} />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <h2 className="truncate text-[15px] font-semibold text-ink">{preview.name}</h2>
+                  <div className="flex flex-wrap gap-1.5">
+                    {preview.enrollments?.[0] && <EnrollmentBadge status={preview.enrollments[0].status} />}
+                    <EligibilityBadge enrollment={preview.enrollments?.[0]} eligible={previewAnalytics?.graduationEligible} />
+                    {preview.enrollments?.[0] && (
+                      <StatusBadge tone="neutral" dot={false}>
+                        {preview.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                      </StatusBadge>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            ) : ''
+          }
+          footer={
+            preview && (
+              <Button className="flex-1" onClick={() => openStudentDetails(preview.id)}>
+                <Pencil />
+                Edit student
+              </Button>
+            )
+          }
+        >
+          {preview && (
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-3">
+                {[
+                  { label: 'Year 1 attendance', value: previewAnalytics?.year1AttendancePercentage, detail: previewAnalytics ? `${previewAnalytics.year1AttendedLessons} of ${previewAnalytics.year1TotalLessons} lessons` : undefined },
+                  { label: 'Year 2 attendance', value: previewAnalytics?.year2AttendancePercentage, detail: previewAnalytics?.year2TotalLessons ? `${previewAnalytics.year2AttendedLessons} of ${previewAnalytics.year2TotalLessons} lessons` : undefined },
+                  { label: 'Exam average', value: previewAnalytics?.avgExamScore, detail: previewAnalytics ? `${previewAnalytics.examCount} exams` : undefined },
+                ].map((m) => (
+                  <div key={m.label} className="flex flex-col gap-1.5 rounded-md bg-raised px-3 py-2.5">
+                    <span className="text-xs font-medium text-ink-3">{m.label}</span>
+                    <Metric value={m.value} detail={m.detail} width={120} />
+                  </div>
+                ))}
+              </div>
+              <KeyValueList
+                items={[
+                  { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
+                  { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
+                  { label: 'Mentor', value: preview.enrollments?.[0]?.mentor?.name ?? <span className="text-ink-3">Not assigned</span> },
+                  { label: 'Program', value: preview.enrollments?.[0]?.isAsyncStudent ? 'Async' : 'In person' },
+                  ...(previewAnalytics && previewAnalytics.conductDismissalCount > 0
+                    ? [{ label: 'Removals', value: <span className="inline-flex items-center gap-1 text-bad"><UserX className="size-3.5" />{previewAnalytics.conductDismissalCount} from lessons</span> }]
+                    : []),
+                  ...(preview.enrollments?.[0]?.notes ? [{ label: 'Notes', value: preview.enrollments[0].notes }] : []),
+                ]}
+              />
+            </div>
+          )}
+        </DetailPanel>
+      </SplitView>
 
-      {/* Graduation Dialog with Exception Handling */}
       <GraduationDialog
         open={showGraduateDialog}
         onOpenChange={setShowGraduateDialog}
-        selectedStudents={students.filter(s => selectedStudents.has(s.id))}
+        selectedStudents={students.filter((s) => selectedStudents.has(s.id))}
         analytics={analytics}
         onGraduate={handleGraduateStudents}
       />
 
-      {/* Student Details Modal */}
       <StudentDetailsModal
         studentId={viewingStudent}
-        studentName={students.find(s => s.id === viewingStudent)?.name || ''}
+        studentName={students.find((s) => s.id === viewingStudent)?.name || ''}
         student={studentDetails?.student}
         examScores={studentDetails?.examScores || []}
         attendanceRecords={studentDetails?.attendanceRecords || []}
@@ -1153,16 +900,35 @@ function StudentsManagementContent() {
   )
 }
 
+type Enrollment = NonNullable<Student['enrollments']>[number]
+
+function YearCell({ enrollment }: { enrollment?: Enrollment }) {
+  if (!enrollment) return <span className="text-ink-3">Not enrolled</span>
+  return (
+    <span className="inline-flex items-center gap-1.5 text-ink-2">
+      {enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+      {enrollment.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
+    </span>
+  )
+}
+
+function EligibilityBadge({ enrollment, eligible }: { enrollment?: Enrollment; eligible?: boolean }) {
+  if (enrollment?.status === 'GRADUATED') return <StatusBadge tone="accent">Graduated</StatusBadge>
+  if (enrollment?.status === 'WITHDRAWN') return <StatusBadge tone="neutral">Withdrawn</StatusBadge>
+  if (enrollment?.yearLevel === 'YEAR_2' && enrollment.status === 'ACTIVE') {
+    return eligible ? <StatusBadge tone="ok">Eligible</StatusBadge> : <StatusBadge tone="warn">Review</StatusBadge>
+  }
+  return <span className="text-ink-3">—</span>
+}
+
+function EnrollmentBadge({ status }: { status: Enrollment['status'] }) {
+  const tone: Record<Enrollment['status'], Tone> = { ACTIVE: 'ok', GRADUATED: 'accent', WITHDRAWN: 'neutral' }
+  return <StatusBadge tone={tone[status]}>{status === 'ACTIVE' ? 'Active' : status === 'GRADUATED' ? 'Graduated' : 'Withdrawn'}</StatusBadge>
+}
+
 export default function StudentsManagementPage() {
   return (
-    <Suspense fallback={
-      <div className="p-6">
-        <div className="flex flex-col gap-4">
-          <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
-          <div className="h-64 bg-gray-100 animate-pulse rounded" />
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<PageLoading />}>
       <StudentsManagementContent />
     </Suspense>
   )

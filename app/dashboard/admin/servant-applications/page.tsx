@@ -1,27 +1,29 @@
 'use client'
 
 import { useState } from 'react'
+import { ContactLink } from '@/components/contact-link'
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { CheckCircle, Eye, Loader2, XCircle } from 'lucide-react'
+import { RegistrationStatus } from '@prisma/client'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { EmptyState } from '@/components/ui/empty-state'
+import { PageLoading } from '@/components/ui/page-loading'
+import { LoadingStatus } from '@/components/ui/loading-status'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { PersonCell } from '@/components/ds/person'
+import { DetailPanel, SplitView } from '@/components/ds/detail-panel'
+import { KeyValueList } from '@/components/ds/kv-list'
 import { canReviewServantApplications } from '@/lib/roles'
 import { compareServantApplicationPriority } from '@/lib/servant-applications'
 import { useServantApplications } from '@/lib/swr'
-import { CheckCircle, Clock, Eye, Loader2, XCircle } from 'lucide-react'
-import { RegistrationStatus } from '@prisma/client'
 
 interface ServantApplication {
   id: string
@@ -36,262 +38,207 @@ interface ServantApplication {
   reviewedAt: string | null
 }
 
-function statusBadge(status: RegistrationStatus) {
-  switch (status) {
-    case 'PENDING':
-      return (
-        <Badge variant="outline" className="border-yellow-500 text-yellow-700">
-          <Clock className="w-3 h-3 mr-1" />
-          Pending
-        </Badge>
-      )
-    case 'APPROVED':
-      return (
-        <Badge variant="outline" className="border-green-500 text-green-700">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Approved
-        </Badge>
-      )
-    case 'REJECTED':
-      return (
-        <Badge variant="outline" className="border-red-500 text-red-700">
-          <XCircle className="w-3 h-3 mr-1" />
-          Rejected
-        </Badge>
-      )
-  }
+const STATUS_META: Record<RegistrationStatus, { label: string; tone: 'warn' | 'ok' | 'bad' }> = {
+  PENDING: { label: 'Pending', tone: 'warn' },
+  APPROVED: { label: 'Approved', tone: 'ok' },
+  REJECTED: { label: 'Rejected', tone: 'bad' },
+  CHANGES_REQUESTED: { label: 'Changes requested', tone: 'warn' },
 }
+
+const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export default function ServantApplicationsPage() {
   const { data: session, status } = useSession()
-  const { data: applications, mutate } = useServantApplications()
-  const [selected, setSelected] = useState<ServantApplication | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { data: applications, isLoading, error, mutate } = useServantApplications()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [view, setView] = useState<RegistrationStatus | 'all'>('PENDING')
+  const [search, setSearch] = useState('')
 
-  if (status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-maroon-600" />
-      </div>
-    )
-  }
-
+  if (status === 'loading') return <PageLoading />
   if (!session?.user || !canReviewServantApplications(session.user.role)) {
     redirect('/dashboard')
   }
 
-  const sortedApplications = [
-    ...((applications as ServantApplication[] | undefined) ?? []),
-  ].sort(compareServantApplicationPriority)
+  const all = [...((applications as ServantApplication[] | undefined) ?? [])].sort(compareServantApplicationPriority)
+  const count = (s: RegistrationStatus) => all.filter((a) => a.status === s).length
+  const visible = all.filter(
+    (a) => (view === 'all' || a.status === view) && (!search || `${a.fullName} ${a.email}`.toLowerCase().includes(search.toLowerCase()))
+  )
+  const selected = all.find((a) => a.id === selectedId) ?? null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Servant Applications</h1>
-          <p className="text-gray-600 mt-1">Review Sunday School servant sign-up applications</p>
-        </div>
+    <div className="content-reveal flex min-w-0 flex-col gap-5">
+      <PageHeader title="Servant applications" meta={['Review Sunday School servant sign-up applications']} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Applications</CardTitle>
-            <CardDescription>Approving creates a Sunday School Servant account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedApplications.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-gray-500">
-                        No applications yet
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedApplications.map(application => (
-                      <TableRow key={application.id}>
-                        <TableCell className="font-medium">{application.fullName}</TableCell>
-                        <TableCell>{application.email}</TableCell>
-                        <TableCell>{new Date(application.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>{statusBadge(application.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelected(application)
-                              setIsDialogOpen(true)
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <SplitView>
+        <Panel
+          className="flex-1"
+          toolbar={
+            <>
+              <Segmented
+                label="Application status"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'PENDING', label: 'Pending', count: count('PENDING') },
+                  { value: 'APPROVED', label: 'Approved', count: count('APPROVED') },
+                  { value: 'REJECTED', label: 'Rejected', count: count('REJECTED') },
+                  { value: 'all', label: 'All', count: all.length },
+                ]}
+              />
+              <SearchField value={search} onChange={setSearch} placeholder="Search applicants" className="md:ml-auto" />
+            </>
+          }
+          footer={<span className="tabular">{visible.length} application{visible.length === 1 ? "" : "s"}</span>}
+        >
+          {error ? (
+            <EmptyState
+              title="Couldn’t load applications"
+              message="Please try again."
+              action={<Button variant="outline" onClick={() => void mutate()}>Try again</Button>}
+            />
+          ) : isLoading ? (
+            <LoadingStatus label="Loading applications…" className="py-8" />
+          ) : visible.length === 0 ? (
+            <EmptyState message={view === 'PENDING' && !search ? 'Nothing waiting for review.' : 'No applications match.'} />
+          ) : (
+            <ul className="divide-y divide-line">
+              {visible.map((a) => (
+                <li
+                  key={a.id}
+                  className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 ${selectedId === a.id ? 'bg-accent-tint' : ''}`}
+                >
+                  <PersonCell className="min-w-48 flex-1" name={a.fullName} meta={a.email} onClick={() => setSelectedId(a.id)} />
+                  <span className="w-28 text-[13px] text-ink-2">{a.currentGrade || '—'}</span>
+                  <span className="w-28 text-[13px] text-ink-3">{fmt(a.createdAt)}</span>
+                  <span className="w-24">
+                    <StatusBadge tone={STATUS_META[a.status].tone}>{STATUS_META[a.status].label}</StatusBadge>
+                  </span>
+                  <Button variant="outline" size="sm" className="w-24" onClick={() => setSelectedId(a.id)}>
+                    <Eye />
+                    {a.status === 'PENDING' ? 'Review' : 'View'}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
-      {selected && (
-        <ApplicationDetailDialog
-          application={selected}
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          onUpdate={() => mutate()}
-        />
-      )}
+        {selected && <ApplicationDetail key={selected.id} application={selected} onClose={() => setSelectedId(null)} onUpdate={() => mutate()} />}
+      </SplitView>
     </div>
   )
 }
 
-function ApplicationDetailDialog({
+function ApplicationDetail({
   application,
-  open,
-  onOpenChange,
+  onClose,
   onUpdate,
 }: {
   application: ServantApplication
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  onClose: () => void
   onUpdate: () => void
 }) {
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [note, setNote] = useState('')
-
   const canReview = application.status === 'PENDING'
 
-  const handleApprove = async () => {
-    setIsApproving(true)
-    try {
-      const res = await fetch(`/api/servant-applications/${application.id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', note }),
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to approve')
-      }
-
-      const data = await res.json()
-      toast.success('Application approved!', {
-        description: `Temporary password to share with the applicant: ${data.tempPassword}`,
-        duration: 10000,
-      })
-      onUpdate()
-      onOpenChange(false)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to approve application')
-    } finally {
-      setIsApproving(false)
-    }
-  }
-
-  const handleReject = async () => {
-    if (!note.trim()) {
+  const review = async (action: 'approve' | 'reject') => {
+    if (action === 'reject' && !note.trim()) {
       toast.error('Please provide a reason for rejection')
       return
     }
-
-    setIsRejecting(true)
+    const setBusy = action === 'approve' ? setIsApproving : setIsRejecting
+    setBusy(true)
     try {
       const res = await fetch(`/api/servant-applications/${application.id}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reject', note }),
+        body: JSON.stringify({ action, note }),
       })
-
       if (!res.ok) {
         const error = await res.json()
-        throw new Error(error.error || 'Failed to reject')
+        throw new Error(error.error || `Failed to ${action}`)
       }
-
-      toast.success('Application rejected')
+      if (action === 'approve') {
+        const data = await res.json()
+        toast.success('Application approved', {
+          description: `A set-password link is being emailed to them. If they don’t receive it, share this temporary password: ${data.tempPassword}`,
+          duration: 10000,
+        })
+      } else {
+        toast.success('Application rejected')
+      }
       onUpdate()
-      onOpenChange(false)
+      onClose()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reject application')
+      toast.error(error instanceof Error ? error.message : `Failed to ${action} application`)
     } finally {
-      setIsRejecting(false)
+      setBusy(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Servant Application</DialogTitle>
-          <DialogDescription>
-            {application.fullName} &middot; Submitted {new Date(application.createdAt).toLocaleDateString()}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-gray-600">Email:</span> {application.email}</div>
-            <div><span className="text-gray-600">Phone:</span> {application.phone}</div>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Current grade served:</p>
-            <p className="text-sm">{application.currentGrade || 'Not provided'}</p>
-          </div>
-
-          {canReview && (
-            <div className="border-t pt-4 space-y-2">
-              <label className="text-sm text-gray-700" htmlFor="reviewNote">
-                Review Note (optional for approval, required for rejection)
-              </label>
-              <Textarea id="reviewNote" value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-          )}
-
-          {!canReview && (
-            <div className="border-t pt-4 text-sm space-y-1">
-              <div><span className="text-gray-600">Reviewed By:</span> {application.reviewer?.name}</div>
-              <div><span className="text-gray-600">Reviewed At:</span> {application.reviewedAt && new Date(application.reviewedAt).toLocaleString()}</div>
-              {application.reviewNote && (
-                <div><span className="text-gray-600">Note:</span> {application.reviewNote}</div>
-              )}
-            </div>
-          )}
+    <DetailPanel
+      open
+      onClose={onClose}
+      label={`Servant application from ${application.fullName}`}
+      title={
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[15px] font-semibold text-ink">Servant application</h2>
+          <p className="flex items-center gap-2 text-xs text-ink-3">
+            {application.fullName}
+            <StatusBadge tone={STATUS_META[application.status].tone}>{STATUS_META[application.status].label}</StatusBadge>
+          </p>
         </div>
-
-        {canReview && (
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={isApproving || isRejecting}>
-              {isRejecting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />}
+      }
+      footer={
+        canReview && (
+          <>
+            <Button variant="destructive" className="flex-1" onClick={() => review('reject')} disabled={isApproving || isRejecting}>
+              {isRejecting ? <Loader2 className="animate-spin" /> : <XCircle />}
               Reject
             </Button>
-            <Button
-              onClick={handleApprove}
-              disabled={isApproving || isRejecting}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isApproving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+            <Button className="flex-1" onClick={() => review('approve')} disabled={isApproving || isRejecting}>
+              {isApproving ? <Loader2 className="animate-spin" /> : <CheckCircle />}
               Approve
             </Button>
-          </DialogFooter>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <KeyValueList
+          items={[
+            { label: 'Name', value: application.fullName },
+            { label: 'Email', value: <ContactLink kind="email" value={application.email} name={application.fullName} label="applicant email" /> },
+            { label: 'Phone', value: <ContactLink kind="phone" value={application.phone} name={application.fullName} label="applicant phone number" className="font-mono text-xs" /> },
+            { label: 'Grade served', value: application.currentGrade || <span className="text-ink-3">Not provided</span> },
+            { label: 'Submitted', value: fmt(application.createdAt) },
+          ]}
+        />
+        {canReview ? (
+          <>
+            <p className="rounded-md bg-info-tint px-3 py-2 text-[13px] text-info">
+              <strong>Approving creates a Sunday School servant account</strong> and emails the applicant a link to set their
+              password.
+            </p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="reviewNote">Review note</Label>
+              <Textarea id="reviewNote" placeholder="Optional for approval, required for rejection" value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <KeyValueList
+            items={[
+              { label: 'Reviewed by', value: application.reviewer?.name ?? '—' },
+              { label: 'Reviewed', value: application.reviewedAt ? new Date(application.reviewedAt).toLocaleString() : '—' },
+              ...(application.reviewNote ? [{ label: 'Note', value: application.reviewNote }] : []),
+            ]}
+          />
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </DetailPanel>
   )
 }

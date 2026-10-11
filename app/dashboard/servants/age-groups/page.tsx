@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { KeyValueList } from '@/components/ds/kv-list'
 import {
   Dialog,
   DialogContent,
@@ -240,72 +240,64 @@ export default function SundaySchoolAgeGroupsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="content-reveal flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
-          title="Age Groups"
-          description="Elementary, Middle, High — and which grades belong to each. A coordinator of a band runs every class in it."
+          title="Age groups"
+          meta={['Which grades belong to each band; a band’s coordinator runs every class in it']}
           actions={
             <Button onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus />
               New age group
             </Button>
           }
         />
 
-        <Card>
-          <CardContent className="pt-6">
-            {ageGroups.length === 0 ? (
-              <EmptyState message="No age groups yet. Create one to group classes into bands." />
-            ) : (
-              <div className="divide-y dark:divide-gray-800">
-                {ageGroups.map(group => {
-                  const groupCoordinators = (group.assignments ?? []).filter(
-                    assignment => assignment.ageGroupId === group.id
-                  )
-                  return (
-                    <div
-                      key={group.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium">{group.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Priest overseer: {group.overseer?.name ?? 'Not assigned'}
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {group.levels.map(level => (
-                            <Badge key={level} variant="secondary">
-                              {getLevelDisplayName(level)}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                          {groupCoordinators.length > 0
-                            ? `Coordinators: ${groupCoordinators.map(assignment => assignment.user.name).join(', ')}`
-                            : 'No coordinator assigned'}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {group.isElementary ? 'Elementary homework enabled' : 'Homework not enabled'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(group)}>
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Edit {group.name}</span>
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(group)}>
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                          <span className="sr-only">Delete {group.name}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {ageGroups.length === 0 ? (
+          <Panel>
+            <EmptyState message="No age groups yet. Create one to group classes into bands." />
+          </Panel>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {ageGroups.map((group) => {
+              const groupCoordinators = (group.assignments ?? []).filter((assignment) => assignment.ageGroupId === group.id)
+              return (
+                <Panel
+                  key={group.id}
+                  title={group.name}
+                  description={[...group.levels].sort((a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b)).map((level) => getLevelDisplayName(level)).join(' · ') || 'No grades yet'}
+                  actions={
+                    <span className="flex gap-1">
+                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${group.name}`} onClick={() => openEdit(group)}>
+                        <Pencil />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" aria-label={`Delete ${group.name}`} className="hover:text-bad" onClick={() => handleDelete(group)}>
+                        <Trash2 />
+                      </Button>
+                    </span>
+                  }
+                  bodyClassName="px-4 py-1"
+                >
+                  <KeyValueList
+                    items={[
+                      {
+                        label: 'Coordinator',
+                        value:
+                          groupCoordinators.length > 0 ? (
+                            groupCoordinators.map((a) => a.user.name).join(', ')
+                          ) : (
+                            <span className="text-ink-3">No coordinator assigned</span>
+                          ),
+                      },
+                      { label: 'Priest overseer', value: group.overseer?.name ?? <span className="text-ink-3">Not assigned</span> },
+                      { label: 'Homework', value: group.isElementary ? 'Elementary homework enabled' : 'Not enabled' },
+                    ]}
+                  />
+                </Panel>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

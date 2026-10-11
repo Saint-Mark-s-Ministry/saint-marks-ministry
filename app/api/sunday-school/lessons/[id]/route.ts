@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
@@ -12,6 +11,7 @@ import {
   getWeeklyLessonStatus,
   validateWeeklyLessonResources,
 } from "@/lib/sunday-school-lessons"
+import { sundaySchoolAssignableUserWhere } from "@/lib/sunday-school-assignees"
 
 const responseInclude = {
   class: { select: { id: true, name: true, level: true } },
@@ -65,10 +65,7 @@ export async function PATCH(
             classId: lesson.classId,
             academicYearId: lesson.class.academicYearId,
             endedAt: null,
-            user: {
-              isDisabled: false,
-              role: { in: [UserRole.SERVANT, UserRole.SERVANT_PREP] },
-            },
+            user: sundaySchoolAssignableUserWhere,
           },
           select: { id: true },
         })

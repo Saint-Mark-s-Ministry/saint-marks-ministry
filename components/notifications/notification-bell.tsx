@@ -232,25 +232,20 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleOpen}
-        className={`relative rounded-md p-2 transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${
-          isOpen ? 'bg-accent text-primary' : ''
+        className={`relative flex size-11 cursor-pointer items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-hover hover:text-ink md:size-8 ${
+          isOpen ? 'bg-hover text-ink' : ''
         }`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         aria-expanded={isOpen}
         aria-controls="notifications-panel"
         aria-haspopup="dialog"
       >
-        <Bell
-          data-testid="notification-bell-icon"
-          strokeWidth={2}
-          className={`h-5 w-5 transition-[fill,color] duration-150 motion-reduce:transition-none ${
-            isOpen ? 'fill-current text-primary' : ''
-          }`}
-        />
+        <Bell data-testid="notification-bell-icon" strokeWidth={1.75} className="size-[17px]" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background animate-bounce">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
+          <span
+            aria-hidden
+            className="absolute top-2.5 right-3 size-[7px] rounded-full bg-bad shadow-[0_0_0_2px_var(--ds-canvas)] md:top-1.5 md:right-[7px]"
+          />
         )}
       </button>
 

@@ -209,7 +209,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Only Sunday School Servant, Mentor, Servants Prep Leader, or tagged Super Admin accounts can be assigned",
+            "Only Sunday School Servant, Mentor, Servants Prep Servant, or tagged Super Admin accounts can be assigned",
         },
         { status: 400 }
       )

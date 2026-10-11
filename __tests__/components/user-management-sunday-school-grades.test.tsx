@@ -8,6 +8,12 @@ import {
   UserRole,
 } from '@prisma/client'
 
+const pathname = vi.hoisted(() => ({ value: '/dashboard/admin/users' }))
+vi.mock('next/navigation', async importOriginal => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  usePathname: () => pathname.value,
+}))
+
 vi.mock('@/hooks/useAdminGuard', () => ({
   useAdminGuard: () => ({
     status: 'authenticated',
@@ -19,6 +25,7 @@ import UsersPage from '@/app/dashboard/admin/users/page'
 
 describe('user management Sunday School assignments', () => {
   beforeEach(() => {
+    pathname.value = '/dashboard/admin/users'
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue([
@@ -45,7 +52,7 @@ describe('user management Sunday School assignments', () => {
   it('shows assigned grades in their own column without the redundant badge', async () => {
     render(<UsersPage />)
 
-    expect(await screen.findByRole('columnheader', { name: 'Sunday School grades' }))
+    expect(await screen.findByRole('columnheader', { name: 'SS grades' }))
       .toBeInTheDocument()
 
     await waitFor(() => {
@@ -124,7 +131,8 @@ describe('user management Sunday School assignments', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<UsersPage sundaySchoolMode />)
+    pathname.value = '/dashboard/servants/users'
+    render(<UsersPage />)
 
     const manageButtons = await screen.findAllByRole('button', { name: 'Manage classes' })
     await user.click(manageButtons[0])
