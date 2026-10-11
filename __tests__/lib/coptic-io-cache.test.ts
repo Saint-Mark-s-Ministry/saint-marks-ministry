@@ -100,6 +100,15 @@ describe('UpstreamCache', () => {
     expect(cache.stats.shortCircuited).toBe(2)
   })
 
+  it('keeps a separate circuit per endpoint', async () => {
+    const { cache } = setup({ maxEntries: 10 })
+    for (const key of ['a', 'b', 'c']) await cache.get(key, fail, '/api/celebrations')
+    expect(cache.isCircuitOpen('/api/celebrations')).toBe(true)
+    expect(cache.isCircuitOpen('/api/fasting')).toBe(false)
+    expect(await cache.get('d', ok('fine'), '/api/fasting')).toBe('fine')
+    expect(await cache.get('e', ok('skipped'), '/api/celebrations')).toBeNull()
+  })
+
   it('serves stale values while the circuit is open', async () => {
     const { cache, advance } = setup({ maxEntries: 10 })
     await cache.get('k', ok('good'))

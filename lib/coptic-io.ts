@@ -1,6 +1,7 @@
 // Server-only: imported by API routes. Client code imports types from lib/liturgical.
 import { z } from 'zod'
 import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-io-cache'
+import { parseJsonBody } from '@/lib/coptic-io-body'
 import {
   secondsUntilChurchMidnight,
   READING_DEFINITIONS,
@@ -152,13 +153,19 @@ function copticIoGet<T>(
 ): Promise<T | null> {
   const url = new URL(`${copticIoBaseUrl()}${path}`)
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
-  return copticIoCache.get(url.toString(), () => fetchCopticIo(url, schema))
+  // One circuit per endpoint ("/api/celebrations", "/api/calendar", ...), so
+  // the calendar's fan-out failing can't take down the Today card.
+  const endpoint = url.pathname.split('/').slice(0, 3).join('/')
+  return copticIoCache.get(url.toString(), () => fetchCopticIo(url, schema), endpoint)
 }
 
 async function fetchCopticIo<T>(url: URL, schema: z.ZodType<T>): Promise<LoadOutcome<T | null>> {
   try {
     const response = await fetch(url, {
-      headers: { Accept: 'application/json' },
+      // identity: Coptic IO's edge cache can return compressed bytes Node won't
+      // decode (see lib/coptic-io-body.ts). Headers are part of Next's fetch
+      // cache key, so this also leaves any such bodies cached earlier behind.
+      headers: { Accept: 'application/json', 'Accept-Encoding': 'identity' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       next: { revalidate: REVALIDATE_SECONDS, tags: ['coptic-io'] },
     })
@@ -169,7 +176,13 @@ async function fetchCopticIo<T>(url: URL, schema: z.ZodType<T>): Promise<LoadOut
       console.warn(`Coptic IO ${url.pathname} responded ${response.status}`)
       return { ok: false }
     }
-    const parsed = schema.safeParse(await response.json())
+    const body = parseJsonBody(new Uint8Array(await response.arrayBuffer()))
+    if (body === undefined) {
+      const encoding = response.headers.get('content-encoding') ?? 'none'
+      console.warn(`Coptic IO ${url.pathname} returned a body that isn't JSON (content-encoding: ${encoding})`)
+      return { ok: false }
+    }
+    const parsed = schema.safeParse(body)
     if (!parsed.success) {
       console.warn(`Coptic IO ${url.pathname} returned an unexpected shape`)
       return { ok: false }

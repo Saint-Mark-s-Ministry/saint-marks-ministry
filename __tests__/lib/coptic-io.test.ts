@@ -1,3 +1,4 @@
+import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   copticIoBaseUrl,
@@ -207,6 +208,35 @@ describe('Coptic IO client', () => {
     const maxAge = Number(/max-age=(\d+)/.exec(today)?.[1])
     expect(maxAge).toBeGreaterThanOrEqual(60)
     expect(maxAge).toBeLessThanOrEqual(86400)
+  })
+
+  it('reads bodies the Coptic IO edge cache serves still compressed, and asks for identity', async () => {
+    const raw = (bytes: Buffer) => new Response(new Uint8Array(bytes), { status: 200 })
+    fetchMock.mockImplementation(
+      route({
+        '/api/fasting/': () => raw(gzipSync(JSON.stringify({ isFasting: true, fastType: 'fast', description: 'Wednesday Fast' }))),
+        '/api/season/': () => raw(brotliCompressSync(JSON.stringify({ season: 'Ordinary Time' }))),
+      })
+    )
+    const day = await getLiturgicalDay('2026-10-14')
+    expect(day.fasting).toEqual({ fast: { name: 'Wednesday Fast', type: 'fast' } })
+    expect(day.season?.name).toBe('Ordinary Time')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(new Headers(init.headers).get('Accept-Encoding')).toBe('identity')
+  })
+
+  it('keeps the Today card working when the calendar endpoints fail', async () => {
+    fetchMock.mockImplementation(
+      route({
+        '/api/calendar/': () => json({ error: 'boom' }, 500),
+        '/api/celebrations/': () => json({ error: 'boom' }, 500),
+        '/api/fasting/': () => json({ isFasting: false, fastType: null, description: null }),
+      })
+    )
+    const dates = Array.from({ length: 10 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`)
+    await getLiturgicalCalendar(dates)
+    expect(copticIoCache.isCircuitOpen('/api/celebrations')).toBe(true)
+    expect((await getLiturgicalDay('2026-10-20')).fasting).toEqual({ fast: null })
   })
 
   it('ignores reference fields that are not Katameros readings', () => {
