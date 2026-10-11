@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
-import { getLiturgicalCalendar } from '@/lib/coptic-io'
+import { getLiturgicalCalendar, liturgicalCacheControl } from '@/lib/coptic-io'
 import { isLiturgicalDateKey, type LiturgicalCalendarResponse } from '@/lib/liturgical'
 
 /** A year of weekly lessons, with room to spare. */
@@ -30,8 +30,11 @@ export async function GET(request: NextRequest) {
     }
 
     const days = await getLiturgicalCalendar(dates)
+    // Every asked-for day comes back when Coptic IO is healthy (each month view
+    // covers every day), so a missing day means a partial outage: don't cache it.
+    const complete = dates.every((date) => date in days)
     return NextResponse.json({ days } satisfies LiturgicalCalendarResponse, {
-      headers: { 'Cache-Control': 'private, max-age=3600' },
+      headers: { 'Cache-Control': liturgicalCacheControl({ complete, pinnedDate: true }) },
     })
   } catch (error: unknown) {
     return handleApiError(error)

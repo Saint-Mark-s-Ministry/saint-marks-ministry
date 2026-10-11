@@ -58,7 +58,9 @@ saints commemorated.
 browser ──SWR──▶ /api/liturgical/{day,readings,calendar}   (requireAuth, validate dates)
                          │
                          ▼
-                  lib/coptic-io.ts   (server: fetch + zod + timeout + Next data cache)
+                  lib/coptic-io.ts   (server: fetch + zod + timeout)
+                         │  lib/coptic-io-cache.ts: memory, coalescing, stale-if-error, circuit breaker
+                         │  Next data cache: shared, 7 days, 200s only
                          │  only YYYY-MM-DD and lang leave the app
                          ▼
                   https://api.coptic.io   (Cloudflare Worker, 12h edge cache)
@@ -84,16 +86,35 @@ The routes live under `app/api/liturgical/`, deliberately **not** under
   calendar is unavailable right now." and nothing else on the page is affected.
 - **Validation.** Responses are parsed with zod before use; the API is a third
   party and its schema can drift.
-- **Caching.** Answers for an explicit date never change, so `fetch` uses
-  `next: { revalidate: 43200, tags: ['coptic-io'] }` (12 h, matching the API's
-  edge cache). One school's worth of traffic becomes a handful of upstream calls
-  a day. `revalidateTag('coptic-io')` clears it if ever needed.
+- **Caching.** See [Caching](#caching) below.
 - **Correct "today".** Coptic IO's own "today" is the Cloudflare edge's UTC
   clock. We always send an explicit church-local date.
 - **Privacy.** Only calendar dates and a language code go upstream — no user,
   child, guardian or session data, and no cookies.
 - **Text is rendered as text.** Synaxarium and Scripture are rendered as React
   text nodes, never `dangerouslySetInnerHTML`.
+
+## Caching
+
+Answers for an explicit date never change (until Coptic IO corrects its
+data), and "today" only changes at midnight at the church. The cache layers
+are built on that:
+
+| Layer | Where | Lifetime | What it adds |
+|---|---|---|---|
+| SWR | each browser tab | the session | No refetch while navigating. "Today" is passed as an explicit date from `useChurchToday()`, which rolls over at church midnight, so an open tab moves to the new day by itself. |
+| HTTP `Cache-Control` | each browser | pinned date: 1 day + 7 days stale-while-revalidate; "today": until church midnight; partial/failed answers: `no-store` | Reloads and new tabs skip the server. A failure is never pinned in the browser. |
+| `UpstreamCache` (`lib/coptic-io-cache.ts`) | each server instance | fresh 6 h, then stale up to 7 days | Parsed values in memory; concurrent identical calls share one request; a failed reload serves the last good value (stale-if-error); a failure with no fallback is remembered for 60 s (negative cache); 3 failures in a row open a circuit for 30 s so an outage costs one 5 s timeout instead of one per request; LRU-bounded at 1,000 entries. |
+| Next data cache (`fetch` `next.revalidate`) | shared across instances and deploys (Vercel) | 7 days, stale-while-revalidate, tag `coptic-io` | Cold instances start warm. Next stores only 200 responses, so an outage is never cached. |
+| Coptic IO edge | Cloudflare | 12 h | Their side; nothing to configure. |
+
+"Nothing on this day" (a 404, e.g. no Synaxarium entry) is a real answer and is
+cached like one; only network errors, timeouts, non-404 errors and unexpected
+shapes count as failures.
+
+To force fresh data everywhere (e.g. after Coptic IO fixes a reading), call
+`revalidateTag('coptic-io')` from a server action or route; instance memory
+catches up within 6 hours or on the next deploy.
 
 ### Upstream endpoints used
 

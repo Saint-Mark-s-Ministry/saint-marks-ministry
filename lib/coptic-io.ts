@@ -1,6 +1,8 @@
 // Server-only: imported by API routes. Client code imports types from lib/liturgical.
 import { z } from 'zod'
+import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-io-cache'
 import {
+  secondsUntilChurchMidnight,
   READING_DEFINITIONS,
   READING_KEYS,
   formatCopticDate,
@@ -29,16 +31,34 @@ import {
  * - Responses are validated with zod before use; the API is a third party.
  * - Dates are always sent explicitly as YYYY-MM-DD. The API's own "today" is
  *   the Cloudflare edge's clock, not the church's, so it is never relied on.
- * - Answers for an explicit date never change, so they sit in Next's data
- *   cache for 12 hours (the API caches them at its edge for the same time).
+ * - Answers for an explicit date never change, so they are cached in two
+ *   layers: Next's data cache (shared, 7 days, stale-while-revalidate) and an
+ *   in-process cache with coalescing, stale-if-error, negative caching and a
+ *   circuit breaker (lib/coptic-io-cache.ts).
  *
  * See docs/coptic-io.md.
  */
 
 export const COPTIC_IO_DEFAULT_BASE_URL = 'https://api.coptic.io'
 const TIMEOUT_MS = 5000
-const REVALIDATE_SECONDS = 60 * 60 * 12
+/** Dated answers only change when Coptic IO corrects its data; `revalidateTag('coptic-io')` forces it sooner. */
+const REVALIDATE_SECONDS = 60 * 60 * 24 * 7
 const MAX_CONCURRENT_REQUESTS = 6
+
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
+
+export const COPTIC_IO_CACHE_POLICY: CachePolicy = {
+  freshMs: 6 * HOUR,
+  staleMs: 7 * 24 * HOUR,
+  negativeMs: MINUTE,
+  failureThreshold: 3,
+  cooldownMs: 30 * 1000,
+  maxEntries: 1000,
+}
+
+/** Per server instance; Next's data cache is the shared layer underneath. */
+export const copticIoCache = new UpstreamCache(COPTIC_IO_CACHE_POLICY)
 
 export function copticIoBaseUrl(): string {
   const configured = process.env.COPTIC_IO_API_URL?.trim()
@@ -125,35 +145,39 @@ const calendarMonthSchema = z.object({
 
 // ── Transport ───────────────────────────────────────────────────────────────
 
-async function copticIoGet<T>(
+function copticIoGet<T>(
   path: string,
   schema: z.ZodType<T>,
   params: Record<string, string> = {}
 ): Promise<T | null> {
   const url = new URL(`${copticIoBaseUrl()}${path}`)
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+  return copticIoCache.get(url.toString(), () => fetchCopticIo(url, schema))
+}
 
+async function fetchCopticIo<T>(url: URL, schema: z.ZodType<T>): Promise<LoadOutcome<T | null>> {
   try {
     const response = await fetch(url, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       next: { revalidate: REVALIDATE_SECONDS, tags: ['coptic-io'] },
     })
-    // 404 is the API's answer for "nothing on this day" (e.g. no Synaxarium).
-    if (response.status === 404) return null
+    // 404 is the API's answer for "nothing on this day" (e.g. no Synaxarium):
+    // a real answer, cached like any other.
+    if (response.status === 404) return { ok: true, value: null }
     if (!response.ok) {
       console.warn(`Coptic IO ${url.pathname} responded ${response.status}`)
-      return null
+      return { ok: false }
     }
     const parsed = schema.safeParse(await response.json())
     if (!parsed.success) {
       console.warn(`Coptic IO ${url.pathname} returned an unexpected shape`)
-      return null
+      return { ok: false }
     }
-    return parsed.data
+    return { ok: true, value: parsed.data }
   } catch (error: unknown) {
     console.warn(`Coptic IO ${url.pathname} failed:`, error instanceof Error ? error.message : error)
-    return null
+    return { ok: false }
   }
 }
 
@@ -332,4 +356,16 @@ export async function getLiturgicalCalendar(dates: string[]): Promise<Record<str
     }
   })
   return result
+}
+
+/**
+ * Browser cache lifetime for a liturgical response.
+ * - Incomplete answers (Coptic IO partly down): never cached, so the next view retries.
+ * - "Today" (no date asked for): until midnight at the church, when it stops being today.
+ * - A pinned date: a day, then served stale for a week while revalidating.
+ */
+export function liturgicalCacheControl({ complete, pinnedDate }: { complete: boolean; pinnedDate: boolean }): string {
+  if (!complete) return 'no-store'
+  if (!pinnedDate) return `private, max-age=${secondsUntilChurchMidnight()}`
+  return 'private, max-age=86400, stale-while-revalidate=604800'
 }
