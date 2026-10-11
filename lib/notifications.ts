@@ -20,10 +20,63 @@ interface NotificationPayload {
   notificationId?: string
 }
 
+const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send'
+
 /**
- * Send push notification to a specific user (all their subscriptions)
+ * Send push notification to the Expo/React Native app's registered devices
+ * for this user. A distinct transport from Web Push (sendPushToUser below) —
+ * Expo's push service relays to APNs (iOS) or FCM (Android) on our behalf,
+ * so this is a plain HTTPS call, no platform SDK or certificate needed.
+ */
+async function sendExpoPushToUser(userId: string, payload: NotificationPayload) {
+  const tokens = await prisma.mobilePushToken.findMany({ where: { userId } })
+  if (tokens.length === 0) return
+
+  let response: Response
+  try {
+    response = await fetch(EXPO_PUSH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(
+        tokens.map((t) => ({
+          to: t.token,
+          title: payload.title,
+          body: payload.body,
+          sound: 'default',
+          data: { url: payload.url, tag: payload.tag, notificationId: payload.notificationId },
+        }))
+      ),
+    })
+  } catch {
+    return // Best-effort, matching sendPushToUser's own non-blocking behavior.
+  }
+  if (!response.ok) return
+
+  const result: unknown = await response.json().catch(() => null)
+  const tickets = result && typeof result === 'object' && 'data' in result ? (result as { data: unknown }).data : null
+  if (!Array.isArray(tickets)) return
+
+  // A device that uninstalled the app (or reset it) reports DeviceNotRegistered —
+  // clear that token so future sends don't keep paying for a dead device.
+  const deadTokenIds = tickets.flatMap((ticket, index) => {
+    const status = ticket && typeof ticket === 'object' ? (ticket as { status?: string }).status : undefined
+    const errorCode = ticket && typeof ticket === 'object'
+      ? (ticket as { details?: { error?: string } }).details?.error
+      : undefined
+    return status === 'error' && errorCode === 'DeviceNotRegistered' ? [tokens[index].id] : []
+  })
+  if (deadTokenIds.length > 0) {
+    await prisma.mobilePushToken.deleteMany({ where: { id: { in: deadTokenIds } } }).catch(() => {})
+  }
+}
+
+/**
+ * Send push notification to a specific user, across every channel they have
+ * registered (browser Web Push and/or the native mobile app).
  */
 async function sendPushToUser(userId: string, payload: NotificationPayload) {
+  await sendExpoPushToUser(userId, payload).catch(() => {})
+
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const subscriptions = await prisma.pushSubscription.findMany({
@@ -710,6 +763,36 @@ export async function notifyPriestNoteCreated({
     body: 'A confidential Sunday School visitation note is ready for review.',
     url: '/dashboard/servants/visitations',
     metadata: { noteId, visitationId, childId },
+  })
+}
+
+/**
+ * Notify a servant one week before they're due to teach a Sunday School
+ * weekly lesson. Called by the daily cron (app/api/cron/sunday-school-
+ * lesson-reminders), never from the single-lesson or scheduler assignment
+ * routes directly — assigning a date far in advance should not itself
+ * trigger a reminder the servant can't act on yet.
+ */
+export async function notifySundaySchoolLessonReminder({
+  ownerId,
+  className,
+  sundayDate,
+  lessonTitle,
+}: {
+  ownerId: string
+  className: string
+  sundayDate: string
+  lessonTitle: string | null
+}) {
+  await createNotifications({
+    userIds: [ownerId],
+    type: NotificationType.SUNDAY_SCHOOL_LESSON_REMINDER,
+    title: "You're teaching next week",
+    body: lessonTitle
+      ? `${className} on ${sundayDate} — "${lessonTitle}"`
+      : `${className} on ${sundayDate}`,
+    url: '/dashboard/servants/lessons',
+    metadata: { className, sundayDate, lessonTitle },
   })
 }
 

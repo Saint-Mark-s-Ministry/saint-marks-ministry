@@ -265,11 +265,20 @@ describe('weekly lesson API permissions and saves', () => {
       }),
     }))
     expect(mocks.lessonUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      data: { ownerId: 'owner-2', assignedById: 'servant-1' },
+      data: { ownerId: 'owner-2', assignedById: 'servant-1', reminderSentAt: null },
     }))
 
     mocks.assignmentFindFirst.mockResolvedValueOnce(null)
     const invalid = await PATCH(patchRequest({ ownerId: 'outsider-1' }), routeContext)
     expect(invalid.status).toBe(400)
+  })
+
+  it("re-assigning to the SAME owner doesn't clear an already-sent reminder (highest-risk path)", async () => {
+    mocks.canAssign.mockReturnValue(true)
+    const response = await PATCH(patchRequest({ ownerId: 'owner-1' }), routeContext)
+    expect(response.status).toBe(200)
+    expect(mocks.lessonUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: { ownerId: 'owner-1', assignedById: 'servant-1' },
+    }))
   })
 })

@@ -386,6 +386,7 @@ model User {
 
   // Push notification relations
   pushSubscriptions PushSubscription[]
+  mobilePushTokens  MobilePushToken[]
   notifications     Notification[]
 
   // Additive identity/authorization foundation. These relations become the
@@ -1173,6 +1174,10 @@ model SundaySchoolWeeklyLesson {
   title        String?
   ownerId      String?
   assignedById String?
+  // Set once the week-prior reminder push goes out, so the daily cron never
+  // double-sends if a run is missed and the next one's window still covers
+  // this date. Cleared automatically if the owner changes (see schedule/[id]).
+  reminderSentAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1851,6 +1856,7 @@ enum NotificationType {
   CHILD_REGISTRATION_REVIEWED
   PRIEST_NOTE_CREATED
   REGISTRATION_INCOMPLETE
+  SUNDAY_SCHOOL_LESSON_REMINDER
 }
 
 model PushSubscription {
@@ -1867,6 +1873,25 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// Native push for the Expo/React Native app — a distinct transport from
+// PushSubscription (browser Web Push, keyed by endpoint+keys). Delivered
+// through Expo's push service, which relays to APNs (iOS) or FCM (Android);
+// see lib/notifications.ts's sendPushToUser, which fans out to both tables
+// for the same createNotifications call so either device gets the alert.
+model MobilePushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @db.Text
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
   @@index([userId])
 }
 
