@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs"
 import { isAdmin, canManageUsers, canServantPrepManageRole, SERVANT_PREP_MANAGEABLE_ROLES } from "@/lib/roles"
 import { legacyRoleForTags, ROLE_TAG_VALUES, roleTagForLegacyRole } from "@/lib/role-tags"
 import { normalizeEmail } from "@/lib/email"
+import { withUserMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Query params:
@@ -81,13 +82,9 @@ export async function GET(request: Request) {
     }
 
     // Build query options
-    const queryOptions: {
-      where: Record<string, unknown>
-      select: Record<string, unknown>
-      orderBy: { name: 'asc' }
-      skip?: number
-      take?: number
-    } = {
+    const queryOptions = {
+      skip: undefined as number | undefined,
+      take: undefined as number | undefined,
       where: whereClause,
       select: {
         id: true,
@@ -113,10 +110,14 @@ export async function GET(request: Request) {
             status: true,
             notes: true,
             isAsyncStudent: true,
+            mentorName: true,
+            mentorPhone: true,
             mentor: {
               select: {
                 id: true,
-                name: true
+                name: true,
+                email: true,
+                phone: true,
               }
             }
           }
@@ -141,9 +142,9 @@ export async function GET(request: Request) {
             mentoredStudents: true,
           }
         }
-      },
+      } as const,
       orderBy: {
-        name: 'asc'
+        name: 'asc' as const
       }
     }
 
@@ -161,7 +162,7 @@ export async function GET(request: Request) {
       ])
 
       return NextResponse.json({
-        data: users,
+        data: await withUserMentorContacts(users),
         pagination: {
           page,
           limit,
@@ -173,7 +174,7 @@ export async function GET(request: Request) {
 
     // No pagination - return all (backwards compatible)
     const users = await prisma.user.findMany(queryOptions)
-    return NextResponse.json(users)
+    return NextResponse.json(await withUserMentorContacts(users))
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch users" },

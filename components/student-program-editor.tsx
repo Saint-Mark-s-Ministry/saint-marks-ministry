@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { formatToastTimestamp, withCurrentOption } from '@/lib/utils'
 import { fetcher, staticDataConfig } from '@/lib/swr'
+import type { MentorContact } from '@/lib/mentor-contact'
+import { ContactLink } from '@/components/contact-link'
 
 /** The student record returned by /api/students/[id]/details */
 export interface EditableStudent {
@@ -32,6 +34,7 @@ export interface EditableStudent {
     attendanceStartDate: string | null
     enrolledAt: string
     mentorId: string | null
+    mentorContact?: MentorContact | null
     mentor?: { id: string; name: string } | null
     fatherOfConfessionId: string | null
     fatherOfConfession?: { id: string; name: string } | null
@@ -244,15 +247,29 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                 options={toOptions(years)}
                 onChange={(academicYearId) => saveEnrollment({ academicYearId }, 'Academic year updated')}
               />
+              <Field id="student-mentor-contact" label="Mentor contact">
+                <div id="student-mentor-contact" role="group" aria-label="Mentor contact" className="flex flex-col gap-1 text-sm">
+                  {enrollment.mentorContact ? <>
+                    <span>{enrollment.mentorContact.name}</span>
+                    {enrollment.mentorContact.email && <ContactLink kind="email" value={enrollment.mentorContact.email} name={enrollment.mentorContact.name} />}
+                    {enrollment.mentorContact.phone && <ContactLink kind="phone" value={enrollment.mentorContact.phone} name={enrollment.mentorContact.name} />}
+                  </> : <span className="text-muted-foreground">Not provided</span>}
+                </div>
+              </Field>
               <SelectField
                 id="student-mentor"
-                label="Mentor"
+                label="Assigned mentor account"
                 value={enrollment.mentorId}
                 disabled={enrollmentLocked}
                 empty="Not assigned"
                 options={toOptions(withCurrentOption(mentors, enrollment.mentor))}
                 onChange={(mentorId) => saveEnrollment({ mentorId }, 'Mentor updated')}
               />
+              {enrollment.mentorContact && enrollment.mentorContact.name !== enrollment.mentor?.name && (
+                <p className="py-2 text-sm text-muted-foreground">
+                  The submitted mentor is {enrollment.mentorContact.name}. Select their account above to update who can access this student as a mentor.
+                </p>
+              )}
               <SelectField
                 id="student-father"
                 label="Father of confession"
