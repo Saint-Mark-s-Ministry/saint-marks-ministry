@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { SundaySchoolFeedbackStatus, SundaySchoolFeedbackType } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { registerInspectionTools } from '@/lib/mcp-inspection'
 import { authenticateMcpToken, type McpAuthContext } from '@/lib/mcp-tokens'
 import {
   ACTIVE_FEEDBACK_STATUSES,
@@ -23,7 +24,7 @@ import {
   setFeedbackTeamResponse,
 } from '@/lib/sunday-school-feedback-ops'
 
-// Feedback MCP server (Streamable HTTP, stateless).
+// Application inspection and feedback MCP server (Streamable HTTP, stateless).
 //
 // Authenticated by an McpApiToken bearer token — NOT a NextAuth session — so it
 // deliberately lives outside app/api/public/. A token acts as one SUPER_ADMIN
@@ -56,7 +57,7 @@ async function notFoundOr<T>(id: string, build: () => Promise<T>) {
 }
 
 function buildServer(ctx: McpAuthContext) {
-  const server = new McpServer({ name: 'st-marks-feedback', version: '1.0.0' })
+  const server = new McpServer({ name: 'st-marks-feedback', version: '1.1.0' })
   const { user, access } = ctx
 
   server.registerTool(
@@ -200,6 +201,7 @@ function buildServer(ctx: McpAuthContext) {
     }
   )
 
+  registerInspectionTools(server, ctx)
   return server
 }
 

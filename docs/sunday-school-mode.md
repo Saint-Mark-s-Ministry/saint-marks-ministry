@@ -78,7 +78,7 @@ account access through a dated relationship.
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
 | `SundaySchoolPhoneCall` | A dated, class-scoped follow-up call for a child, with outcome, concise note, and a snapshot of the authenticated caller's name. It does not change visitation status. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
-| `McpApiToken` | A hashed, revocable bearer token for the feedback MCP server, owned by one `SUPER_ADMIN`. Not Sunday School data; see "Feedback MCP server". |
+| `McpApiToken` | A hashed, revocable bearer token for the application MCP server, owned by one `SUPER_ADMIN`. Not Sunday School data; see "Application MCP server". |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
@@ -390,10 +390,10 @@ session; POST creates an explicit session; PUT saves attendance transactionally.
 Every request resolves database authorization and band visibility. Opening the
 section never creates a session or attendance marks.
 
-## Feedback MCP server
+## Application MCP server
 
-`POST /api/mcp` is a stateless Streamable-HTTP MCP server for moderating
-feedback. Tools: `list_feedback`, `get_feedback`, `reply_to_feedback`,
+`POST /api/mcp` is a stateless Streamable-HTTP MCP server for application
+inspection and feedback moderation. Feedback tools: `list_feedback`, `get_feedback`, `reply_to_feedback`,
 `clear_feedback_reply`, `set_feedback_status`, `delete_feedback`. Mutations go
 through `lib/sunday-school-feedback-ops.ts`, shared with the web routes.
 
@@ -406,9 +406,47 @@ bun scripts/admin.ts mcp-token-revoke <id>
 ```
 
 Auth is a bearer header, not OAuth, so claude.ai's "custom connector by URL"
-flow is not supported. Feedback text is user-written and returned to the model:
+flow is not supported. Returned user text is untrusted data:
 tool descriptions mark it as untrusted data. Authorization details:
 [`permissions.md`](permissions.md#mcp-token-access-feedback).
+
+Read-only inspection tools (existing tokens and client configuration continue to work):
+
+| Tool | Purpose |
+|---|---|
+| `list_app_entities` | Discover supported entities, allowed scalar fields, enum values, and relation IDs; optionally inspect one entity. |
+| `query_app_records` | Read selected fields with AND filters, deterministic sorting and pagination (up to 100 records). |
+| `count_app_records` | Count all matching records without reading their contents. |
+| `get_app_health` | Check database connectivity and configuration presence for authentication, email, uploads, realtime and push. Remote service availability is not tested. |
+
+Start with `list_app_entities`, then use exact entity and field names. For example,
+`query_app_records` with:
+
+```json
+{
+  "entity": "StudentEnrollment",
+  "fields": ["id", "studentId", "status", "academicYearId"],
+  "filters": [{ "field": "status", "operator": "eq", "value": "ACTIVE" }],
+  "limit": 50
+}
+```
+
+Filters support `eq`, string `contains`, numeric/date `gte` and `lte`, and list
+`has`. Dates use ISO strings; nullable fields accept `eq` with `null`. Follow
+relation IDs with another query. Pass the returned `nextOffset` as `offset` to
+continue; it is null on the last page. Pages reflect current data, so concurrent
+writes can change the results. Counts are separate queries, not a snapshot.
+
+Inspection spans Servants Prep and Sunday School operational records, account
+roles/assignments, settings, registrations, digital exam state, notifications,
+imports, rollover and audit history. It uses an explicit field allowlist in
+`lib/mcp-inspection-catalog.ts`: new schema fields do not become exposed
+automatically. Credentials, invite/verification codes, answer keys, guardian
+contacts, confidential pastoral notes and arbitrary JSON are excluded. There is
+no arbitrary SQL, relation expansion, HTTP request, file access, or new mutation
+tool. These tools inspect stored data and configuration; they do not exercise
+browser interactions or provide access to hosting logs. Health returns presence
+booleans, never environment values. Database failures return a sanitized error.
 
 ## Attendance drafts and connection recovery
 

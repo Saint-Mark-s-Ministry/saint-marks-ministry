@@ -290,14 +290,19 @@ for accountability but is never included in feedback API responses.
 
 ### MCP token access (feedback)
 
-`/api/mcp` lets an MCP client (e.g. Claude Code) triage feedback. It is
-authenticated by an `McpApiToken` bearer token, not a session. A token acts as
+`/api/mcp` lets an MCP client (e.g. Claude Code) inspect application records
+and triage feedback. It is authenticated by an `McpApiToken` bearer token, not a session. A token acts as
 exactly one `SUPER_ADMIN`; on **every request** `lib/mcp-tokens.ts` re-loads the
-owner, requires `canAdministerSundaySchool(role)`, and every tool re-checks
+owner, requires `canAdministerSundaySchool(role)`, and feedback tools re-check
 `canModerateFeedback(access)`. Demoting the owner, revoking, or expiring the
-token cuts access immediately. Tokens are stored as SHA-256 hashes, shown once at
-creation, and managed with `bun scripts/admin.ts mcp-token-create|list|revoke`.
-It exposes only feedback tools; nothing else in the app accepts these tokens.
+token or disabling the owner cuts access immediately. Tokens are stored as
+SHA-256 hashes, shown once at creation, and managed with `bun scripts/admin.ts mcp-token-create|list|revoke`.
+Read-only inspection tools additionally require the current `SUPER_ADMIN` role
+and administrator access. They use an explicit scalar field allowlist, with no
+relation expansion or arbitrary SQL. Guardian contacts, credentials, answer
+keys, arbitrary JSON and confidential pastoral notes are excluded. The new tools
+do not add write access. Existing feedback moderation tools remain available;
+nothing else in the app accepts these tokens. See the [inspection tool guide](sunday-school-mode.md#application-mcp-server).
 
 ---
 
