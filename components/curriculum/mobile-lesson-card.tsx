@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { formatDateUTC } from '@/lib/utils'
 import { ExpandedEditableDetails } from './expanded-editable-details'
 import type { Lesson, Section, LessonEdits } from './types'
+import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
+import type { LiturgicalCalendarDay } from '@/lib/liturgical'
 
 interface MobileLessonCardProps {
   lesson: Lesson
@@ -26,6 +28,8 @@ interface MobileLessonCardProps {
   onMoveDown: (id: string) => void
   isExpanded: boolean
   onToggleExpand: (id: string) => void
+  /** Feasts and fast on the lesson's date (Coptic IO), when known. */
+  liturgicalDay?: LiturgicalCalendarDay
 }
 
 export function MobileLessonCard({
@@ -46,6 +50,7 @@ export function MobileLessonCard({
   onMoveDown,
   isExpanded,
   onToggleExpand,
+  liturgicalDay,
 }: MobileLessonCardProps) {
   const isPast = new Date(lesson.scheduledDate) < new Date()
   const currentTitle = edits?.title ?? lesson.title
@@ -113,6 +118,7 @@ export function MobileLessonCard({
                 })}
               </div>
             )}
+            <LiturgicalDateTags day={liturgicalDay} className="mt-1" />
           </div>
           <div className="flex items-center gap-1">
             {hasAttendance && (

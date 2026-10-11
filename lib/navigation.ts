@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   BookOpen,
+  BookOpenText,
   ContactRound,
   Cake,
   CalendarCheck,
@@ -48,6 +49,9 @@ import { defaultDashboardPath, type DashboardUser } from '@/lib/dashboard-naviga
  */
 
 export type Ministry = 'prep' | 'sunday-school'
+
+/** The Katameros and Synaxarium (Coptic IO): reference content for every role, in both ministries. */
+export const DAILY_READINGS_HREF = '/dashboard/readings'
 
 export interface NavItem {
   href: string
@@ -119,6 +123,9 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
   return [prep]
 }
 
+/** Pages that belong to neither ministry; people with both see their default around them. */
+const SHARED_PAGES = new Set(['/settings', '/dashboard', '/dashboard/contact-book', DAILY_READINGS_HREF])
+
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
  * shared pages; someone with both follows the path and uses their default on
@@ -127,7 +134,7 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
 export function resolveMinistry(user: NavUser, pathname: string): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
-  if (pathname === '/settings' || pathname === '/dashboard' || pathname === '/dashboard/contact-book') return options[0].id
+  if (SHARED_PAGES.has(pathname)) return options[0].id
   return ministryForPath(pathname)
 }
 
@@ -294,6 +301,7 @@ export function currentNavLabel(groups: NavGroup[], pathname: string, search = '
 /** Super Admins use Users; the directory is for explicitly approved other users. */
 export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   const groups = ministryNavigationFor(user, ministry)
+  groups.push({ label: 'Church', items: [{ href: DAILY_READINGS_HREF, label: 'Daily readings', icon: BookOpenText }] })
   if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }

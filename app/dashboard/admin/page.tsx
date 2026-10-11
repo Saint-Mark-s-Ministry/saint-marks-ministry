@@ -27,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { isAdmin, canAssignMentors } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { fetcher, useAcademicYears, useDashboardStats, useExams, useLessons } from '@/lib/swr'
+import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface ExamSectionScore {
   sectionId: string
@@ -212,26 +213,29 @@ export default function AdminDashboard() {
         >
           <MonthCalendar month={month} events={events} onMonthChange={setMonth} />
         </Panel>
-        <Panel
-          title="Next 14 days"
-          actions={
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dashboard/admin/curriculum">Full schedule</Link>
-            </Button>
-          }
-        >
-          <Agenda
-            days={agendaDays}
-            events={events}
-            renderAction={(e) =>
-              e.type === 'prep-lesson' && e.day === agendaDays.find((d) => events.some((x) => x.day === d && x.type === 'prep-lesson')) ? (
-                <Button asChild size="sm">
-                  <Link href={e.href ?? '/dashboard/admin/attendance'}>Take attendance</Link>
-                </Button>
-              ) : null
+        <div className="flex min-w-0 flex-col gap-5">
+          <TodayInChurch />
+          <Panel
+            title="Next 14 days"
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/dashboard/admin/curriculum">Full schedule</Link>
+              </Button>
             }
-          />
-        </Panel>
+          >
+            <Agenda
+              days={agendaDays}
+              events={events}
+              renderAction={(e) =>
+                e.type === 'prep-lesson' && e.day === agendaDays.find((d) => events.some((x) => x.day === d && x.type === 'prep-lesson')) ? (
+                  <Button asChild size="sm">
+                    <Link href={e.href ?? '/dashboard/admin/attendance'}>Take attendance</Link>
+                  </Button>
+                ) : null
+              }
+            />
+          </Panel>
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">

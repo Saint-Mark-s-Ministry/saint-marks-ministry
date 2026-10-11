@@ -14,6 +14,8 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useLiturgicalCalendar: () => ({ data: undefined }),
+  useLiturgicalDay: () => ({ data: undefined, isLoading: true }),
   useSundaySchoolLessons: () => ({ data: { lessons: [] } }),
   useSundaySchoolDashboard: () => ({
     data: mocks.dashboard,

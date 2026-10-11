@@ -16,6 +16,7 @@ import { useAcademicYears } from '@/lib/swr'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { canBeMentor } from '@/lib/roles'
 import { useEnrollments, useClassAverages, useMenteeAnalytics } from '@/lib/swr'
+import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface ClassAverageSection {
   sectionId: string
@@ -140,6 +141,8 @@ export default function MentorDashboard() {
           },
         ]}
       />
+
+      <TodayInChurch />
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
         <Panel

@@ -11,6 +11,7 @@ Deep references live in `docs/`:
 | [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
 | [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
+| [`docs/coptic-io.md`](docs/coptic-io.md) | The church calendar (Coptic IO): readings, Synaxarium, fasts and feasts, shown to every role |
 
 ## What this application is
 
@@ -89,6 +90,9 @@ NEXTAUTH_SECRET="<openssl rand -base64 32>"
 
 Never commit a `.env`. Never log or echo these values.
 
+Optional: `COPTIC_IO_API_URL` overrides the church-calendar API (default
+`https://api.coptic.io`, no key needed). See [`docs/coptic-io.md`](docs/coptic-io.md).
+
 ## Repository layout
 
 ```
@@ -121,6 +125,10 @@ comment at the top of a route before editing it.
 |---|---|
 | `assignments/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — verifying that *async prep students* served their required weeks |
 | `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` | **Sunday School mode** — the actual ministry |
+
+The church-calendar routes (`app/api/liturgical/`) are shared reference content
+for both modes and also live outside it on purpose — see
+[`docs/coptic-io.md`](docs/coptic-io.md).
 
 One Sunday School route sits outside that directory on purpose:
 `app/api/public/roster-signup` is **unauthenticated** (the roster sign-up QR

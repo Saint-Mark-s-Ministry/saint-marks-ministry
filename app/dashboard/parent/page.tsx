@@ -41,6 +41,7 @@ import type { RegistrationStatus } from '@prisma/client'
 import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
 import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
+import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface FormData {
   firstName: string
@@ -138,6 +139,8 @@ function ParentDashboardContent() {
           ))}
         </div>
       )}
+
+      <TodayInChurch />
 
       <Panel title="Upcoming lessons" description="Slides and resources shared by your children’s classes">
         {lessons.length === 0 ? (
