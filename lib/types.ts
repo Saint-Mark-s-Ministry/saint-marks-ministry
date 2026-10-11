@@ -21,7 +21,7 @@ export interface ExamSection {
 
 export interface StudentEnrollment {
   id: string
-  yearLevel: 'YEAR_1' | 'YEAR_2'
+  yearLevel: 'YEAR_1' | 'YEAR_2' | null
   isActive: boolean
   isAsyncStudent?: boolean
   status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
@@ -98,7 +98,7 @@ export interface GraduationStatus {
 
 export interface MenteeAnalytics {
   enrollment: {
-    yearLevel: string
+    yearLevel: string | null
     status: string
   }
   attendance: AttendanceAnalytics
@@ -109,7 +109,7 @@ export interface MenteeAnalytics {
 export interface StudentAnalytics {
   studentId: string
   studentName: string
-  yearLevel: 'YEAR_1' | 'YEAR_2'
+  yearLevel: 'YEAR_1' | 'YEAR_2' | null
   attendancePercentage: number | null
   year1AttendancePercentage: number | null
   year2AttendancePercentage: number | null

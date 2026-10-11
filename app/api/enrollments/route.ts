@@ -1,3 +1,4 @@
+import { EnrollmentYearError, resolveEnrollmentYear } from "@/lib/enrollment-year"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -154,14 +155,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { studentId, yearLevel, mentorId, isActive, academicYearId } = body
+    const { studentId, yearLevel, mentorId, isActive, academicYearId, isAsyncStudent, asyncReason } = body
 
-    if (!studentId || !yearLevel) {
+    if (!studentId) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       )
     }
+
+    const resolvedYear = resolveEnrollmentYear({ isAsyncStudent: false, yearLevel: null }, { yearLevel, isAsyncStudent })
 
     if (mentorId) {
       const mentor = await prisma.user.findUnique({
@@ -203,7 +206,11 @@ export async function POST(request: Request) {
       const created = await tx.studentEnrollment.create({
         data: {
           studentId,
-          yearLevel,
+          yearLevel: resolvedYear,
+          isAsyncStudent: isAsyncStudent === true,
+          asyncApprovedAt: isAsyncStudent === true ? new Date() : null,
+          asyncApprovedBy: isAsyncStudent === true ? user.id : null,
+          asyncReason: isAsyncStudent === true ? asyncReason || null : null,
           mentorId: mentorId || null,
           isActive: isActive !== undefined ? isActive : true,
           academicYearId: enrollmentAcademicYearId || null,
@@ -249,6 +256,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(enrollment, { status: 201 })
   } catch (error: unknown) {
+    if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create enrollment" },
       { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }

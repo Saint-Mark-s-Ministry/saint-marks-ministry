@@ -25,7 +25,7 @@ export function gradeAnswers(answers: string[], key: string[]) {
   return answers.reduce((total, answer, index) => total + (answer !== '' && answer === key[index] ? 1 : 0), 0)
 }
 export function staleContact(lastSeen: Date | string, now = Date.now()) { return now - new Date(lastSeen).getTime() > STALE_MS }
-export function eligibleYear(studentYear: string, examYear: string) { return examYear === 'BOTH' || studentYear === examYear }
+export function eligibleYear(studentYear: string | null, examYear: string, isAsyncStudent = false) { return isAsyncStudent || (studentYear !== null && (examYear === 'BOTH' || studentYear === examYear)) }
 export function canAnswer(state: string, examState: string, lastSeen: Date | string, now = Date.now()) { return state === 'ACTIVE' && examState === 'OPEN' && !staleContact(lastSeen, now) }
 
 export function safeExamDestination(path: unknown): string | null {

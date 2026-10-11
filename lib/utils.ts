@@ -63,7 +63,7 @@ export function withCurrentOption<T extends { id: string; name: string }>(
 export interface EnrollmentForStudentMap {
   isActive: boolean
   student: { id: string; name: string; [key: string]: unknown }
-  yearLevel: string
+  yearLevel: string | null
   isAsyncStudent?: boolean
   asyncApprovedAt?: string | Date | null
   mentor?: { id: string; [key: string]: unknown } | null
@@ -72,7 +72,7 @@ export interface EnrollmentForStudentMap {
 export interface StudentWithEnrollments {
   id: string
   name: string
-  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean; asyncApprovedAt?: string | Date | null }>
+  enrollments: Array<{ yearLevel: string | null; mentorId?: string; isAsyncStudent?: boolean; asyncApprovedAt?: string | Date | null }>
   [key: string]: unknown
 }
 

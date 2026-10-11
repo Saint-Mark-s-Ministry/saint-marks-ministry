@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { UserRole, YearLevel } from "@prisma/client"
+import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
-import { getAssignmentWeeks, GRADE_DISPLAY_NAMES, rotationAttendanceToDate } from "@/lib/sunday-school-utils"
+import { getAssignmentWeeks, GRADE_DISPLAY_NAMES, rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
 
 // GET /api/sunday-school/progress - Get student Sunday School progress
 // Query params:
@@ -94,25 +94,14 @@ export async function GET(request: Request) {
       }
     })
 
-    // Determine graduation info
-    const year1Assignment = assignmentProgress.find(
-      (a) => a.yearLevel === YearLevel.YEAR_1
-    )
-    const year2Assignment = assignmentProgress.find(
-      (a) => a.yearLevel === YearLevel.YEAR_2
-    )
-
-    const year1Met = year1Assignment?.attendance?.met ?? false
-    const year2Met = year2Assignment?.attendance?.met ?? false
-    const allMet = year1Met && year2Met
+    const requirement = rotationRequirementMet(assignmentProgress, null)
 
     return NextResponse.json({
       studentId,
       assignments: assignmentProgress,
       graduation: {
-        year1Met,
-        year2Met,
-        allMet,
+        allMet: requirement.met,
+        needsRotation: requirement.needsRotation,
       },
     })
   } catch (error: unknown) {

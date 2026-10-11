@@ -47,7 +47,8 @@ interface Student {
   name: string
   email: string
   enrollments: Array<{
-    yearLevel: string
+    yearLevel: string | null
+    isAsyncStudent?: boolean
     mentorId: string | null
   }>
 }
@@ -384,7 +385,7 @@ function ExamsPageContent() {
 
     const yearLevel = student.enrollments[0]?.yearLevel
 
-    if (selectedExam.yearLevel === 'BOTH') return true
+    if (student.enrollments[0]?.isAsyncStudent || selectedExam.yearLevel === 'BOTH') return true
     if (selectedExam.yearLevel === yearLevel) return true
 
     return false
@@ -422,7 +423,7 @@ function ExamsPageContent() {
     router.replace(newUrl, { scroll: false })
   }
   const eligibleFor = (exam: Exam) =>
-    students.filter((st) => exam.yearLevel === 'BOTH' || st.enrollments[0]?.yearLevel === exam.yearLevel).length
+    students.filter((st) => st.enrollments[0]?.isAsyncStudent || exam.yearLevel === 'BOTH' || st.enrollments[0]?.yearLevel === exam.yearLevel).length
   const visibleExams = exams
     .filter((e) => selectedSectionId === 'all' || e.examSection.id === selectedSectionId)
     .sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime())
@@ -506,7 +507,7 @@ function ExamsPageContent() {
                 return (
                   <li key={student.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 md:table-row md:border-t md:border-line md:p-0">
                     <span className="md:table-cell md:h-[52px] md:px-3 md:align-middle">
-                      <PersonCell name={student.name} meta={isMentee ? 'Your mentee' : student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} />
+                      <PersonCell name={student.name} meta={isMentee ? 'Your mentee' : student.enrollments[0]?.isAsyncStudent ? 'Async' : student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} />
                     </span>
                     <span className="row-span-2 self-center md:table-cell md:px-3 md:align-middle">
                       <span className="flex items-center gap-1.5 text-[13px] text-ink-3">

@@ -90,6 +90,17 @@ describe('bulk enrollment promotion', () => {
     })
   })
 
+  it.each(['YEAR_1', 'YEAR_2'])('rejects a mixed batch containing an async student for %s', async yearLevel => {
+    mocks.findEnrollments.mockResolvedValue([
+      { id: 'enrollment-1', studentId: 'student-1', yearLevel: 'YEAR_1', isActive: true, isAsyncStudent: false },
+      { id: 'enrollment-2', studentId: 'student-2', yearLevel: null, isActive: true, isAsyncStudent: true },
+    ])
+    const response = await POST(request({ yearLevel }))
+    expect(response.status).toBe(400)
+    expect(mocks.updateEnrollments).not.toHaveBeenCalled()
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+  })
+
   it('does not promote students without an active academic year', async () => {
     mocks.findActiveYear.mockResolvedValue(null)
 

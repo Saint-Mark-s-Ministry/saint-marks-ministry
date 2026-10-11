@@ -135,14 +135,20 @@ export function rotationAttendanceToDate(
 }
 
 /**
- * An async student needs a rotation for the year level they're in now; a
- * missing one is not met. Other years count only if a rotation exists.
+ * Yearless async students need at least one active rotation, and all must pass.
+ * The cohort path supports legacy data during the migration.
  */
 export function rotationRequirementMet(
-  rotations: Array<{ yearLevel: string; isActive: boolean; attendance: { met: boolean } | null }>,
-  currentYearLevel: string
+  rotations: Array<{ yearLevel: string | null; isActive: boolean; attendance: { met: boolean } | null }>,
+  currentYearLevel: string | null
 ) {
   const active = rotations.filter((rotation) => rotation.isActive)
+  if (currentYearLevel === null) {
+    return {
+      needsRotation: active.length === 0,
+      met: active.length > 0 && active.every(rotation => rotation.attendance?.met ?? true),
+    }
+  }
   const current = active.find((rotation) => rotation.yearLevel === currentYearLevel)
   const metFor = (rotation: (typeof active)[number] | undefined) => (rotation?.attendance ? rotation.attendance.met : true)
   const others = active.filter((rotation) => rotation.yearLevel !== currentYearLevel)
@@ -150,6 +156,14 @@ export function rotationRequirementMet(
     needsRotation: !current,
     met: Boolean(current) && metFor(current) && others.every((rotation) => metFor(rotation)),
   }
+}
+
+/** Use the weakest active rotation as attendance evidence; every rotation must pass. */
+export function rotationAttendancePercentage(
+  rotations: Array<{ isActive: boolean; attendance: { percentage: number | null } | null }>,
+): number | null {
+  const percentages = rotations.filter(r => r.isActive).flatMap(r => (r.attendance?.percentage === undefined || r.attendance.percentage === null) ? [] : [r.attendance.percentage])
+  return percentages.length ? Math.min(...percentages) : null
 }
 
 const LEVEL_TO_ROTATION_GRADE: Partial<Record<SundaySchoolLevel, SundaySchoolGrade>> = {

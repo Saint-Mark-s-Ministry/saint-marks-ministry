@@ -49,7 +49,7 @@ interface Student {
   email: string
   profileImageUrl?: string | null
   enrollments: Array<{
-    yearLevel: string
+    yearLevel: string | null
     mentorId: string
     isAsyncStudent?: boolean
     asyncApprovedAt?: string | null
@@ -631,7 +631,7 @@ export default function AttendancePage() {
                               <div className="flex min-w-0 flex-col leading-[1.3]">
                                 <span className="truncate font-medium text-ink">{student.name}</span>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
-                                  {enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                                  {!enrollment?.isAsyncStudent && (enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2')}
                                   {enrollment?.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
                                 </span>
                               </div>

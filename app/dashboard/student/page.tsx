@@ -24,7 +24,7 @@ import { TodayInChurch } from '@/components/liturgical/today-in-church'
 interface Analytics {
   enrollment: {
     id: string
-    yearLevel: 'YEAR_1' | 'YEAR_2'
+    yearLevel: 'YEAR_1' | 'YEAR_2' | null
     isActive: boolean
     isAsyncStudent: boolean
     status: string
@@ -53,7 +53,7 @@ interface Analytics {
     assignments: Array<{
       id: string
       grade: string
-      yearLevel: string
+      yearLevel: string | null
       academicYear: { id: string; name: string }
       totalWeeks: number
       startDate: string
@@ -67,9 +67,7 @@ interface Analytics {
         met: boolean
       } | null
     }>
-    year1Met: boolean
-    year2Met: boolean
-    /** No active rotation for the current year yet. */
+    /** No active rotation yet. */
     needsRotation?: boolean
     allMet: boolean
   }
@@ -155,14 +153,14 @@ export default function StudentDashboard() {
   ]
   // The rotation that counts: this year's active one
   const assignment =
-    analytics.sundaySchool?.assignments.find((a) => a.isActive && a.yearLevel === enrollment.yearLevel) ??
+    analytics.sundaySchool?.assignments.find((a) => a.isActive) ??
     analytics.sundaySchool?.assignments[0]
 
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title={`Hi, ${firstName}`}
-        meta={[`Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}`, isAsync ? 'Async student' : 'Servants Prep', academicYearName.replace('-', '–')]}
+        meta={[!isAsync && `Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}`, isAsync ? 'Async student' : 'Servants Prep', academicYearName.replace('-', '–')]}
         actions={
           <>
             <Button variant="outline" onClick={() => router.push('/dashboard/student/lessons')}>
@@ -186,7 +184,7 @@ export default function StudentDashboard() {
         <div className="flex min-w-0 flex-col gap-5">
           <Panel
             title="Graduation track"
-            description={`Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}${academicYearName ? ` · ${academicYearName.replace('-', '–')}` : ''}`}
+            description={[!isAsync && `Year ${enrollment.yearLevel === 'YEAR_1' ? '1' : '2'}`, academicYearName.replace('-', '–')].filter(Boolean).join(' · ')}
             actions={graduation.eligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">Needs attention</StatusBadge>}
           >
             <div className="grid gap-5 px-4 py-4 sm:grid-cols-2">
@@ -333,8 +331,7 @@ export default function StudentDashboard() {
                     <li key={a.id} className="flex flex-col gap-1.5 px-4 py-3">
                       <span className="flex items-center justify-between gap-2 text-[13px]">
                         <span className="font-medium text-ink">
-                          {a.grade.replace('GRADE_', 'Grade ').replace('_PLUS', '+').replace('PRE_K', 'Pre-K').replace('KINDERGARTEN', 'Kindergarten')} ·{' '}
-                          {a.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                          {a.grade.replace('GRADE_', 'Grade ').replace('_PLUS', '+').replace('PRE_K', 'Pre-K').replace('KINDERGARTEN', 'Kindergarten')}
                         </span>
                         {a.attendance?.met ? <StatusBadge tone="ok">Met</StatusBadge> : <StatusBadge tone="warn">In progress</StatusBadge>}
                       </span>
