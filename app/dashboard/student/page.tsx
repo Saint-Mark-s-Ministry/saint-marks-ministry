@@ -28,6 +28,11 @@ interface Analytics {
     isActive: boolean
     isAsyncStudent: boolean
     status: string
+    mentorContact: {
+      name: string
+      email: string | null
+      phone: string | null
+    } | null
     mentor: {
       id: string
       name: string
@@ -279,11 +284,11 @@ export default function StudentDashboard() {
                 items={[
                   {
                     label: 'Mentor',
-                    value: enrollment.mentor ? (
+                    value: enrollment.mentorContact ? (
                       <span className="flex flex-col">
-                        {enrollment.mentor.name}
-                        {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
-                        {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                        {enrollment.mentorContact.name}
+                        {enrollment.mentorContact.email && <ContactLink kind="email" value={enrollment.mentorContact.email} name={enrollment.mentorContact.name} label="mentor's email" className="w-fit text-xs" />}
+                        {enrollment.mentorContact.phone && <ContactLink kind="phone" value={enrollment.mentorContact.phone} name={enrollment.mentorContact.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
                       </span>
                     ) : (
                       <span className="text-ink-3">Not assigned yet</span>

@@ -1,3 +1,4 @@
+import { getStudentMentorContact } from "@/lib/student-mentor-contact"
 import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -340,7 +341,10 @@ export async function GET(
     })
 
     return NextResponse.json({
-      enrollment,
+      enrollment: {
+        ...enrollment,
+        mentorContact: await getStudentMentorContact(studentId, enrollment),
+      },
       attendance: {
         totalLessons: effectiveTotalLessons, // Total lessons minus excused
         allLessons: lessonsWithAttendance, // All lessons with attendance taken
