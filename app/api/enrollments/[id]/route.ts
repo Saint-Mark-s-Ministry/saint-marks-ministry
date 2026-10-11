@@ -7,6 +7,7 @@ import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib
 import { notifyMentorAssigned } from "@/lib/notifications"
 import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
 import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
+import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -120,6 +121,8 @@ export async function PATCH(
             select: {
               id: true,
               name: true,
+              email: true,
+              phone: true,
             }
           },
           academicYear: {
@@ -185,7 +188,7 @@ export async function PATCH(
       }).catch(() => {})
     }
 
-    return NextResponse.json(enrollment)
+    return NextResponse.json((await withEnrollmentMentorContacts([enrollment]))[0])
   } catch (error: unknown) {
     if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json(

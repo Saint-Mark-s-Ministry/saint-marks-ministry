@@ -26,6 +26,18 @@ describe('student program attendance mode', () => {
     expect(screen.getByLabelText('Year level')).toHaveValue('YEAR_1')
   })
 
+  it('shows the submitted mentor separately from the account that controls access', () => {
+    render(<StudentProgramEditor student={{ ...student, enrollments: [{
+      ...enrollment,
+      mentorId: 'old', mentor: { id: 'old', name: 'Marcellino Boles' },
+      mentorContact: { name: 'Mina Beshy', email: 'mina@example.com', phone: '222' },
+    }] }} onRefresh={vi.fn()} />)
+    expect(screen.getByRole('group', { name: 'Mentor contact' })).toHaveTextContent('Mina Beshy')
+    expect(screen.getByRole('group', { name: 'Mentor contact' })).toHaveTextContent('mina@example.com')
+    expect(screen.getByLabelText('Assigned mentor account')).toHaveValue('old')
+    expect(screen.getByText(/The submitted mentor is Mina Beshy/)).toBeInTheDocument()
+  })
+
   it('hides the year and requires choosing one when returning to in-person', async () => {
     const onRefresh = vi.fn()
     render(<StudentProgramEditor student={{ ...student, enrollments: [{ ...enrollment, yearLevel: null, isAsyncStudent: true }] }} onRefresh={onRefresh} />)

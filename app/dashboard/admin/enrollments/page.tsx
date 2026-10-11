@@ -26,6 +26,7 @@ import { FilterSelect } from '@/components/ui/filter-select'
 const inlineSelect =
   'h-11 w-full max-w-60 cursor-pointer rounded-md border border-line-strong bg-surface px-2 text-base text-ink disabled:cursor-not-allowed disabled:opacity-60 md:h-8 md:text-[13px]'
 import { MentorFilterCombobox } from '@/components/admin/mentor-filter-combobox'
+import type { MentorContact } from '@/lib/mentor-contact'
 
 interface FatherOfConfession {
   id: string
@@ -41,6 +42,7 @@ interface Enrollment {
   isActive: boolean
   isAsyncStudent: boolean
   status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
+  mentorContact?: MentorContact | null
   student: {
     id: string
     name: string
@@ -355,8 +357,11 @@ export default function EnrollmentsPage() {
   const maxLoad = Math.max(1, ...mentors.map((m) => mentorWorkload.get(m.id) || 0))
 
   const mentorSelect = (enrollment: Enrollment) => (
+    <div className="flex flex-col gap-1">
+      <span>{enrollment.mentorContact?.name ?? 'Not provided'}</span>
+      <span className="text-xs text-ink-3">Assigned account</span>
     <select
-      aria-label={`Mentor for ${enrollment.student.name}`}
+      aria-label={`Assigned mentor account for ${enrollment.student.name}`}
       className={inlineSelect}
       value={enrollment.mentor?.id || ''}
       onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
@@ -367,6 +372,7 @@ export default function EnrollmentsPage() {
         <option key={mentor.id} value={mentor.id}>{mentor.name}</option>
       ))}
     </select>
+    </div>
   )
   const fatherSelect = (enrollment: Enrollment) => (
     <select
@@ -544,7 +550,7 @@ export default function EnrollmentsPage() {
           )}
         </Panel>
 
-        <Panel title="Mentor workload" description="Select a mentor to filter the roster">
+        <Panel title="Mentor workload" description="Assigned accounts · select a mentor to filter the roster">
           <ul className="flex flex-col py-1.5">
             {[...mentors]
               .sort((a, b) => (mentorWorkload.get(b.id) || 0) - (mentorWorkload.get(a.id) || 0))

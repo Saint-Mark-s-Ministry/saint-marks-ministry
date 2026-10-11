@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 import { LessonStatus } from "@prisma/client"
 import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
+import { withUserMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/students/[id]/details - Get detailed student data for editing
 // NOTE: academicYearId parameter is optional. If not provided, returns data across ALL academic years.
@@ -56,7 +57,8 @@ export async function GET(
               select: {
                 id: true,
                 name: true,
-                email: true
+                email: true,
+                phone: true,
               }
             },
             fatherOfConfession: {
@@ -189,7 +191,7 @@ export async function GET(
     })
 
     return NextResponse.json({
-      student,
+      student: (await withUserMentorContacts([student]))[0],
       examScores,
       attendanceRecords,
       allExams,

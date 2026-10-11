@@ -588,9 +588,9 @@ export function StudentDetailsModal({
               {enrollment && !isAsyncStudent && (
                 <Badge variant="outline">{enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</Badge>
               )}
-              {enrollment?.mentor && (
+              {enrollment?.mentorContact && (
                 <div className="text-gray-600">
-                  Mentor: <span className="font-medium">{enrollment.mentor.name}</span>
+                  Mentor: <span className="font-medium">{enrollment.mentorContact.name}</span>
                 </div>
               )}
             </div>

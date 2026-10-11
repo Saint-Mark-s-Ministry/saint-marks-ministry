@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client"
 import { isAdmin, canManageEnrollments } from "@/lib/roles"
 import { backfillAttendanceForStudent } from "@/lib/api-utils"
 import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
+import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/enrollments - List enrollments
 // Query params:
@@ -59,13 +60,9 @@ export async function GET(request: Request) {
       where.mentorId = user.id
     }
 
-    const queryOptions: {
-      where: Record<string, unknown>
-      include: Record<string, unknown>
-      orderBy: { enrolledAt: 'desc' }
-      skip?: number
-      take?: number
-    } = {
+    const queryOptions = {
+      skip: undefined as number | undefined,
+      take: undefined as number | undefined,
       where,
       include: {
         student: {
@@ -81,6 +78,7 @@ export async function GET(request: Request) {
             id: true,
             name: true,
             email: true,
+            phone: true,
           }
         },
         academicYear: {
@@ -103,9 +101,9 @@ export async function GET(request: Request) {
             church: true,
           }
         }
-      },
+      } as const,
       orderBy: {
-        enrolledAt: 'desc'
+        enrolledAt: 'desc' as const
       }
     }
 
@@ -120,7 +118,7 @@ export async function GET(request: Request) {
       ])
 
       return NextResponse.json({
-        data: enrollments,
+        data: await withEnrollmentMentorContacts(enrollments),
         pagination: {
           page,
           limit,
@@ -132,7 +130,7 @@ export async function GET(request: Request) {
 
     // No pagination - return all (backwards compatible)
     const enrollments = await prisma.studentEnrollment.findMany(queryOptions)
-    return NextResponse.json(enrollments)
+    return NextResponse.json(await withEnrollmentMentorContacts(enrollments))
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch enrollments" },
@@ -227,6 +225,8 @@ export async function POST(request: Request) {
             select: {
               id: true,
               name: true,
+              email: true,
+              phone: true,
             }
           },
           academicYear: {
@@ -254,7 +254,7 @@ export async function POST(request: Request) {
       return created
     })
 
-    return NextResponse.json(enrollment, { status: 201 })
+    return NextResponse.json((await withEnrollmentMentorContacts([enrollment]))[0], { status: 201 })
   } catch (error: unknown) {
     if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json(

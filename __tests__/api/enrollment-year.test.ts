@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('@/lib/student-mentor-contact', () => ({
+  withEnrollmentMentorContacts: async (enrollments: unknown[]) => enrollments,
+}))
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), transaction: vi.fn(), current: vi.fn(), existing: vi.fn(),

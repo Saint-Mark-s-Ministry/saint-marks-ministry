@@ -1,56 +1,91 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { findFirst } = vi.hoisted(() => ({ findFirst: vi.fn() }))
-vi.mock('@/lib/prisma', () => ({
-  prisma: { annualMentorInformation: { findFirst } },
-}))
+const mocks = vi.hoisted(() => ({ annual: vi.fn(), applications: vi.fn() }))
+vi.mock('@/lib/prisma', () => ({ prisma: {
+  annualMentorInformation: { findMany: mocks.annual },
+  registrationSubmission: { findMany: mocks.applications },
+} }))
 
-import { getStudentMentorContact } from '@/lib/student-mentor-contact'
+import { getStudentMentorContact, withEnrollmentMentorContacts, withUserMentorContacts } from '@/lib/student-mentor-contact'
 
-describe('student dashboard mentor contact', () => {
-  const assigned = { name: 'Previous Mentor', email: 'previous@example.com', phone: '111' }
-  const enrollment = { mentor: assigned, mentorName: 'New Mentor', mentorPhone: '222' }
+const assigned = { id: 'old', name: 'Marcellino Boles', email: 'previous@example.com', phone: '111' }
+const enrollment = { studentId: 'mark', mentorId: 'old', mentor: assigned, mentorName: 'Mina Beshy', mentorPhone: '222' }
+const confirmed = { studentId: 'mark', mentorName: 'Mina Beshy', mentorEmail: 'mina@example.com', mentorPhone: '222' }
+const expected = { name: 'Mina Beshy', email: 'mina@example.com', phone: '222' }
 
+describe('mentor contacts across all student views', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    findFirst.mockResolvedValue(null)
+    mocks.annual.mockResolvedValue([])
+    mocks.applications.mockResolvedValue([])
   })
 
-  it('shows all confirmed contact fields instead of the old assigned account', async () => {
-    findFirst.mockResolvedValue({
-      mentorName: 'New Mentor', mentorEmail: 'new@example.com', mentorPhone: '222',
-    })
-    expect(await getStudentMentorContact('student-1', enrollment)).toEqual({
-      name: 'New Mentor', email: 'new@example.com', phone: '222',
-    })
-    expect(findFirst).toHaveBeenCalledWith({
-      where: { studentId: 'student-1', academicYear: { isActive: true } },
-      orderBy: { submittedAt: 'desc' },
-      select: { mentorName: true, mentorEmail: true, mentorPhone: true },
-    })
-    expect(enrollment.mentor).toEqual(assigned)
+  it('uses the whole current-year confirmation on the dashboard, roster, and details', async () => {
+    mocks.annual.mockResolvedValue([confirmed])
+    mocks.applications.mockResolvedValue([{ createdUserId: 'mark', mentorName: 'Older Mentor', mentorPhone: '333', mentorEmail: 'older@example.com' }])
+    expect(await getStudentMentorContact('mark', enrollment)).toEqual(expected)
+    const [roster] = await withEnrollmentMentorContacts([enrollment])
+    const [student] = await withUserMentorContacts([{ id: 'mark', enrollments: [enrollment] }])
+    expect(roster.mentorContact).toEqual(expected)
+    expect(student.enrollments?.[0].mentorContact).toEqual(expected)
+    expect(roster.mentorId).toBe('old')
+    expect(student.enrollments?.[0].mentor).toEqual(assigned)
   })
 
-  it('uses confirmed details even when no mentor account is assigned', async () => {
-    findFirst.mockResolvedValue({
-      mentorName: 'New Mentor', mentorEmail: 'new@example.com', mentorPhone: '222',
-    })
-    expect(await getStudentMentorContact('student-1', { ...enrollment, mentor: null }))
-      .toEqual({ name: 'New Mentor', email: 'new@example.com', phone: '222' })
+  it('retains the updated application contact when the academic year rolls over', async () => {
+    mocks.applications.mockResolvedValue([{ ...confirmed, createdUserId: 'mark' }])
+    expect(await getStudentMentorContact('mark', enrollment)).toEqual(expected)
+    expect(mocks.applications).toHaveBeenCalledWith(expect.objectContaining({
+      where: { createdUserId: { in: ['mark'] }, status: 'APPROVED' },
+      orderBy: { createdAt: 'desc' },
+    }))
   })
 
-  it('keeps the assigned contact when this year has no confirmation', async () => {
-    expect(await getStudentMentorContact('student-1', enrollment)).toEqual(assigned)
+  it('batches a whole roster and keeps different students separate', async () => {
+    mocks.annual.mockResolvedValue([confirmed])
+    const result = await withEnrollmentMentorContacts([enrollment, { ...enrollment, studentId: 'other', mentorName: null }])
+    expect(result[0].mentorContact).toEqual(expected)
+    expect(result[1].mentorContact?.name).toBe('Marcellino Boles')
+    expect(mocks.annual).toHaveBeenCalledTimes(1)
+    expect(mocks.applications).toHaveBeenCalledTimes(1)
+    expect(mocks.annual).toHaveBeenCalledWith(expect.objectContaining({
+      where: { studentId: { in: ['mark', 'other'] }, academicYear: { isActive: true } },
+    }))
   })
 
-  it('falls back to submitted enrollment details for students without an assigned account', async () => {
-    expect(await getStudentMentorContact('student-1', { ...enrollment, mentor: null }))
-      .toEqual({ name: 'New Mentor', email: null, phone: '222' })
+  it('uses the latest nonempty approved application without mixing contacts', async () => {
+    mocks.applications.mockResolvedValue([
+      { createdUserId: 'mark', mentorName: null, mentorEmail: null, mentorPhone: null },
+      { createdUserId: 'mark', mentorName: 'Mina Beshy', mentorEmail: null, mentorPhone: '222' },
+      { createdUserId: 'mark', mentorName: 'Older Mentor', mentorEmail: 'old@example.com', mentorPhone: '333' },
+    ])
+    expect(await getStudentMentorContact('mark', enrollment)).toEqual({ name: 'Mina Beshy', email: null, phone: '222' })
   })
 
-  it('returns no contact when no mentor details exist', async () => {
-    expect(await getStudentMentorContact('student-1', {
-      mentor: null, mentorName: null, mentorPhone: null,
-    })).toBeNull()
+  it('supports confirmed mentors without accounts', async () => {
+    mocks.annual.mockResolvedValue([confirmed])
+    expect(await getStudentMentorContact('mark', { ...enrollment, mentor: null })).toEqual(expected)
+  })
+
+  it('falls back to the assigned account when no submitted contact exists', async () => {
+    expect(await getStudentMentorContact('mark', { ...enrollment, mentorName: null })).toEqual({ name: assigned.name, email: assigned.email, phone: assigned.phone })
+  })
+
+  it('falls back to enrollment details without an account', async () => {
+    expect(await getStudentMentorContact('mark', { ...enrollment, mentor: null })).toEqual({ name: 'Mina Beshy', email: null, phone: '222' })
+  })
+
+  it('retains a legacy student’s updated enrollment details after year rollover', async () => {
+    expect(await getStudentMentorContact('mark', enrollment)).toEqual({ name: 'Mina Beshy', email: null, phone: '222' })
+  })
+
+  it('does not query or expose contacts for users without enrollments', async () => {
+    expect(await withUserMentorContacts([{ id: 'admin', enrollments: [] }])).toEqual([{ id: 'admin', enrollments: [] }])
+    expect(mocks.annual).not.toHaveBeenCalled()
+    expect(mocks.applications).not.toHaveBeenCalled()
+  })
+
+  it('returns null when no contact exists', async () => {
+    expect(await getStudentMentorContact('mark', { mentor: null, mentorName: null, mentorPhone: null })).toBeNull()
   })
 })

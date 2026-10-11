@@ -35,6 +35,7 @@ import { BulkBar } from '@/components/ds/bulk-bar'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { LastSaved } from '@/components/ui/last-saved'
+import type { MentorContact } from '@/lib/mentor-contact'
 
 interface Student {
   id: string
@@ -49,6 +50,7 @@ interface Student {
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
     notes?: string
     isAsyncStudent?: boolean
+    mentorContact?: MentorContact | null
     mentor?: {
       id: string
       name: string
@@ -867,7 +869,7 @@ function StudentsManagementContent() {
                 items={[
                   { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
                   { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
-                  { label: 'Mentor', value: preview.enrollments?.[0]?.mentor?.name ?? <span className="text-ink-3">Not assigned</span> },
+                  { label: 'Mentor', value: preview.enrollments?.[0]?.mentorContact?.name ?? <span className="text-ink-3">Not provided</span> },
                   { label: 'Program', value: preview.enrollments?.[0]?.isAsyncStudent ? 'Async' : 'In person' },
                   ...(previewAnalytics && previewAnalytics.conductDismissalCount > 0
                     ? [{ label: 'Removals', value: <span className="inline-flex items-center gap-1 text-bad"><UserX className="size-3.5" />{previewAnalytics.conductDismissalCount} from lessons</span> }]
