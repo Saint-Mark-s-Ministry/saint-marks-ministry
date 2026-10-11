@@ -126,7 +126,13 @@ export default function PrepStudents() {
                       />
                     ) : undefined
                   }
-                  onPress={() => router.push({ pathname: "/prep-student/[id]", params: { id: s.studentId } })}
+                  onPress={() =>
+                    router.push(
+                      isAdminLike(user?.role)
+                        ? { pathname: "/prep-student/[id]", params: { id: s.studentId } }
+                        : { pathname: "/prep-mentee/[id]", params: { id: s.studentId } },
+                    )
+                  }
                 />
               ))}
             </ListSurface>

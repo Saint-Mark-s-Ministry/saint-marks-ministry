@@ -8,6 +8,7 @@ import { useAppTheme } from "@/theme";
 import {
   canManageStudentRecord,
   eligibilityLabel,
+  isAdminLike,
   recentActivity,
   type AttendanceRecordInput,
   type ExamScoreInput,
@@ -50,10 +51,15 @@ export default function PrepStudentDetail() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const canManage = canManageStudentRecord(user?.role);
+  // Contact fields, father of confession, and recent activity all come from
+  // this admin-only endpoint — a mentor viewing their own mentee never
+  // reaches this screen (see the students list/search), but skip the fetch
+  // and its error entirely rather than let a stray deep link blank the page.
+  const canViewDetails = isAdminLike(user?.role);
 
   const analytics = useResource<StudentAnalytics[]>(`/api/students/analytics/batch?studentIds=${encodeURIComponent(id)}`);
   const details = useResource<StudentDetails & { student: { enrollments: EnrollmentDetail[] } }>(
-    `/api/students/${encodeURIComponent(id)}/details`,
+    canViewDetails ? `/api/students/${encodeURIComponent(id)}/details` : null,
   );
   const student = analytics.data?.[0];
   const enrollment = details.data?.student.enrollments.find((e) => e.isActive) ?? details.data?.student.enrollments[0];
