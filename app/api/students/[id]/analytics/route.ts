@@ -12,6 +12,7 @@ import {
   excludeAsyncPeriodRecords,
 } from "@/lib/attendance-utils"
 import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
+import { getStudentMentorContact } from "@/lib/student-mentor-contact"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -351,7 +352,10 @@ export async function GET(
     })
 
     return NextResponse.json({
-      enrollment,
+      enrollment: {
+        ...enrollment,
+        mentorContact: await getStudentMentorContact(studentId, enrollment),
+      },
       attendance: {
         totalLessons: effectiveTotalLessons, // Total lessons minus excused
         allLessons: lessonsWithAttendance, // All lessons with attendance taken
