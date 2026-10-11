@@ -7,6 +7,7 @@ import {
   notableFeasts,
   parseFeastCategory,
   parseLiturgicalLanguage,
+  secondsUntilChurchMidnight,
   sortFeasts,
   type ReadingReference,
 } from '@/lib/liturgical'
@@ -27,6 +28,13 @@ describe('liturgical dates', () => {
   it('shifts date keys across month and year ends without timezone drift', () => {
     expect(addDaysToDateKey('2026-12-31', 1)).toBe('2027-01-01')
     expect(addDaysToDateKey('2026-03-01', -1)).toBe('2026-02-28')
+  })
+
+  it('counts down to midnight at the church, not on the server', () => {
+    // 23:30 in New York (EDT, UTC-4) is 03:30 UTC the next day.
+    expect(secondsUntilChurchMidnight(new Date('2026-10-12T03:30:00Z'))).toBe(30 * 60)
+    expect(secondsUntilChurchMidnight(new Date('2026-10-11T04:00:00Z'))).toBe(86400)
+    expect(secondsUntilChurchMidnight(new Date('2026-10-12T03:59:30Z'))).toBe(60)
   })
 
   it('defaults every unknown language to English', () => {

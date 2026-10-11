@@ -314,3 +314,24 @@ export function calendarSubscriptionLinks(feedUrl: string = COPTIC_CALENDAR_FEED
     https: feedUrl,
   }
 }
+
+/** The church's time zone; "today" on every liturgical surface means today here. */
+export const CHURCH_TIME_ZONE = 'America/New_York'
+
+/**
+ * Seconds until the next midnight at the church: how long "today's" calendar
+ * stays true. Off by an hour on the two DST-change nights, which is harmless
+ * for a cache lifetime; never less than a minute.
+ */
+export function secondsUntilChurchMidnight(now: Date = new Date(), timeZone: string = CHURCH_TIME_ZONE): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(now)
+  const part = (type: 'hour' | 'minute' | 'second') => Number(parts.find((value) => value.type === type)?.value ?? 0)
+  const elapsed = part('hour') * 3600 + part('minute') * 60 + part('second')
+  return Math.max(60, 86400 - elapsed)
+}

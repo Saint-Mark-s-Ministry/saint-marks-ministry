@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   copticIoBaseUrl,
+  copticIoCache,
+  liturgicalCacheControl,
   getDailyReadings,
   getLiturgicalCalendar,
   getLiturgicalDay,
@@ -25,6 +27,7 @@ describe('Coptic IO client', () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
+    copticIoCache.clear()
     vi.stubGlobal('fetch', fetchMock)
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -167,6 +170,43 @@ describe('Coptic IO client', () => {
       '/api/calendar/month/2026/10',
       '/api/calendar/month/2027/1',
     ])
+  })
+
+  it('answers repeat requests from memory and caches "nothing on this day"', async () => {
+    fetchMock.mockImplementation(route({ '/api/fasting/': () => json({ isFasting: false, fastType: null, description: null }) }))
+    await getLiturgicalDay('2026-04-13')
+    const calls = fetchMock.mock.calls.length
+    await getLiturgicalDay('2026-04-13')
+    expect(fetchMock.mock.calls.length).toBe(calls)
+  })
+
+  it('keeps serving the last good day when Coptic IO goes down', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-11T12:00:00Z'), toFake: ['Date'] })
+    try {
+      fetchMock.mockImplementation(route({ '/api/fasting/': () => json({ isFasting: true, fastType: 'fast', description: 'Wednesday Fast' }) }))
+      await getLiturgicalDay('2026-10-14')
+
+      vi.setSystemTime(new Date('2026-10-12T12:00:00Z')) // past the 6h freshness
+      fetchMock.mockImplementation(async () => {
+        throw new TypeError('fetch failed')
+      })
+      const day = await getLiturgicalDay('2026-10-14')
+      expect(day.fasting).toEqual({ fast: { name: 'Wednesday Fast', type: 'fast' } })
+      expect(day.available).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('caches pinned dates for a day, "today" until church midnight, and failures not at all', () => {
+    expect(liturgicalCacheControl({ complete: false, pinnedDate: true })).toBe('no-store')
+    expect(liturgicalCacheControl({ complete: true, pinnedDate: true })).toBe(
+      'private, max-age=86400, stale-while-revalidate=604800'
+    )
+    const today = liturgicalCacheControl({ complete: true, pinnedDate: false })
+    const maxAge = Number(/max-age=(\d+)/.exec(today)?.[1])
+    expect(maxAge).toBeGreaterThanOrEqual(60)
+    expect(maxAge).toBeLessThanOrEqual(86400)
   })
 
   it('ignores reference fields that are not Katameros readings', () => {

@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
-vi.mock('@/lib/coptic-io', () => ({
+vi.mock('@/lib/coptic-io', async (importOriginal) => ({
+  liturgicalCacheControl: (await importOriginal<typeof import('@/lib/coptic-io')>()).liturgicalCacheControl,
   getLiturgicalDay: mocks.day,
   getDailyReadings: mocks.readings,
   getLiturgicalCalendar: mocks.calendar,
@@ -74,6 +75,21 @@ describe('liturgical API', () => {
     mocks.day.mockResolvedValue({ available: false })
     const response = await getDay(request('/api/liturgical/day'))
     expect(response.headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('caches a pinned date longer than "today"', async () => {
+    const pinned = await getDay(request('/api/liturgical/day?date=2027-01-07'))
+    expect(pinned.headers.get('Cache-Control')).toContain('max-age=86400')
+    const today = await getDay(request('/api/liturgical/day'))
+    expect(today.headers.get('Cache-Control')).toMatch(/^private, max-age=\d+$/)
+  })
+
+  it('does not cache a calendar with days missing', async () => {
+    mocks.calendar.mockResolvedValue({ '2026-10-11': { date: '2026-10-11' } })
+    const partial = await getCalendar(request('/api/liturgical/calendar?dates=2026-10-11,2026-10-18'))
+    expect(partial.headers.get('Cache-Control')).toBe('no-store')
+    const whole = await getCalendar(request('/api/liturgical/calendar?dates=2026-10-11'))
+    expect(whole.headers.get('Cache-Control')).toContain('max-age=86400')
   })
 
   it('reports 503 when the readings are unavailable', async () => {

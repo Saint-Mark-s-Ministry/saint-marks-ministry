@@ -16,7 +16,7 @@ import {
   type ReadingService,
   type SynaxariumStory,
 } from '@/lib/liturgical'
-import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
+import { useChurchToday } from '@/components/liturgical/use-church-today'
 import { formatDateUTC } from '@/lib/utils'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -45,7 +45,7 @@ export default function DailyReadingsPage() {
 function DailyReadings() {
   const { status } = useAdminGuard(anyRole)
   const searchParams = useSearchParams()
-  const [today] = useState(() => getSundaySchoolTodayDateInputValue())
+  const today = useChurchToday()
   // Calendar feast chips link here with ?date=YYYY-MM-DD.
   const [date, setDate] = useState(() => {
     const requested = searchParams.get('date')

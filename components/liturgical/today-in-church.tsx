@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLiturgicalDay } from '@/lib/swr'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
+import { useChurchToday } from '@/components/liturgical/use-church-today'
 import { headlineReading, isLordlyFeast, notableFeasts, type LiturgicalDay } from '@/lib/liturgical'
 
 const SAINTS_SHOWN = 3
@@ -25,7 +26,8 @@ function saintsSentence(names: string[]): string {
  * than an error, and the card never holds up the page around it.
  */
 export function TodayInChurch({ className }: { className?: string }) {
-  const { data, error, isLoading } = useLiturgicalDay()
+  const today = useChurchToday()
+  const { data, error, isLoading } = useLiturgicalDay(today)
 
   return (
     <Panel
