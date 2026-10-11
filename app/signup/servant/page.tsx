@@ -10,7 +10,8 @@ import { toast } from 'sonner'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 
 interface FormData {
-  fullName: string
+  firstName: string
+  lastName: string
   email: string
   phone: string
   currentGrade: string
@@ -20,7 +21,8 @@ export default function ServantSignupPage() {
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState<FormData>({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     currentGrade: '',
@@ -35,7 +37,8 @@ export default function ServantSignupPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName: formData.fullName,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone,
           currentGrade: formData.currentGrade,
@@ -84,12 +87,27 @@ export default function ServantSignupPage() {
     <PublicFrame title="Servant sign up" description="Submit your information to request servant access. Applications require approval." width="lg">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full name *</Label>
+              <Label htmlFor="firstName">First name *</Label>
               <Input
-                id="fullName"
+                id="firstName"
+                name="firstName"
+                autoComplete="given-name"
+                autoCapitalize="words"
                 required
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name *</Label>
+              <Input
+                id="lastName"
+                name="lastName"
+                autoComplete="family-name"
+                autoCapitalize="words"
+                required
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
