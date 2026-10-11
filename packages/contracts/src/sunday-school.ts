@@ -460,6 +460,11 @@ export interface SundaySchoolDashboard {
   weekOf: string;
 }
 
+// SUPER_ADMIN-only view preference — see app/api/sunday-school/pinned-classes.
+export interface SundaySchoolPinnedClassesResponse {
+  classIds: string[];
+}
+
 export type SundaySchoolRegistrationStatus =
   | "PENDING"
   | "APPROVED"
