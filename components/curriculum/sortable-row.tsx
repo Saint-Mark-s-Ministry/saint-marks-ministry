@@ -9,6 +9,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { formatDateUTC } from '@/lib/utils'
 import { ExpandedEditableDetails } from './expanded-editable-details'
 import type { Lesson, Section, LessonEdits } from './types'
+import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
+import type { LiturgicalCalendarDay } from '@/lib/liturgical'
 
 interface SortableRowProps {
   lesson: Lesson
@@ -24,6 +26,8 @@ interface SortableRowProps {
   onResetAttendance: (id: string) => void
   onToggleExpand: (id: string) => void
   isExpanded: boolean
+  /** Feasts and fast on the lesson's date (Coptic IO), when known. */
+  liturgicalDay?: LiturgicalCalendarDay
 }
 
 export function SortableRow({
@@ -40,6 +44,7 @@ export function SortableRow({
   onResetAttendance,
   onToggleExpand,
   isExpanded,
+  liturgicalDay,
 }: SortableRowProps) {
   const {
     attributes,
@@ -99,6 +104,7 @@ export function SortableRow({
               {formatDateUTC(lesson.scheduledDate, { month: 'numeric', day: 'numeric', year: 'numeric' })}
             </span>
           )}
+          <LiturgicalDateTags day={liturgicalDay} className="mt-1" />
         </td>
         <td>
           {canEdit ? (

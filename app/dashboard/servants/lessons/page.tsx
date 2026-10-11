@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
+import { useLiturgicalCalendar, useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
+import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
 import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
@@ -65,6 +66,8 @@ export default function SundaySchoolLessonsPage() {
     if (scope === 'past') return lesson.sundayDate.slice(0, 10) < today
     return true
   })
+  // What the Church keeps on each Sunday shown, so the lesson can match it.
+  const { data: liturgicalDays } = useLiturgicalCalendar(visibleLessons.map(lesson => lesson.sundayDate.slice(0, 10)))
 
   const openEditor = (lesson: SundaySchoolWeeklyLesson) => {
     setEditing(lesson)
@@ -173,9 +176,10 @@ export default function SundaySchoolLessonsPage() {
                     key={lesson.id}
                     className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center"
                   >
-                    <span className="text-[13px] text-ink-2">
+                    <span className="flex min-w-0 flex-col gap-1 text-[13px] text-ink-2">
                       {formatDateUTC(lesson.sundayDate, { year: undefined })}
                       <span className="block text-xs text-ink-3 xl:hidden">{lesson.class.name}</span>
+                      <LiturgicalDateTags day={liturgicalDays?.[lesson.sundayDate.slice(0, 10)]} />
                     </span>
                     <span className="flex min-w-0 flex-col">
                       <span className={`truncate text-[13.5px] font-medium ${lesson.title ? 'text-ink' : 'text-ink-3'}`}>{lesson.title || 'Not assigned'}</span>

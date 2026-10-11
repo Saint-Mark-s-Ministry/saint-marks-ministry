@@ -17,7 +17,7 @@ const servesSS = { sundaySchool: { hasAccess: true, isCoordinator: false } }
 describe('navigationFor', () => {
   it('gives a super admin every prep destination, grouped', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
-    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace'])
+    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church'])
     expect(hrefs('SUPER_ADMIN', 'prep', noSS)).toEqual(
       expect.arrayContaining([
         '/dashboard/admin/users',
@@ -44,7 +44,21 @@ describe('navigationFor', () => {
 
   it('never shows prep pages to a SERVANT, whatever the path', () => {
     for (const ministry of ['prep', 'sunday-school'] as const) {
-      expect(hrefs('SERVANT', ministry, servesSS).every((h) => h.startsWith('/dashboard/servants'))).toBe(true)
+      expect(
+        hrefs('SERVANT', ministry, servesSS).every((h) => h.startsWith('/dashboard/servants') || h === '/dashboard/readings')
+      ).toBe(true)
+    }
+  })
+
+  it('gives every role the daily readings, outside the phone tab bar', () => {
+    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'PARENT', 'SERVANT'] as UserRole[]) {
+      for (const ministry of ['prep', 'sunday-school'] as const) {
+        const item = navigationFor({ role, ...servesSS }, ministry)
+          .flatMap((g) => g.items)
+          .find((i) => i.href === '/dashboard/readings')
+        expect(item).toBeDefined()
+        expect(item?.tab).not.toBe(true)
+      }
     }
   })
 
@@ -154,5 +168,7 @@ describe('contact book navigation', () => {
   it('uses the default ministry for the shared contact book page', () => {
     expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/dashboard/contact-book')).toBe('sunday-school')
     expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/contact-book')).toBe('prep')
+    expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/readings')).toBe('prep')
+    expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/dashboard/readings')).toBe('sunday-school')
   })
 })

@@ -1,4 +1,5 @@
 import type { ContactBookResponse } from '@/lib/contact-book'
+import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
 
 // Default fetcher for SWR
@@ -353,5 +354,46 @@ export function useContactBook(userId: string | undefined, search: string, page:
       keepPreviousData: false,
       shouldRetryOnError: error => error.status !== 401 && error.status !== 403,
     }
+  )
+}
+
+// Church calendar (Coptic IO, via /api/liturgical). Dated answers never change,
+// so these cache for the session; "today" is resolved on the server.
+const liturgicalConfig: SWRConfiguration = { ...staticDataConfig, errorRetryCount: 1 }
+
+export function useLiturgicalDay(date?: string | null, lang: LiturgicalLanguage = 'en', options?: SWRConfiguration) {
+  const params = new URLSearchParams({ lang })
+  if (date) params.set('date', date)
+  return useSWR<LiturgicalDay>(`/api/liturgical/day?${params}`, fetcher, { ...liturgicalConfig, ...options })
+}
+
+export function useDailyReadings(date: string | null, lang: LiturgicalLanguage = 'en', options?: SWRConfiguration) {
+  const params = new URLSearchParams({ lang })
+  if (date) params.set('date', date)
+  return useSWR<DailyReadings, Error & { status?: number }>(`/api/liturgical/readings?${params}`, fetcher, {
+    ...liturgicalConfig,
+    keepPreviousData: true,
+    ...options,
+  })
+}
+
+const LITURGICAL_CALENDAR_CHUNK = 60
+
+/** Feasts and fasts for each date (e.g. every lesson Sunday). Never blocks a page: failures leave it empty. */
+export function useLiturgicalCalendar(dates: string[], options?: SWRConfiguration) {
+  const unique = Array.from(new Set(dates.filter(Boolean))).sort()
+  const chunks: string[] = []
+  for (let i = 0; i < unique.length; i += LITURGICAL_CALENDAR_CHUNK) {
+    chunks.push(unique.slice(i, i + LITURGICAL_CALENDAR_CHUNK).join(','))
+  }
+  return useSWR<Record<string, LiturgicalCalendarDay>>(
+    chunks.length > 0 ? ['liturgical-calendar', ...chunks] : null,
+    async ([, ...keys]: string[]) => {
+      const responses = await Promise.all(
+        keys.map((key) => fetcher(`/api/liturgical/calendar?dates=${key}`) as Promise<LiturgicalCalendarResponse>)
+      )
+      return Object.assign({}, ...responses.map((response) => response.days))
+    },
+    { ...liturgicalConfig, shouldRetryOnError: false, ...options }
   )
 }

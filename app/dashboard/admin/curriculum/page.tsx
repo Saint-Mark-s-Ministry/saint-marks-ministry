@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { canManageCurriculum } from '@/lib/roles'
 import { toast } from 'sonner'
 import { formatToastTimestamp } from '@/lib/utils'
+import { useLiturgicalCalendar } from '@/lib/swr'
+import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
 import {
   DndContext,
   closestCenter,
@@ -490,6 +492,13 @@ export default function CurriculumPage() {
     })
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
+  // Feasts and fasts on upcoming lesson dates, so a meeting isn't planned on
+  // the Nativity or in Holy Week by accident. Past dates aren't worth a lookup.
+  const churchToday = getSundaySchoolTodayDateInputValue()
+  const { data: liturgicalDays } = useLiturgicalCalendar(
+    filteredLessons.map((lesson) => lesson.scheduledDate.slice(0, 10)).filter((day) => day >= churchToday)
+  )
+
   if (loading || status === 'loading') {
     return <PageLoading />
   }
@@ -603,6 +612,7 @@ export default function CurriculumPage() {
                         <SortableRow
                           key={lesson.id}
                           lesson={lesson}
+                          liturgicalDay={liturgicalDays?.[lesson.scheduledDate.slice(0, 10)]}
                           index={index}
                           canEdit={!!canEdit}
                           canDrag={!!canEdit && !filtersActive}
@@ -628,6 +638,7 @@ export default function CurriculumPage() {
                 <MobileLessonCard
                   key={lesson.id}
                   lesson={lesson}
+                  liturgicalDay={liturgicalDays?.[lesson.scheduledDate.slice(0, 10)]}
                   index={index}
                   totalCount={filteredLessons.length}
                   canEdit={!!canEdit}

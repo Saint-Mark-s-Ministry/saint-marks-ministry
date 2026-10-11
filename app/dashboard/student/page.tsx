@@ -19,6 +19,7 @@ import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
 import { getAttendanceGuidance, getExamGuidance } from '@/lib/graduation-guidance'
 import { BookOpen, Check, ClipboardCheck, Printer, X } from 'lucide-react'
+import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface Analytics {
   enrollment: {
@@ -273,6 +274,7 @@ export default function StudentDashboard() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
+          <TodayInChurch />
           <Panel title="Your people">
             <div className="px-4 py-1">
               <KeyValueList

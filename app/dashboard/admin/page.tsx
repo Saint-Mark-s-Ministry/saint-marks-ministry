@@ -18,6 +18,7 @@ import {
   Agenda,
   EventLegend,
   MonthCalendar,
+  monthGridDays,
   nextDays,
   utcDayKey,
   type CalendarEvent,
@@ -27,6 +28,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { isAdmin, canAssignMentors } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { fetcher, useAcademicYears, useDashboardStats, useExams, useLessons } from '@/lib/swr'
+import { TodayInChurch } from '@/components/liturgical/today-in-church'
+import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
+import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 
 interface ExamSectionScore {
   sectionId: string
@@ -114,6 +118,9 @@ export default function AdminDashboard() {
   const { data: lessons } = useLessons(activeYear?.id)
   const { data: exams } = useExams(activeYear?.id)
   const [month, setMonth] = useState(() => new Date())
+  // Feasts and fasts for the month on screen and the next 14 days.
+  const liturgicalDays = useMemo(() => [...monthGridDays(month), ...nextDays(14)], [month])
+  const liturgical = useLiturgicalCalendarOverlay(liturgicalDays)
 
   const events = useMemo<CalendarEvent[]>(() => {
     const lessonEvents: CalendarEvent[] = (lessons ?? []).map((l) => ({
@@ -135,8 +142,8 @@ export default function AdminDashboard() {
       meta: `${e.yearLevel === 'BOTH' ? 'Both years' : e.yearLevel.replace('YEAR_', 'Year ')} · out of ${e.totalPoints}`,
       href: `/dashboard/admin/exams?section=${e.examSection.id}`,
     }))
-    return [...lessonEvents, ...examEvents]
-  }, [lessons, exams])
+    return [...lessonEvents, ...examEvents, ...liturgical.events]
+  }, [lessons, exams, liturgical.events])
 
   if (status === 'loading' || isLoading) {
     return <DashboardSkeleton />
@@ -207,31 +214,39 @@ export default function AdminDashboard() {
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Panel
           title="Calendar"
-          actions={<EventLegend types={['prep-lesson', 'exam']} />}
+          actions={
+            <>
+              <EventLegend types={['prep-lesson', 'exam', 'feast']} fastDays />
+              <CalendarSubscribeButton variant="ghost" />
+            </>
+          }
           className="hidden md:block"
         >
-          <MonthCalendar month={month} events={events} onMonthChange={setMonth} />
+          <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} />
         </Panel>
-        <Panel
-          title="Next 14 days"
-          actions={
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dashboard/admin/curriculum">Full schedule</Link>
-            </Button>
-          }
-        >
-          <Agenda
-            days={agendaDays}
-            events={events}
-            renderAction={(e) =>
-              e.type === 'prep-lesson' && e.day === agendaDays.find((d) => events.some((x) => x.day === d && x.type === 'prep-lesson')) ? (
-                <Button asChild size="sm">
-                  <Link href={e.href ?? '/dashboard/admin/attendance'}>Take attendance</Link>
-                </Button>
-              ) : null
+        <div className="flex min-w-0 flex-col gap-5">
+          <TodayInChurch />
+          <Panel
+            title="Next 14 days"
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/dashboard/admin/curriculum">Full schedule</Link>
+              </Button>
             }
-          />
-        </Panel>
+          >
+            <Agenda
+              days={agendaDays}
+              events={events}
+              renderAction={(e) =>
+                e.type === 'prep-lesson' && e.day === agendaDays.find((d) => events.some((x) => x.day === d && x.type === 'prep-lesson')) ? (
+                  <Button asChild size="sm">
+                    <Link href={e.href ?? '/dashboard/admin/attendance'}>Take attendance</Link>
+                  </Button>
+                ) : null
+              }
+            />
+          </Panel>
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">

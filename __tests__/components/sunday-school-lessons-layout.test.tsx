@@ -22,6 +22,7 @@ vi.mock('@/lib/swr', () => ({
     mutate: mocks.mutate,
   }),
   useSundaySchoolAgeGroups: () => ({ data: [] }),
+  useLiturgicalCalendar: () => ({ data: undefined }),
 }))
 
 vi.mock('@/components/sunday-school-lesson-import', () => ({
