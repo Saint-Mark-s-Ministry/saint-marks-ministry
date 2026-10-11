@@ -14,9 +14,11 @@
  * - **Negative caching**: a failed load with nothing stale to fall back on is
  *   remembered for `negativeMs`, so an outage costs one timeout, not one per
  *   request.
- * - **Circuit breaker**: after `failureThreshold` consecutive failures, loads
- *   are skipped for `cooldownMs` (stale values still served), then a single
- *   trial load decides whether to close it again.
+ * - **Circuit breakers**, one per circuit name (one per upstream endpoint):
+ *   after `failureThreshold` consecutive failures, that endpoint's loads are
+ *   skipped for `cooldownMs` (stale values still served), then a single trial
+ *   load decides whether to close it again. Separate circuits keep one
+ *   failing endpoint from blanking the others.
  *
  * Kept free of Next and fetch so it is unit-testable with a fake clock.
  */
@@ -59,12 +61,16 @@ export interface CacheStats {
   shortCircuited: number
 }
 
+interface Circuit {
+  consecutiveFailures: number
+  openUntil: number
+  trialInFlight: boolean
+}
+
 export class UpstreamCache {
   private entries = new Map<string, Entry<unknown>>()
   private inflight = new Map<string, Promise<unknown>>()
-  private consecutiveFailures = 0
-  private circuitOpenUntil = 0
-  private trialInFlight = false
+  private circuits = new Map<string, Circuit>()
   readonly stats: CacheStats = { hits: 0, staleServed: 0, misses: 0, coalesced: 0, failures: 0, shortCircuited: 0 }
 
   constructor(
@@ -73,7 +79,7 @@ export class UpstreamCache {
   ) {}
 
   /** The cached value for `key`, loading it when needed. Resolves to null when nothing usable is available. */
-  async get<T>(key: string, load: () => Promise<LoadOutcome<T>>): Promise<T | null> {
+  async get<T>(key: string, load: () => Promise<LoadOutcome<T>>, circuitName = 'default'): Promise<T | null> {
     const time = this.now()
     const entry = this.entries.get(key) as Entry<T> | undefined
 
@@ -91,14 +97,15 @@ export class UpstreamCache {
 
     const stale = entry && !entry.negative && time < entry.staleUntil ? entry.value : null
 
-    if (!this.mayLoad(time)) {
+    const circuit = this.circuit(circuitName)
+    if (!this.mayLoad(circuit, time)) {
       this.stats.shortCircuited++
       if (stale !== null) this.stats.staleServed++
       return stale
     }
 
     this.stats.misses++
-    const promise = this.load(key, load, stale)
+    const promise = this.load(key, load, stale, circuit)
     this.inflight.set(key, promise)
     try {
       return await promise
@@ -107,33 +114,45 @@ export class UpstreamCache {
     }
   }
 
-  /** True while loads are being skipped because upstream keeps failing. */
-  isCircuitOpen(): boolean {
-    return this.now() < this.circuitOpenUntil
+  /** True while that circuit's loads are being skipped because its endpoint keeps failing. */
+  isCircuitOpen(circuitName = 'default'): boolean {
+    return this.now() < (this.circuits.get(circuitName)?.openUntil ?? 0)
   }
 
   clear(): void {
     this.entries.clear()
     this.inflight.clear()
-    this.consecutiveFailures = 0
-    this.circuitOpenUntil = 0
-    this.trialInFlight = false
+    this.circuits.clear()
   }
 
   get size(): number {
     return this.entries.size
   }
 
-  private mayLoad(time: number): boolean {
-    if (this.consecutiveFailures < this.policy.failureThreshold) return true
-    if (time < this.circuitOpenUntil) return false
+  private circuit(name: string): Circuit {
+    let circuit = this.circuits.get(name)
+    if (!circuit) {
+      circuit = { consecutiveFailures: 0, openUntil: 0, trialInFlight: false }
+      this.circuits.set(name, circuit)
+    }
+    return circuit
+  }
+
+  private mayLoad(circuit: Circuit, time: number): boolean {
+    if (circuit.consecutiveFailures < this.policy.failureThreshold) return true
+    if (time < circuit.openUntil) return false
     // Cooldown over: let exactly one trial through (half-open).
-    if (this.trialInFlight) return false
-    this.trialInFlight = true
+    if (circuit.trialInFlight) return false
+    circuit.trialInFlight = true
     return true
   }
 
-  private async load<T>(key: string, load: () => Promise<LoadOutcome<T>>, stale: T | null): Promise<T | null> {
+  private async load<T>(
+    key: string,
+    load: () => Promise<LoadOutcome<T>>,
+    stale: T | null,
+    circuit: Circuit
+  ): Promise<T | null> {
     let outcome: LoadOutcome<T>
     try {
       outcome = await load()
@@ -141,11 +160,11 @@ export class UpstreamCache {
       outcome = { ok: false }
     }
     const time = this.now()
-    this.trialInFlight = false
+    circuit.trialInFlight = false
 
     if (outcome.ok) {
-      this.consecutiveFailures = 0
-      this.circuitOpenUntil = 0
+      circuit.consecutiveFailures = 0
+      circuit.openUntil = 0
       this.store(key, {
         value: outcome.value,
         freshUntil: time + this.policy.freshMs,
@@ -156,9 +175,9 @@ export class UpstreamCache {
     }
 
     this.stats.failures++
-    this.consecutiveFailures++
-    if (this.consecutiveFailures >= this.policy.failureThreshold) {
-      this.circuitOpenUntil = time + this.policy.cooldownMs
+    circuit.consecutiveFailures++
+    if (circuit.consecutiveFailures >= this.policy.failureThreshold) {
+      circuit.openUntil = time + this.policy.cooldownMs
     }
 
     if (stale !== null) {

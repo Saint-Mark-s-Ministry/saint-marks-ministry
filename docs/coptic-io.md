@@ -104,7 +104,7 @@ are built on that:
 |---|---|---|---|
 | SWR | each browser tab | the session | No refetch while navigating. "Today" is passed as an explicit date from `useChurchToday()`, which rolls over at church midnight, so an open tab moves to the new day by itself. |
 | HTTP `Cache-Control` | each browser | pinned date: 1 day + 7 days stale-while-revalidate; "today": until church midnight; partial/failed answers: `no-store` | Reloads and new tabs skip the server. A failure is never pinned in the browser. |
-| `UpstreamCache` (`lib/coptic-io-cache.ts`) | each server instance | fresh 6 h, then stale up to 7 days | Parsed values in memory; concurrent identical calls share one request; a failed reload serves the last good value (stale-if-error); a failure with no fallback is remembered for 60 s (negative cache); 3 failures in a row open a circuit for 30 s so an outage costs one 5 s timeout instead of one per request; LRU-bounded at 1,000 entries. |
+| `UpstreamCache` (`lib/coptic-io-cache.ts`) | each server instance | fresh 6 h, then stale up to 7 days | Parsed values in memory; concurrent identical calls share one request; a failed reload serves the last good value (stale-if-error); a failure with no fallback is remembered for 60 s (negative cache); 3 failures in a row on one endpoint open that endpoint's circuit for 30 s (circuits are per endpoint, so the calendar's fan-out failing can't blank the Today card) so an outage costs one 5 s timeout instead of one per request; LRU-bounded at 1,000 entries. |
 | Next data cache (`fetch` `next.revalidate`) | shared across instances and deploys (Vercel) | 7 days, stale-while-revalidate, tag `coptic-io` | Cold instances start warm. Next stores only 200 responses, so an outage is never cached. |
 | Coptic IO edge | Cloudflare | 12 h | Their side; nothing to configure. |
 
@@ -130,6 +130,19 @@ catches up within 6 hours or on the next deploy.
 Not published to npm: `@coptic/client` and `@coptic/core` are workspace
 packages in the Coptic IO monorepo, and the client's paths have drifted from
 the API's routes, so we call the REST API directly.
+
+### Compressed bodies from Coptic IO's edge cache
+
+Coptic IO's Cloudflare edge cache can serve a cached `200` whose body is still
+compressed (gzip/brotli) with no `Content-Encoding` Node will act on. Browsers
+cope, so their own site doesn't notice; Node's `fetch` hands back raw bytes and
+every `JSON.parse` fails (logged as `Unexpected token … is not valid JSON`).
+We therefore send `Accept-Encoding: identity`, and `lib/coptic-io-body.ts`
+decompresses anything that still arrives compressed before parsing. Because
+request headers are part of Next's fetch cache key, the identity header also
+leaves behind any undecodable bodies cached before the fix. Worth reporting
+upstream: `apps/api/src/middleware/cache.ts` re-serves `caches.default.match()`
+responses as-is.
 
 ## Configuration
 
