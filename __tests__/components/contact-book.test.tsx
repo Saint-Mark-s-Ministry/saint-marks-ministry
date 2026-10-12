@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { RoleTag, UserRole } from '@prisma/client'
 import userEvent from '@testing-library/user-event'
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), session: vi.fn() }))
@@ -9,7 +10,7 @@ import { ContactBook } from '@/components/contact-book'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 
 const response = {
-  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null }],
+  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [{ id: 'assignment', authority: 'COORDINATOR', classId: 'grade-12', ageGroupId: null, class: { id: 'grade-12', name: 'St. Mary', level: 'GRADE_12' }, ageGroup: null }] }],
   total: 51, page: 1, pageSize: 50,
 }
 beforeEach(() => {
@@ -22,6 +23,8 @@ describe('ContactBook', () => {
   it('shows names, contact actions, missing-phone text, and pagination', () => {
     render(<ContactBook />)
     expect(screen.getByText('Mariam')).toBeInTheDocument()
+    expect(screen.getByText('Sunday School Servant')).toBeInTheDocument()
+    expect(screen.getByText('12th Grade Coordinator')).toBeInTheDocument()
     expect(screen.getByText('mariam@example.com')).toBeInTheDocument()
     expect(screen.getByText('No phone number')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Contact options for email (Mariam)' })).toBeInTheDocument()

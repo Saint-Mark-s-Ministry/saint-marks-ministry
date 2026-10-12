@@ -1,5 +1,5 @@
 import type { SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
-import { LEVEL_ORDER } from './sunday-school-class'
+import { getLevelDisplayName, LEVEL_ORDER } from './sunday-school-class'
 
 export interface SundaySchoolAssignmentSummary {
   id: string
@@ -31,4 +31,26 @@ export function getSundaySchoolAssignmentLevels(
       (LEVEL_INDEX.get(left) ?? Number.MAX_SAFE_INTEGER) -
       (LEVEL_INDEX.get(right) ?? Number.MAX_SAFE_INTEGER)
   )
+}
+
+/** Current responsibilities, with the grade and authority kept together. */
+export function getSundaySchoolResponsibilityLabels(
+  assignments: SundaySchoolAssignmentSummary[] | undefined
+): string[] {
+  const labels = new Set<string>()
+  const levels = getSundaySchoolAssignmentLevels(assignments)
+
+  for (const level of levels) {
+    for (const authority of ['COORDINATOR', 'SERVANT'] as const) {
+      const servesLevel = assignments?.some(assignment =>
+        assignment.authority === authority &&
+        (assignment.class?.level === level || assignment.ageGroup?.levels.includes(level))
+      )
+      if (servesLevel) {
+        labels.add(`${getLevelDisplayName(level)} ${authority === 'COORDINATOR' ? 'Coordinator' : 'Servant'}`)
+      }
+    }
+  }
+
+  return [...labels]
 }
