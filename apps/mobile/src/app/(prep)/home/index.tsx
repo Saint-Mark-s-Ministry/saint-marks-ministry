@@ -1,5 +1,6 @@
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
+import type { SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import {
   Button,
   Copy,
@@ -14,7 +15,7 @@ import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { serifDisplay, useAppTheme } from "@/theme";
-import { useResource } from "@/data/resources";
+import { endpoint, useResource } from "@/data/resources";
 import { atRiskTone, attendanceProgress, examAverageTone, isAdminLike, nextLessonIndex, type Tone } from "@/data/prep-home";
 
 type DashboardStats = {
@@ -64,6 +65,12 @@ export default function PrepHome() {
   const adminLike = isAdminLike(user?.role);
   const title = user?.role === "STUDENT" && user.name ? `Hi, ${user.name.split(" ")[0]}` : "Dashboard";
 
+  const isStudent = user?.role === "STUDENT";
+  // A linked child account's Sunday School homework. Eligibility is the
+  // server's live answer, not the role: a prep student with no linked
+  // Elementary child gets eligible:false and no row.
+  const childHomework = useResource<SundaySchoolHomeworkResponse>(isStudent ? endpoint("homework") : null);
+
   const stats = useResource<DashboardStats>(adminLike ? "/api/dashboard/stats" : null);
   const analytics = useResource<DashboardAnalytics>(adminLike ? "/api/dashboard/analytics" : null);
   const lessons = useResource<LessonListItem[]>(adminLike ? "/api/lessons?forAttendance=true" : null);
@@ -112,6 +119,7 @@ export default function PrepHome() {
           void stats.refresh();
           void analytics.refresh();
           void lessons.refresh();
+          void childHomework.refresh();
         }}
       >
         {stats.data?.academicYear && (
@@ -130,6 +138,9 @@ export default function PrepHome() {
             <RowLink title="My lessons" subtitle="Schedule, materials, and attendance" onPress={() => router.push("/prep-lessons")} />
             <RowLink title="Rotations" subtitle="Four-week forms and grade progress" onPress={() => router.push("/prep-serving")} />
             <RowLink title="Class lessons" subtitle="Slides and resources for your class" onPress={() => router.push("/prep-class-lessons" as Href)} />
+            {childHomework.data?.eligible && (
+              <RowLink title="Homework" subtitle="Sunday School assignments and your results" onPress={() => router.push("/my-homework" as Href)} />
+            )}
             <RowLink title="Application" subtitle="Mentor, church, and approval form" onPress={() => router.push("/prep-application")} />
           </ListSurface>
         )}
