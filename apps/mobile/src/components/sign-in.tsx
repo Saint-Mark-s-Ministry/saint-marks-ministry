@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   TextInput,
@@ -13,6 +14,7 @@ import { apiOrigin, useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
 import { PasswordForm } from "@/components/password-form";
 import { canSubmitSignIn, looksLikeEmail, signInFailureKind } from "@/data/sign-in";
+import { LegalLinks } from "@/components/legal-links";
 
 export default function SignIn() {
   const {
@@ -172,12 +174,24 @@ export default function SignIn() {
                   New here? Get started
                 </Copy>
               </Pressable>
-              <Copy kind="caption" style={{ textAlign: "center", paddingTop: 6 }}>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Forgot password? Opens in your browser"
+                hitSlop={8}
+                onPress={() => void Linking.openURL(`${apiOrigin}/forgot-password`).catch(() => undefined)}
+                style={{ minHeight: 44, justifyContent: "center" }}
+              >
+                <Copy style={{ textAlign: "center", fontWeight: "500" }} color={colors.primary}>
+                  Forgot password?
+                </Copy>
+              </Pressable>
+              <Copy kind="caption" style={{ textAlign: "center" }}>
                 Can't sign in? Contact your ministry coordinator or admin.
               </Copy>
             </View>
           </>
         )}
+        <LegalLinks />
       </Screen>
     </KeyboardAvoidingView>
   );

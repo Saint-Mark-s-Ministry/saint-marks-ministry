@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { Button, Host, Text as SwiftText } from "@expo/ui/swift-ui";
 import {
   buttonBorderShape,
@@ -12,6 +12,11 @@ import {
 } from "@expo/ui/swift-ui/modifiers";
 import { useAppTheme } from "@/theme";
 import type { NativeActionButtonProps } from "./native-action-button";
+
+// The glass button styles exist only on iOS 26 and later. Below that, SwiftUI's
+// "automatic" style drops the filled capsule, so primary actions would read as
+// plain text. Use the bordered styles there instead.
+const SUPPORTS_GLASS = parseInt(String(Platform.Version), 10) >= 26;
 
 export function NativeActionButton({
   label,
@@ -39,7 +44,9 @@ export function NativeActionButton({
             testID={testID}
             modifiers={[
               buttonStyle(
-                glass || secondary ? "glass" : "glassProminent",
+                glass || secondary
+                  ? SUPPORTS_GLASS ? "glass" : "bordered"
+                  : SUPPORTS_GLASS ? "glassProminent" : "borderedProminent",
               ),
               buttonBorderShape("capsule"),
               controlSize("large"),

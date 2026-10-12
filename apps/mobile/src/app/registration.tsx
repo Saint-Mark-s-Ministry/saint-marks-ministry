@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { Copy, Icon, ListSurface, RowLink, Screen } from "@/components/ui";
 import { serifDisplay, useAppTheme } from "@/theme";
+import { LegalLinks } from "@/components/legal-links";
 
 // The chooser/entry flow this ticket's own Scope calls for — no artboard
 // depicts one (every Registration/sign-up artboard is a destination form
@@ -49,6 +50,7 @@ export default function Registration() {
             Already have an account? Sign in
           </Copy>
         </Pressable>
+        <LegalLinks />
       </Screen>
     </>
   );
