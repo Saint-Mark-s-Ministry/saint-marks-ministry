@@ -1,5 +1,5 @@
 import { Platform, Pressable, View } from "react-native";
-import { router, Stack } from "expo-router";
+import { router, Stack, type Href } from "expo-router";
 import {
   Button,
   Copy,
@@ -129,6 +129,7 @@ export default function PrepHome() {
             <RowLink title="My progress" subtitle="Attendance, exams, and what to do next" onPress={() => router.push("/prep-progress")} />
             <RowLink title="My lessons" subtitle="Schedule, materials, and attendance" onPress={() => router.push("/prep-lessons")} />
             <RowLink title="Rotations" subtitle="Four-week forms and grade progress" onPress={() => router.push("/prep-serving")} />
+            <RowLink title="Class lessons" subtitle="Slides and resources for your class" onPress={() => router.push("/prep-class-lessons" as Href)} />
             <RowLink title="Application" subtitle="Mentor, church, and approval form" onPress={() => router.push("/prep-application")} />
           </ListSurface>
         )}

@@ -161,6 +161,11 @@ export interface SundaySchoolWeeklyLesson {
 
 export interface SundaySchoolWeeklyLessonsResponse {
   lessons: SundaySchoolWeeklyLesson[];
+  /** Students only: the assigned class(es), including a class with no upcoming lessons. */
+  classes?: SundaySchoolClassRef[];
+  /** Async students only: approved grade rotations out of `requiredRotations`. */
+  completedRotations?: number;
+  requiredRotations?: number;
 }
 
 export type SundaySchoolHomeworkDisplayStatus = SundaySchoolHomeworkCompletionStatus | "NOT_RECORDED";
