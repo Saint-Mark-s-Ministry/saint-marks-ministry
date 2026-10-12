@@ -654,7 +654,7 @@
 }
 
 
-/* App shell sidebar: 236px, a 64px rail on tablets or when collapsed (design system §07). */
+/* App shell sidebar: 236px, a 64px rail when collapsed (design system §07). */
 /* Its current width, for things that must clear it (toasts in a left corner). */
 :root {
   --sidebar-width: 0px;
@@ -663,8 +663,6 @@
   :root:has([data-sidebar]) {
     --sidebar-width: 64px;
   }
-}
-@media (min-width: 1280px) {
   :root:has([data-sidebar][data-rail="false"]) {
     --sidebar-width: 236px;
   }
@@ -695,36 +693,11 @@
     transition-duration: 0.01ms !important;
   }
 }
-@media (min-width: 768px) and (max-width: 1279.98px) {
-  [data-sidebar] {
-    width: 64px;
-  }
-  [data-sidebar] .sidebar-label {
-    display: none;
-  }
-}
 [data-sidebar][data-rail="true"] {
   width: 64px;
 }
 [data-sidebar][data-rail="true"] .sidebar-label {
   display: none;
-}
-@media (max-width: 1279.98px) {
-  [data-sidebar] .sidebar-item,
-  [data-sidebar] .sidebar-search {
-    justify-content: center;
-    padding-inline: 0;
-  }
-  [data-sidebar] .sidebar-user {
-    justify-content: center;
-    padding-inline: 0;
-  }
-  [data-sidebar] .sidebar-switcher {
-    justify-content: center;
-    padding-inline: 0;
-    border-color: transparent;
-    background: transparent;
-  }
 }
 [data-sidebar][data-rail="true"] .sidebar-item,
 [data-sidebar][data-rail="true"] .sidebar-search,

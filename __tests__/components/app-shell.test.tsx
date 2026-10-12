@@ -43,9 +43,10 @@ import { AppShell } from '@/components/shell/app-shell'
 const sidebar = () => screen.getByRole('complementary', { name: 'Main' })
 
 describe('AppShell', () => {
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
   beforeEach(() => {
+    window.localStorage.clear()
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
     mocks.push.mockClear()
@@ -57,6 +58,51 @@ describe('AppShell', () => {
       profileImageUrl: null,
       sundaySchool: { hasAccess: true, isCoordinator: false },
     }
+  })
+
+  it('collapses and expands the sidebar and remembers the choice', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<AppShell>page</AppShell>)
+    const collapse = screen.getByRole('button', { name: 'Collapse sidebar' })
+    expect(collapse).toHaveAttribute('aria-controls', 'app-sidebar')
+    expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    await user.click(collapse)
+    expect(sidebar()).toHaveAttribute('data-rail', 'true')
+    expect(window.localStorage.getItem('sidebar-rail')).toBe('1')
+    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toBeInTheDocument()
+
+    unmount()
+    render(<AppShell>page</AppShell>)
+    const expand = screen.getByRole('button', { name: 'Expand sidebar' })
+    expect(expand).toHaveAttribute('aria-expanded', 'false')
+    await user.click(expand)
+    expect(sidebar()).toHaveAttribute('data-rail', 'false')
+    expect(window.localStorage.getItem('sidebar-rail')).toBe('0')
+  })
+
+  it('defaults to a rail on tablets but allows a saved expanded preference', async () => {
+    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+      matches: query === '(max-width: 1279px)',
+      media: query,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    })))
+    const { unmount } = render(<AppShell>page</AppShell>)
+    expect(sidebar()).toHaveAttribute('data-rail', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+    expect(sidebar()).toHaveAttribute('data-rail', 'false')
+    unmount()
+    render(<AppShell>page</AppShell>)
+    expect(sidebar()).toHaveAttribute('data-rail', 'false')
+  })
+
+  it('still toggles when preference storage is unavailable', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Unavailable') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Unavailable') })
+    render(<AppShell>page</AppShell>)
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(sidebar()).toHaveAttribute('data-rail', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
+    expect(sidebar()).toHaveAttribute('data-rail', 'false')
   })
 
   it('shows loading feedback even when the guarded page renders nothing', () => {
