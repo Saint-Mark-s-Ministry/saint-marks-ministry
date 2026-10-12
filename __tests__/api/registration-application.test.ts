@@ -140,14 +140,18 @@ describe('post-approval application', () => {
     expect(mocks.updateApplication).not.toHaveBeenCalled()
   })
 
-  it('lets an already-promoted legacy student confirm mentor information without a registration record', async () => {
+  it.each([
+    { description: 'promoted', yearLevel: 'YEAR_2', isAsyncStudent: false },
+    { description: 'async', yearLevel: null, isAsyncStudent: true },
+  ])('lets a legacy $description student confirm mentor information without a registration record', async ({ yearLevel, isAsyncStudent }) => {
     mocks.findApplication.mockResolvedValue(null)
     mocks.getAnnualMentorRequirement.mockResolvedValue({
       activeYear: { id: 'year-2026', name: '2026-2027' },
       enrollment: {
         id: 'enrollment-1',
         isActive: true,
-        yearLevel: 'YEAR_2',
+        yearLevel,
+        isAsyncStudent,
         mentorName: 'Previous Mentor',
         mentorPhone: '555-0100',
       },

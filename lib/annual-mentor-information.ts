@@ -2,7 +2,7 @@ import { NotificationType, YearLevel } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 /**
- * Year 2 students confirm their mentor contact information after promotion.
+ * Year 2 and async students confirm their mentor contact information each year.
  * Looking this up from current state (rather than only at promotion time)
  * also covers students promoted before this feature was deployed.
  */
@@ -17,6 +17,7 @@ export async function getAnnualMentorRequirement(userId: string) {
       select: {
         id: true,
         isActive: true,
+        isAsyncStudent: true,
         yearLevel: true,
         mentorName: true,
         mentorPhone: true,
@@ -27,7 +28,7 @@ export async function getAnnualMentorRequirement(userId: string) {
   if (
     !activeYear ||
     !enrollment?.isActive ||
-    enrollment.yearLevel !== YearLevel.YEAR_2
+    (!enrollment.isAsyncStudent && enrollment.yearLevel !== YearLevel.YEAR_2)
   ) {
     return null
   }
