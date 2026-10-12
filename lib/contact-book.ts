@@ -15,11 +15,7 @@ export interface ContactBookEntry {
 export interface ContactBookResponse {
   contacts: ContactBookEntry[]
   total: number
-  page: number
-  pageSize: number
 }
-
-export const CONTACT_BOOK_PAGE_SIZE = 50
 
 export function canReadContactBook(context: AuthorizationContext): boolean {
   return !context.disabled && !context.roleTags.has(RoleTag.SUPER_ADMIN) && context.canAccessContactBook === true
