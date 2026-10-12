@@ -211,7 +211,7 @@ export default function AdminDashboard() {
         ]}
       />
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Panel
           title="Calendar"
           actions={
