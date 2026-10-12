@@ -4,6 +4,7 @@ import {
   completionTone,
   defaultWeekId,
   draftFromWeek,
+  familyHomework,
   homeworkHistory,
   isHomeworkDraftDirty,
   statusFor,
@@ -123,5 +124,63 @@ describe("homeworkHistory", () => {
     const history = homeworkHistory(roster, weeks as never);
     expect(history[0].rate).toBeNull();
     expect(Number.isNaN(history[0].rate)).toBe(false);
+  });
+});
+
+describe("familyHomework", () => {
+  const published = (id: string, classId: string, completions: unknown[] = [], archivedAt: string | null = null) =>
+    week({
+      weeklyLessonId: `w-${id}`,
+      class: { id: classId, name: `Class ${classId}`, level: "GRADE_2" as never },
+      homework: {
+        id,
+        title: `Homework ${id}`,
+        instructions: null,
+        archivedAt,
+        resources: [{ id: `r-${id}`, title: "Worksheet", url: "https://example.com/w.pdf", sortOrder: 0 }],
+        completions,
+        summary: { completed: 0, notCompleted: 0, notRecorded: 0, completionRate: null },
+      },
+    });
+  const completion = (childId: string, status: "COMPLETED" | "NOT_COMPLETED") => ({
+    childId,
+    child: { id: childId, firstName: "X", lastName: "Y" },
+    status,
+    updatedAt: "",
+  });
+
+  it("pairs each published week with the viewer's own child's outcome (happy path)", () => {
+    const items = familyHomework({
+      roster: [{ id: "kid", firstName: "Mina", lastName: "G", classId: "c1" }],
+      weeks: [published("h1", "c1", [completion("kid", "COMPLETED")]), week()] as never,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ homeworkId: "h1", title: "Homework h1", className: "Class c1" });
+    expect(items[0].children).toEqual([{ id: "kid", firstName: "Mina", status: "COMPLETED" }]);
+    expect(items[0].resources).toEqual([{ id: "r-h1", title: "Worksheet", url: "https://example.com/w.pdf" }]);
+  });
+
+  it("shows only the children in each homework's own class, and NOT_RECORDED when none was saved (highest-risk path)", () => {
+    const items = familyHomework({
+      roster: [
+        { id: "a", firstName: "Ava", lastName: "G", classId: "c1" },
+        { id: "b", firstName: "Ben", lastName: "G", classId: "c2" },
+      ],
+      weeks: [published("h1", "c1", [completion("b", "COMPLETED")]), published("h2", "c2")] as never,
+    });
+    expect(items[0].children).toEqual([{ id: "a", firstName: "Ava", status: "NOT_RECORDED" }]);
+    expect(items[1].children).toEqual([{ id: "b", firstName: "Ben", status: "NOT_RECORDED" }]);
+  });
+
+  it("never lists archived homework to a family, even if the server sent it (highest-risk path)", () => {
+    const items = familyHomework({
+      roster: [{ id: "kid", firstName: "Mina", lastName: "G", classId: "c1" }],
+      weeks: [published("h1", "c1", [], "2026-10-01T00:00:00.000Z")] as never,
+    });
+    expect(items).toEqual([]);
+  });
+
+  it("returns nothing for a family with no weeks (empty state)", () => {
+    expect(familyHomework({ roster: [], weeks: [] })).toEqual([]);
   });
 });

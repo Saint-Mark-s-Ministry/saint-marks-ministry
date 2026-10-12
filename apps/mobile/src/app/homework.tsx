@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import { Stack } from "expo-router";
 import type { SundaySchoolHomeworkDisplayStatus, SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import { Button, Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
+import { HomeworkLink, HomeworkStatusPill } from "@/components/family-homework";
 import { Choice, Field, ResourceState, confirmAction, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import {
-  completionLabel,
-  completionTone,
   defaultWeekId,
   draftFromWeek,
   homeworkHistory,
@@ -16,18 +15,7 @@ import {
   type HomeworkDraft,
 } from "@/data/sunday-school-homework";
 import { shortMonthDay } from "@/data/sunday-school-classes";
-import { MinistryTintProvider, serifDisplay, useAppTheme, type ThemeColors } from "@/theme";
-
-function toneColor(colors: ThemeColors, tone: "success" | "danger" | "neutral"): string {
-  if (tone === "success") return colors.success;
-  if (tone === "danger") return colors.danger;
-  return colors.text2;
-}
-function toneSoft(colors: ThemeColors, tone: "success" | "danger" | "neutral"): string {
-  if (tone === "success") return colors.successSoft;
-  if (tone === "danger") return colors.dangerSoft;
-  return colors.hover;
-}
+import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const MARK_OPTIONS: { value: SundaySchoolHomeworkDisplayStatus; label: string }[] = [
@@ -54,14 +42,20 @@ function HomeworkScreen() {
   const offline = resource.error === OFFLINE;
   const data = resource.data;
 
-  const classes = data?.classes ?? [];
+  // Switching class swaps the request key, so `data` is briefly undefined.
+  // Keep the last class list so the picker doesn't disappear mid-switch;
+  // the rest of the screen still waits for the new class's own response.
+  const lastClasses = useRef<NonNullable<typeof data>["classes"]>([]);
+  if (data?.classes) lastClasses.current = data.classes;
+  const classes = data?.classes ?? lastClasses.current;
   const weeks = (data?.weeks ?? []).filter((w) => !classId || w.class.id === classId);
   const [weekId, setWeekId] = useState("");
   const selectedWeek = weeks.find((w) => w.weeklyLessonId === weekId) ?? null;
   const selectedClass = classes.find((c) => c.id === classId);
 
   const [marks, setMarks] = useState<Record<string, SundaySchoolHomeworkDisplayStatus>>({});
-  const [savingMarks, setSavingMarks] = useState(false);
+  const markAction = useAction();
+  const archiveAction = useAction();
   const [editorOpen, setEditorOpen] = useState(false);
 
   // Auto-select the first eligible class, same as the web page. Only the
@@ -89,32 +83,32 @@ function HomeworkScreen() {
     setMarks(next);
   }, [data?.roster, selectedWeek]);
 
-  async function saveMarks() {
-    if (!selectedWeek?.homework) return;
-    setSavingMarks(true);
-    try {
-      await request(`${endpoint("homework", selectedWeek.homework.id)}/completions`, "POST", {
+  function saveMarks() {
+    const homework = selectedWeek?.homework;
+    if (!homework) return;
+    void markAction.run(async () => {
+      await request(`${endpoint("homework", homework.id)}/completions`, "POST", {
         records: (data?.roster ?? []).map((child) => ({
           childId: child.id,
           status: marks[child.id] === "NOT_RECORDED" ? null : marks[child.id],
         })),
       });
       await resource.refresh();
-    } finally {
-      setSavingMarks(false);
-    }
+    }, "Homework completion saved");
   }
 
   function archiveHomework() {
-    if (!selectedWeek?.homework) return;
+    const homework = selectedWeek?.homework;
+    if (!homework) return;
     confirmAction(
       "Archive this homework?",
       "Families will no longer see it, but its history will be kept.",
       () =>
-        void (async () => {
-          await request(endpoint("homework", selectedWeek!.homework!.id), "DELETE");
+        void archiveAction.run(async () => {
+          await request(endpoint("homework", homework.id), "DELETE");
           await resource.refresh();
-        })(),
+        }, "Homework archived"),
+      true,
     );
   }
 
@@ -189,19 +183,24 @@ function HomeworkScreen() {
                 </Copy>
                 {selectedWeek.homework.instructions && <Copy>{selectedWeek.homework.instructions}</Copy>}
                 {selectedWeek.homework.resources.map((r) => (
-                  <Pressable key={r.id} accessibilityRole="link" onPress={() => void Linking.openURL(r.url)}>
-                    <Copy color={colors.primary}>{r.title}</Copy>
-                  </Pressable>
+                  <HomeworkLink key={r.id} title={r.title} url={r.url} />
                 ))}
                 <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
                   <StatusPill label={`${selectedWeek.homework.summary.completed} completed`} color={colors.success} soft={colors.successSoft} />
                   <StatusPill label={`${selectedWeek.homework.summary.notCompleted} not completed`} color={colors.danger} soft={colors.dangerSoft} />
                   <StatusPill label={`${selectedWeek.homework.summary.notRecorded} not recorded`} color={colors.text2} soft={colors.hover} />
                 </View>
+                {selectedWeek.homework.archivedAt && (
+                  <Copy kind="caption">
+                    Archived{selectedClass?.canEdit ? " — families can't see it. Saving changes publishes it again." : " — families can't see it."}
+                  </Copy>
+                )}
                 {selectedClass?.canEdit && (
                   <View style={{ flexDirection: "row", gap: 10 }}>
                     <Button secondary label="Edit" onPress={() => setEditorOpen(true)} />
-                    <Button secondary label="Archive" onPress={archiveHomework} />
+                    {!selectedWeek.homework.archivedAt && (
+                      <Button secondary label={archiveAction.busy ? "Archiving…" : "Archive"} disabled={archiveAction.busy} onPress={archiveHomework} />
+                    )}
                   </View>
                 )}
               </ListSurface>
@@ -217,11 +216,7 @@ function HomeworkScreen() {
                       <View style={{ padding: 14, gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                           <Copy style={{ fontWeight: "500", flex: 1 }}>{child.firstName} {child.lastName}</Copy>
-                          <StatusPill
-                            label={completionLabel(marks[child.id] ?? "NOT_RECORDED")}
-                            color={toneColor(colors, completionTone(marks[child.id] ?? "NOT_RECORDED"))}
-                            soft={toneSoft(colors, completionTone(marks[child.id] ?? "NOT_RECORDED"))}
-                          />
+                          <HomeworkStatusPill status={marks[child.id] ?? "NOT_RECORDED"} />
                         </View>
                         <Choice
                           label="Status"
@@ -242,7 +237,7 @@ function HomeworkScreen() {
                   )}
                 </ListSurface>
                 {selectedClass?.canEdit && !!data.roster.length && (
-                  <Button label={savingMarks ? "Saving…" : "Save completion"} disabled={savingMarks} onPress={() => void saveMarks()} />
+                  <Button label={markAction.busy ? "Saving…" : "Save completion"} disabled={markAction.busy} onPress={saveMarks} />
                 )}
               </View>
             )}
@@ -397,6 +392,7 @@ function HomeworkEditorSheet({
                   value={link.url}
                   onChange={(url) => setDraft((d) => ({ ...d, links: d.links.map((l, i) => (i === index ? { ...l, url } : l)) }))}
                   placeholder="https://…"
+                  keyboardType="url"
                   disabled={action.busy}
                 />
                 <Pressable

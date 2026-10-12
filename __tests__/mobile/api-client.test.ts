@@ -3,6 +3,7 @@ import {
   PortalApi,
   ApiError,
   cookieHeader,
+  isAuthorizationRevoked,
   mergeCookies,
   type CookieJar,
 } from "../../apps/mobile/src/data/api-client";
@@ -196,5 +197,18 @@ describe("native NextAuth session transport", () => {
     controller.abort();
     await expect(pending).rejects.toThrow("Could not reach");
     expect(fetcher.mock.calls[0][1].signal?.aborted).toBe(true);
+  });
+});
+
+describe("isAuthorizationRevoked", () => {
+  it("is true only for a 403 from the server, so cached data is dropped when authority is removed", () => {
+    expect(isAuthorizationRevoked(new ApiError("Forbidden", 403))).toBe(true);
+  });
+
+  it("keeps cached data for a dropped connection, a 5xx, or a plain Error (highest-risk path)", () => {
+    expect(isAuthorizationRevoked(new Error("Could not reach the server."))).toBe(false);
+    expect(isAuthorizationRevoked(new ApiError("Boom", 500))).toBe(false);
+    expect(isAuthorizationRevoked(new ApiError("Not found", 404))).toBe(false);
+    expect(isAuthorizationRevoked(undefined)).toBe(false);
   });
 });
