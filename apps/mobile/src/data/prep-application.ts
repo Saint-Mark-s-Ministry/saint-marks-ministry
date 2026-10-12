@@ -120,3 +120,62 @@ export function validateApprovalFile(file: { mimeType: string | null; size: numb
 export function fieldWithDraft(serverValue: string | null, draftValue: string | null): string {
   return draftValue ?? serverValue ?? "";
 }
+
+// --- Async parity (matches the corrected web Application page) ---
+
+const OFFLINE_MESSAGE = "Could not reach the server. Check your connection and try again.";
+const NOT_FOUND_MESSAGE = "Application information not found";
+
+export type LoadFailure = { title: string; body: string };
+
+/**
+ * What to show when the application can't be loaded. Every case is retryable
+ * and none of them claims a registration was or wasn't approved: an async
+ * student has no registration or cohort year, so the absence of one is never
+ * the reason a screen is unavailable.
+ */
+export function describeLoadFailure(message: string | null | undefined): LoadFailure {
+  if (message === OFFLINE_MESSAGE) {
+    return {
+      title: "You're offline",
+      body: "Couldn't reach the server. Check your connection and try again.",
+    };
+  }
+  if (message === NOT_FOUND_MESSAGE) {
+    return {
+      title: "Application unavailable",
+      body:
+        "We couldn't find application details for this account. This can happen if your enrollment is inactive or no academic year is active. Ask a Servants Prep servant to check, then try again.",
+    };
+  }
+  return {
+    title: "Application unavailable",
+    body: message?.trim() || "Application information is unavailable for this account.",
+  };
+}
+
+/** The screen heading for the two experiences, mirroring the web page. */
+export function applicationHeading(
+  state: Pick<ApplicationState, "annualMentorRequired" | "academicYear"> | null | undefined,
+): { title: string; subtitle: string } {
+  if (state?.annualMentorRequired) {
+    return {
+      title: "Confirm your mentor",
+      subtitle: `Confirm your mentor servant's contact information for ${state.academicYear?.name ?? "the current academic year"}`,
+    };
+  }
+  return { title: "Application", subtitle: "Complete the rest of your Servants Prep application" };
+}
+
+/** The confirmation after a successful save, in the web page's words. */
+export function saveSuccessMessage(state: Pick<ApplicationState, "annualMentorRequired" | "complete">): string {
+  if (state.annualMentorRequired) return "Mentor information confirmed";
+  return state.complete ? "Application completed" : "Application details saved";
+}
+
+/** A save the API refused, in words that say what to do. View As is read-only on the server. */
+export function saveErrorMessage(serverMessage: string | null | undefined): string {
+  const text = serverMessage?.trim() ?? "";
+  if (/ViewAsReadOnly/i.test(text)) return "You're viewing as this student, so changes are read-only.";
+  return text || "Unable to save application. Please try again.";
+}
