@@ -13,3 +13,4 @@ export type {
   RoleTag,
 } from "@prisma/client";
 export type * from "./sunday-school";
+export type * from "./contact-book";

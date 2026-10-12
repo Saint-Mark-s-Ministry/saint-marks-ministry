@@ -16,6 +16,8 @@ import { AcademicYearContext } from "@/components/academic-year-context";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { usePortal } from "@/data/portal-provider";
+import { useAuth } from "@/data/auth-provider";
+import { canSeeContactBook } from "@/data/contact-book";
 import { useAppTheme } from "@/theme";
 
 type MinistryLink = {
@@ -28,6 +30,7 @@ type MinistryLink = {
 export default function Ministry() {
   const resource = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const { classes } = usePortal();
+  const { user } = useAuth();
   const access = ministryAccess(resource.data, classes);
   // Re-checked live, every time this menu renders — never a cached flag —
   // matching this ticket's own "re-check class authority and current
@@ -76,6 +79,15 @@ export default function Ministry() {
           title: "Child registrations",
           subtitle: "Review and place children",
           href: "/registrations" as Href,
+        }]
+      : []),
+    // Menu visibility only; the screen and API re-check access themselves.
+    ...(canSeeContactBook(user)
+      ? [{
+          id: "contact-book",
+          title: "Contact Book",
+          subtitle: "Find app users and contact them",
+          href: "/contact-book" as Href,
         }]
       : []),
     {
@@ -193,6 +205,8 @@ function MinistryIcon({ id }: { id: string }) {
               ? ({ ios: "person.badge.plus", android: "person_add" } as const)
               : id === "homework"
                 ? ({ ios: "note.text", android: "description" } as const)
+                : id === "contact-book"
+                ? ({ ios: "book.closed.fill", android: "contacts" } as const)
                 : id === "feedback"
                 ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
                 : id === "age-groups"
