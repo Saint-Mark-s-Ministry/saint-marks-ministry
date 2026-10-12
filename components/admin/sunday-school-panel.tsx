@@ -119,6 +119,15 @@ function rotationPlace(a: { grade: SundaySchoolGrade; class?: { name: string } |
   return a.class?.name ?? gradeDisplayName(a.grade)
 }
 
+function FormStatusBadge({ status }: { status?: string }) {
+  switch (status) {
+    case 'PENDING': return <Badge variant="secondary">Awaiting review</Badge>
+    case 'REJECTED': return <Badge variant="destructive">Changes requested</Badge>
+    case 'APPROVED': return <Badge className="bg-ok-tint text-ok">Approved</Badge>
+    default: return <Badge variant="outline">Not submitted</Badge>
+  }
+}
+
 function getSundayOfCurrentWeek(): string {
   const now = new Date()
   const day = now.getUTCDay()
@@ -341,7 +350,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
   }
 
   if (loading) {
-    return <TableSkeleton rows={4} columns={6} />
+    return <TableSkeleton rows={4} columns={canManage ? 5 : 4} />
   }
 
   return (
@@ -382,8 +391,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Student</th>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Class</th>
                       <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">Year</th>
-                      <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Progress</th>
-                      <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Percentage</th>
+                      <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Form status</th>
                       {canManage && (
                         <th className="text-center p-3 font-medium text-gray-700 dark:text-gray-300">Actions</th>
                       )}
@@ -391,8 +399,6 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                   </thead>
                   <tbody>
                     {assignments.map((a) => {
-                      const pct = Math.round(a.percentage ?? 0) // weeks so far; computed by the API
-                      const pctColor = pct >= 75 ? 'text-green-700 dark:text-green-400' : pct >= 50 ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                       return (
                         <tr key={a.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
                           <td className="p-3">
@@ -408,10 +414,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                             </span>
                           </td>
                           <td className="p-3 text-center dark:text-gray-300">
-                            {a.presentCount}/{a.totalWeeks}
-                          </td>
-                          <td className={`p-3 text-center font-semibold ${pctColor}`}>
-                            {pct}%
+                            <FormStatusBadge status={a.rotationForm?.status} />
                           </td>
                           {canManage && (
                             <td className="p-3 text-center">
@@ -451,8 +454,6 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
                 {assignments.map((a) => {
-                  const pct = Math.round(a.percentage ?? 0) // weeks so far; computed by the API
-                  const pctColor = pct >= 75 ? 'text-green-700 dark:text-green-400' : pct >= 50 ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400'
                   return (
                     <Card key={a.id}>
                       <CardContent className="p-3">
@@ -468,10 +469,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                             </div>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <div className={`text-sm font-semibold ${pctColor}`}>{pct}%</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {a.presentCount}/{a.totalWeeks}
-                            </div>
+                            <FormStatusBadge status={a.rotationForm?.status} />
                           </div>
                         </div>
                         {canManage && (

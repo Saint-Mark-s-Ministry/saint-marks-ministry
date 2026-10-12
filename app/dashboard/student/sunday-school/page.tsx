@@ -8,12 +8,11 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
-import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { formatUTC } from '@/lib/utils'
 import { RotationFormUpload } from '@/components/rotation-form-upload'
 import type { RotationFormSummary } from '@/types/rotation-forms'
-import { CheckCircle, XCircle, MinusCircle, Clock } from 'lucide-react'
+import { rotationWeekDate } from '@/lib/rotation-forms'
 
 const GRADE_DISPLAY: Record<string, string> = {
   PRE_K: 'Pre-K',
@@ -26,12 +25,6 @@ const GRADE_DISPLAY: Record<string, string> = {
   GRADE_6_PLUS: '6th Grade+',
 }
 
-interface SSWeek {
-  weekNumber: number
-  weekOf: string
-  status: 'VERIFIED' | 'MANUAL' | 'EXCUSED' | 'REJECTED' | null
-}
-
 interface SSAssignment {
   assignmentId: string
   class: { id: string; name: string } | null
@@ -41,16 +34,7 @@ interface SSAssignment {
   totalWeeks: number
   startDate: string
   isActive: boolean
-  attendance: {
-    present: number
-    excused: number
-    absent: number
-    effectiveTotal: number
-    percentage: number
-    met: boolean
-  } | null
   rotationForm: RotationFormSummary | null
-  weekBreakdown: SSWeek[]
 }
 
 interface SSProgress {
@@ -100,26 +84,6 @@ export default function SundaySchoolPage() {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [session?.user?.id, fetchData])
 
-  const getWeekStatusIcon = (status: SSWeek['status']) => {
-    switch (status) {
-      case 'VERIFIED': return <CheckCircle className="size-5 text-ok" aria-hidden />
-      case 'MANUAL': return <CheckCircle className="size-5 text-ok" aria-hidden />
-      case 'EXCUSED': return <MinusCircle className="size-5 text-info" aria-hidden />
-      case 'REJECTED': return <XCircle className="size-5 text-bad" aria-hidden />
-      default: return <Clock className="size-5 text-ink-3" aria-hidden />
-    }
-  }
-
-  const getWeekStatusLabel = (status: SSWeek['status']) => {
-    switch (status) {
-      case 'VERIFIED': return 'Verified'
-      case 'MANUAL': return 'Approved'
-      case 'EXCUSED': return 'Excused'
-      case 'REJECTED': return 'Rejected'
-      default: return 'Not submitted'
-    }
-  }
-
   if (loading || authStatus === 'loading') {
     return <PageLoading />
   }
@@ -148,31 +112,12 @@ export default function SundaySchoolPage() {
             key={assignment.assignmentId}
             title={assignment.isActive ? "Current rotation" : "Past rotation"}
             description={`${assignment.class?.name || GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.academicYear.name}`}
-            actions={assignment.isActive ? <StatusBadge tone="gold">Active</StatusBadge> : <StatusBadge tone="neutral">Finished</StatusBadge>}
+            actions={<StatusBadge tone={assignment.rotationForm?.status === 'APPROVED' ? 'ok' : assignment.rotationForm?.status === 'REJECTED' ? 'bad' : assignment.rotationForm?.status === 'PENDING' ? 'warn' : 'neutral'}>{assignment.rotationForm?.status === 'APPROVED' ? 'Approved' : assignment.rotationForm?.status === 'REJECTED' ? 'Changes requested' : assignment.rotationForm?.status === 'PENDING' ? 'Awaiting review' : 'Not submitted'}</StatusBadge>}
           >
-            <div className="flex flex-col gap-4 px-4 py-4">
-              {assignment.attendance && (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Metric
-                    value={assignment.attendance.percentage}
-                    detail={`${assignment.attendance.present} of ${assignment.totalWeeks} weeks verified`}
-                    width={140}
-                  />
-                  {assignment.rotationForm?.status === 'APPROVED' ? <StatusBadge tone="ok">Rotation approved</StatusBadge> : <StatusBadge tone="warn">Four signed weeks required</StatusBadge>}
-                </div>
-              )}
-              <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {assignment.weekBreakdown.map((week) => (
-                  <li key={week.weekNumber} className="flex flex-col items-center gap-1.5 rounded-md border border-line px-2 py-3 text-center">
-                    {getWeekStatusIcon(week.status)}
-                    <span className="text-[12.5px] font-medium text-ink">
-                      {formatUTC(week.weekOf, { month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="text-[11px] text-ink-3">{getWeekStatusLabel(week.status)}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <p className="px-4 py-3 text-sm text-ink-2">
+              Four-week rotation: {formatUTC(assignment.startDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+              {' – '}{formatUTC(rotationWeekDate(assignment.startDate, assignment.totalWeeks), { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
             <RotationFormUpload assignment={assignment} onUploaded={() => void fetchData()} />
           </Panel>
         ))

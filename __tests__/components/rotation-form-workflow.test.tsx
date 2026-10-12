@@ -23,7 +23,18 @@ describe('signed rotation form workflow UI', () => {
     mocks.forms = [form]
     mocks.fetch.mockResolvedValue(Response.json({ status: 'PENDING' }))
   })
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+
+  it('keeps upload controls visible before the fourth week and explains when they become available', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-11T12:00:00Z'))
+    render(<RotationFormUpload assignment={{ ...assignment, startDate: '2026-10-17' }} onUploaded={mocks.uploaded} />)
+    expect(screen.getByLabelText('Completed four-week form')).toBeDisabled()
+    expect(screen.getByRole('checkbox')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Upload rotation form' })).toBeDisabled()
+    expect(screen.getByText(/Upload available from November 7, 2026/)).toBeInTheDocument()
+    expect(mocks.fetch).not.toHaveBeenCalled()
+  })
 
   it('requires a file and confirmation of four signed weeks, then uploads evidence for the current rotation', async () => {
     render(<RotationFormUpload assignment={assignment} onUploaded={mocks.uploaded} />)
