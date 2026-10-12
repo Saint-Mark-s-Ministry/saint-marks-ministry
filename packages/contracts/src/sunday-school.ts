@@ -468,6 +468,32 @@ export interface SundaySchoolDashboard {
   weekOf: string;
 }
 
+// SUPER_ADMIN-only view preference — see app/api/sunday-school/pinned-classes.
+export interface SundaySchoolPinnedClassesResponse {
+  classIds: string[];
+}
+
+// Lesson Scheduler — see app/api/sunday-school/lessons/schedule.
+export type SundaySchoolScheduleMode = "one-each" | "fill-year";
+
+export interface SundaySchoolSchedulePreview {
+  servants: Array<{ id: string; name: string; profileImageUrl: string | null }>;
+  emptyWeeksAvailable: number;
+}
+
+export interface SundaySchoolScheduleAssignment {
+  lessonId: string;
+  sundayDate: string;
+  servantId: string;
+  servantName: string;
+}
+
+export interface SundaySchoolScheduleResult {
+  assigned: SundaySchoolScheduleAssignment[];
+  eligibleServants: number;
+  emptyWeeksAvailable: number;
+}
+
 export type SundaySchoolRegistrationStatus =
   | "PENDING"
   | "APPROVED"

@@ -60,6 +60,13 @@
           "cameraPermission": "Used to photograph a signed confession slip."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/app-icon.png",
+          "color": "#5C1A1A"
+        }
+      ],
       "./plugins/withSceneDelegate.js"
     ],
     "experiments": {
