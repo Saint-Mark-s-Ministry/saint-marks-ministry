@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { yearLevelLabel } from "@/data/year-level";
 import { Alert, Linking, Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Button, CircleIconButton, Copy, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
@@ -16,10 +17,9 @@ import {
   type StudentAnalyticsFlat,
 } from "@/data/prep-mentor";
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 
 type Enrollment = {
-  yearLevel: string;
+  yearLevel: string | null;
   student: { id: string; name: string; email: string };
   mentor: { id: string; name: string } | null;
   fatherOfConfession: { id: string; name: string } | null;
@@ -85,7 +85,7 @@ export default function PrepMenteeDetail() {
             <View style={{ alignItems: "center", gap: 8, paddingVertical: 4 }}>
               <InitialsAvatar name={mentee.studentName} size={76} variant="neutral" />
               <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{mentee.studentName}</Copy>
-              <Copy kind="caption">{YEAR_LABELS[enrollment?.yearLevel ?? ""] ?? enrollment?.yearLevel} · your mentee</Copy>
+              <Copy kind="caption">{yearLevelLabel(enrollment?.yearLevel)} · your mentee</Copy>
               <StatusPill
                 label={riskLabel(mentee.graduationEligible)}
                 color={mentee.graduationEligible ? colors.success : colors.danger}

@@ -1,4 +1,5 @@
 import { Alert, Pressable, View } from "react-native";
+import { yearLevelLabel } from "@/data/year-level";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { MenuView } from "@expo/ui/community/menu";
 import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
@@ -16,12 +17,11 @@ import {
 } from "@/data/async-rotations";
 import { rotationRange } from "@/data/rotation-forms";
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 
 type Enrollment = {
   studentId: string;
   status: "ACTIVE" | "GRADUATED" | "WITHDRAWN";
-  yearLevel: string;
+  yearLevel: string | null;
   isAsyncStudent: boolean;
   student: { id: string; name: string };
 };
@@ -121,7 +121,7 @@ export default function PrepAsyncStudentDetail() {
                 <View style={{ alignItems: "center", gap: 8, paddingTop: 4 }}>
                   <InitialsAvatar name={enrollment.student.name} size={76} />
                   <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{enrollment.student.name}</Copy>
-                  <Copy kind="caption">{YEAR_LABELS[enrollment.yearLevel] ?? enrollment.yearLevel} · async student</Copy>
+                  <Copy kind="caption">{yearLevelLabel(enrollment.yearLevel)} · async student</Copy>
                   <View style={[styles.row, { gap: 6 }]}>
                     <StatusPill label="Async" color={colors.info} soft={colors.infoSoft} />
                     <StatusPill

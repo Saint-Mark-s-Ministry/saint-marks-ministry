@@ -10,7 +10,7 @@ import { canViewStudentRoster, eligibilityLabel, isAdminLike, searchStudents } f
 type StudentAnalytics = {
   studentId: string;
   studentName: string;
-  yearLevel: string;
+  yearLevel: string | null;
   attendancePercentage: number | null;
   examAverage: number | null;
   graduationEligible: boolean;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { yearLevelLabel } from "@/data/year-level";
 import { Alert, Modal, Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { MenuView } from "@expo/ui/community/menu";
@@ -25,7 +26,6 @@ type StudentAnalytics = { studentId: string; graduationEligible: boolean };
 type AcademicYear = { id: string; name: string; isActive: boolean };
 type UserLite = { id: string; name: string; role: string };
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 
 export default function PrepRoster() {
   const { user } = useAuth();
@@ -204,7 +204,7 @@ function RosterRow({
   onChanged: () => void;
 }) {
   const { colors } = useAppTheme();
-  const subtitle = `${YEAR_LABELS[enrollment.yearLevel] ?? enrollment.yearLevel}${
+  const subtitle = `${yearLevelLabel(enrollment.yearLevel)}${
     enrollment.status === "WITHDRAWN"
       ? " · Withdrawn"
       : enrollment.status === "GRADUATED"

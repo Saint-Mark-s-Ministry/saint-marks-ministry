@@ -13,7 +13,7 @@ export type RosterEnrollment = {
   studentId: string;
   isActive: boolean;
   status: EnrollmentStatus;
-  yearLevel: string;
+  yearLevel: string | null;
   isAsyncStudent: boolean;
   student: { id: string; name: string };
   mentor: { id: string; name: string } | null;
@@ -27,7 +27,7 @@ export function filterRosterSegment<T extends RosterEnrollment>(rows: T[], segme
   return rows;
 }
 
-export function filterRosterYear<T extends { yearLevel: string }>(rows: T[], yearLevel: string | null): T[] {
+export function filterRosterYear<T extends { yearLevel: string | null }>(rows: T[], yearLevel: string | null): T[] {
   if (!yearLevel) return rows;
   return rows.filter((r) => r.yearLevel === yearLevel);
 }

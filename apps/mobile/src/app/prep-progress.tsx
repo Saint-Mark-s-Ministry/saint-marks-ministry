@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { yearLevelLabel } from "@/data/year-level";
 import { Linking, Pressable, View } from "react-native";
 import { Stack } from "expo-router";
 import { Copy, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
@@ -96,7 +97,7 @@ export default function PrepProgress() {
                 {firstName ? `Hi, ${firstName}` : "My progress"}
               </Copy>
               <Copy kind="caption">
-                {progress.enrollment.yearLevel === "YEAR_2" ? "Year 2" : "Year 1"}
+                {yearLevelLabel(progress.enrollment.yearLevel)}
                 {confession.data?.academicYear ? ` · Servants Prep ${confession.data.academicYear.name}` : ""}
               </Copy>
             </View>

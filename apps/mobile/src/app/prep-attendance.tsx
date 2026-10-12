@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { yearLevelLabel } from "@/data/year-level";
 import { Alert, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -38,7 +39,7 @@ type LessonListItem = {
 type EnrollmentLite = {
   studentId: string;
   isActive: boolean;
-  yearLevel: string;
+  yearLevel: string | null;
   student: { id: string; name: string };
 };
 
@@ -49,7 +50,6 @@ type AttendanceRecordRow = {
   notes: string | null;
 };
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 
 const STATUS_META: { value: AttendanceStatus; label: string }[] = [
   { value: "PRESENT", label: "Present" },
@@ -420,7 +420,7 @@ function RosterRow({
   onEditNote,
 }: {
   name: string;
-  yearLevel: string;
+  yearLevel: string | null;
   mark?: { status: AttendanceStatus; notes?: string };
   canEdit: boolean;
   divider: boolean;
@@ -452,7 +452,7 @@ function RosterRow({
           {name}
         </Copy>
         <Copy kind="caption" numberOfLines={1}>
-          {YEAR_LABELS[yearLevel] ?? yearLevel}
+          {yearLevelLabel(yearLevel)}
           {mark?.notes ? ` · ${mark.notes}` : ""}
         </Copy>
       </Pressable>

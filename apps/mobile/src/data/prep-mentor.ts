@@ -22,7 +22,7 @@ export function canViewPhone(role?: string | null): boolean {
 export type MentorMentee = {
   id: string;
   studentId: string;
-  yearLevel: string;
+  yearLevel: string | null;
   status: string;
   isActive: boolean;
   student: { id: string; name: string; email: string; profileImageUrl?: string | null };

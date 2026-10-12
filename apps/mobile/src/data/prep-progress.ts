@@ -13,7 +13,7 @@ export const SECTION_MINIMUM = 60;
 
 export type ProgressAnalytics = {
   enrollment: {
-    yearLevel: "YEAR_1" | "YEAR_2";
+    yearLevel: "YEAR_1" | "YEAR_2" | null;
     isAsyncStudent: boolean;
     mentor: { id: string; name: string; email: string; phone: string | null } | null;
     fatherOfConfession: { id: string; name: string; phone: string | null; church: string | null } | null;
