@@ -60,6 +60,8 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   retry: () => Promise<void>;
+  /** Re-reads the session in place (no splash, no remount), e.g. after the user's own permissions change. */
+  refreshUser: () => Promise<void>;
 };
 const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -122,6 +124,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         loading,
         error,
         retry,
+        refreshUser: async () => {
+          if (!api) return;
+          try {
+            setUser(await api.session());
+          } catch {
+            /* Keep the current user; data requests surface connection failures. */
+          }
+        },
         signIn: async (email, password) => {
           if (!api) throw new Error("No API server configured.");
           const next = await api.signIn(email, password);
