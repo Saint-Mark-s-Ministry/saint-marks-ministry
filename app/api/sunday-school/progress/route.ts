@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     const assignments = await prisma.sundaySchoolAssignment.findMany({
       where: { studentId },
       include: {
+        class: { select: { id: true, name: true } },
         academicYear: {
           select: {
             id: true,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
           orderBy: { weekNumber: "asc" },
         },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
     })
 
     // Build per-assignment progress data
@@ -82,6 +83,7 @@ export async function GET(request: Request) {
 
       return {
         assignmentId: assignment.id,
+        class: assignment.class,
         grade: assignment.grade,
         gradeDisplayName: GRADE_DISPLAY_NAMES[assignment.grade],
         yearLevel: assignment.yearLevel,

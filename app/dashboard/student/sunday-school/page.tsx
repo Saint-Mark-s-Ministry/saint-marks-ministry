@@ -12,6 +12,7 @@ import { Panel } from '@/components/ds/panel'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { toast } from 'sonner'
+import { formatUTC } from '@/lib/utils'
 import { CheckCircle, XCircle, MinusCircle, Clock, KeyRound } from 'lucide-react'
 
 const GRADE_DISPLAY: Record<string, string> = {
@@ -32,7 +33,8 @@ interface SSWeek {
 }
 
 interface SSAssignment {
-  id: string
+  assignmentId: string
+  class: { id: string; name: string } | null
   grade: string
   yearLevel: string | null
   academicYear: { id: string; name: string }
@@ -47,7 +49,7 @@ interface SSAssignment {
     percentage: number
     met: boolean
   } | null
-  weeks: SSWeek[]
+  weekBreakdown: SSWeek[]
 }
 
 interface SSProgress {
@@ -64,18 +66,19 @@ export default function SundaySchoolPage() {
   const router = useRouter()
   const [progress, setProgress] = useState<SSProgress | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!session?.user?.id) return
+    setLoadError(false)
     try {
       const res = await fetch(`/api/sunday-school/progress?studentId=${session.user.id}`)
-      if (res.ok) {
-        setProgress(await res.json())
-      }
+      if (!res.ok) throw new Error('Failed to load serving assignment')
+      setProgress(await res.json())
     } catch {
-      toast.error('Failed to load data')
+      setLoadError(true)
     } finally {
       setLoading(false)
     }
@@ -154,16 +157,21 @@ export default function SundaySchoolPage() {
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Sunday School" meta={['Track your weekly Sunday School serving']} back={{ href: '/dashboard/student', label: 'My progress' }} />
 
-      {!progress || progress.assignments.length === 0 ? (
+      {loadError ? (
+        <Panel>
+          <EmptyState title="Could not load your serving assignment" message="Please try again." />
+          <div className="px-4 pb-4"><Button onClick={() => void fetchData()}>Try again</Button></div>
+        </Panel>
+      ) : !progress || progress.assignments.length === 0 ? (
         <Panel>
           <EmptyState title="No serving assignment yet" message="A Servants Prep servant assigns your Sunday School class. Ask them if you expected one." />
         </Panel>
       ) : (
         progress.assignments.map((assignment) => (
           <Panel
-            key={assignment.id}
+            key={assignment.assignmentId}
             title="Serving stint"
-            description={`${GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.academicYear.name}`}
+            description={`${assignment.class?.name || GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.academicYear.name}`}
             actions={assignment.isActive ? <StatusBadge tone="gold">Active</StatusBadge> : <StatusBadge tone="neutral">Finished</StatusBadge>}
           >
             <div className="flex flex-col gap-4 px-4 py-4">
@@ -178,11 +186,11 @@ export default function SundaySchoolPage() {
                 </div>
               )}
               <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                {assignment.weeks.map((week) => (
+                {assignment.weekBreakdown.map((week) => (
                   <li key={week.weekNumber} className="flex flex-col items-center gap-1.5 rounded-md border border-line px-2 py-3 text-center">
                     {getWeekStatusIcon(week.status)}
                     <span className="text-[12.5px] font-medium text-ink">
-                      {new Date(week.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {formatUTC(week.weekOf, { month: 'short', day: 'numeric' })}
                     </span>
                     <span className="text-[11px] text-ink-3">{getWeekStatusLabel(week.status)}</span>
                   </li>
@@ -197,13 +205,13 @@ export default function SundaySchoolPage() {
                   void handleSubmitCode()
                 }}
               >
-                <label htmlFor={`code-${assignment.id}`} className="text-sm font-semibold text-ink">
+                <label htmlFor={`code-${assignment.assignmentId}`} className="text-sm font-semibold text-ink">
                   Submit attendance code
                 </label>
                 <p className="text-xs text-ink-3">Enter the verification code your Sunday School servant gave you.</p>
                 <div className="flex flex-wrap gap-2">
                   <Input
-                    id={`code-${assignment.id}`}
+                    id={`code-${assignment.assignmentId}`}
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     placeholder="e.g., G2-A7X3"

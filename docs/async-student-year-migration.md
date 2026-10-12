@@ -9,6 +9,8 @@ Async students can access both curriculum years' exams and makeup exams.
 Lesson access and graduation analytics span academic years, and serving
 requirements use active rotations rather than a current cohort year. Academic
 years still identify enrollment dates, exams, lessons, and serving rotations.
+Active async students confirm their mentor contact information for the active
+academic year, including students without an original registration submission.
 The independent Sunday School ministry's academic years are unaffected.
 
 ## Migration

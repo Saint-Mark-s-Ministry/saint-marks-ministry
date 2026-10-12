@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Circle, Download, Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { mutate } from 'swr'
@@ -39,11 +39,12 @@ export default function CompleteApplicationPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!session?.user) return
-
-    fetch('/api/registration/application')
+  const loadApplication = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
+    return fetch('/api/registration/application')
       .then(async (response) => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Unable to load application')
@@ -54,9 +55,13 @@ export default function CompleteApplicationPage() {
         setAnnualMentorRequired(data.annualMentorRequired)
         setAcademicYear(data.academicYear)
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Unable to load application'))
+      .catch((error: unknown) => setLoadError(error instanceof Error ? error.message : 'Unable to load application'))
       .finally(() => setLoading(false))
-  }, [session])
+  }, [])
+
+  useEffect(() => {
+    if (session?.user?.id) void loadApplication()
+  }, [session?.user?.id, loadApplication])
 
   const uploadApprovalForm = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -134,12 +139,15 @@ export default function CompleteApplicationPage() {
 
   if (!details) {
     return (
-      <div className="mx-auto max-w-2xl p-4 md:p-8">
+      <div className="mx-auto w-full min-w-0 max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle>Application unavailable</CardTitle>
-            <CardDescription>We could not find an approved registration for this account.</CardDescription>
+            <CardDescription>{loadError ?? 'Application information is unavailable for this account.'}</CardDescription>
           </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => void loadApplication()}>Try again</Button>
+          </CardContent>
         </Card>
       </div>
     )
@@ -298,7 +306,7 @@ export default function CompleteApplicationPage() {
       <Panel title="Progress">
         <ol className="flex flex-col gap-0.5 px-4 py-3">
           {[
-            { label: 'Registration approved', done: true },
+            ...(showChurchInformation ? [{ label: 'Registration approved', done: true }] : []),
             { label: 'Mentor servant', done: Boolean(details.mentorName && details.mentorEmail && details.mentorPhone) },
             ...(showChurchInformation || details.fatherOfConfessionName ? [{ label: 'Father of confession', done: Boolean(details.fatherOfConfessionName) }] : []),
             ...(showApprovalForm || details.approvalFormUrl ? [{ label: 'Approval form', done: Boolean(details.approvalFormUrl) }] : []),

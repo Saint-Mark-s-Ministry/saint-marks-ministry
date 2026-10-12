@@ -66,6 +66,7 @@ describe('Year 2 mentor information reminder', () => {
       select: {
         id: true,
         isActive: true,
+        isAsyncStudent: true,
         yearLevel: true,
         mentorName: true,
         mentorPhone: true,
@@ -92,6 +93,25 @@ describe('Year 2 mentor information reminder', () => {
 
     await ensureAnnualMentorReminder('student-1')
 
+    expect(mocks.findAnnualInformation).not.toHaveBeenCalled()
+    expect(mocks.createReminder).not.toHaveBeenCalled()
+  })
+
+  it('requires mentor confirmation for an active async student with no cohort year', async () => {
+    mocks.findEnrollment.mockResolvedValue({
+      id: 'async-enrollment', isActive: true, isAsyncStudent: true,
+      yearLevel: null, mentorName: 'Previous Mentor', mentorPhone: '555-0100',
+    })
+    await ensureAnnualMentorReminder('async-student')
+    expect(mocks.findAnnualInformation).toHaveBeenCalledWith({
+      where: { studentId_academicYearId: { studentId: 'async-student', academicYearId: 'year-1' } },
+    })
+    expect(mocks.createReminder).toHaveBeenCalledOnce()
+  })
+
+  it('does not require confirmation for an inactive async enrollment', async () => {
+    mocks.findEnrollment.mockResolvedValue({ isActive: false, isAsyncStudent: true, yearLevel: null })
+    await ensureAnnualMentorReminder('async-student')
     expect(mocks.findAnnualInformation).not.toHaveBeenCalled()
     expect(mocks.createReminder).not.toHaveBeenCalled()
   })
