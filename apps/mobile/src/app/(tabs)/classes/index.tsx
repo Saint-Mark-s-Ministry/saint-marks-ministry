@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
-import type { SundaySchoolDashboard } from "@stmark/contracts";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
+import type { SundaySchoolDashboard, SundaySchoolPinnedClassesResponse } from "@stmark/contracts";
 import { Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
@@ -8,6 +10,7 @@ import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { groupClassesByAgeGroup } from "@/data/sunday-school-classes";
+import { filterClassesByPins } from "@/data/sunday-school-pinned-classes";
 import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
@@ -21,12 +24,22 @@ export default function Classes() {
 }
 
 function ClassesScreen() {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const access = ministryAccess(dashboard.data);
   const offline = dashboard.error === OFFLINE;
 
-  const classes = dashboard.data?.classes ?? [];
+  // SUPER_ADMIN view preference: default to their chosen "main" classes
+  // rather than every class in the ministry. Never consulted for anything
+  // but which rows render — every class here is already one this account
+  // may view and act on.
+  const pinned = useResource<SundaySchoolPinnedClassesResponse>(access.admin ? endpoint("pinned-classes") : null);
+  const pinnedClassIds = pinned.data?.classIds ?? [];
+  const [showAll, setShowAll] = useState(false);
+  const showPinnedToggle = access.admin && pinnedClassIds.length > 0;
+
+  const allClasses = dashboard.data?.classes ?? [];
+  const classes = showPinnedToggle && !showAll ? filterClassesByPins(allClasses, pinnedClassIds) : allClasses;
   const groups = groupClassesByAgeGroup(classes, dashboard.data?.ageGroups ?? []);
 
   return (
@@ -63,7 +76,8 @@ function ClassesScreen() {
             <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Classes</Copy>
             {!!dashboard.data && (
               <Copy kind="caption">
-                {dashboard.data.totals.classes} {dashboard.data.totals.classes === 1 ? "class" : "classes"} ·{" "}
+                {classes.length} {classes.length === 1 ? "class" : "classes"}
+                {showPinnedToggle && !showAll ? ` of ${dashboard.data.totals.classes}` : ""} ·{" "}
                 {dashboard.data.ageGroups.length} age {dashboard.data.ageGroups.length === 1 ? "group" : "groups"}
               </Copy>
             )}
@@ -89,6 +103,24 @@ function ClassesScreen() {
           )}
         </View>
 
+        {showPinnedToggle && (
+          <SegmentedControl
+            values={["My classes", "All classes"]}
+            selectedIndex={showAll ? 1 : 0}
+            appearance={isDark ? "dark" : "light"}
+            tintColor={colors.primary}
+            onChange={({ nativeEvent }) => setShowAll(nativeEvent.selectedSegmentIndex === 1)}
+            style={{ width: "100%", minHeight: 36 }}
+          />
+        )}
+        {access.admin && (
+          <Pressable accessibilityRole="button" onPress={() => router.push("/main-classes")}>
+            <Copy kind="caption" color={colors.primary}>
+              {pinnedClassIds.length ? "Edit my main classes" : "Choose your main classes"}
+            </Copy>
+          </Pressable>
+        )}
+
         {offline && dashboard.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
             <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
@@ -101,9 +133,11 @@ function ClassesScreen() {
 
         {dashboard.data && !classes.length && (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
-            <Copy kind="heading">No classes yet</Copy>
+            <Copy kind="heading">{showPinnedToggle && !showAll ? "None of your main classes remain" : "No classes yet"}</Copy>
             <Copy kind="caption" style={{ textAlign: "center" }}>
-              Classes assigned to this account will appear here.
+              {showPinnedToggle && !showAll
+                ? "They may have moved to a new academic year. Switch to All classes, or update your picks."
+                : "Classes assigned to this account will appear here."}
             </Copy>
           </View>
         )}

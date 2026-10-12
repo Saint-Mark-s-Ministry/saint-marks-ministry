@@ -79,10 +79,12 @@ export function lessonTitle(lesson: Pick<SundaySchoolWeeklyLesson, "title" | "st
  * no teacher is "No teacher assigned", not "Choose a lesson" as the artboard
  * says, because there is no lesson-picking step in this model.
  */
-export function lessonSubtitle(lesson: Pick<SundaySchoolWeeklyLesson, "status" | "resources">): string {
+export function lessonSubtitle(lesson: Pick<SundaySchoolWeeklyLesson, "status" | "resources" | "owner">): string {
   if (lesson.status === "UNASSIGNED") return "No teacher assigned";
-  if (lesson.status === "NEEDS_LINKS") return "No links yet";
-  return lesson.resources.map((resource) => resource.title).join(" · ");
+  const teacher = lesson.owner?.name;
+  if (lesson.status === "NEEDS_LINKS") return teacher ? `${teacher} · No links yet` : "No links yet";
+  const links = lesson.resources.map((resource) => resource.title).join(" · ");
+  return teacher ? `${teacher} · ${links}` : links;
 }
 
 export type MissingSummary = { needsLinks: number; unassigned: number };
