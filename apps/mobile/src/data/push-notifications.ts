@@ -17,33 +17,44 @@ import { Linking } from "react-native";
 import { request } from "./resources";
 import { apiOrigin } from "./auth-provider";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+try {
+  // Runs at module load, before any component renders — never let a missing
+  // native module (an old binary that predates this feature, say) take the
+  // rest of the app down with it.
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  // Nothing to do — registerForPushNotificationsAsync below will also fail
+  // closed, so this device simply won't receive native push this session.
+}
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (!Device.isDevice) return null; // Push tokens don't exist on a Simulator.
-
-  const existing = await Notifications.getPermissionsAsync();
-  let status = existing.status;
-  if (status !== "granted") {
-    status = (await Notifications.requestPermissionsAsync()).status;
-  }
-  if (status !== "granted") return null;
-
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!projectId) return null;
-
   try {
+    if (!Device.isDevice) return null; // Push tokens don't exist on a Simulator.
+
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+    if (status !== "granted") {
+      status = (await Notifications.requestPermissionsAsync()).status;
+    }
+    if (status !== "granted") return null;
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) return null;
+
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
     return data;
   } catch {
-    return null; // Offline, or the push service is unreachable right now.
+    // A native module failed to link, there's no connectivity, or the push
+    // service is unreachable right now — a servant without notifications
+    // still uses everything else, so this must never surface as an error.
+    return null;
   }
 }
 
@@ -84,10 +95,14 @@ export function usePushNotificationRegistration(userId: string | undefined) {
   }, [userId]);
 
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { url?: string } | undefined;
-      openNotificationTarget(data?.url);
-    });
-    return () => subscription.remove();
+    try {
+      const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as { url?: string } | undefined;
+        openNotificationTarget(data?.url);
+      });
+      return () => subscription.remove();
+    } catch {
+      return undefined;
+    }
   }, []);
 }
