@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { SundaySchoolServantAttendanceStatus } from "@prisma/client"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id: classId },
-      select: { id: true, academicYearId: true },
+      select: { id: true, academicYearId: true, name: true },
     })
     if (!sundaySchoolClass) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -96,6 +97,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const savedAt = new Date()
+
     const result = await prisma.$transaction(async tx => {
       const session = await tx.sundaySchoolSession.upsert({
         where: { classId_date: { classId, date: sessionDate } },
@@ -123,8 +126,9 @@ export async function POST(request: Request) {
             servantId: record.servantId,
             status: record.status,
             recordedBy: user.id,
+            updatedAt: savedAt,
           },
-          update: { status: record.status, recordedBy: user.id },
+          update: { status: record.status, recordedBy: user.id, updatedAt: savedAt },
         })
       }
 
@@ -135,7 +139,11 @@ export async function POST(request: Request) {
       }
     })
 
-    return NextResponse.json({ success: true, ...result })
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_servants.save',
+      entityType: 'SundaySchoolSession', entityId: result.sessionId, targetName: sundaySchoolClass.name,
+      attendanceDate: sessionDate, personIds: servantIds })
+
+    return NextResponse.json({ success: true, ...result, lastSavedBy: { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } })
   } catch (error: unknown) {
     return handleApiError(error)
   }

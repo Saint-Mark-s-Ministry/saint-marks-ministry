@@ -1,3 +1,4 @@
+import type { AttendanceSaveInfo } from '@/lib/attendance-save-info'
 import {
   AttendanceStatus,
   SundaySchoolAuthority,
@@ -324,6 +325,7 @@ export interface SundaySchoolRosterEntry {
 }
 
 export interface SundaySchoolSessionAttendance {
+  lastSavedBy?: AttendanceSaveInfo | null
   // null while a date has no recorded session yet — the roster is shown
   // unmarked and the session row is created on the first save
   session: SundaySchoolSession | null
@@ -346,6 +348,7 @@ export interface SundaySchoolServantAttendanceRosterEntry {
 }
 
 export interface SundaySchoolServantAttendanceResponse {
+  lastSavedBy?: AttendanceSaveInfo | null
   class: SundaySchoolClassRef & { academicYearId: string }
   session: SundaySchoolSession | null
   roster: SundaySchoolServantAttendanceRosterEntry[]

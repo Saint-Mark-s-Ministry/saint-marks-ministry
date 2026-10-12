@@ -37,6 +37,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('attendance recovery and autosave', () => {
+  it('uses confirmed recorder metadata and clears it when the week changes', async () => {
+    const info = { savedAt: '2026-10-10T12:30:00Z', recorder: { id: 'user', name: 'Mina Mark' } }
+    const original = fetcher.getMockImplementation()!
+    fetcher.mockImplementation(async (url, init) => url === '/api/sunday-school/attendance/batch'
+      ? response({ success: true, lastSavedBy: info }) : original(url, init))
+    const { result, rerender } = setup()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.mark('child', AttendanceStatus.PRESENT))
+    await act(async () => { await result.current.save(false) })
+    expect(result.current.attendance?.lastSavedBy).toEqual(info)
+    rerender({ user: 'user', cls: 'class', date: '2026-10-03', edit: true })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.attendance?.lastSavedBy).toBeUndefined()
+  })
+
   it('persists every tap synchronously, autosaves only marked children, and clears only acknowledged marks', async () => {
     const { result } = setup()
     await waitFor(() => expect(result.current.loading).toBe(false))

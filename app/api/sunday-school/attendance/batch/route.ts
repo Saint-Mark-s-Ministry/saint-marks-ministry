@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
+      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true, name: true } } },
     })
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
@@ -108,9 +109,11 @@ export async function POST(request: Request) {
         notes: r.notes?.trim() || null,
       }))
 
+    const savedAt = new Date()
+
     await prisma.$transaction(async (tx) => {
       if (toCreate.length > 0) {
-        await tx.sundaySchoolChildAttendance.createMany({ data: toCreate })
+        await tx.sundaySchoolChildAttendance.createMany({ data: toCreate.map(record => ({ ...record, updatedAt: savedAt })) })
       }
 
       // Group status-only updates (the common case) into one query per status
@@ -130,14 +133,14 @@ export async function POST(request: Request) {
       for (const [status, ids] of statusGroups) {
         await tx.sundaySchoolChildAttendance.updateMany({
           where: { id: { in: ids } },
-          data: { status, notes: null, recordedBy: user.id },
+          data: { status, notes: null, recordedBy: user.id, updatedAt: savedAt },
         })
       }
 
       for (const update of noteUpdates) {
         await tx.sundaySchoolChildAttendance.update({
           where: { id: update.id },
-          data: { status: update.status, notes: update.notes, recordedBy: user.id },
+          data: { status: update.status, notes: update.notes, recordedBy: user.id, updatedAt: savedAt },
         })
       }
 
@@ -148,10 +151,15 @@ export async function POST(request: Request) {
       })
     })
 
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_children.save',
+      entityType: 'SundaySchoolSession', entityId: sessionId, targetName: session.class.name,
+      attendanceDate: session.date, personIds: childIds })
+
     return NextResponse.json({
       success: true,
       created: toCreate.length,
       updated: toUpdate.length,
+      lastSavedBy: records.length ? { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } : null,
     })
   } catch (error: unknown) {
     console.error("Sunday School batch attendance save error:", error)

@@ -95,7 +95,7 @@ export default function ActivityPage() {
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Activity log"
-        meta={['Security and administrative activity recorded across the website']}
+        meta={['Security, administrative, and attendance activity recorded across the website']}
         actions={
           <Button variant="outline" onClick={() => void loadEvents()}>
             <RefreshCw />
@@ -162,6 +162,8 @@ export default function ActivityPage() {
                       <span className="truncate text-[13px] text-ink">{auditActionSummary(event)}</span>
                       <span className="truncate text-xs text-ink-3">
                         {auditEntityLabel(event.entityType)} · {auditTargetLabel(event)}
+                        {event.action.startsWith('attendance.') && event.metadata && typeof event.metadata === 'object' && 'attendanceDate' in event.metadata
+                          ? ` · ${String(event.metadata.attendanceDate)}` : ''}
                       </span>
                     </span>
                     <span className="order-2 justify-self-end md:order-none md:justify-self-start">
@@ -182,7 +184,7 @@ export default function ActivityPage() {
               items={[
                 { label: 'Result', value: <StatusBadge tone={RESULT_META[selected.result].tone}>{RESULT_META[selected.result].label}</StatusBadge> },
                 { label: 'User', value: selected.actor ? `${selected.actor.name ?? ''}${selected.actor.name ? ' · ' : ''}${selected.actor.email}` : 'System' },
-                { label: 'When', value: new Date(selected.createdAt).toLocaleString() },
+                { label: selected.action.startsWith('attendance.') ? 'Last saved' : 'When', value: new Date(selected.createdAt).toLocaleString() },
                 { label: 'Affected record', value: `${auditEntityLabel(selected.entityType)} · ${auditTargetLabel(selected)}` },
                 ...(auditReasonLabel(selected.reason) ? [{ label: 'Explanation', value: auditReasonLabel(selected.reason) }] : []),
                 ...(selected.entityId ? [{ label: 'Record ID', value: <span className="font-mono text-xs break-all">{selected.entityId}</span> }] : []),

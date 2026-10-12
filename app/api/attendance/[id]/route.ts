@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -83,7 +84,7 @@ export async function PATCH(
 
     const updatedRecord = await prisma.attendanceRecord.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, recordedBy: user.id },
       include: {
         student: {
           select: {
@@ -93,6 +94,10 @@ export async function PATCH(
         }
       }
     })
+
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.prep.save',
+      entityType: 'Lesson', entityId: record.lessonId, targetName: record.lesson.title,
+      attendanceDate: record.lesson.scheduledDate, personIds: [record.studentId] })
 
     return NextResponse.json(updatedRecord)
   } catch (error: unknown) {

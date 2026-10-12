@@ -1,5 +1,8 @@
 'use client'
 
+import { latestAttendanceSave, type AttendanceSaveInfo } from '@/lib/attendance-save-info'
+import { AttendanceSavedBy } from '@/components/attendance-saved-by'
+
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Button } from '@/components/ui/button'
@@ -57,6 +60,8 @@ interface Student {
 }
 
 interface AttendanceRecord {
+  updatedAt?: string
+  recorder?: AttendanceSaveInfo['recorder']
   studentId: string
   status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string
@@ -67,6 +72,7 @@ interface AttendanceRecord {
 
 export default function AttendancePage() {
   const { session, status } = useAdminGuard(isAdmin)
+  const [savedByLesson, setSavedByLesson] = useState<{ lessonId: string; info: AttendanceSaveInfo | null } | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -181,6 +187,7 @@ export default function AttendancePage() {
           fetch(`/api/expected-absences?lessonId=${selectedLesson.id}`),
         ])
         const records = await attRes.json()
+        setSavedByLesson({ lessonId: selectedLesson.id, info: latestAttendanceSave(records) })
 
         // Build a map of expected absences covering this lesson, keyed by student
         const eaMap = new Map<string, { id: string; reason: string; markAsNA: boolean }>()
@@ -534,6 +541,7 @@ export default function AttendancePage() {
                 <span className="truncate text-[15px] font-semibold text-ink">
                   Lesson {selectedLesson.lessonNumber} · {selectedLesson.title}
                 </span>
+                <AttendanceSavedBy info={savedByLesson?.lessonId === selectedLesson.id ? savedByLesson.info : undefined} />
                 {selectedLesson.speaker && <span className="text-[13px] text-ink-2">{selectedLesson.speaker}</span>}
               </div>
               <span className="tabular text-[13px] text-ink-2">

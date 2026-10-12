@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -218,12 +219,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const savedAt = new Date()
+
     // Execute batch operations in a transaction
     await prisma.$transaction(async (tx) => {
       // Batch create new records
       if (toCreate.length > 0) {
         await tx.attendanceRecord.createMany({
-          data: toCreate
+          data: toCreate.map(record => ({ ...record, updatedAt: savedAt }))
         })
       }
 
@@ -257,7 +260,7 @@ export async function POST(request: Request) {
           if (groupedRecords.length > 0) {
             await tx.attendanceRecord.updateMany({
               where: { id: { in: groupedRecords.map(r => r.id) } },
-              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null, expectedAbsenceNA: false }
+              data: { recordedBy: user.id, updatedAt: savedAt, status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null, expectedAbsenceNA: false }
             })
           }
         }
@@ -267,6 +270,8 @@ export async function POST(request: Request) {
           await tx.attendanceRecord.update({
             where: { id: update.id },
             data: {
+              recordedBy: user.id,
+              updatedAt: savedAt,
               status: update.status,
               arrivedAt: update.arrivedAt,
               notes: update.notes,
@@ -280,6 +285,10 @@ export async function POST(request: Request) {
         }
       }
     })
+
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.prep.save',
+      entityType: 'Lesson', entityId: lessonId, targetName: lesson.title,
+      attendanceDate: lesson.scheduledDate, personIds: records.map(r => r.studentId) })
 
     // Send notifications to mentors (non-blocking)
     const studentIds = records.map((r: AttendanceRecord) => r.studentId)
@@ -319,7 +328,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       created: toCreate.length,
-      updated: toUpdate.length
+      updated: toUpdate.length,
+      lastSavedBy: records.length ? { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } : null,
     })
   } catch (error: unknown) {
     console.error('Batch attendance save error:', error)

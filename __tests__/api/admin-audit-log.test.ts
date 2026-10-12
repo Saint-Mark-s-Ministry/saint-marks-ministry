@@ -56,9 +56,8 @@ describe('admin audit log API', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      skip: 20,
-      take: 20,
-      orderBy: { createdAt: 'desc' },
+      take: 40,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       where: expect.objectContaining({ result: 'DENIED', OR: expect.any(Array) }),
     }))
     expect(mocks.findUsers).toHaveBeenCalledWith(expect.objectContaining({
@@ -68,7 +67,7 @@ describe('admin audit log API', () => {
   })
 
   it('adds a readable target for user activity', async () => {
-    mocks.findMany.mockResolvedValue([
+    mocks.findMany.mockResolvedValueOnce([
       {
         id: 'event-1',
         actorUserId: 'admin-1',
@@ -117,4 +116,22 @@ describe('admin audit log API', () => {
       }),
     })
   })
+  it('bundles attendance before pagination and reports the grouped total', async () => {
+    const attendance = (id: string, time: string, personIds: string[]) => ({
+      id, actorUserId: 'admin-1', action: 'attendance.prep.save', entityType: 'Lesson',
+      entityId: 'lesson-1', result: 'SUCCESS', reason: null,
+      metadata: { personIds, targetName: 'Lesson one' }, createdAt: new Date(time), actor: null,
+    })
+    mocks.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      attendance('new', '2026-09-23T11:05:00Z', ['a']),
+      attendance('old', '2026-09-23T11:03:00Z', ['b']),
+    ])
+    const response = await GET(new Request('http://localhost/api/admin/audit-log?pageSize=1'))
+    const body = await response.json()
+    expect(body.total).toBe(1)
+    expect(body.totalPages).toBe(1)
+    expect(body.events).toHaveLength(1)
+    expect(body.events[0].metadata).toMatchObject({ personCount: 2, saveCount: 2 })
+  })
+
 })
