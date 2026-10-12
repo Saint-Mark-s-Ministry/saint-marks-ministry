@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { ROTATION_LEVELS } from '@/lib/rotation-forms'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -92,7 +93,7 @@ interface SSAssignment {
   grade: SundaySchoolGrade
   /** The Sunday School class served in; older rotations have only a grade. */
   classId?: string | null
-  class?: { id: string; name: string } | null
+  class?: { id: string; name: string; level?: string } | null
   academicYearId: string
   academicYear?: { id: string; name: string }
   startDate: string
@@ -177,6 +178,23 @@ export function SundaySchoolPanel({ canManage, canManageAttendance, readOnly: _r
 
 function AssignmentsTab({ canManage }: { canManage: boolean }) {
   const [assignments, setAssignments] = useState<SSAssignment[]>([])
+  const [sortBy, setSortBy] = useState('name')
+  const sortedAssignments = useMemo(() => {
+    const gradeRank = (assignment: SSAssignment) => {
+      const rank = ROTATION_LEVELS.findIndex(level => level === (assignment.class?.level ?? assignment.grade))
+      if (rank >= 0) return rank
+      return !assignment.class?.level && assignment.grade === 'GRADE_6_PLUS' ? 7 : Number.MAX_SAFE_INTEGER
+    }
+    return [...assignments].sort((a, b) => {
+      if (sortBy === 'grade') {
+        const gradeOrder = gradeRank(a) - gradeRank(b)
+        if (gradeOrder) return gradeOrder
+      }
+      return a.student.name.localeCompare(b.student.name, 'en', { sensitivity: 'base', numeric: true })
+        || Number(b.isActive) - Number(a.isActive)
+        || rotationPlace(a).localeCompare(rotationPlace(b), 'en', { numeric: true })
+    })
+  }, [assignments, sortBy])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAssignment, setEditingAssignment] = useState<SSAssignment | null>(null)
@@ -361,7 +379,17 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
             <CardTitle className="text-lg">
               SS Assignments ({assignments.length})
             </CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="assignment-sort">Sort by</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger id="assignment-sort" className="w-[210px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Student name (A–Z)</SelectItem>
+                  <SelectItem value="grade">Grade (Pre-K to 8th)</SelectItem>
+                </SelectContent>
+              </Select>
               <Button variant="outline" size="sm" onClick={fetchAssignments} className="gap-1">
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Refresh</span>
@@ -398,7 +426,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {assignments.map((a) => {
+                    {sortedAssignments.map((a) => {
                       return (
                         <tr key={a.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
                           <td className="p-3">
@@ -453,7 +481,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
 
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
-                {assignments.map((a) => {
+                {sortedAssignments.map((a) => {
                   return (
                     <Card key={a.id}>
                       <CardContent className="p-3">
