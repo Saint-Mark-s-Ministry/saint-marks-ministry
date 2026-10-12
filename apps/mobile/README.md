@@ -1,11 +1,29 @@
 # St. Mark Portal — native app
 
 Expo / React Native for iOS and Android, in the same repository as the Next.js
-website. This milestone covers the Sunday School experience across servant,
-coordinator, priest, and administrator roles: sign-in and password changes,
-classes and staffing, children and families, lessons and resources, child and
-servant attendance, reports, visitations, feedback, notifications, application
-queues, organization settings, people, and audit activity.
+website. The app covers both Servants Prep and Sunday School with role-aware
+navigation and a ministry switcher, using the same accounts and API as the web
+portal. The current App Store release targets iPhone (`supportsTablet: false`);
+Android development and JavaScript bundle export are also configured.
+
+## Supported workflows
+
+- **Sunday School:** classes and staffing, children and families, lessons and
+  resources, child and servant attendance, reports, visitations, feedback,
+  birthdays, Elementary homework, parent child registration, application queues,
+  organization settings, people, and audit activity.
+- **Servants Prep:** student lessons, attendance, exams, progress, files,
+  confession slips, serving rotations and signed-form uploads, assigned class
+  lessons, mentor/mentee views, enrollment and registration review, async student
+  review, and annual mentor confirmation through Application. Async students
+  without a cohort year are shown as “No cohort year”.
+- **Shared:** sign-in and password changes, Contact Book with individually
+  granted access and ministry roles, notifications, Super Admin main-class
+  pinning, read-only View As, and password-confirmed account deletion.
+- **Lesson Scheduler:** lesson scheduling and reminders with native Expo push.
+
+See [`../../docs/ios-release.md`](../../docs/ios-release.md) for TestFlight and
+App Store setup, compliance details, and the server-first rollout.
 
 ## Connect to the local database
 
@@ -66,11 +84,19 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   server. Priests can read attendance but cannot save it. Forced and voluntary
   password changes are completed in the native app.
 - Sunday School data and permission-aware administration screens load from the
-  existing API. Pull to refresh. Notifications here are in-app records; native
-  push delivery is a later milestone.
+  existing API. Pull to refresh. In-app notifications and native Expo push are
+  implemented. Push registration requires permission, a physical device, and an
+  EAS project ID with platform push credentials; simulators do not register tokens.
+  Push tokens are removed on sign-out and account deletion.
 - Attendance loads the selected class/date, preserving all four statuses and
   existing notes. A session is created only on save. Save waits for confirmation
   and reloads the saved roster. Failed saves leave the draft available to retry.
+- Account deletion uses `POST /api/account/delete` and the existing admin
+  deletion protections. Super Admins cannot delete their own account; accounts
+  holding protected records are directed to an administrator. Delete account is
+  hidden during View As.
+- Privacy Policy and Terms are reachable on Sign in and public sign-up screens;
+  Forgot password opens the existing web reset flow.
 - Draft attendance is memory-only and clears on sign-out/reload. There is no
   offline write queue. A lost connection shows an error and retry action.
 - Glass is limited to navigation and selected controls. Content uses opaque
@@ -114,10 +140,11 @@ remove it once upstream supports the same behavior.
 - `packages/domain`: platform-independent class/date helpers.
 - The root Next.js app remains the server and web application.
 
-Google sign-in, offline sync, Servants Prep screens, profile-photo upload, and
-native push delivery are not implemented. Physical-device and full accessibility
-testing remain before release; the current iOS build has been exercised on an
-iPhone 18 Pro simulator running iOS 27.
+Google sign-in, offline sync, and profile-photo upload from settings are not
+implemented. Physical-device and full accessibility testing remain before
+release. Earlier screens and fresh signed-out launch were checked on an iPhone
+18 Pro simulator; the consolidated app still needs a full TestFlight pass for
+every role, including the newer screens.
 
 `org.stmark.ministryportal` is a provisional bundle identifier. EAS configuration
 is not linked to an account/project. Confirm naming, signing, store accounts,
