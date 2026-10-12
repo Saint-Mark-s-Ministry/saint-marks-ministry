@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../apps/mobile/src/data/api-client";
 import {
+  CONTACT_BOOK_PAGE_SIZE,
+  CONTACT_BOOK_PATH,
   canSeeContactBook,
-  contactBookPath,
   contactBookReducer,
   dialablePhone,
+  filterContacts,
   initialContactBookState,
   isContactBookDeniedLocally,
   mailUrl,
   pageCount,
   pageSummary,
+  paginateContacts,
+  roleSummary,
   smsUrl,
+  sortContacts,
   telUrl,
+  type ContactBookEntry,
   type ContactBookResponse,
 } from "../../apps/mobile/src/data/contact-book";
 import {
@@ -27,8 +33,6 @@ const page = (overrides: Partial<ContactBookResponse> = {}): ContactBookResponse
     { id: "u2", name: "Ben Botros", email: "ben@example.com", phone: null },
   ],
   total: 2,
-  page: 1,
-  pageSize: 50,
   ...overrides,
 });
 
@@ -52,23 +56,64 @@ describe("canSeeContactBook (menu visibility only)", () => {
   });
 });
 
-describe("request building and paging", () => {
-  it("asks for page 1 with no search by default, and trims the search term", () => {
-    expect(contactBookPath("", 1)).toBe("/api/contact-book?page=1");
-    expect(contactBookPath("  ava ", 3)).toBe("/api/contact-book?search=ava&page=3");
+describe("directory search, order and paging (the server returns everyone at once)", () => {
+  const person = (n: number, overrides: Partial<ContactBookEntry> = {}): ContactBookEntry => ({
+    id: `u${String(n).padStart(3, "0")}`,
+    name: `Person ${String(n).padStart(3, "0")}`,
+    email: `person${n}@example.com`,
+    phone: n % 3 === 0 ? null : `(555) 010-${String(n).padStart(4, "0")}`,
+    ...overrides,
+  });
+  const everyone = Array.from({ length: 120 }, (_, i) => person(i + 1));
+
+  it("asks for the whole directory with no search or page parameters", () => {
+    expect(CONTACT_BOOK_PATH).toBe("/api/contact-book");
   });
 
-  it("encodes the term and never sends a page below 1", () => {
-    expect(contactBookPath("a&b=c", 0)).toBe("/api/contact-book?search=a%26b%3Dc&page=1");
+  it("matches name, email, or phone, ignoring case and surrounding spaces (happy path)", () => {
+    const list = [
+      person(1, { name: "Ava Adel", email: "ava@example.com", phone: "(555) 010-2000" }),
+      person(2, { name: "Ben Botros", email: "BEN@Church.org", phone: null }),
+    ];
+    expect(filterContacts(list, " ava ").map((c) => c.id)).toEqual(["u001"]);
+    expect(filterContacts(list, "church.ORG").map((c) => c.id)).toEqual(["u002"]);
+    expect(filterContacts(list, "010-2000").map((c) => c.id)).toEqual(["u001"]);
+    expect(filterContacts(list, "zzzz")).toEqual([]);
+    expect(filterContacts(list, "   ")).toHaveLength(2);
   });
 
-  it("derives page counts and summaries from the 50-per-page response", () => {
+  it("orders alphabetically by name, then id, regardless of server order", () => {
+    const list = [person(3, { name: "zed" }), person(1, { name: "Amy" }), person(2, { name: "amy" })];
+    expect(sortContacts(list).map((c) => c.id)).toEqual(["u001", "u002", "u003"]);
+    expect(list.map((c) => c.id)).toEqual(["u003", "u001", "u002"]);
+  });
+
+  it("pages 50 at a time and clamps a stale page when the list shrinks (highest-risk path)", () => {
+    const first = paginateContacts(everyone, 1);
+    expect(CONTACT_BOOK_PAGE_SIZE).toBe(50);
+    expect(first.items).toHaveLength(50);
+    expect(first.pages).toBe(3);
+    expect(paginateContacts(everyone, 3).items).toHaveLength(20);
+    // Page 3 was showing; a search leaves one page of results.
+    const narrowed = paginateContacts(everyone.slice(0, 10), 3);
+    expect(narrowed.page).toBe(1);
+    expect(narrowed.items).toHaveLength(10);
+    expect(paginateContacts([], 5)).toMatchObject({ page: 1, pages: 1, total: 0, items: [] });
+  });
+
+  it("summarizes the visible range", () => {
     expect(pageCount(0, 50)).toBe(1);
-    expect(pageCount(50, 50)).toBe(1);
     expect(pageCount(51, 50)).toBe(2);
     expect(pageSummary(321, 7, 50)).toBe("301–321 of 321");
     expect(pageSummary(321, 1, 50)).toBe("1–50 of 321");
     expect(pageSummary(0, 1, 50)).toBe("No contacts");
+  });
+
+  it("names ministry roles, skipping any it doesn't know", () => {
+    expect(roleSummary(["MENTOR", "PRIEST"])).toBe("Mentor · Priest");
+    expect(roleSummary(["SOMETHING_NEW", "PARENT"])).toBe("Parent");
+    expect(roleSummary([])).toBeNull();
+    expect(roleSummary(undefined)).toBeNull();
   });
 });
 
@@ -93,17 +138,16 @@ describe("native contact actions", () => {
 });
 
 describe("contact book state", () => {
-  it("shows the first page, then replaces it with the next (happy path)", () => {
+  it("holds the whole directory, and a refresh replaces it (happy path)", () => {
     let state = initialContactBookState("me");
     state = contactBookReducer(state, { type: "loaded", identity: "me", response: page() });
-    expect(state).toMatchObject({ status: "ready", total: 2, page: 1, stale: false });
+    expect(state).toMatchObject({ status: "ready", total: 2, stale: false });
     state = contactBookReducer(state, {
       type: "loaded",
       identity: "me",
-      response: page({ page: 2, contacts: [{ id: "u3", name: "Cy", email: "cy@example.com", phone: null }], total: 51 }),
+      response: page({ contacts: [{ id: "u3", name: "Cy", email: "cy@example.com", phone: null }], total: 1 }),
     });
     expect(state.contacts.map((c) => c.id)).toEqual(["u3"]);
-    expect(state.page).toBe(2);
   });
 
   it("clears displayed contacts the moment access is revoked (highest-risk path)", () => {

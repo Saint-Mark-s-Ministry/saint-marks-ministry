@@ -1,14 +1,19 @@
+import { useMemo, useState } from "react";
 import { Alert, Linking, TextInput, View } from "react-native";
 import { Stack } from "expo-router";
 import { Button, CircleIconButton, Copy, CopyableValue, ListSurface, Screen } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import {
+  CONTACT_BOOK_PAGE_SIZE,
+  filterContacts,
   isContactBookDeniedLocally,
   mailUrl,
-  pageCount,
   pageSummary,
+  paginateContacts,
+  roleSummary,
   smsUrl,
+  sortContacts,
   telUrl,
   type ContactBookEntry,
 } from "@/data/contact-book";
@@ -35,7 +40,13 @@ export default function ContactBook() {
   const locallyDenied = isContactBookDeniedLocally(user?.role);
   const book = useContactBook(identity, !!user && !locallyDenied);
   const { state } = book;
-  const pages = pageCount(state.total, state.pageSize);
+  const [search, setSearch] = useState("");
+  const [requestedPage, setRequestedPage] = useState(1);
+  const term = search.trim();
+  // The server sends the whole directory; search, order and paging happen here.
+  const sorted = useMemo(() => sortContacts(state.contacts), [state.contacts]);
+  const matches = useMemo(() => filterContacts(sorted, term), [sorted, term]);
+  const view = paginateContacts(matches, requestedPage, CONTACT_BOOK_PAGE_SIZE);
   const denied = locallyDenied || state.status === "denied";
   const offline = state.message === OFFLINE;
 
@@ -79,8 +90,11 @@ export default function ContactBook() {
             <TextInput
               accessibilityLabel="Search contacts"
               accessibilityHint="Searches names, emails, and phone numbers"
-              value={book.search}
-              onChangeText={book.setSearch}
+              value={search}
+              onChangeText={(value) => {
+                setSearch(value);
+                setRequestedPage(1);
+              }}
               placeholder="Name, email, or phone"
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
@@ -119,49 +133,47 @@ export default function ContactBook() {
           />
         )}
 
-        {!denied && state.status === "ready" && !state.contacts.length && (
+        {!denied && state.status === "ready" && !matches.length && (
           <ListSurface style={{ padding: 16 }}>
-            <Copy>
-              {book.term ? `No contacts match “${book.term}”.` : "No contacts yet."}
-            </Copy>
+            <Copy>{term ? `No contacts match “${term}”.` : "No contacts yet."}</Copy>
           </ListSurface>
         )}
 
-        {!denied && state.status === "ready" && state.contacts.length > 0 && (
+        {!denied && state.status === "ready" && matches.length > 0 && (
           <>
-            <Copy kind="caption" accessibilityLabel={`Showing ${pageSummary(state.total, state.page, state.pageSize)}`}>
-              {pageSummary(state.total, state.page, state.pageSize)}
+            <Copy kind="caption" accessibilityLabel={`Showing ${pageSummary(view.total, view.page, CONTACT_BOOK_PAGE_SIZE)}`}>
+              {pageSummary(view.total, view.page, CONTACT_BOOK_PAGE_SIZE)}
             </Copy>
             <ListSurface>
-              {state.contacts.map((contact, index) => (
+              {view.items.map((contact, index) => (
                 <View key={contact.id}>
                   <ContactRow contact={contact} />
-                  {index < state.contacts.length - 1 && (
+                  {index < view.items.length - 1 && (
                     <View style={{ height: 0.5, backgroundColor: colors.border }} />
                   )}
                 </View>
               ))}
             </ListSurface>
-            {pages > 1 && (
+            {view.pages > 1 && (
               <View style={{ gap: 10 }}>
                 <Copy kind="caption" style={{ textAlign: "center" }}>
-                  Page {state.page} of {pages}
+                  Page {view.page} of {view.pages}
                 </Copy>
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Button
                       secondary
                       label="Previous"
-                      disabled={state.page <= 1}
-                      onPress={() => book.goToPage(state.page - 1)}
+                      disabled={view.page <= 1}
+                      onPress={() => setRequestedPage(view.page - 1)}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Button
                       secondary
                       label="Next"
-                      disabled={state.page >= pages}
-                      onPress={() => book.goToPage(state.page + 1)}
+                      disabled={view.page >= view.pages}
+                      onPress={() => setRequestedPage(view.page + 1)}
                     />
                   </View>
                 </View>
@@ -181,6 +193,7 @@ function ContactRow({ contact }: { contact: ContactBookEntry }) {
   return (
     <View style={{ padding: 16, gap: 8 }}>
       <Copy style={{ fontWeight: "600", fontSize: 17 }}>{contact.name}</Copy>
+      {roleSummary(contact.roles) && <Copy kind="caption">{roleSummary(contact.roles)}</Copy>}
       <CopyableValue label="Email" value={contact.email} kind="caption" />
       {contact.phone ? (
         <CopyableValue label="Phone" value={contact.phone} kind="caption" />
