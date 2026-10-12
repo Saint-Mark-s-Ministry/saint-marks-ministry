@@ -6,7 +6,8 @@ import { toast } from 'sonner'
 import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ROTATION_FORM_FILE_TYPES, ROTATION_FORM_MAX_BYTES, rotationCanSubmit } from '@/lib/rotation-forms'
+import { ROTATION_FORM_FILE_TYPES, ROTATION_FORM_MAX_BYTES, ROTATION_WEEKS, rotationCanSubmit, rotationWeekDate } from '@/lib/rotation-forms'
+import { formatUTC } from '@/lib/utils'
 import type { RotationFormSummary } from '@/types/rotation-forms'
 
 export function RotationFormUpload({ assignment, onUploaded }: {
@@ -54,16 +55,17 @@ export function RotationFormUpload({ assignment, onUploaded }: {
       {assignment.isActive && form?.status !== 'APPROVED' && <>
         <p className="text-sm text-ink-2">Complete all four weeks and have each week signed. Upload one photo or PDF of the completed form. Approval moves you to the next grade.</p>
         <Button asChild variant="outline" size="sm"><Link href="/dashboard/student/attendance-slip">Print rotation form</Link></Button>
-        {!eligible ? <p className="text-sm text-ink-3">Complete all four weeks and collect all four signatures before uploading your form.</p> : <form onSubmit={upload} className="space-y-3">
+        {!eligible && <p className="text-sm text-ink-3">Upload available from {formatUTC(rotationWeekDate(assignment.startDate, ROTATION_WEEKS), { month: 'long', day: 'numeric', year: 'numeric' })}, after you complete all four weeks and collect all four signatures.</p>}
+        <form onSubmit={upload} className="space-y-3">
           <label htmlFor={`rotation-form-${assignment.assignmentId}`} className="block text-sm font-medium">Completed four-week form</label>
-          <Input id={`rotation-form-${assignment.assignmentId}`} type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" disabled={uploading} onChange={event => setFile(event.target.files?.[0] ?? null)} />
+          <Input id={`rotation-form-${assignment.assignmentId}`} type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" disabled={!eligible || uploading} onChange={event => setFile(event.target.files?.[0] ?? null)} />
           <p className="text-xs text-ink-3">Photo or PDF, maximum 4.5 MB.</p>
           <label className="flex items-start gap-2 text-sm text-ink-2">
-            <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={uploading} className="mt-1" />
+            <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={!eligible || uploading} className="mt-1" />
             I completed all four weeks and each week is signed on this form.
           </label>
-          <Button type="submit" disabled={!file || !confirmed || uploading}><Upload />{uploading ? 'Uploading…' : form ? 'Replace rotation form' : 'Upload rotation form'}</Button>
-        </form>}
+          <Button type="submit" disabled={!eligible || !file || !confirmed || uploading}><Upload />{uploading ? 'Uploading…' : form ? 'Replace rotation form' : 'Upload rotation form'}</Button>
+        </form>
       </>}
     </div>
   )

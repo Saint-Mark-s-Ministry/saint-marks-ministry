@@ -44,12 +44,12 @@ describe('Async student Sunday School page', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('renders the real progress response when viewing as a student, including the assigned class and weeks', async () => {
+  it('renders the real progress response when viewing as a student, with one form status for the assigned rotation', async () => {
     render(<SundaySchoolPage />)
     expect(await screen.findByText('Third Grade Girls · 2026-2027')).toBeInTheDocument()
-    expect(screen.getByText('Verified')).toBeInTheDocument()
-    expect(screen.getAllByText('Not submitted')).toHaveLength(3)
-    expect(screen.getByText('Sep 6')).toBeInTheDocument()
+    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Not submitted')).toHaveLength(1)
+    expect(screen.getByText('Four-week rotation: Sep 6, 2026 – Sep 27, 2026')).toBeInTheDocument()
     expect(screen.getByLabelText('Completed four-week form')).toHaveAttribute('id', 'rotation-form-assignment-1')
     expect(screen.queryByLabelText('Submit attendance code')).not.toBeInTheDocument()
     expect(mocks.assignments).toHaveBeenCalledWith(expect.objectContaining({
@@ -63,7 +63,7 @@ describe('Async student Sunday School page', () => {
     mocks.assignments.mockResolvedValue([assignment(false, null)])
     render(<SundaySchoolPage />)
     expect(await screen.findByText('3rd Grade · 2026-2027')).toBeInTheDocument()
-    expect(screen.getByText('Finished')).toBeInTheDocument()
+    expect(screen.getByText('Past rotation')).toBeInTheDocument()
     expect(screen.queryByLabelText('Submit attendance code')).not.toBeInTheDocument()
   })
 
