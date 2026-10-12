@@ -1,6 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { useFocusEffect } from "expo-router";
 import { api } from "./auth-provider";
+import { isAuthorizationRevoked } from "./api-client";
 
 export const endpoint = (area: string, id?: string) =>
   `/api/sunday-school/${area}${id ? `/${encodeURIComponent(id)}` : ""}`;
@@ -69,10 +70,14 @@ async function loadResource<T>(path: string, force = false): Promise<T> {
     return data;
   }).catch(error => {
     if (cache.get(key)?.request === pending) {
+      // A refused request (403) must not keep serving what this account
+      // could see before — only a connection failure falls back to the
+      // last good data.
+      const revoked = isAuthorizationRevoked(error);
       cache.set(key, {
-        data: current.data,
+        data: revoked ? undefined : current.data,
         loading: false,
-        updatedAt: current.updatedAt,
+        updatedAt: revoked ? 0 : current.updatedAt,
         error: error instanceof Error ? error.message : "Unable to load. Please retry.",
       });
       emit(key);

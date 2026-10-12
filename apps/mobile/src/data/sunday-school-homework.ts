@@ -14,6 +14,7 @@
 
 import type {
   SundaySchoolHomeworkDisplayStatus,
+  SundaySchoolHomeworkResponse,
   SundaySchoolHomeworkWeek,
 } from "@stmark/contracts";
 import { validateLinkDraft, type LinkDraft } from "./sunday-school-lessons";
@@ -114,4 +115,51 @@ export function homeworkHistory(
       };
     })
     .sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`));
+}
+
+export interface FamilyHomeworkItem {
+  homeworkId: string;
+  className: string;
+  assignedDate: string;
+  dueDate: string;
+  title: string;
+  instructions: string | null;
+  resources: Array<{ id: string; title: string; url: string }>;
+  /** Only the viewer's own linked children for this class, each with their recorded outcome. */
+  children: Array<{ id: string; firstName: string; status: SundaySchoolHomeworkDisplayStatus }>;
+}
+
+/**
+ * What a parent or a linked child account sees: published homework with the
+ * outcome for each of *their own* children. The server already limits
+ * `roster` and `completions` to those children and omits archived homework;
+ * this still filters archived items and children from other classes so a
+ * family view can never show them even if a response widens.
+ */
+export function familyHomework(
+  response: Pick<SundaySchoolHomeworkResponse, "roster" | "weeks">,
+): FamilyHomeworkItem[] {
+  return response.weeks.flatMap((week) => {
+    const homework = week.homework;
+    if (!homework || homework.archivedAt) return [];
+    const children = response.roster.filter(
+      (child) => child.classId === week.class.id || response.roster.length === 1,
+    );
+    return [
+      {
+        homeworkId: homework.id,
+        className: week.class.name,
+        assignedDate: week.assignedDate,
+        dueDate: week.dueDate,
+        title: homework.title,
+        instructions: homework.instructions,
+        resources: homework.resources.map((r) => ({ id: r.id, title: r.title, url: r.url })),
+        children: children.map((child) => ({
+          id: child.id,
+          firstName: child.firstName,
+          status: statusFor(child.id, homework.completions),
+        })),
+      },
+    ];
+  });
 }
