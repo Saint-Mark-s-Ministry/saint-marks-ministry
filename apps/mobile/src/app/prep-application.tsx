@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, TextInput, View } from "react-native";
+import { Alert, Linking, Pressable, TextInput, View } from "react-native";
 import { Stack } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as DocumentPicker from "expo-document-picker";
@@ -9,9 +9,13 @@ import { Field, ResourceState, useAction } from "@/components/forms";
 import { api, useAuth } from "@/data/auth-provider";
 import { invalidateResourceCache, request, useResource } from "@/data/resources";
 import {
+  applicationHeading,
   applicationProgress,
   canViewOwnApplication,
+  describeLoadFailure,
   firstFieldProblem,
+  saveErrorMessage,
+  saveSuccessMessage,
   validateApprovalFile,
   type ApplicationState,
   type FieldKey,
@@ -19,7 +23,6 @@ import {
 import { serifDisplay, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
-const NOT_FOUND = "Application information not found";
 // The same template the web student page links to — not reproduced or re-hosted here.
 const APPROVAL_TEMPLATE_URL =
   "https://drive.google.com/file/d/1ebGILBc8OAAPaTWbpmwLDDqjEm-lnbQ7/view?usp=drivesdk";
@@ -109,8 +112,10 @@ export default function PrepApplication() {
 
   const data = resource.data;
   const offline = resource.error === OFFLINE;
-  const notFound = resource.error === NOT_FOUND;
   const progress = data ? applicationProgress(data) : null;
+  const heading = applicationHeading(data);
+  // A failed load with nothing to show: a readable card with the reason and a retry.
+  const loadFailure = !data && resource.error ? describeLoadFailure(resource.error) : null;
 
   async function save() {
     if (!data) return;
@@ -133,14 +138,20 @@ export default function PrepApplication() {
       return;
     }
     await action.run(async () => {
-      await request("/api/registration/application", "PATCH", {
-        fatherOfConfessionName,
-        mentorName,
-        mentorPhone,
-        mentorEmail,
-      });
+      let saved: Pick<ApplicationState, "annualMentorRequired" | "complete">;
+      try {
+        saved = await request<ApplicationState>("/api/registration/application", "PATCH", {
+          fatherOfConfessionName,
+          mentorName,
+          mentorPhone,
+          mentorEmail,
+        });
+      } catch (error) {
+        throw new Error(saveErrorMessage(error instanceof Error ? error.message : undefined));
+      }
       if (draftKey) await SecureStore.deleteItemAsync(draftKey);
       await resource.refresh();
+      Alert.alert(saveSuccessMessage(saved));
     });
   }
 
@@ -190,13 +201,9 @@ export default function PrepApplication() {
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
               <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-                Application
+                {heading.title}
               </Copy>
-              <Copy kind="caption">
-                {data?.annualMentorRequired
-                  ? `Confirm your mentor information for ${data.academicYear?.name ?? "this academic year"}`
-                  : "Finish before your first lesson"}
-              </Copy>
+              <Copy kind="caption">{heading.subtitle}</Copy>
             </View>
 
             {resource.stale && (
@@ -210,15 +217,16 @@ export default function PrepApplication() {
               </View>
             )}
 
-            {!resource.stale && notFound && (
-              <Card>
-                <Copy kind="heading">Application unavailable</Copy>
-                <Copy kind="caption">We could not find an approved registration for this account.</Copy>
+            {loadFailure && (
+              <Card style={{ gap: 12 }}>
+                <Copy kind="heading">{loadFailure.title}</Copy>
+                <Copy>{loadFailure.body}</Copy>
+                <Button secondary label="Try again" onPress={() => void resource.refresh()} />
               </Card>
             )}
 
-            {!resource.stale && !notFound && (
-              <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
+            {!loadFailure && !resource.stale && (
+              <ResourceState loading={resource.loading} error={undefined} retry={() => void resource.refresh()} />
             )}
 
             {data && (
