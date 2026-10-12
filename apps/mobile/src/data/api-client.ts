@@ -13,6 +13,9 @@ export type PortalUser = {
   isAsyncStudent: boolean;
   profileImageUrl: string | null;
   sundaySchool: { hasAccess: boolean; isCoordinator: boolean };
+  // Display-only: decides whether the Contact Book menu entry is shown. The
+  // API re-checks on every request; never authorize from this.
+  canAccessContactBook?: boolean;
 };
 export type PortalSession = { user?: PortalUser; impersonating?: unknown };
 
