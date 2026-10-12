@@ -395,3 +395,11 @@ export function useLiturgicalCalendar(dates: string[], options?: SWRConfiguratio
     { ...liturgicalConfig, shouldRetryOnError: false, ...options }
   )
 }
+
+export function useSundaySchoolRotationForms() {
+  return useSWR<import('@/types/rotation-forms').RotationFormReview[]>('/api/sunday-school/rotation-forms', fetcher, { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 15000 })
+}
+
+export function usePrepRotationAssignments() {
+  return useSWR<import('@/types/rotation-forms').PrepRotationAssignment[]>('/api/sunday-school/assignments', fetcher, { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 15000 })
+}

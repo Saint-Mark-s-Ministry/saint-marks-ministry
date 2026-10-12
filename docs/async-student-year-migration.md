@@ -7,7 +7,7 @@ back requires selecting a year in the same request.
 
 Async students can access both curriculum years' exams and makeup exams.
 Lesson access and graduation analytics span academic years, and serving
-requirements use active rotations rather than a current cohort year. Academic
+requirements use signed four-week rotations across ten grades rather than a current cohort year. See [Async serving rotations](async-serving-rotations.md). Academic
 years still identify enrollment dates, exams, lessons, and serving rotations.
 Active async students confirm their mentor contact information for the active
 academic year, including students without an original registration submission.

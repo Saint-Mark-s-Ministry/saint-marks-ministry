@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   visibleFilter: vi.fn(),
   guardianFindMany: vi.fn(),
   childFindUnique: vi.fn(),
+  enrollmentFindUnique: vi.fn(),
+  rotationFindMany: vi.fn(),
+  approvedForms: vi.fn(),
   sundaySchoolYearFindFirst: vi.fn(),
   lessonFindMany: vi.fn(),
   lessonFindUnique: vi.fn(),
@@ -31,6 +34,9 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     sundaySchoolChildGuardian: { findMany: mocks.guardianFindMany },
     sundaySchoolChild: { findUnique: mocks.childFindUnique },
+    studentEnrollment: { findUnique: mocks.enrollmentFindUnique },
+    sundaySchoolAssignment: { findMany: mocks.rotationFindMany },
+    sundaySchoolRotationForm: { findMany: mocks.approvedForms },
     sundaySchoolYear: { findFirst: mocks.sundaySchoolYearFindFirst },
     sundaySchoolWeeklyLesson: {
       findMany: mocks.lessonFindMany,
@@ -64,6 +70,9 @@ describe('weekly lesson API permissions and saves', () => {
     mocks.visibleFilter.mockReturnValue(['class-1'])
     mocks.guardianFindMany.mockResolvedValue([])
     mocks.childFindUnique.mockResolvedValue(null)
+    mocks.enrollmentFindUnique.mockResolvedValue(null)
+    mocks.rotationFindMany.mockResolvedValue([])
+    mocks.approvedForms.mockResolvedValue([])
     mocks.sundaySchoolYearFindFirst.mockResolvedValue({
       id: 'sunday-year-2026',
       startDate: new Date('2026-09-11T00:00:00.000Z'),
@@ -132,6 +141,80 @@ describe('weekly lesson API permissions and saves', () => {
     expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ classId: { in: ['class-1'] } }),
     }))
+  })
+
+  it('lets an active yearless async student see the explicit serving class and read-only lesson resources', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT', isAsyncStudent: false })
+    mocks.enrollmentFindUnique.mockResolvedValue({ isActive: true, isAsyncStudent: true })
+    const cls = { id: 'kindergarten-2', name: 'Kindergarten - 2', level: 'KINDERGARTEN' }
+    mocks.rotationFindMany.mockResolvedValue([{ class: cls }])
+    mocks.lessonFindMany.mockResolvedValue([{
+      id: 'lesson-1', classId: cls.id, title: 'The Good Shepherd',
+      sundayDate: new Date('2026-10-18T00:00:00Z'), ownerId: 'owner-1',
+      class: { ...cls, assignments: [] }, owner: { id: 'owner-1', name: 'Class servant' },
+      resources: [{ id: 'slides-1', title: 'Slides', url: 'https://example.com/slides', sortOrder: 0 }],
+    }])
+
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons'))
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.classes).toEqual([cls])
+    expect(body.lessons[0]).toMatchObject({
+      class: cls, canEdit: false, canAssignOwner: false, eligibleOwners: [],
+      resources: [{ title: 'Slides', url: 'https://example.com/slides' }],
+    })
+    expect(mocks.childFindUnique).not.toHaveBeenCalled()
+    expect(mocks.getAccess).not.toHaveBeenCalled()
+    expect(mocks.rotationFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        studentId: 'student-1', isActive: true, academicYear: { isActive: true }, classId: { not: null },
+        class: expect.objectContaining({ isActive: true, status: 'ACTIVE' }),
+      }),
+    }))
+    expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ classId: { in: [cls.id] } }),
+    }))
+  })
+
+  it('blocks an async student requesting another class even if a child record links to it', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT' })
+    mocks.enrollmentFindUnique.mockResolvedValue({ isActive: true, isAsyncStudent: true })
+    mocks.rotationFindMany.mockResolvedValue([{ class: { id: 'kindergarten-2', name: 'Kindergarten - 2', level: 'KINDERGARTEN' } }])
+    mocks.childFindUnique.mockResolvedValue({ isActive: true, classId: 'other-class' })
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons?classId=other-class'))
+    expect(response.status).toBe(403)
+    expect(mocks.lessonFindMany).not.toHaveBeenCalled()
+  })
+
+  it('does not grant serving lesson access to an inactive async enrollment', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT' })
+    mocks.enrollmentFindUnique.mockResolvedValue({ isActive: false, isAsyncStudent: true })
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons'))
+    expect(response.status).toBe(200)
+    expect((await response.json()).classes).toEqual([])
+    expect(mocks.rotationFindMany).not.toHaveBeenCalled()
+    expect(mocks.childFindUnique).not.toHaveBeenCalled()
+    expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ classId: { in: [] } }),
+    }))
+  })
+
+  it('does not infer a class from a grade-only or missing active rotation', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT' })
+    mocks.enrollmentFindUnique.mockResolvedValue({ isActive: true, isAsyncStudent: true })
+    mocks.rotationFindMany.mockResolvedValue([{ class: null }])
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons?classId=kindergarten-2'))
+    expect(response.status).toBe(403)
+    expect(mocks.lessonFindMany).not.toHaveBeenCalled()
+  })
+
+  it('does not use rotations for an in-person student', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT', isAsyncStudent: true })
+    mocks.enrollmentFindUnique.mockResolvedValue({ isActive: true, isAsyncStudent: false })
+    const response = await GET(new Request('http://localhost/api/sunday-school/lessons'))
+    expect(response.status).toBe(200)
+    expect(mocks.rotationFindMany).not.toHaveBeenCalled()
+    expect(mocks.childFindUnique).toHaveBeenCalled()
   })
 
   it('uses the open Sunday School year for the full-year schedule', async () => {

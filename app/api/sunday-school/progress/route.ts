@@ -5,6 +5,7 @@ import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
 import { getAssignmentWeeks, GRADE_DISPLAY_NAMES, rotationAttendanceToDate, rotationRequirementMet } from "@/lib/sunday-school-utils"
+import { ROTATION_LEVELS, completedRotationLevels } from "@/lib/rotation-forms"
 
 // GET /api/sunday-school/progress - Get student Sunday School progress
 // Query params:
@@ -44,7 +45,8 @@ export async function GET(request: Request) {
     const assignments = await prisma.sundaySchoolAssignment.findMany({
       where: { studentId },
       include: {
-        class: { select: { id: true, name: true } },
+        class: { select: { id: true, name: true, level: true } },
+        rotationForm: true,
         academicYear: {
           select: {
             id: true,
@@ -84,6 +86,7 @@ export async function GET(request: Request) {
       return {
         assignmentId: assignment.id,
         class: assignment.class,
+        rotationForm: assignment.rotationForm,
         grade: assignment.grade,
         gradeDisplayName: GRADE_DISPLAY_NAMES[assignment.grade],
         yearLevel: assignment.yearLevel,
@@ -100,6 +103,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       studentId,
+      completedRotations: completedRotationLevels(assignments).size,
+      requiredRotations: ROTATION_LEVELS.length,
       assignments: assignmentProgress,
       graduation: {
         allMet: requirement.met,
