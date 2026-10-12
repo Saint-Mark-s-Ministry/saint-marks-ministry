@@ -1,5 +1,6 @@
 import { SundaySchoolGrade, SundaySchoolLevel, SundaySchoolLogStatus } from '@prisma/client'
 import { randomBytes } from 'crypto'
+import { ROTATION_LEVELS, completedRotationLevels } from './rotation-forms'
 
 // ============================================
 // Code Generation
@@ -139,11 +140,15 @@ export function rotationAttendanceToDate(
  * The cohort path supports legacy data during the migration.
  */
 export function rotationRequirementMet(
-  rotations: Array<{ yearLevel: string | null; isActive: boolean; attendance: { met: boolean } | null }>,
+  rotations: Array<{ yearLevel: string | null; isActive: boolean; attendance: { met: boolean } | null; class?: { level: SundaySchoolLevel } | null; rotationForm?: { status: string; level?: SundaySchoolLevel } | null }>,
   currentYearLevel: string | null
 ) {
   const active = rotations.filter((rotation) => rotation.isActive)
   if (currentYearLevel === null) {
+    if (rotations.some(rotation => 'rotationForm' in rotation)) {
+      const met = completedRotationLevels(rotations).size === ROTATION_LEVELS.length
+      return { needsRotation: !met && active.length === 0, met }
+    }
     return {
       needsRotation: active.length === 0,
       met: active.length > 0 && active.every(rotation => rotation.attendance?.met ?? true),
@@ -160,8 +165,9 @@ export function rotationRequirementMet(
 
 /** Use the weakest active rotation as attendance evidence; every rotation must pass. */
 export function rotationAttendancePercentage(
-  rotations: Array<{ isActive: boolean; attendance: { percentage: number | null } | null }>,
+  rotations: Array<{ isActive: boolean; attendance: { percentage: number | null } | null; class?: { level: SundaySchoolLevel } | null; rotationForm?: { status: string; level?: SundaySchoolLevel } | null }>,
 ): number | null {
+  if (rotations.some(rotation => 'rotationForm' in rotation)) return completedRotationLevels(rotations).size / ROTATION_LEVELS.length * 100
   const percentages = rotations.filter(r => r.isActive).flatMap(r => (r.attendance?.percentage === undefined || r.attendance.percentage === null) ? [] : [r.attendance.percentage])
   return percentages.length ? Math.min(...percentages) : null
 }

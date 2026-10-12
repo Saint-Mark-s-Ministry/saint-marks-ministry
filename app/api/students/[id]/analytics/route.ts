@@ -283,6 +283,8 @@ export async function GET(
         where: { studentId },
         include: {
           logs: true,
+          class: { select: { level: true } },
+          rotationForm: { select: { status: true, level: true } },
           academicYear: { select: { id: true, name: true } }
         }
       })
@@ -301,6 +303,8 @@ export async function GET(
 
         return {
           id: assignment.id,
+          class: assignment.class,
+          rotationForm: assignment.rotationForm,
           grade: assignment.grade,
           yearLevel: assignment.yearLevel,
           academicYear: assignment.academicYear,

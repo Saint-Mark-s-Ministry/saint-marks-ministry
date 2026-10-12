@@ -220,7 +220,7 @@ export async function GET(request: Request) {
       asyncStudentIds.length > 0
         ? prisma.sundaySchoolAssignment.findMany({
             where: { studentId: { in: asyncStudentIds } },
-            include: { logs: { select: { status: true, weekNumber: true } } }
+            include: { logs: { select: { status: true, weekNumber: true } }, class: { select: { level: true } }, rotationForm: { select: { status: true, level: true } } }
           })
         : Promise.resolve([]),
 
@@ -291,9 +291,9 @@ export async function GET(request: Request) {
     }
 
     // Build SS assignment lookup per student
-    type SSAssignment = { studentId: string; yearLevel: string | null; isActive: boolean; startDate: Date; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
+    type SSAssignment = (typeof ssAssignments)[number]
     const ssAssignmentsByStudent = new Map<string, SSAssignment[]>()
-    for (const assignment of ssAssignments as SSAssignment[]) {
+    for (const assignment of ssAssignments) {
       if (!ssAssignmentsByStudent.has(assignment.studentId)) {
         ssAssignmentsByStudent.set(assignment.studentId, [])
       }
@@ -388,6 +388,8 @@ export async function GET(request: Request) {
       if (enrollment.isAsyncStudent) {
         const rotations = (ssAssignmentsByStudent.get(studentId) || []).map((ssa) => ({
           yearLevel: ssa.yearLevel,
+          class: ssa.class,
+          rotationForm: ssa.rotationForm,
           isActive: ssa.isActive,
           attendance: rotationAttendanceToDate(ssa),
         }))

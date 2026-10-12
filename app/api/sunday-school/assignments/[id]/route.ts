@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { SundaySchoolGrade } from "@prisma/client"
 import { canManageSundaySchool } from "@/lib/roles"
 import { rotationGradeForClassLevel } from "@/lib/sunday-school-utils"
+import { ROTATION_WEEKS } from "@/lib/rotation-forms"
 
 // PATCH /api/sunday-school/assignments/[id] - Update an assignment
 // Body: { classId?, grade?, totalWeeks?, startDate?, isActive? } — a class sets the grade
@@ -22,6 +23,12 @@ export async function PATCH(
     const body = await request.json()
     const { classId, totalWeeks, startDate, isActive } = body
     let { grade } = body
+    const current = await prisma.sundaySchoolAssignment.findUnique({ where: { id }, include: { logs: true, rotationForm: true } })
+    if (!current) return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
+    if (isActive === false && current.isActive && current.rotationForm?.status !== 'APPROVED') {
+      return NextResponse.json({ error: "Approve the signed four-week form to finish this rotation" }, { status: 409 })
+    }
+    if (isActive === true && !current.isActive) return NextResponse.json({ error: "Completed rotations cannot be reopened" }, { status: 409 })
 
     const updateData: Record<string, unknown> = {}
     if (classId !== undefined) {
@@ -48,9 +55,9 @@ export async function PATCH(
       updateData.grade = grade as SundaySchoolGrade
     }
     if (totalWeeks !== undefined) {
-      if (totalWeeks < 1 || totalWeeks > 52) {
+      if (totalWeeks !== ROTATION_WEEKS) {
         return NextResponse.json(
-          { error: "totalWeeks must be between 1 and 52" },
+          { error: "Each rotation is four weeks" },
           { status: 400 }
         )
       }
@@ -69,9 +76,21 @@ export async function PATCH(
     }
     if (isActive !== undefined) updateData.isActive = isActive
 
-    const assignment = await prisma.sundaySchoolAssignment.update({
-      where: { id },
+    const changesEvidence = (updateData.classId !== undefined && updateData.classId !== current.classId)
+      || (updateData.grade !== undefined && updateData.grade !== current.grade)
+      || (updateData.totalWeeks !== undefined && updateData.totalWeeks !== current.totalWeeks)
+      || (updateData.startDate instanceof Date && updateData.startDate.getTime() !== current.startDate.getTime())
+    if (changesEvidence && (current.logs.length > 0 || current.rotationForm)) {
+      return NextResponse.json({ error: "A rotation with attendance or a form cannot be reassigned. Approve its form to advance" }, { status: 409 })
+    }
+
+    const changed = await prisma.sundaySchoolAssignment.updateMany({
+      where: { id, isActive: current.isActive, updatedAt: current.updatedAt, ...(changesEvidence ? { logs: { none: {} }, rotationForm: null } : {}) },
       data: updateData,
+    })
+    if (changed.count !== 1) return NextResponse.json({ error: "The rotation changed. Refresh before editing" }, { status: 409 })
+    const assignment = await prisma.sundaySchoolAssignment.findUniqueOrThrow({
+      where: { id },
       include: {
         student: {
           select: {
@@ -121,10 +140,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // The schema has onDelete: Cascade for logs, so deleting assignment removes logs too
-    await prisma.sundaySchoolAssignment.delete({
-      where: { id },
+    const current = await prisma.sundaySchoolAssignment.findUnique({ where: { id }, include: { _count: { select: { logs: true } }, rotationForm: { select: { id: true } } } })
+    if (!current) return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
+    if (current._count.logs > 0 || current.rotationForm) return NextResponse.json({ error: "Rotations with attendance or uploaded forms must be kept as history" }, { status: 409 })
+    const deleted = await prisma.sundaySchoolAssignment.deleteMany({
+      where: { id, logs: { none: {} }, rotationForm: null },
     })
+    if (deleted.count !== 1) return NextResponse.json({ error: "This rotation has recorded evidence and cannot be deleted" }, { status: 409 })
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

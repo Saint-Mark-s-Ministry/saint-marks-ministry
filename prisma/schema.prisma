@@ -260,6 +260,12 @@ enum SundaySchoolLogStatus {
   REJECTED
 }
 
+enum RotationFormStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum RegistrationStatus {
   PENDING
   APPROVED
@@ -330,6 +336,7 @@ model User {
   assignedSundaySchool    SundaySchoolAssignment[] @relation("AssignedSundaySchool")
   generatedCodes          SundaySchoolCode[]       @relation("GeneratedCodes")
   markedSundaySchoolLogs  SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
+  reviewedRotationForms   SundaySchoolRotationForm[] @relation("ReviewedRotationForms")
 
   // Sunday School mode relations (the Sunday School class itself)
   overseenSundaySchoolAgeGroups         SundaySchoolAgeGroup[]           @relation("SundaySchoolPriestOverseer")
@@ -801,7 +808,7 @@ model SundaySchoolAssignment {
   academicYearId String
   /// Legacy cohort label. Async serving rotations are yearless.
   yearLevel      YearLevel?
-  totalWeeks     Int               @default(6)
+  totalWeeks     Int               @default(4)
   startDate      DateTime
   isActive       Boolean           @default(true)
   assignedBy     String?
@@ -814,8 +821,10 @@ model SundaySchoolAssignment {
   assigner     User?              @relation("AssignedSundaySchool", fields: [assignedBy], references: [id], onDelete: SetNull)
   class        SundaySchoolClass? @relation(fields: [classId], references: [id], onDelete: SetNull)
   logs         SundaySchoolLog[]
+  rotationForm SundaySchoolRotationForm?
 
-  @@unique([studentId, academicYearId])
+  // One active rotation per student is enforced by a partial unique index
+  // in the migration; completed rotations remain available as history.
   @@index([classId])
   @@index([studentId])
   @@index([academicYearId])
@@ -855,6 +864,7 @@ model SundaySchoolLog {
   markedBy     String?
   notes        String?               @db.Text
   studentNotes String?               @db.Text
+  rotationFormId String?
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
@@ -862,11 +872,37 @@ model SundaySchoolLog {
   assignment SundaySchoolAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   code       SundaySchoolCode?      @relation(fields: [codeId], references: [id], onDelete: SetNull)
   marker     User?                  @relation("MarkedSundaySchoolLogs", fields: [markedBy], references: [id], onDelete: SetNull)
+  rotationForm SundaySchoolRotationForm? @relation(fields: [rotationFormId], references: [id], onDelete: SetNull)
 
   @@unique([assignmentId, weekNumber])
   @@index([assignmentId])
   @@index([status])
   @@index([weekOf])
+  @@index([rotationFormId])
+}
+
+// Prep-side evidence for a complete four-week serving rotation.
+model SundaySchoolRotationForm {
+  id           String             @id @default(cuid())
+  assignmentId String             @unique
+  /// Grade served when this evidence was uploaded; preserved across class rollover.
+  level        SundaySchoolLevel
+  fileUrl      String
+  filename     String
+  version      Int                @default(1)
+  status       RotationFormStatus @default(PENDING)
+  reviewNotes  String?            @db.Text
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  assignment SundaySchoolAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  reviewer   User? @relation("ReviewedRotationForms", fields: [reviewedById], references: [id], onDelete: SetNull)
+  logs       SundaySchoolLog[]
+
+  @@index([status, createdAt])
+  @@index([reviewedById])
 }
 
 // ============================================

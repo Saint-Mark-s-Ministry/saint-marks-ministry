@@ -19,16 +19,18 @@ twice.
 ### ⚠️ Not the same as the prep-side "Sunday School" feature
 
 The prep program has its own, older, unrelated Sunday School feature: async prep
-students must serve a number of weeks, and they prove it with weekly per-grade
-codes. Both live under `app/api/sunday-school/`. Check a route's header comment
+students serve four weeks at each of ten grades and submit signed rotation
+forms for human review. Approval advances them to the next grade automatically.
+See [Async serving rotations](async-serving-rotations.md). Legacy weekly code
+records are preserved, but code submission is retired. Both live under `app/api/sunday-school/`. Check a route's header comment
 before editing it.
 
 | Prep-side (serving verification) | Sunday School mode (this document) |
 |---|---|
 | `SundaySchoolAssignment` | `SundaySchoolServantAssignment` |
 | `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRAD`) |
-| `SundaySchoolCode`, `SundaySchoolLog` | `SundaySchoolSession`, `SundaySchoolChildAttendance`, `SundaySchoolWeeklyLesson` |
-| Routes: `assignments/`, `codes/`, `logs/`, `progress/` | Routes: `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `lessons/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` |
+| `SundaySchoolRotationForm`, `SundaySchoolLog` | `SundaySchoolSession`, `SundaySchoolChildAttendance`, `SundaySchoolWeeklyLesson` |
+| Routes: `assignments/`, `rotation-forms/`, `logs/`, `progress/` | Routes: `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `lessons/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` |
 | `lib/sunday-school-utils.ts` | `lib/sunday-school-class.ts`, `lib/sunday-school-access.ts` |
 | `canManageSundaySchool()` in `lib/roles.ts` | `getSundaySchoolAccess()` |
 
@@ -165,7 +167,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `roster-links/[id]` | DELETE | People who serve the class — revokes the link; children already added stay |
 | `children/[id]` | GET, PATCH, DELETE | People who serve the child's class |
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
-| `lessons` | GET | Class-scoped servants/coordinators, linked parents, and linked child accounts |
+| `lessons` | GET | Class-scoped servants/coordinators, linked parents/children, and active async students with an explicit serving class |
 | `lessons/[id]` | PATCH | Any active servant assigned to the class assigns an active class servant as owner and edits title and links |
 | `homework` | GET, POST | Scoped reads for Elementary servants, linked parents/children, and read-only priests; assigned Elementary servants publish |
 | `homework/[id]` | PATCH, DELETE | Assigned Elementary servants edit or soft-archive a package |
@@ -235,9 +237,13 @@ legacy role is `MENTOR` or `SUPER_ADMIN`. Servants Prep servants keep Prep as
 their default. The switcher still gives access to the other ministry. A
 `SERVANT` has only one mode and sees no switcher.
 
-Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
-student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
-a clear empty state without gaining access to any class.
+Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Student
+accounts use `/dashboard/student/class-lessons`. Active async prep students see
+the class explicitly linked to their active serving rotation in the active prep
+academic year; other students use their linked child record. Grade-only rotations
+do not identify a class. The response includes the assigned class name even when
+it has no upcoming lessons. Neither path grants lesson editing, staffing, roster,
+or attendance powers. Accounts without an eligible class get a clear empty state.
 
 Elementary parents and linked child accounts also see homework cards and only
 their own completion status on those existing pages. Homework eligibility

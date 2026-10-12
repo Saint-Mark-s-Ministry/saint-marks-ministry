@@ -195,6 +195,13 @@ Everything else goes through the resolver.
 
 ### Using the resolver
 
+Active async prep students may read upcoming lesson resources for the explicit
+class linked to their active `SundaySchoolAssignment` in the active prep academic
+year. `GET /api/sunday-school/lessons` checks enrollment and rotation records in
+the database; this limited read path does not create a ministry servant assignment
+or grant roster, attendance, owner-assignment, or lesson-editing powers. A grade
+alone never grants class access. Other student accounts still use child links.
+
 ```typescript
 import {
   getSundaySchoolAccess,

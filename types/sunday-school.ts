@@ -158,6 +158,10 @@ export interface SundaySchoolWeeklyLesson {
 
 export interface SundaySchoolWeeklyLessonsResponse {
   lessons: SundaySchoolWeeklyLesson[]
+  /** Student's assigned classes, including classes with no upcoming lessons. */
+  classes?: SundaySchoolClassRef[]
+  completedRotations?: number
+  requiredRotations?: number
 }
 
 export type SundaySchoolHomeworkDisplayStatus = SundaySchoolHomeworkCompletionStatus | 'NOT_RECORDED'

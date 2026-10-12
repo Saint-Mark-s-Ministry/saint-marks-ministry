@@ -123,7 +123,7 @@ comment at the top of a route before editing it.
 
 | Routes | Belongs to |
 |---|---|
-| `assignments/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — verifying that *async prep students* served their required weeks |
+| `assignments/`, `rotation-forms/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — signed four-week serving rotations; codes are historical |
 | `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` | **Sunday School mode** — the actual ministry |
 
 The church-calendar routes (`app/api/liturgical/`) are shared reference content
@@ -139,7 +139,7 @@ The same trap exists in the schema and the enums:
 
 | Prep-side | Sunday School mode |
 |---|---|
-| `SundaySchoolAssignment` (a student's 6-week serving stint) | `SundaySchoolServantAssignment` (who serves/coordinates what) |
+| `SundaySchoolAssignment` (a student's 4-week serving rotation) | `SundaySchoolServantAssignment` (who serves/coordinates what) |
 | `/api/sunday-school/assignments` | `/api/sunday-school/servant-assignments` |
 | `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRAD`) |
 | `canManageSundaySchool()` in `lib/roles.ts` | `getSundaySchoolAccess()` in `lib/sunday-school-access.ts` |
@@ -249,7 +249,7 @@ database; keep new logic in that shape where you can.
    flagged `isExamDay` are excluded entirely.
 2. Overall exam average ≥ 75% across all sections.
 3. At least 60% in every individual exam section.
-4. Both curriculum years completed. Async students have no cohort year; their serving requirement uses active rotations. See `docs/async-student-year-migration.md` for the database invariant and release workflow.
+4. Both curriculum years completed. Async students have no cohort year; their serving requirement is ten approved four-week grade rotations. See `docs/async-serving-rotations.md`. See `docs/async-student-year-migration.md` for the database invariant and release workflow.
 
 **Key fields**
 

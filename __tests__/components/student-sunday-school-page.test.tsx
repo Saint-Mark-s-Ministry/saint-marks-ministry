@@ -26,11 +26,11 @@ vi.mock('@/lib/prisma', () => ({
 import { GET } from '@/app/api/sunday-school/progress/route'
 import SundaySchoolPage from '@/app/dashboard/student/sunday-school/page'
 
-function assignment(isActive = true, linkedClass: { id: string; name: string } | null = { id: 'class-1', name: 'Third Grade Girls' }) {
+function assignment(isActive = true, linkedClass: { id: string; name: string; level?: 'GRADE_3' } | null = { id: 'class-1', name: 'Third Grade Girls', level: 'GRADE_3' }) {
   return {
     id: 'assignment-1', grade: 'GRADE_3', yearLevel: null,
     class: linkedClass, academicYear: { id: 'year-1', name: '2026-2027' },
-    totalWeeks: 6, startDate: new Date('2026-09-06T00:00:00Z'), isActive,
+    totalWeeks: 4, rotationForm: null, startDate: new Date('2026-09-06T00:00:00Z'), isActive,
     logs: [{ weekNumber: 1, status: 'VERIFIED' }],
   }
 }
@@ -48,12 +48,13 @@ describe('Async student Sunday School page', () => {
     render(<SundaySchoolPage />)
     expect(await screen.findByText('Third Grade Girls · 2026-2027')).toBeInTheDocument()
     expect(screen.getByText('Verified')).toBeInTheDocument()
-    expect(screen.getAllByText('Not submitted')).toHaveLength(5)
+    expect(screen.getAllByText('Not submitted')).toHaveLength(3)
     expect(screen.getByText('Sep 6')).toBeInTheDocument()
-    expect(screen.getByLabelText('Submit attendance code')).toHaveAttribute('id', 'code-assignment-1')
+    expect(screen.getByLabelText('Completed four-week form')).toHaveAttribute('id', 'rotation-form-assignment-1')
+    expect(screen.queryByLabelText('Submit attendance code')).not.toBeInTheDocument()
     expect(mocks.assignments).toHaveBeenCalledWith(expect.objectContaining({
       where: { studentId: 'student-1' },
-      include: expect.objectContaining({ class: { select: { id: true, name: true } } }),
+      include: expect.objectContaining({ class: { select: { id: true, name: true, level: true } } }),
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
     }))
   })

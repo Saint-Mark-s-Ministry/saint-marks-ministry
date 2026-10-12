@@ -4,16 +4,16 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
-import { toast } from 'sonner'
 import { formatUTC } from '@/lib/utils'
-import { CheckCircle, XCircle, MinusCircle, Clock, KeyRound } from 'lucide-react'
+import { RotationFormUpload } from '@/components/rotation-form-upload'
+import type { RotationFormSummary } from '@/types/rotation-forms'
+import { CheckCircle, XCircle, MinusCircle, Clock } from 'lucide-react'
 
 const GRADE_DISPLAY: Record<string, string> = {
   PRE_K: 'Pre-K',
@@ -49,11 +49,14 @@ interface SSAssignment {
     percentage: number
     met: boolean
   } | null
+  rotationForm: RotationFormSummary | null
   weekBreakdown: SSWeek[]
 }
 
 interface SSProgress {
   studentId: string
+  completedRotations: number
+  requiredRotations: number
   assignments: SSAssignment[]
   graduation: {
     needsRotation: boolean
@@ -67,8 +70,6 @@ export default function SundaySchoolPage() {
   const [progress, setProgress] = useState<SSProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [code, setCode] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!session?.user?.id) return
@@ -91,42 +92,13 @@ export default function SundaySchoolPage() {
   }, [authStatus, session, router])
 
   useEffect(() => {
-    if (session?.user) fetchData()
-  }, [session?.user, fetchData])
-
-  const handleSubmitCode = async () => {
-    if (!code.trim()) {
-      toast.error('Please enter a code')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const now = new Date()
-      const day = now.getDay()
-      const weekStart = new Date(now)
-      weekStart.setDate(weekStart.getDate() - day)
-      weekStart.setHours(0, 0, 0, 0)
-
-      const res = await fetch('/api/sunday-school/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim().toUpperCase(), weekOf: weekStart.toISOString() })
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to submit code')
-      }
-
-      toast.success('Attendance logged successfully!')
-      setCode('')
-      fetchData()
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Failed to submit code')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    if (!session?.user?.id) return
+    void fetchData()
+    const refresh = () => void fetchData()
+    const timer = window.setInterval(refresh, 15000)
+    window.addEventListener('focus', refresh)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
+  }, [session?.user?.id, fetchData])
 
   const getWeekStatusIcon = (status: SSWeek['status']) => {
     switch (status) {
@@ -155,7 +127,11 @@ export default function SundaySchoolPage() {
 
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
-      <PageHeader title="Sunday School" meta={['Track your weekly Sunday School serving']} back={{ href: '/dashboard/student', label: 'My progress' }} />
+      <PageHeader title="Sunday School" meta={['Complete four signed weeks at each grade, from Pre-K through eighth grade']} back={{ href: '/dashboard/student', label: 'My progress' }} />
+
+      {progress && <Panel title={`Rotations completed: ${progress.completedRotations ?? 0} of ${progress.requiredRotations ?? 10}`}>
+        <p className="px-4 py-3 text-sm text-ink-2">{progress.graduation.allMet ? 'You have completed all ten grade rotations.' : 'Stay in your assigned class until all four weeks are signed and your form is approved.'}</p>
+      </Panel>}
 
       {loadError ? (
         <Panel>
@@ -170,7 +146,7 @@ export default function SundaySchoolPage() {
         progress.assignments.map((assignment) => (
           <Panel
             key={assignment.assignmentId}
-            title="Serving stint"
+            title={assignment.isActive ? "Current rotation" : "Past rotation"}
             description={`${assignment.class?.name || GRADE_DISPLAY[assignment.grade] || assignment.grade} · ${assignment.academicYear.name}`}
             actions={assignment.isActive ? <StatusBadge tone="gold">Active</StatusBadge> : <StatusBadge tone="neutral">Finished</StatusBadge>}
           >
@@ -179,13 +155,13 @@ export default function SundaySchoolPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Metric
                     value={assignment.attendance.percentage}
-                    detail={`${assignment.attendance.present} of ${assignment.attendance.effectiveTotal} weeks`}
+                    detail={`${assignment.attendance.present} of ${assignment.totalWeeks} weeks verified`}
                     width={140}
                   />
-                  {assignment.attendance.met ? <StatusBadge tone="ok">Requirement met</StatusBadge> : <StatusBadge tone="warn">Need 75%</StatusBadge>}
+                  {assignment.rotationForm?.status === 'APPROVED' ? <StatusBadge tone="ok">Rotation approved</StatusBadge> : <StatusBadge tone="warn">Four signed weeks required</StatusBadge>}
                 </div>
               )}
-              <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {assignment.weekBreakdown.map((week) => (
                   <li key={week.weekNumber} className="flex flex-col items-center gap-1.5 rounded-md border border-line px-2 py-3 text-center">
                     {getWeekStatusIcon(week.status)}
@@ -197,35 +173,7 @@ export default function SundaySchoolPage() {
                 ))}
               </ol>
             </div>
-            {assignment.isActive && (
-              <form
-                className="flex flex-col gap-2 border-t border-line px-4 py-4"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void handleSubmitCode()
-                }}
-              >
-                <label htmlFor={`code-${assignment.assignmentId}`} className="text-sm font-semibold text-ink">
-                  Submit attendance code
-                </label>
-                <p className="text-xs text-ink-3">Enter the verification code your Sunday School servant gave you.</p>
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    id={`code-${assignment.assignmentId}`}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="e.g., G2-A7X3"
-                    autoComplete="off"
-                    maxLength={10}
-                    className="w-40 font-mono tracking-wider"
-                  />
-                  <Button type="submit" disabled={submitting || !code.trim()}>
-                    <KeyRound />
-                    {submitting ? 'Verifying…' : 'Submit code'}
-                  </Button>
-                </div>
-              </form>
-            )}
+            <RotationFormUpload assignment={assignment} onUploaded={() => void fetchData()} />
           </Panel>
         ))
       )}

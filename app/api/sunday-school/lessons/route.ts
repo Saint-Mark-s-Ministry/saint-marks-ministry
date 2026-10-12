@@ -15,6 +15,8 @@ import {
 } from "@/lib/sunday-school-lessons"
 import { normalizeSessionDate } from "@/lib/sunday-school-class"
 import { sundaySchoolAssignableUserWhere } from "@/lib/sunday-school-assignees"
+import type { SundaySchoolClassRef } from "@/types/sunday-school"
+import { ROTATION_LEVELS } from "@/lib/rotation-forms"
 
 // Sunday School mode: future-facing weekly lesson plans and their links.
 // Deliberately separate from the prep-side Lesson model and from attendance
@@ -50,6 +52,8 @@ export async function GET(request: Request) {
     }
 
     let allowedClassIds: string[] | undefined
+    let studentClasses: SundaySchoolClassRef[] | undefined
+    let completedRotations: number | undefined
     let access: Awaited<ReturnType<typeof getSundaySchoolAccess>> | null = null
 
     if (user.role === UserRole.PARENT) {
@@ -64,11 +68,48 @@ export async function GET(request: Request) {
         links.flatMap((link) => link.child.classId ? [link.child.classId] : [])
       ))
     } else if (user.role === UserRole.STUDENT) {
-      const child = await prisma.sundaySchoolChild.findUnique({
-        where: { userId: user.id },
-        select: { classId: true, isActive: true },
+      // Prep serving rotations grant read-only lesson access to their explicit
+      // class, without granting ministry staffing, roster, or attendance powers.
+      const enrollment = await prisma.studentEnrollment.findUnique({
+        where: { studentId: user.id },
+        select: { isActive: true, isAsyncStudent: true },
       })
-      allowedClassIds = child?.isActive && child.classId ? [child.classId] : []
+      if (enrollment?.isAsyncStudent) {
+        const approvedForms = await prisma.sundaySchoolRotationForm.findMany({
+          where: { status: 'APPROVED', assignment: { studentId: user.id } }, select: { level: true },
+        })
+        completedRotations = new Set(approvedForms.map(form => form.level)).size
+        const rotations = enrollment.isActive
+          ? await prisma.sundaySchoolAssignment.findMany({
+              where: {
+                studentId: user.id,
+                isActive: true,
+                academicYear: { isActive: true },
+                classId: { not: null },
+                class: {
+                  isActive: true,
+                  status: "ACTIVE",
+                  OR: [
+                    { sundaySchoolYear: { status: "OPEN" } },
+                    { sundaySchoolYearId: null, academicYear: { isActive: true } },
+                  ],
+                },
+              },
+              select: { class: { select: { id: true, name: true, level: true } } },
+            })
+          : []
+        studentClasses = Array.from(new Map(
+          rotations.flatMap(rotation => rotation.class ? [[rotation.class.id, rotation.class] as const] : [])
+        ).values())
+        allowedClassIds = studentClasses.map(cls => cls.id)
+      } else {
+        const child = await prisma.sundaySchoolChild.findUnique({
+          where: { userId: user.id },
+          select: { classId: true, isActive: true, class: { select: { id: true, name: true, level: true } } },
+        })
+        allowedClassIds = child?.isActive && child.classId ? [child.classId] : []
+        studentClasses = child?.isActive && child.class ? [child.class] : []
+      }
     } else {
       access = await getSundaySchoolAccess(user)
       if (!access.canRead) {
@@ -139,6 +180,8 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json({
+      ...(studentClasses ? { classes: studentClasses } : {}),
+      ...(completedRotations !== undefined ? { completedRotations, requiredRotations: ROTATION_LEVELS.length } : {}),
       lessons: lessons.map((lesson) => {
         const canAssignOwner = access
           ? canAssignWeeklyLessonOwner(access, lesson.classId)
