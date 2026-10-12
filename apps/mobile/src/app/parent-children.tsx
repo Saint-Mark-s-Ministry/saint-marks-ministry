@@ -1,4 +1,4 @@
-import { Linking, Pressable, View } from "react-native";
+import { View } from "react-native";
 import { router, Stack } from "expo-router";
 import type { SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import { Button, Copy, ListSurface, Screen, SectionTitle, StatusPill, styles } from "@/components/ui";
@@ -7,8 +7,8 @@ import { useAuth } from "@/data/auth-provider";
 import { endpoint, useResource } from "@/data/resources";
 import { savedLabel } from "@/data/prep-lessons";
 import { levelLabel, canViewFamily, placementLabel, requestLabel, type Level, type RequestStatus } from "@/data/parent-children";
-import { completionLabel } from "@/data/sunday-school-homework";
-import { shortMonthDay } from "@/data/sunday-school-classes";
+import { familyHomework } from "@/data/sunday-school-homework";
+import { FamilyHomework } from "@/components/family-homework";
 import { serifDisplay, useAppTheme } from "@/theme";
 
 type Child = {
@@ -125,46 +125,13 @@ export default function ParentChildren() {
                   <View style={{ gap: 10 }}>
                     <SectionTitle title="Homework" />
                     <Copy kind="caption">Elementary homework assigned by your child&apos;s class servants</Copy>
-                    <ListSurface>
-                      {homework.data.weeks.filter((w) => w.homework).length === 0 && (
-                        <View style={{ padding: 16 }}>
-                          <Copy kind="caption">No homework has been assigned yet.</Copy>
-                        </View>
-                      )}
-                      {homework.data.weeks.map((week, index, arr) => {
-                        if (!week.homework) return null;
-                        const relevantChildren = homework.data!.roster.filter(
-                          (c) => c.classId === week.class.id || homework.data!.roster.length === 1,
-                        );
-                        return (
-                          <View key={week.homework.id}>
-                            <View style={{ padding: 16, gap: 6 }}>
-                              <Copy kind="caption">
-                                {week.class.name} · assigned {shortMonthDay(week.assignedDate)} · due {shortMonthDay(week.dueDate)}
-                              </Copy>
-                              <Copy style={{ fontWeight: "600", fontSize: 17 }}>{week.homework.title}</Copy>
-                              {week.homework.instructions && <Copy>{week.homework.instructions}</Copy>}
-                              {week.homework.resources.map((r) => (
-                                <Pressable key={r.id} accessibilityRole="link" onPress={() => void Linking.openURL(r.url)}>
-                                  <Copy color={colors.primary}>{r.title}</Copy>
-                                </Pressable>
-                              ))}
-                              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                                {relevantChildren.map((child) => {
-                                  const status = week.homework!.completions.find((c) => c.childId === child.id)?.status ?? "NOT_RECORDED";
-                                  return (
-                                    <Copy key={child.id} kind="caption">
-                                      {relevantChildren.length > 1 ? `${child.firstName}: ` : ""}{completionLabel(status)}
-                                    </Copy>
-                                  );
-                                })}
-                              </View>
-                            </View>
-                            {index < arr.length - 1 && <View style={{ height: 0.5, backgroundColor: colors.border }} />}
-                          </View>
-                        );
-                      })}
-                    </ListSurface>
+                    <FamilyHomework items={familyHomework(homework.data)} />
+                  </View>
+                )}
+                {homework.error && !homework.data && (
+                  <View style={{ gap: 10 }}>
+                    <SectionTitle title="Homework" />
+                    <ResourceState loading={false} error={homework.error} retry={() => void homework.refresh()} />
                   </View>
                 )}
 

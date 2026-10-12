@@ -29,6 +29,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A 403 means the server has just told us this account no longer has
+ * authority for the resource (a servant whose assignment was removed, a
+ * class that left the Elementary band). Callers must stop showing anything
+ * they cached from before that answer, unlike a dropped connection where
+ * the last good data is still the best available.
+ */
+export function isAuthorizationRevoked(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}
+
 const cookieName =
   /^(?:__Secure-|__Host-)?next-auth\.(?:session-token(?:\.\d+)?|csrf-token)$/;
 export function mergeCookies(

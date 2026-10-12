@@ -8,7 +8,7 @@ import { useAppTheme } from "@/theme";
 
 export const Field = forwardRef<TextInput, {
   label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric"; placeholder?: string; secureTextEntry?: boolean;
+  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric" | "url"; placeholder?: string; secureTextEntry?: boolean;
   /** Shown below the input in the danger color, and announced to VoiceOver as it appears. */
   error?: string;
 }>(function Field({ label, value, onChange, multiline = false, disabled = false, secureTextEntry = false, error, ...rest }, ref) {
@@ -26,8 +26,8 @@ export const Field = forwardRef<TextInput, {
   </View><TextInput
     ref={ref}
     accessibilityLabel={label} accessibilityHint={error} value={value} onChangeText={onChange} editable={!disabled}
-    multiline={multiline} autoCapitalize={rest.keyboardType === "email-address" || secureTextEntry ? "none" : "sentences"}
-    autoCorrect={!secureTextEntry} secureTextEntry={secureTextEntry && !passwordVisible} placeholderTextColor={colors.muted}
+    multiline={multiline} autoCapitalize={rest.keyboardType === "email-address" || rest.keyboardType === "url" || secureTextEntry ? "none" : "sentences"}
+    autoCorrect={!secureTextEntry && rest.keyboardType !== "url"} secureTextEntry={secureTextEntry && !passwordVisible} placeholderTextColor={colors.muted}
     style={{ backgroundColor: colors.surface, color: colors.text,
       borderColor: error ? colors.danger : colors.border, borderWidth: error ? 1.5 : 1,
       borderRadius: 12, padding: 14, minHeight: multiline ? 100 : 50, textAlignVertical: "top", opacity: disabled ? 0.5 : 1 }} {...rest} />
