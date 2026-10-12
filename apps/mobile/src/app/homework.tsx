@@ -196,10 +196,17 @@ function HomeworkScreen() {
                   </Copy>
                 )}
                 {selectedClass?.canEdit && (
+                  // The native button sizes itself from its parent's measured
+                  // width and renders nothing at 0, so each one needs a flex
+                  // slot of its own inside a row.
                   <View style={{ flexDirection: "row", gap: 10 }}>
-                    <Button secondary label="Edit" onPress={() => setEditorOpen(true)} />
+                    <View style={{ flex: 1 }}>
+                      <Button secondary label="Edit" onPress={() => setEditorOpen(true)} />
+                    </View>
                     {!selectedWeek.homework.archivedAt && (
-                      <Button secondary label={archiveAction.busy ? "Archiving…" : "Archive"} disabled={archiveAction.busy} onPress={archiveHomework} />
+                      <View style={{ flex: 1 }}>
+                        <Button secondary label={archiveAction.busy ? "Archiving…" : "Archive"} disabled={archiveAction.busy} onPress={archiveHomework} />
+                      </View>
                     )}
                   </View>
                 )}
@@ -218,14 +225,15 @@ function HomeworkScreen() {
                           <Copy style={{ fontWeight: "500", flex: 1 }}>{child.firstName} {child.lastName}</Copy>
                           <HomeworkStatusPill status={marks[child.id] ?? "NOT_RECORDED"} />
                         </View>
-                        <Choice
-                          label="Status"
-                          compact
-                          value={marks[child.id] ?? "NOT_RECORDED"}
-                          onChange={(v) => setMarks((m) => ({ ...m, [child.id]: v as SundaySchoolHomeworkDisplayStatus }))}
-                          disabled={!selectedClass?.canEdit}
-                          options={MARK_OPTIONS}
-                        />
+                        {selectedClass?.canEdit && (
+                          <Choice
+                            label="Status"
+                            compact
+                            value={marks[child.id] ?? "NOT_RECORDED"}
+                            onChange={(v) => setMarks((m) => ({ ...m, [child.id]: v as SundaySchoolHomeworkDisplayStatus }))}
+                            options={MARK_OPTIONS}
+                          />
+                        )}
                       </View>
                       {index < arr.length - 1 && <View style={{ height: 0.5, backgroundColor: colors.border }} />}
                     </View>
