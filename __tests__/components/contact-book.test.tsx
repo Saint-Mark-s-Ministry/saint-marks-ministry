@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { RoleTag, UserRole } from '@prisma/client'
 import userEvent from '@testing-library/user-event'
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), session: vi.fn() }))
@@ -10,20 +9,22 @@ import { ContactBook } from '@/components/contact-book'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 
 const response = {
-  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [{ id: 'assignment', authority: 'COORDINATOR', classId: 'grade-12', ageGroupId: null, class: { id: 'grade-12', name: 'St. Mary', level: 'GRADE_12' }, ageGroup: null }] }],
+  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, roles: ['SUNDAY_SCHOOL_COORDINATOR'], sundaySchoolServing: [{ id: 'assignment', authority: 'COORDINATOR', classId: 'grade-12', ageGroupId: null, class: { id: 'grade-12', name: 'St. Mary', level: 'GRADE_12' }, ageGroup: null }] }],
   total: 1,
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  window.sessionStorage.clear()
   mocks.session.mockReturnValue({ status: 'authenticated', data: { user: { id: 'viewer' } } })
   mocks.hook.mockReturnValue({ data: response, error: undefined, isLoading: false, isValidating: false, mutate: vi.fn() })
 })
 
 describe('ContactBook', () => {
+  afterEach(() => vi.restoreAllMocks())
   it('shows names, contact actions, missing-phone text, and a contact count', () => {
     render(<ContactBook />)
     expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
-    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Sunday School Servant', { selector: 'span' })).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Sunday School Coordinator', { selector: 'span' })).toBeInTheDocument()
     expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('12th Grade Coordinator')).toBeInTheDocument()
     expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('mariam@example.com')).toBeInTheDocument()
     expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('No phone number')).toBeInTheDocument()
@@ -40,7 +41,7 @@ describe('ContactBook', () => {
     render(<ContactBook />)
     const table = screen.getByRole('table', { name: 'Contacts' })
     expect(within(table).getAllByRole('columnheader').map(header => header.textContent))
-      .toEqual(['Name', 'Email', 'Phone', 'Access', 'Sunday School'])
+      .toEqual(['Name', 'Email', 'Phone', 'Roles', 'Sunday School'])
     expect(screen.getAllByRole('button', { name: "View Mariam's photo" })).toHaveLength(2)
     expect(screen.getByRole('heading', { name: 'Mariam', level: 2 })).toBeInTheDocument()
     expect(screen.getByText('Sunday School: 12th Grade Coordinator · St. Mary')).toBeInTheDocument()
@@ -61,6 +62,18 @@ describe('ContactBook', () => {
       expect(within(row).getByText(`Class ${index + 1}`)).toBeInTheDocument()
       expect(screen.getByText(`Sunday School: 1st Grade Coordinator · Class ${index + 1}`)).toBeInTheDocument()
     }
+  })
+
+  it('offers ministry roles instead of application access roles', () => {
+    render(<ContactBook />)
+    const roleFilter = screen.getByRole('combobox', { name: 'Filter by role' })
+    expect(within(roleFilter).getByRole('option', { name: 'Sunday School Coordinator' })).toBeInTheDocument()
+    expect(within(roleFilter).queryByRole('option', { name: 'Super Admin' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Legacy:/)).not.toBeInTheDocument()
+    fireEvent.change(roleFilter, { target: { value: 'SUNDAY_SCHOOL_COORDINATOR' } })
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
+    fireEvent.change(roleFilter, { target: { value: 'SUNDAY_SCHOOL_SERVANT' } })
+    expect(screen.queryByText('Mariam')).not.toBeInTheDocument()
   })
 
   it('combines grade and role filters and clears an empty result', () => {
@@ -88,6 +101,54 @@ describe('ContactBook', () => {
     expect(names()).toEqual(['Zoe', 'Mariam'])
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(names()).toEqual(['Mariam', 'Zoe'])
+  })
+
+  it('restores search, role, grade, and sort after a page reload', () => {
+    const { unmount } = render(<ContactBook />)
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Mariam' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by role' }), { target: { value: 'SUNDAY_SCHOOL_COORDINATOR' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by grade' }), { target: { value: 'GRADE_12' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort contacts' }), { target: { value: 'grade' } })
+    unmount()
+    render(<ContactBook />)
+    expect(screen.getByRole('searchbox')).toHaveValue('Mariam')
+    expect(screen.getByRole('combobox', { name: 'Filter by role' })).toHaveValue('SUNDAY_SCHOOL_COORDINATOR')
+    expect(screen.getByRole('combobox', { name: 'Filter by grade' })).toHaveValue('GRADE_12')
+    expect(screen.getByRole('combobox', { name: 'Sort contacts' })).toHaveValue('grade')
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(JSON.parse(window.sessionStorage.getItem('contact-book-filters:viewer')!))
+      .toEqual({ search: '', role: '', grade: '', sort: 'name' })
+  })
+
+  it('keeps saved filters separate when switching effective identities', () => {
+    const { rerender } = render(<ContactBook />)
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Mariam' } })
+    mocks.session.mockReturnValue({ status: 'authenticated', data: { user: { id: 'target' } } })
+    rerender(<ContactBook />)
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Different' } })
+    mocks.session.mockReturnValue({ status: 'authenticated', data: { user: { id: 'viewer' } } })
+    rerender(<ContactBook />)
+    expect(screen.getByRole('searchbox')).toHaveValue('Mariam')
+  })
+
+  it.each(['{broken', JSON.stringify({ role: 'SUPER_ADMIN', grade: 'invalid', sort: 'invalid' })])('ignores invalid saved preferences: %s', saved => {
+    window.sessionStorage.setItem('contact-book-filters:viewer', saved)
+    render(<ContactBook />)
+    expect(screen.getByRole('combobox', { name: 'Filter by role' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Filter by grade' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Sort contacts' })).toHaveValue('name')
+  })
+
+  it('still filters when browser storage is unavailable', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Unavailable') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Unavailable') })
+    render(<ContactBook />)
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Missing' } })
+    expect(screen.queryByText('Mariam')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
   })
 
   it('clears displayed contacts immediately when permission is revoked', () => {

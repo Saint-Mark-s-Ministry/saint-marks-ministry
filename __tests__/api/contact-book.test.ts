@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ id: 'actor', role: UserRole.SUPER_ADMIN, canAccessContactBook: true })
   mocks.session.mockResolvedValue({ user: { id: 'actor' } })
   mocks.findUser.mockResolvedValue(principal())
-  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }])
+  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [], mentorAssignments: [] }])
   mocks.count.mockResolvedValue(1)
   mocks.update.mockResolvedValue({ id: 'target', canAccessContactBook: true })
   mocks.transaction.mockImplementation(async input => Array.isArray(input) ? Promise.all(input) : input({
@@ -64,12 +64,13 @@ describe('contact book reads', () => {
     const response = await GET()
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toContain('no-store')
-    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1 })
+    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, roles: ['SUNDAY_SCHOOL_SERVANT'], sundaySchoolServing: [] }], total: 1 })
     expect(mocks.findContacts).toHaveBeenCalledWith(expect.objectContaining({
       select: expect.objectContaining({
         id: true, name: true, email: true, phone: true, profileImageUrl: true, role: true,
         roleAssignments: expect.objectContaining({ where: { revokedAt: null }, select: { tag: true } }),
         sundaySchoolServing: expect.objectContaining({ where: { academicYear: { isActive: true }, endedAt: null } }),
+        mentorAssignments: { where: { endedAt: null, studentEnrollment: { status: 'ACTIVE' } }, select: { id: true }, take: 1 },
       }),
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     }))
@@ -100,15 +101,32 @@ describe('contact book reads', () => {
     expect(mocks.findContacts).toHaveBeenCalledTimes(1)
   })
 
+  it('returns ministry duties without exposing administrative tags or mentor assignment records', async () => {
+    mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
+    mocks.findContacts.mockResolvedValue([{
+      id: 'coordinator', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null,
+      role: UserRole.SUPER_ADMIN, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }, { tag: RoleTag.SUNDAY_SCHOOL_SERVANT }],
+      mentorAssignments: [{ id: 'active-mentor' }],
+      sundaySchoolServing: [{ id: 'a', authority: 'COORDINATOR', classId: 'first', ageGroupId: null,
+        class: { id: 'first', name: 'Class 1', level: 'GRADE_1' }, ageGroup: null }],
+    }])
+    const body = await (await GET()).json()
+    expect(body.contacts[0].roles).toEqual(['SUNDAY_SCHOOL_COORDINATOR', 'MENTOR'])
+    expect(body.contacts[0]).not.toHaveProperty('role')
+    expect(body.contacts[0]).not.toHaveProperty('roleAssignments')
+    expect(body.contacts[0]).not.toHaveProperty('mentorAssignments')
+    expect(body.contacts[0].sundaySchoolServing[0].class.name).toBe('Class 1')
+  })
+
   it('returns the complete directory without pagination or an extra count query', async () => {
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
     const contacts = Array.from({ length: 75 }, (_, index) => ({
       id: String(index), name: `Contact ${index}`, email: `${index}@example.com`, phone: null, profileImageUrl: null,
-      role: UserRole.SERVANT, roleAssignments: [], sundaySchoolServing: [],
+      role: UserRole.SERVANT, roleAssignments: [], sundaySchoolServing: [], mentorAssignments: [],
     }))
     mocks.findContacts.mockResolvedValue(contacts)
     const response = await GET()
-    await expect(response.json()).resolves.toEqual({ contacts, total: 75 })
+    await expect(response.json()).resolves.toEqual({ contacts: contacts.map(({ role: _role, roleAssignments: _tags, mentorAssignments: _mentors, ...contact }) => ({ ...contact, roles: ['SUNDAY_SCHOOL_SERVANT'] })), total: 75 })
     const query = mocks.findContacts.mock.calls[0][0]
     expect(query).not.toHaveProperty('skip')
     expect(query).not.toHaveProperty('take')
