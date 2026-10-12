@@ -23,7 +23,7 @@ import {
   servantProgress,
   type ServantMarks,
 } from "@/data/sunday-school-servant-attendance";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -160,11 +160,9 @@ function ServantAttendanceScreen() {
 
   return (
     <>
-      {/* The serif heading below carries the title, so the native large title stays off. */}
-      <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+      <Stack.Screen options={{ title: "Servant attendance" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()} bottom={lock.locked ? 32 : 110}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Servant attendance</Copy>
           <Copy kind="caption">
             {cls?.name ?? "No class"} · week of {shortMonthDay(date)}
           </Copy>

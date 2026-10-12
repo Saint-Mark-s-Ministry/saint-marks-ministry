@@ -10,7 +10,7 @@ for the people who own the Apple account.
 
 | Area | State | Where |
 |---|---|---|
-| First launch while signed out (2.1) | Fixed. Screens that need a session are protected while signed out and `/` lands on Sign in; a test keeps the route list in sync with the files | `apps/mobile/src/data/route-access.ts`, `app/_layout.tsx` |
+| First launch while signed out (2.1) | Fixed. Screens that need a session are protected while signed out, so a fresh install lands on Sign in; a test keeps the route list in sync with the files | `apps/mobile/src/data/route-access.ts`, `app/_layout.tsx` |
 | Privacy Policy / Terms reachable before sign-in (5.1.1(i)) | Done on Sign in and every public registration/sign-up screen, with consent wording on forms that create an account | `apps/mobile/src/components/legal-links.tsx` |
 | Password recovery | "Forgot password?" on Sign in opens the existing web reset | `components/sign-in.tsx` |
 | Older iOS versions | Glass button styles are iOS 26+; earlier versions get filled bordered buttons instead of plain text | `native-action-button.ios.tsx` |
@@ -92,8 +92,9 @@ bun run mobile:ios -- --localhost   # local simulator against bun dev
 - **Not exercised on a physical device.** Behavior is covered by unit tests,
   typechecking, API checks and Simulator review of earlier screens. Run a full
   TestFlight pass (every role) before submitting.
-- **View As isn't supported natively.** An impersonating session is treated as
-  signed out. Server write protection under View As is unchanged.
+- **View As is read-only in the app.** A super administrator can view as another
+  person; the app refuses every write while viewing as (and hides Delete account and
+  the Contact Book access switch). The server enforces the same rule.
 - **Account deletion is permanent and mirrors admin deletion.** A person whose
   account holds records the church must keep (confidential priest notes, roster
   import history) is told to contact an administrator, who can disable the

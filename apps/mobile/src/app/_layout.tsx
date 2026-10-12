@@ -5,14 +5,16 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { Newsreader_500Medium } from "@expo-google-fonts/newsreader";
-import { AppThemeProvider, MinistryTintProvider, serifDisplay, serifHeading, useAppTheme } from "@/theme";
+import { AppThemeProvider, MinistryTintProvider, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
-import { SIGNED_IN_ROUTES } from "@/data/route-access";
+import { authenticatedRoutes, publicRoutes } from "@/data/route-access";
+import { ViewAsBanner } from "@/components/view-as-banner";
+import { ActivityIndicator } from "react-native";
 import LaunchScreen from "@/components/launch-screen";
+import { useNavigationHeaderOptions } from "@/components/chrome";
 import { AttendanceAccessory } from "@/components/attendance-accessory";
-import { usePushNotificationRegistration } from "@/data/push-notifications";
 
 export { ErrorBoundary } from "expo-router";
 export const unstable_settings = { initialRouteName: "(tabs)" };
@@ -25,6 +27,7 @@ SplashScreen.setOptions({ duration: 500, fade: true });
 // and able to push between each other — rather than one opaque screen with
 // no navigator at all underneath it.
 function AuthStack() {
+  const headerOptions = useNavigationHeaderOptions();
   const { colors, isDark } = useAppTheme();
   const base = isDark ? DarkTheme : DefaultTheme;
   return (
@@ -42,34 +45,23 @@ function AuthStack() {
       }}
     >
       <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerTintColor: colors.primary,
-          headerBackButtonDisplayMode: "minimal",
-          contentStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-          headerLargeTitle: false,
-          headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
-        }}
-      >
-        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-        <Stack.Screen name="registration" options={{ title: "" }} />
-        <Stack.Screen name="registration/apply" options={{ title: "" }} />
-        <Stack.Screen name="signup/parent" options={{ title: "" }} />
-        <Stack.Screen name="signup/servant" options={{ title: "" }} />
-        <Stack.Screen name="roster-signup" options={{ title: "" }} />
-        {/* Nothing that needs a session may mount while signed out; see data/route-access.ts. */}
+      <Stack screenOptions={headerOptions}>
         <Stack.Protected guard={false}>
-          {SIGNED_IN_ROUTES.map((name) => (
-            <Stack.Screen key={name} name={name} />
-          ))}
+          {authenticatedRoutes.map((name) => <Stack.Screen key={name} name={name} />)}
         </Stack.Protected>
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="registration" options={{ title: "Get started" }} />
+        <Stack.Screen name="registration/apply" options={{ title: "Servants Prep registration" }} />
+        <Stack.Screen name="signup/parent" options={{ title: "Parent sign-up" }} />
+        <Stack.Screen name="signup/servant" options={{ title: "Servant sign-up" }} />
+        <Stack.Screen name="roster-signup" options={{ title: "Roster sign-up" }} />
       </Stack>
     </ThemeProvider>
   );
 }
 
 function Navigation() {
+  const headerOptions = useNavigationHeaderOptions();
   const { colors, isDark } = useAppTheme();
   const { user } = useAuth();
   const { classes, loading } = usePortal();
@@ -99,36 +91,29 @@ function Navigation() {
       }}
     >
       <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerTintColor: colors.primary,
-          headerBackButtonDisplayMode: "minimal",
-          contentStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-          // Every "browse" destination (Academic years, Visitations, Age
-          // groups, etc.) gets the reference's big serif title. Task-focused
-          // and form-sheet screens below opt back out — a large title
-          // doesn't fit a short sheet or a screen with a dynamic subtitle.
-          headerLargeTitle: Platform.OS === "ios",
-          headerLargeTitleStyle: { fontFamily: serifDisplay, color: colors.text },
-          headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
-        <Stack.Screen name="(prep)" options={{ headerShown: false, title: "" }} />
+      <View style={{ flex: 1 }}>
+      <ViewAsBanner />
+      <View style={{ flex: 1 }}>
+      <Stack screenOptions={headerOptions}>
+        <Stack.Protected guard={false}>
+          {publicRoutes.map((name) => <Stack.Screen key={name} name={name} />)}
+        </Stack.Protected>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "", animation: "fade", animationDuration: 220 }} />
+        <Stack.Screen name="(prep)" options={{ headerShown: false, title: "", animation: "fade", animationDuration: 220 }} />
         <Stack.Screen
           name="attendance/[classId]"
-          options={{ title: "Take attendance", headerLargeTitle: false }}
+          options={{ title: "Take attendance" }}
         />
         <Stack.Screen
           name="lesson/[id]"
-          options={{ title: "Weekly lesson", headerLargeTitle: false }}
+          options={{ title: "Weekly lesson" }}
         />
         <Stack.Screen
           name="notifications"
           options={{
             title: "Notifications",
             headerLargeTitle: false,
+            headerTransparent: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "modal",
             sheetAllowedDetents: Platform.OS === "ios" ? [0.55, 0.92] : undefined,
             sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
@@ -141,6 +126,7 @@ function Navigation() {
           options={{
             title: "Switch ministry",
             headerLargeTitle: false,
+            headerTransparent: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "modal",
             sheetAllowedDetents: Platform.OS === "ios" ? [0.4] : undefined,
             sheetInitialDetentIndex: 0,
@@ -152,6 +138,7 @@ function Navigation() {
           options={{
             title: "Account",
             headerLargeTitle: false,
+            headerTransparent: false,
             presentation: Platform.OS === "ios" ? "formSheet" : "card",
             sheetAllowedDetents:
               Platform.OS === "ios" ? [0.68, 0.95] : undefined,
@@ -161,6 +148,8 @@ function Navigation() {
           }}
         />
       </Stack>
+      </View>
+      </View>
       {/* Every in-progress draft today is a Sunday School class; revisit once
           Prep lesson attendance ships and the accessory needs to tint per
           the draft's own ministry instead of a fixed default. */}
@@ -182,15 +171,14 @@ export default function RootLayout() {
 }
 
 function AuthenticatedApp() {
-  const { user, loading } = useAuth();
+  const { user, loading, viewingAs, switchingIdentity } = useAuth();
+  const { colors } = useAppTheme();
   const [fontsLoaded] = useFonts({
     Newsreader_500Medium,
   });
   const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);
   const finishSplash = useCallback(() => setShowSplash(false), []);
-
-  usePushNotificationRegistration(user?.id);
 
   // Preserve the intended deep link across sign-in (SMM-59): while signed
   // out, there's no <Stack> mounted at all to receive one, so capture it —
@@ -231,10 +219,11 @@ function AuthenticatedApp() {
         (!user || user.mustChangePassword ? (
           <AuthStack />
         ) : (
-          <PortalProvider key={user.id}>
+          <PortalProvider key={`${user.id}:${viewingAs?.originalId ?? ""}`}>
             <Navigation />
           </PortalProvider>
         ))}
+      {switchingIdentity && <View accessibilityViewIsModal style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}><ActivityIndicator accessibilityLabel="Changing viewed account" /></View>}
       {showSplash && <LaunchScreen ready={ready} onFinished={finishSplash} />}
     </View>
   );

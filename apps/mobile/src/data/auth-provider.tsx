@@ -6,9 +6,13 @@ import {
   type PropsWithChildren,
 } from "react";
 import { AppState, Platform } from "react-native";
+import { router } from "expo-router";
 import { fetch } from "expo/fetch";
 import * as SecureStore from "expo-secure-store";
-import { PortalApi, type CookieJar, type PortalUser } from "./api-client";
+import { PortalApi, type CookieJar, type PortalUser, type PortalSession, type ViewAsSession } from "./api-client";
+
+import { defaultMinistry } from "./navigation";
+import { clearResourceCache } from "./resources";
 
 const configured = process.env.EXPO_PUBLIC_API_URL;
 export const apiOrigin =
@@ -55,6 +59,9 @@ export const api = apiOrigin
 
 type AuthState = {
   user: PortalUser | null;
+  viewingAs: ViewAsSession | null;
+  switchingIdentity: boolean;
+  viewAs: (targetId: string | null) => Promise<void>;
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -65,7 +72,9 @@ type AuthState = {
 };
 const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<PortalUser | null>(null);
+  const [session, setSession] = useState<PortalSession>({});
+  const user = session.user ?? null;
+  const [switchingIdentity, setSwitchingIdentity] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userId = user?.id;
@@ -76,7 +85,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!api)
         throw new Error("Configure EXPO_PUBLIC_API_URL for this build.");
       await api.restore();
-      setUser(await api.session());
+      await api.session();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to connect.");
     } finally {
@@ -84,23 +93,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
   useEffect(() => {
-    if (api)
+    if (api) {
+      api.onSessionChanged = (next, changed) => {
+        if (changed) clearResourceCache();
+        setSession(next);
+      };
       api.onUnauthorized = () => {
-        setUser(null);
+        setSession({});
         setError("Your session expired. Please sign in again.");
       };
+    }
     void retry();
     return () => {
-      if (api) api.onUnauthorized = undefined;
+      if (api) {
+        api.onUnauthorized = undefined;
+        api.onSessionChanged = undefined;
+      }
     };
   }, []);
   useEffect(() => {
     if (!userId || !api) return;
-    let active = true;
     async function revalidate() {
       try {
-        const fresh = await api!.session();
-        if (active) setUser(fresh);
+        await api!.session();
       } catch {
         /* Data requests surface connection failures; do not sign out when offline. */
       }
@@ -112,7 +127,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (AppState.currentState === "active") void revalidate();
     }, 60000);
     return () => {
-      active = false;
       subscription.remove();
       clearInterval(interval);
     };
@@ -121,25 +135,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     <AuthContext.Provider
       value={{
         user,
+        viewingAs: session.impersonating ?? null,
+        switchingIdentity,
+        viewAs: async (targetId) => {
+          if (!api) throw new Error("No API server configured.");
+          setSwitchingIdentity(true);
+          try {
+            const next = await api.updateViewAs(targetId);
+            router.dismissAll();
+            router.replace(defaultMinistry(next.user!, next.user!.sundaySchool.hasAccess) === "prep" ? "/(prep)/home" : "/(tabs)/home");
+          }
+          finally { setSwitchingIdentity(false); }
+        },
         loading,
         error,
         retry,
         refreshUser: async () => {
           if (!api) return;
           try {
-            setUser(await api.session());
+            // The session adopts itself through onSessionChanged.
+            await api.session();
           } catch {
             /* Keep the current user; data requests surface connection failures. */
           }
         },
         signIn: async (email, password) => {
           if (!api) throw new Error("No API server configured.");
-          const next = await api.signIn(email, password);
+          await api.signIn(email, password);
           setError(null);
-          setUser(next);
         },
         signOut: async () => {
-          setUser(null);
+          setSession({});
           setError(null);
           try {
             await api?.signOut();

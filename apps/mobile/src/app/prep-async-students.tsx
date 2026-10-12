@@ -33,7 +33,7 @@ import {
   type RotationReviewResult,
 } from "@/data/async-rotations";
 import { formStatus, progressSegments, rotationRange, type FormStatusTone } from "@/data/rotation-forms";
-import { serifDisplay, useAppTheme, type ThemeColors } from "@/theme";
+import { useAppTheme, type ThemeColors } from "@/theme";
 
 const TABS = ["Assignments", "Rotation forms", "Progress"] as const;
 const REVALIDATE_MS = 15_000;
@@ -108,7 +108,7 @@ export default function PrepAsyncStudents() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Async students" }} />
       <Screen
         refreshing={loading || pulling}
         onRefresh={() => {
@@ -126,7 +126,6 @@ export default function PrepAsyncStudents() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Async students</Copy>
               <Copy kind="caption">Four signed weeks at each of ten grades</Copy>
             </View>
 

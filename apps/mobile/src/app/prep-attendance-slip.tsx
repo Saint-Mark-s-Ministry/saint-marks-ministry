@@ -5,7 +5,6 @@ import * as Print from "expo-print";
 import { Button, Copy, Screen } from "@/components/ui";
 import { useAuth } from "@/data/auth-provider";
 import { canViewOwnRotation, rotationFormHtml } from "@/data/rotation-forms";
-import { serifDisplay } from "@/theme";
 
 // The slip is paper in both appearances: it gets printed and signed.
 const INK = "#1B1817";
@@ -39,7 +38,7 @@ export default function PrepAttendanceSlip() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Rotation form" }} />
       <Screen>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -51,9 +50,6 @@ export default function PrepAttendanceSlip() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 4 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-                Rotation form
-              </Copy>
               <Copy kind="caption">Print this, have each week signed, then upload it from your rotation card.</Copy>
             </View>
 

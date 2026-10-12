@@ -26,7 +26,7 @@ export default function PersonScreen() {
   </Page></MinistryTintProvider>;
 }
 function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person; initiallyDisabled: boolean; refresh: () => Promise<void> }) {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, viewingAs } = useAuth();
   const [name, setName] = useState(person?.name ?? "");
   const [email, setEmail] = useState(person?.email ?? "");
   const [phone, setPhone] = useState(person?.phone ?? "");
@@ -42,7 +42,7 @@ function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person;
   </Card><Card><Copy kind="heading">Access tags</Copy><Copy kind="caption">Tags control participation. Servants still need class or age-group assignments to access ministry records.</Copy>
     {(Object.entries(accessTagLabels) as [RoleTag, string][]).map(([tag, label]) => <Toggle key={tag} label={label} value={tags.includes(tag)} disabled={action.busy || (person?.id === user?.id && tag === "SUPER_ADMIN")} onChange={selected => setTags(ts => selected ? [...ts, tag] : ts.filter(t => t !== tag))} />)}
     {person && showsContactBookAccess({ exists: true, draftTags: tags }) && <>
-      <Toggle label="Allow contact book access" value={contactAccess} disabled={action.busy || !canChangeContactBookAccess({ actorRole: user?.role })} onChange={setContactAccess} />
+      <Toggle label="Allow contact book access" value={contactAccess} disabled={action.busy || !canChangeContactBookAccess({ actorRole: user?.role, viewAs: !!viewingAs })} onChange={setContactAccess} />
       <Copy kind="caption">Can view all app users’ names, emails, and phone numbers.</Copy>
     </>}
     {person && <Field label="Reason for access change" value={note} onChange={setNote} multiline disabled={action.busy} />}

@@ -68,10 +68,7 @@ export default function Lesson() {
     <MinistryTintProvider ministry="sundaySchool">
       <Stack.Screen
         options={{
-          title: "",
-          // This screen draws its own centered title below; the native large
-          // title would reserve a second, empty title band above it.
-          headerLargeTitle: false,
+          title: "Weekly lesson",
           headerRight: () =>
             lesson && canOpenEditor(lesson) && !editing ? (
               // A shared Button goes zero-width as a header-right row sibling

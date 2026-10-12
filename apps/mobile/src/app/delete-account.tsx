@@ -12,7 +12,7 @@ import {
   deletionErrorMessage,
   validateDeletionPassword,
 } from "@/data/account-deletion";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 /**
  * Permanently delete your own account (App Store guideline 5.1.1(v)). The
@@ -21,13 +21,13 @@ import { serifDisplay, useAppTheme } from "@/theme";
  * rather than claiming success.
  */
 export default function DeleteAccount() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, viewingAs } = useAuth();
   const { colors } = useAppTheme();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
-  const allowed = canDeleteOwnAccount(user?.role);
+  const allowed = canDeleteOwnAccount(user?.role, !!viewingAs);
 
   async function remove() {
     if (inFlight.current || busy) return;
@@ -72,12 +72,9 @@ export default function DeleteAccount() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Delete account" }} />
       <Screen>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-            Delete account
-          </Copy>
           <Copy kind="caption">{user?.email ?? ""}</Copy>
         </View>
 
@@ -85,7 +82,9 @@ export default function DeleteAccount() {
           <ListSurface style={{ padding: 16, gap: 6 }}>
             <Copy style={{ fontWeight: "600" }}>Not available here</Copy>
             <Copy kind="caption">
-              Super administrators can't delete their own account. Ask another super administrator to do it.
+              {viewingAs
+                ? "You're viewing as someone else. Stop viewing as them to manage your own account."
+                : "Super administrators can't delete their own account. Ask another super administrator to do it."}
             </Copy>
           </ListSurface>
         )}

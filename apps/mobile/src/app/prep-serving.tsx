@@ -29,7 +29,7 @@ import {
   validateRotationFile,
   type FormStatusTone,
 } from "@/data/rotation-forms";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const REVALIDATE_MS = 15_000;
@@ -85,7 +85,7 @@ export default function PrepRotation() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Rotations" }} />
       <Screen
         refreshing={progress.loading || pulling}
         onRefresh={() => {
@@ -103,7 +103,6 @@ export default function PrepRotation() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Rotations</Copy>
               <Copy kind="caption">Four signed weeks at each grade, from Pre-K through eighth grade</Copy>
             </View>
 

@@ -13,7 +13,7 @@ import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { ministryAccess } from "@/data/ministry";
 import { birthMonthYear, genderLabel, truncatedName } from "@/data/sunday-school-roster";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const STATUS_OPTIONS = [
@@ -62,11 +62,7 @@ export default function Roster() {
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
       <Stack.Screen
         options={{
-          title: "",
-          // The native large title reserves its own tall header area; this
-          // screen already draws its own serif "Roster" heading in the body,
-          // so keeping both stacks redundant empty space above the content.
-          headerLargeTitle: false,
+          title: "Roster",
           headerRight: () => (
             <View style={[styles.row, { gap: 14 }]}>
               <HeaderIconButton
@@ -99,7 +95,6 @@ export default function Roster() {
       />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Roster</Copy>
           <Copy kind="caption">
             {primaryClass?.name ?? "All classes"} · {filtered.length} {filtered.length === 1 ? "child" : "children"}
           </Copy>

@@ -1,0 +1,61 @@
+diff --git a/ios/tabs/host/RNSTabBarController.mm b/ios/tabs/host/RNSTabBarController.mm
+index 481a9e6d5367ff6cad083b001d8b1dd780918b47..d41a509b6cbcdc31023f7e39d2d4a7f659ec37c0 100644
+--- a/ios/tabs/host/RNSTabBarController.mm
++++ b/ios/tabs/host/RNSTabBarController.mm
+@@ -501,6 +501,37 @@ - (void)updateReactChildrenControllers
+     return;
+   }
+ 
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(27_0) && !TARGET_OS_TV && !TARGET_OS_VISION
++  if (@available(iOS 27.0, *)) {
++    // Detached tabs on iOS 27 require the modern UITab API and an explicit
++    // prominent identifier. Keep the existing controllers and route keys.
++    NSMutableArray<UITab *> *tabs = [NSMutableArray new];
++    NSString *searchIdentifier = nil;
++    for (RNSTabsScreenViewController *screen in _tabScreenControllers) {
++      NSString *identifier = [screen getScreenKeyOrNull];
++      UITab *tab = [self tabForIdentifier:identifier];
++      if (tab == nil || tab.viewController != screen) {
++        tab = [[UITab alloc] initWithTitle:screen.tabBarItem.title ?: @""
++                                   image:screen.tabBarItem.image
++                              identifier:identifier
++                  viewControllerProvider:^UIViewController *(UITab *unused) { return screen; }];
++      }
++      tab.title = screen.tabBarItem.title ?: @"";
++      tab.image = screen.tabBarItem.image;
++      tab.selectedImage = screen.tabBarItem.selectedImage;
++      tab.badgeValue = screen.tabBarItem.badgeValue;
++      tab.preferredPlacement = UITabPlacementFixed;
++      if (screen.tabScreenComponentView.systemItem == RNSTabsScreenSystemItemSearch) {
++        tab.image = [UIImage systemImageNamed:@"magnifyingglass"];
++        searchIdentifier = identifier;
++      }
++      [tabs addObject:tab];
++    }
++    [self setTabs:tabs animated:self.tabs.count != 0];
++    self.prominentTabIdentifier = searchIdentifier;
++    return;
++  }
++#endif
+   [self setViewControllers:_tabScreenControllers animated:[[self viewControllers] count] != 0];
+ }
+ 
+@@ -610,6 +641,18 @@ - (void)updateTabBarAppearance
+                                    withHostComponentView:self.tabsHostComponentView
+                                     tabScreenControllers:_tabScreenControllers
+                                              imageLoader:[self.tabsHostComponentView reactImageLoader]];
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(27_0) && !TARGET_OS_TV && !TARGET_OS_VISION
++  if (@available(iOS 27.0, *)) {
++    for (RNSTabsScreenViewController *screen in _tabScreenControllers) {
++      UITab *tab = [self tabForIdentifier:[screen getScreenKeyOrNull]];
++      tab.title = screen.tabBarItem.title ?: @"";
++      tab.image = screen.tabScreenComponentView.systemItem == RNSTabsScreenSystemItemSearch
++          ? [UIImage systemImageNamed:@"magnifyingglass"] : screen.tabBarItem.image;
++      tab.selectedImage = screen.tabBarItem.selectedImage;
++      tab.badgeValue = screen.tabBarItem.badgeValue;
++    }
++  }
++#endif
+ }
+ 
+ - (void)updateTabBarA11yIfNeeded

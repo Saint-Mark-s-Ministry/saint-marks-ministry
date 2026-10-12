@@ -11,7 +11,7 @@ import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { groupClassesByAgeGroup } from "@/data/sunday-school-classes";
 import { filterClassesByPins } from "@/data/sunday-school-pinned-classes";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -44,11 +44,9 @@ function ClassesScreen() {
 
   return (
     <>
-      {/* The serif heading below carries the title, so the native large title stays off. */}
       <Stack.Screen
         options={{
-          title: "",
-          headerLargeTitle: false,
+          title: "Classes",
           headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           // No native headerRight circular button here (the artboard's own
           // "+" button), unlike every pushed screen in this rebuild: this is
@@ -73,7 +71,6 @@ function ClassesScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, paddingHorizontal: 4 }}>
           <View style={{ gap: 2 }}>
-            <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Classes</Copy>
             {!!dashboard.data && (
               <Copy kind="caption">
                 {classes.length} {classes.length === 1 ? "class" : "classes"}

@@ -17,7 +17,14 @@ export type PortalUser = {
   // API re-checks on every request; never authorize from this.
   canAccessContactBook?: boolean;
 };
-export type PortalSession = { user?: PortalUser; impersonating?: unknown };
+export type ViewAsSession = {
+  originalId: string;
+  originalName: string | null;
+  originalEmail: string | null;
+  expiresAt: number;
+  readOnly: true;
+};
+export type PortalSession = { user?: PortalUser; impersonating?: ViewAsSession | null };
 
 export class ApiError extends Error {
   constructor(
@@ -115,6 +122,17 @@ export class PortalApi {
   private generation = 0;
   private writes = Promise.resolve();
   onUnauthorized?: () => void;
+  onSessionChanged?: (session: PortalSession, identityChanged: boolean) => void;
+  private currentSession: PortalSession = {};
+  private changingIdentity = false;
+  private adoptSession(session: PortalSession) {
+    const identity = (value: PortalSession) => `${value.user?.id ?? ""}:${value.impersonating?.originalId ?? ""}`;
+    const changed = identity(session) !== identity(this.currentSession);
+    if (changed) this.generation++;
+    this.currentSession = session;
+    this.onSessionChanged?.(session, changed);
+    return session;
+  }
   readonly origin: string;
   constructor(
     origin: string,
@@ -152,6 +170,7 @@ export class PortalApi {
   async clear() {
     this.generation++;
     this.jar = {};
+    this.adoptSession({});
     await this.persist();
   }
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -162,6 +181,13 @@ export class PortalApi {
       new URL(path, this.origin).origin !== this.origin
     )
       throw new Error("Invalid API path");
+    const method = (init.method ?? "GET").toUpperCase();
+    const safe = ["GET", "HEAD", "OPTIONS"].includes(method);
+    const sessionControl = path === "/api/auth/session" || path === "/api/auth/signout";
+    if (this.changingIdentity && !path.startsWith("/api/auth/"))
+      throw new ApiError("The viewed account is changing. Please wait.", 409);
+    if (this.currentSession.impersonating && !safe && !sessionControl)
+      throw new ApiError("View as is read-only. Stop viewing as this user before making changes.", 403, "ViewAsReadOnly");
     const generation = this.generation;
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
@@ -195,6 +221,7 @@ export class PortalApi {
       if (setCookies.some((value) => value.includes("session-token")))
         await this.persist();
       const body = await response.json();
+      if (generation !== this.generation) throw new Error("Session changed. Please try again.");
       if (!response.ok) {
         if (path === "/api/auth/callback/credentials") {
           await this.clear();
@@ -240,12 +267,38 @@ export class PortalApi {
     }
   }
   async session() {
+    if (this.changingIdentity) throw new Error("The viewed account is changing.");
     const session = await this.request<PortalSession>("/api/auth/session");
-    if (!session.user || session.impersonating) {
+    if (!session.user) {
       await this.clear();
       return null;
     }
+    this.adoptSession(session);
     return session.user;
+  }
+  async updateViewAs(targetId: string | null) {
+    if (this.changingIdentity) throw new Error("The viewed account is already changing.");
+    this.changingIdentity = true;
+    this.generation++; // Old reads must not rotate the cookie back to the prior identity.
+    try {
+      const { csrfToken } = await this.request<{ csrfToken: string }>("/api/auth/csrf");
+      const session = await this.request<PortalSession>("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csrfToken, data: { impersonate: targetId } }),
+      });
+      this.adoptSession(session);
+      if (!session.user || (targetId
+        ? session.user.id !== targetId || !session.impersonating
+        : !!session.impersonating)) {
+        throw new Error(targetId
+          ? "View as could not be started. Confirm your Super Admin access and try again."
+          : "View as could not be stopped. Try again or sign out.");
+      }
+      return session;
+    } finally {
+      this.changingIdentity = false;
+    }
   }
   async signIn(email: string, password: string) {
     await this.clear();

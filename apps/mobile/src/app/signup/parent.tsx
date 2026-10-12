@@ -98,7 +98,7 @@ export default function ParentSignup() {
   if (done) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "" }} />
+        <Stack.Screen options={{ title: "Parent sign-up" }} />
         <View style={{ alignItems: "center", gap: 10, paddingTop: 60 }}>
           <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.successSoft, alignItems: "center", justifyContent: "center" }}>
             <Copy style={{ fontSize: 32, color: colors.success }}>✓</Copy>
@@ -115,11 +115,10 @@ export default function ParentSignup() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Parent sign-up" }} />
       <Screen>
         <View style={{ alignItems: "center", gap: 8, paddingTop: 6 }}>
           <Brand />
-          <Copy style={{ fontWeight: "600", fontSize: 22 }}>Parent sign up</Copy>
           <Copy kind="caption" style={{ textAlign: "center", maxWidth: 300 }}>
             Create an account to register your child for Sunday School.
           </Copy>

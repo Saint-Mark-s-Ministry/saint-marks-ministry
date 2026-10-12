@@ -6,7 +6,7 @@ import { Copy, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 import {
   ATTENDANCE_GOAL,
   CONFESSION_LABEL,
@@ -54,7 +54,7 @@ export default function PrepProgress() {
   return (
     <>
       {/* The greeting below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "My progress" }} />
       <Screen
         refreshing={analytics.loading || analytics.refreshing}
         onRefresh={() => {
@@ -93,7 +93,7 @@ export default function PrepProgress() {
         {canView && !notEnrolled && progress && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
+              <Copy kind="heading">
                 {firstName ? `Hi, ${firstName}` : "My progress"}
               </Copy>
               <Copy kind="caption">

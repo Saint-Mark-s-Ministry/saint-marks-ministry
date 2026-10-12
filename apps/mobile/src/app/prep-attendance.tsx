@@ -235,21 +235,6 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
       <Stack.Screen
         options={{
           title: "Attendance",
-          // A two-line compact title (lesson + date/section) doesn't leave
-          // room for a large title underneath — this is a work/action
-          // screen, not a top-level content destination, so a standard
-          // compact nav bar (no large title) is the correct native pattern
-          // here, same as Sunday School's own attendance screen.
-          headerLargeTitle: false,
-          headerTitle: () => (
-            <View style={{ alignItems: "center" }}>
-              <Copy style={{ fontWeight: "600", fontSize: 17 }}>Lesson {lesson.lessonNumber}</Copy>
-              <Copy kind="caption">
-                {dateLabel}
-                {lesson.examSection ? ` · ${lesson.examSection.displayName}` : ""}
-              </Copy>
-            </View>
-          ),
           headerRight: canManage
             ? () => (
                 <MenuView
@@ -282,6 +267,10 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
           void attendance.refresh();
         }}
       >
+        <Copy kind="caption">
+          Lesson {lesson.lessonNumber} · {dateLabel}
+          {lesson.examSection ? ` · ${lesson.examSection.displayName}` : ""}
+        </Copy>
         {offline && (
           <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>
             <Copy style={{ fontWeight: "600" }} color={colors.danger}>

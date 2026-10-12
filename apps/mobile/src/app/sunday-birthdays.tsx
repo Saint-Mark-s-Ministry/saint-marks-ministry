@@ -18,7 +18,7 @@ import {
   upcomingBirthdays,
   type Birthday,
 } from "@/data/sunday-school-birthdays";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const FORBIDDEN = "Forbidden";
@@ -48,7 +48,7 @@ export default function SundayBirthdays() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Birthdays" }} />
       <Stack.SearchBar
         autoCapitalize="none"
         placement="automatic"
@@ -58,7 +58,6 @@ export default function SundayBirthdays() {
       />
       <Screen refreshing={birthdays.loading || birthdays.refreshing} onRefresh={() => void birthdays.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 6 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Birthdays</Copy>
           <Copy kind="caption">
             {scope === 0 ? MONTHS[thisMonth - 1] : "All months"} · {rows.length} {rows.length === 1 ? "child" : "children"}
           </Copy>

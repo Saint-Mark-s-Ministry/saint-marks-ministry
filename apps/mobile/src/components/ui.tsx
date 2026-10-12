@@ -64,6 +64,7 @@ export function Screen({
 }>) {
   const { colors } = useAppTheme();
   const scrollRef = useRef<ScrollView>(null);
+  const [hasRequestedRefresh, setHasRequestedRefresh] = useState(false);
   const topOffsetRef = useRef<number | null>(null);
   const userInteractedRef = useRef(false);
   const hasFocusedRef = useRef(false);
@@ -124,8 +125,13 @@ export function Screen({
       refreshControl={
         onRefresh ? (
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
+            // Initial loading has its own ResourceState. Starting the native
+            // refresh control on mount leaves an extra inset under large titles.
+            refreshing={hasRequestedRefresh && refreshing}
+            onRefresh={() => {
+              setHasRequestedRefresh(true);
+              onRefresh();
+            }}
             tintColor={colors.primary}
           />
         ) : undefined
@@ -358,9 +364,11 @@ export function InitialsAvatar({
   name,
   size = 32,
   variant = "accent",
+  filled = true,
 }: {
   name?: string | null;
   size?: number;
+  filled?: boolean;
   /**
    * "accent": the signed-in account's own avatar (header, Account screen) —
    * tinted with the active ministry's accent, per the design source.
@@ -380,7 +388,7 @@ export function InitialsAvatar({
         borderRadius: size / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: bg,
+        backgroundColor: filled ? bg : "transparent",
       }}
     >
       <Text

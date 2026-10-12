@@ -1,29 +1,8 @@
-/**
- * Which screens a signed-out person may reach.
- *
- * Every screen except these needs a signed-in session, and most need the
- * signed-in providers (PortalProvider) that only exist after sign-in. If one
- * of them mounts while signed out it throws, and the first launch of the app
- * (the state App Review always starts in) becomes a crash screen.
- *
- * The root layout marks SIGNED_IN_ROUTES as protected while signed out, so
- * they can't mount at all. __tests__/mobile/route-access.test.ts compares both
- * lists with the route files on disk, so adding a screen without deciding which
- * list it belongs to fails the test instead of shipping a hole.
- */
+// Expo Router includes unlisted files in a Stack. Explicitly exclude private
+// routes from the signed-out stack so they never mount without PortalProvider.
+export const publicRoutes = ["sign-in", "registration", "registration/apply", "signup/parent", "signup/servant", "roster-signup"] as const;
 
-/** Reachable without an account: sign in, the public registration flows, and the roster QR sign-up. */
-export const PUBLIC_ROUTES = [
-  "sign-in",
-  "registration",
-  "registration/apply",
-  "signup/parent",
-  "signup/servant",
-  "roster-signup",
-] as const;
-
-/** Everything that needs a signed-in session. Route names as the router knows them. */
-export const SIGNED_IN_ROUTES = [
+export const authenticatedRoutes = [
   "(prep)",
   "(tabs)",
   "academic-years",
@@ -35,16 +14,12 @@ export const SIGNED_IN_ROUTES = [
   "change-password",
   "child/[id]",
   "class/[id]",
-  "contact-book",
-  "delete-account",
   "feedback",
   "feedback/[id]",
   "homework",
-  "lesson-scheduler",
+  "index",
   "lesson/[id]",
   "lessons",
-  "main-classes",
-  "my-homework",
   "notifications",
   "organization",
   "parent-children",
@@ -54,10 +29,7 @@ export const SIGNED_IN_ROUTES = [
   "prep-activity",
   "prep-application",
   "prep-async-student/[id]",
-  "prep-async-students",
   "prep-attendance",
-  "prep-attendance-slip",
-  "prep-class-lessons",
   "prep-confession",
   "prep-curriculum",
   "prep-exam/[id]",
@@ -86,10 +58,13 @@ export const SIGNED_IN_ROUTES = [
   "switch-ministry",
   "visitation/[childId]",
   "visitations",
+  "contact-book",
+  "delete-account",
+  "lesson-scheduler",
+  "main-classes",
+  "my-homework",
+  "prep-async-students",
+  "prep-attendance-slip",
+  "prep-class-lessons",
+  "view-as",
 ] as const;
-
-/** Where the app's root URL should land for someone in this state. */
-export function launchDestination(user: { mustChangePassword?: boolean } | null | undefined): "/(tabs)/home" | "/sign-in" {
-  // A forced password change is completed on the sign-in screen, before the app opens.
-  return user && !user.mustChangePassword ? "/(tabs)/home" : "/sign-in";
-}

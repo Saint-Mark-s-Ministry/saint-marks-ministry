@@ -76,7 +76,7 @@ export function TopActions({
         label="Account"
         onPress={() => router.push("/account" as Href)}
       >
-        <InitialsAvatar name={user?.name} size={32} />
+        <InitialsAvatar name={user?.name} size={32} filled={false} />
       </HeaderButton>
     </View>
   );

@@ -172,7 +172,7 @@ function FeedbackDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+      <Stack.Screen options={{ title: "Feedback details" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", gap: 6 }}>
