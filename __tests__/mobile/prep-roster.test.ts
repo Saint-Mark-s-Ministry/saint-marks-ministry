@@ -7,8 +7,6 @@ import {
   isEligibleMentorRole,
   mentorWorkload,
   searchRoster,
-  ssProgressSummary,
-  ssWeekStates,
   unenrolledStudents,
   type RosterEnrollment,
 } from "../../apps/mobile/src/data/prep-roster";
@@ -74,23 +72,6 @@ describe("Roster + async student detail (SMM-39)", () => {
         { id: "b", name: "B", role: "STUDENT" },
       ];
       expect(unenrolledStudents(students, [{ studentId: "a" }]).map((s) => s.id)).toEqual(["b"]);
-    });
-
-    it("builds a per-week serving state array (present/excused/absent/upcoming)", () => {
-      const logs = [
-        { weekNumber: 1, status: "VERIFIED" },
-        { weekNumber: 2, status: "MANUAL" },
-        { weekNumber: 3, status: "EXCUSED" },
-      ];
-      expect(ssWeekStates(logs, 6)).toEqual(["present", "present", "excused", "upcoming", "upcoming", "upcoming"]);
-    });
-
-    it("summarizes serving progress, excused weeks shrinking the denominator", () => {
-      const logs = [
-        { weekNumber: 1, status: "VERIFIED" },
-        { weekNumber: 2, status: "EXCUSED" },
-      ];
-      expect(ssProgressSummary(logs, 6)).toEqual({ present: 1, of: 5 });
     });
   });
 

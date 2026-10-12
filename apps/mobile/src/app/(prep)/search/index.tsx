@@ -23,6 +23,7 @@ const TOOLS: Tool[] = [
   { id: "curriculum", title: "Curriculum", subtitle: "Lessons by year", href: "/prep-curriculum" },
   { id: "confession", title: "Confession", subtitle: "Periods and slips", href: "/prep-confession" },
   { id: "roster", title: "Roster & async students", subtitle: "Enrollment and eligibility", href: "/prep-roster" },
+  { id: "async-students", title: "Async students", subtitle: "Review signed rotation forms", href: "/prep-async-students" },
   { id: "registrations", title: "Registration review", subtitle: "Applicant queue", href: "/prep-registrations" },
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
 ];

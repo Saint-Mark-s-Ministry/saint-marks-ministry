@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import type { RotationAssignment, RotationProgressResponse } from "@stmark/contracts";
 import { Button, Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState, Toggle } from "@/components/forms";
+import { RotationEvidence } from "@/components/rotation-evidence";
 import { ApiError } from "@/data/api-client";
 import { api, useAuth } from "@/data/auth-provider";
 import { invalidateResourceCache, useResource } from "@/data/resources";
@@ -221,7 +222,7 @@ function RotationCard({
 
         {form && (
           <View style={{ gap: 8 }}>
-            <SubmittedEvidence form={form} />
+            <RotationEvidence fileUrl={form.fileUrl} filename={form.filename} />
             {note && <Copy>{note}</Copy>}
             {form.reviewNotes && (
               <View style={{ padding: 12, borderRadius: 12, backgroundColor: colors.hover, gap: 4 }}>
@@ -234,30 +235,6 @@ function RotationCard({
 
         {isCurrent && <UploadSection assignment={assignment} now={now} onUploaded={onChanged} />}
       </ListSurface>
-    </View>
-  );
-}
-
-function SubmittedEvidence({ form }: { form: NonNullable<RotationAssignment["rotationForm"]> }) {
-  const { colors } = useAppTheme();
-  const image = isImageFile(null, form.filename);
-  return (
-    <View style={{ gap: 8 }}>
-      <Copy kind="caption">Submitted form · {form.filename}</Copy>
-      {image ? (
-        <Image
-          source={{ uri: form.fileUrl }}
-          accessibilityLabel={`Submitted rotation form, ${form.filename}`}
-          resizeMode="contain"
-          style={{ width: "100%", height: 220, borderRadius: 12, backgroundColor: colors.hover }}
-        />
-      ) : (
-        <Button
-          secondary
-          label="View submitted form"
-          onPress={() => void Linking.openURL(form.fileUrl).catch(() => undefined)}
-        />
-      )}
     </View>
   );
 }
