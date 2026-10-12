@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext } from '@/lib/authorization'
 import { handleApiError } from '@/lib/api-utils'
 import { canReadContactBook } from '@/lib/contact-book'
+import { getContactBookRoles } from '@/lib/contact-book-roles'
 import { prisma } from '@/lib/prisma'
 
 const headers = { 'Cache-Control': 'private, no-store' }
@@ -23,6 +24,11 @@ export async function GET() {
           select: { tag: true },
           orderBy: { grantedAt: 'asc' },
         },
+        mentorAssignments: {
+          where: { endedAt: null, studentEnrollment: { status: 'ACTIVE' } },
+          select: { id: true },
+          take: 1,
+        },
         sundaySchoolServing: {
           where: { academicYear: { isActive: true }, endedAt: null },
           select: {
@@ -35,7 +41,11 @@ export async function GET() {
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     })
-    return NextResponse.json({ contacts, total: contacts.length }, { headers })
+    const entries = contacts.map(({ role, roleAssignments, mentorAssignments, ...contact }) => ({
+      ...contact,
+      roles: getContactBookRoles({ role, roleAssignments, mentorAssignments, sundaySchoolServing: contact.sundaySchoolServing }),
+    }))
+    return NextResponse.json({ contacts: entries, total: entries.length }, { headers })
   } catch (error) {
     const response = handleApiError(error)
     response.headers.set('Cache-Control', 'private, no-store')

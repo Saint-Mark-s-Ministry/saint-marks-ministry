@@ -4,15 +4,14 @@ import { filterContactBook } from '@/lib/contact-book-filters'
 
 const defaults = { search: '', role: '', grade: '', sort: 'name' } as const
 const contacts: ContactBookEntry[] = [
-  { id: '1', name: 'Zoe', email: 'zoe@example.com', phone: '555-1234', profileImageUrl: null, role: 'SERVANT',
-    roleAssignments: [{ tag: 'SUNDAY_SCHOOL_SERVANT' }, { tag: 'PARENT' }],
+  { id: '1', name: 'Zoe', email: 'zoe@example.com', phone: '555-1234', profileImageUrl: null, roles: ['SUNDAY_SCHOOL_COORDINATOR', 'PARENT'],
     sundaySchoolServing: [{ id: 'band', authority: 'COORDINATOR', classId: null, ageGroupId: 'high', class: null,
       ageGroup: { id: 'high', name: 'High School', levels: ['GRADE_12', 'GRADE_11'] } }] },
-  { id: '2', name: 'Anna', email: 'anna@example.com', phone: null, profileImageUrl: null, role: 'MENTOR', roleAssignments: [], sundaySchoolServing: [] },
-  { id: '3', name: 'Mina', email: 'mina@example.com', phone: null, profileImageUrl: null, role: 'SERVANT', roleAssignments: [],
+  { id: '2', name: 'Anna', email: 'anna@example.com', phone: null, profileImageUrl: null, roles: ['MENTOR'], sundaySchoolServing: [] },
+  { id: '3', name: 'Mina', email: 'mina@example.com', phone: null, profileImageUrl: null, roles: ['SUNDAY_SCHOOL_SERVANT'],
     sundaySchoolServing: [{ id: 'class', authority: 'SERVANT', classId: '2', ageGroupId: null, ageGroup: null,
       class: { id: '2', name: 'St. Mary', level: 'GRADE_2' } }] },
-  { id: '4', name: 'John', email: 'john@example.com', phone: null, profileImageUrl: null, role: 'SERVANT', roleAssignments: [],
+  { id: '4', name: 'John', email: 'john@example.com', phone: null, profileImageUrl: null, roles: ['SUNDAY_SCHOOL_SERVANT'],
     sundaySchoolServing: [{ id: 'college', authority: 'SERVANT', classId: 'college', ageGroupId: null, ageGroup: null,
       class: { id: 'college', name: 'College', level: 'COLLEGE' } }] },
 ]
@@ -41,10 +40,18 @@ describe('contact book filtering and ordering', () => {
     expect(filterContactBook(contacts, { ...defaults, grade: 'COLLEGE_GRAD' })).toEqual([contacts[3]])
   })
 
-  it('uses all active role tags with a fallback for legacy users and mentors', () => {
+  it('matches ministry roles including coordinators and mentors', () => {
     expect(filterContactBook(contacts, { ...defaults, role: 'MENTOR' })).toEqual([contacts[1]])
-    expect(filterContactBook(contacts, { ...defaults, role: 'SUNDAY_SCHOOL_SERVANT' })).toHaveLength(3)
-    expect(filterContactBook([{ ...contacts[0], role: 'PRIEST' }], { ...defaults, role: 'PRIEST' })).toEqual([])
+    expect(filterContactBook(contacts, { ...defaults, role: 'SUNDAY_SCHOOL_SERVANT' })).toHaveLength(2)
+    expect(filterContactBook(contacts, { ...defaults, role: 'SUNDAY_SCHOOL_COORDINATOR' })).toEqual([contacts[0]])
+  })
+
+  it('pairs the coordinator filter with the grade of the coordinator assignment', () => {
+    const multiRole: ContactBookEntry = { ...contacts[0], roles: ['SUNDAY_SCHOOL_COORDINATOR', 'SUNDAY_SCHOOL_SERVANT'],
+      sundaySchoolServing: [...contacts[0].sundaySchoolServing, ...contacts[2].sundaySchoolServing] }
+    expect(filterContactBook([multiRole], { ...defaults, role: 'SUNDAY_SCHOOL_COORDINATOR', grade: 'GRADE_2' })).toEqual([])
+    expect(filterContactBook([multiRole], { ...defaults, role: 'SUNDAY_SCHOOL_COORDINATOR', grade: 'GRADE_12' })).toEqual([multiRole])
+    expect(filterContactBook([multiRole], { ...defaults, role: 'SUNDAY_SCHOOL_SERVANT', grade: 'GRADE_2' })).toEqual([multiRole])
   })
 
   it('sorts names alphabetically and uses ids to break ties', () => {

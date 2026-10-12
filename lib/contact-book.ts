@@ -1,5 +1,6 @@
-import { RoleTag, type UserRole } from '@prisma/client'
+import { RoleTag } from '@prisma/client'
 import type { SundaySchoolAssignmentSummary } from '@/lib/sunday-school-user-assignments'
+import type { ContactBookRole } from '@/lib/contact-book-roles'
 import type { AuthorizationContext } from '@/lib/authorization'
 
 export interface ContactBookEntry {
@@ -8,8 +9,7 @@ export interface ContactBookEntry {
   email: string
   phone: string | null
   profileImageUrl: string | null
-  role: UserRole
-  roleAssignments: { tag: RoleTag }[]
+  roles: ContactBookRole[]
   sundaySchoolServing: SundaySchoolAssignmentSummary[]
 }
 

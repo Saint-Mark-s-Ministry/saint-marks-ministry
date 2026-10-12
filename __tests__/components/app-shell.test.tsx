@@ -47,6 +47,7 @@ describe('AppShell', () => {
 
   beforeEach(() => {
     window.localStorage.clear()
+    window.sessionStorage.clear()
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
     mocks.push.mockClear()
@@ -94,6 +95,20 @@ describe('AppShell', () => {
     expect(sidebar()).toHaveAttribute('data-rail', 'true')
     await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
     expect(sidebar()).toHaveAttribute('data-rail', 'false')
+  })
+
+  it('preserves contact-book filters on that page and clears them on navigation away', () => {
+    window.sessionStorage.setItem('contact-book-filters:viewer', JSON.stringify({ grade: 'GRADE_1' }))
+    window.sessionStorage.setItem('contact-book-filters:view-as', JSON.stringify({ role: 'PARENT' }))
+    window.sessionStorage.setItem('other-preference', 'keep')
+    mocks.pathname = '/dashboard/contact-book'
+    const { rerender } = render(<AppShell>page</AppShell>)
+    expect(window.sessionStorage.getItem('contact-book-filters:viewer')).not.toBeNull()
+    mocks.pathname = '/dashboard/servants/roster'
+    rerender(<AppShell>page</AppShell>)
+    expect(window.sessionStorage.getItem('contact-book-filters:viewer')).toBeNull()
+    expect(window.sessionStorage.getItem('contact-book-filters:view-as')).toBeNull()
+    expect(window.sessionStorage.getItem('other-preference')).toBe('keep')
   })
 
   it('shows loading feedback even when the guarded page renders nothing', () => {

@@ -12,6 +12,7 @@ import {
   resolveMinistry,
 } from '@/lib/navigation'
 import { useDigitalExams } from '@/lib/swr'
+import { clearContactBookFilters } from '@/hooks/useContactBookFilters'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
 import { MobileAppBar, MobileTabBar } from './mobile-nav'
@@ -34,6 +35,9 @@ export function usesAppShell(pathname: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
+  useEffect(() => {
+    if (pathname !== '/dashboard/contact-book') clearContactBookFilters()
+  }, [pathname])
   const router = useRouter()
   const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user.role === 'STUDENT')
   const [rail, setRail] = useState(false)

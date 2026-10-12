@@ -1,11 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/ds/status-badge'
-import { UserRoleTagBadges } from '@/components/user-role-tag-badges'
 import { getSundaySchoolResponsibilities } from '@/lib/sunday-school-user-assignments'
 import { ContactLink } from '@/components/contact-link'
 import { PageHeader } from '@/components/ds/page-header'
@@ -15,34 +14,32 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
 import { FilterSelect } from '@/components/ui/filter-select'
-import { ROLE_TAG_OPTIONS } from '@/lib/role-tags'
+import { CONTACT_BOOK_ROLE_OPTIONS } from '@/lib/contact-book-roles'
 import { getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import { filterContactBook, type ContactBookRoleFilter, type ContactBookGradeFilter, type ContactBookSort } from '@/lib/contact-book-filters'
 import { Button } from '@/components/ui/button'
 import type { ContactBookEntry } from '@/lib/contact-book'
+import { DEFAULT_CONTACT_BOOK_FILTERS, useContactBookFilters } from '@/hooks/useContactBookFilters'
 import { useContactBook } from '@/lib/swr'
 
 export function ContactBook() {
   const { data: session, status } = useSession()
-  const [search, setSearch] = useState('')
-  const [role, setRole] = useState<ContactBookRoleFilter>('')
-  const [grade, setGrade] = useState<ContactBookGradeFilter>('')
-  const [sort, setSort] = useState<ContactBookSort>('name')
-  const { data, error, isLoading, isValidating, mutate } = useContactBook(
-    status === 'authenticated' ? session?.user?.id : undefined
-  )
+  const userId = status === 'authenticated' ? session?.user?.id : undefined
+  const { filters, updateFilters, isReady: filtersReady } = useContactBookFilters(userId)
+  const { search, role, grade, sort } = filters
+  const { data, error, isLoading, isValidating, mutate } = useContactBook(userId)
 
   const denied = status === 'unauthenticated' || error?.status === 401 || error?.status === 403
   // Cached contacts must never be rendered after a denial or before the
   // current effective identity's permission has been revalidated.
-  const contacts = denied || error || isValidating ? undefined : data
+  const contacts = denied || error || isValidating || !filtersReady ? undefined : data
   const visibleContacts = useMemo(() => filterContactBook(contacts?.contacts ?? [], { search, role, grade, sort }), [contacts, search, role, grade, sort])
   const hasFilters = Boolean(search.trim() || role || grade)
   const canReset = hasFilters || sort !== 'name'
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Contact Book" meta="App users’ roles, responsibilities, and contact details" />
+      <PageHeader title="Contact Book" meta="Find people by ministry, grade, and responsibility" />
       {denied ? (
         <Panel bodyClassName="space-y-3 p-6">
           <p role="alert">You do not have access to the contact book.</p>
@@ -53,15 +50,15 @@ export function ContactBook() {
           toolbar={
             <>
               <div className="relative w-full md:w-auto">
-                <SearchField value={search} onChange={setSearch} label="Search contacts" placeholder="Search name, email, phone" className="md:w-[260px]" />
+                <SearchField value={search} onChange={value => updateFilters({ search: value })} label="Search contacts" placeholder="Search name, email, phone" className="md:w-[260px]" />
               </div>
-              <FilterSelect className="max-w-full" aria-label="Filter by role" value={role} onChange={value => setRole(value as ContactBookRoleFilter)}
-                options={[{ value: '', label: 'All roles' }, ...ROLE_TAG_OPTIONS.map(option => ({ value: option.value, label: option.label })), { value: 'MENTOR', label: 'Mentor' }]} />
-              <FilterSelect className="max-w-full" aria-label="Filter by grade" value={grade} onChange={value => setGrade(value as ContactBookGradeFilter)}
+              <FilterSelect className="max-w-full" aria-label="Filter by role" value={role} onChange={value => updateFilters({ role: value as ContactBookRoleFilter })}
+                options={[{ value: '', label: 'All roles' }, ...CONTACT_BOOK_ROLE_OPTIONS]} />
+              <FilterSelect className="max-w-full" aria-label="Filter by grade" value={grade} onChange={value => updateFilters({ grade: value as ContactBookGradeFilter })}
                 options={[{ value: '', label: 'All grades' }, ...LEVEL_ORDER.map(level => ({ value: level, label: getLevelDisplayName(level) })), { value: 'UNASSIGNED', label: 'No grade assignment' }]} />
-              <FilterSelect className="max-w-full" aria-label="Sort contacts" value={sort} onChange={value => setSort(value as ContactBookSort)}
+              <FilterSelect className="max-w-full" aria-label="Sort contacts" value={sort} onChange={value => updateFilters({ sort: value as ContactBookSort })}
                 options={[{ value: 'name', label: 'Name (A–Z)' }, { value: 'grade', label: 'Grade (Pre-K → College & Grad)' }]} />
-              {canReset && <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setRole(''); setGrade(''); setSort('name') }} aria-label="Clear filters"><X aria-hidden />Clear</Button>}
+              {canReset && <Button variant="ghost" size="sm" onClick={() => updateFilters(DEFAULT_CONTACT_BOOK_FILTERS)} aria-label="Clear filters"><X aria-hidden />Clear</Button>}
             </>
           }
           footer={contacts ? <span className="tabular" aria-live="polite">{hasFilters ? `${visibleContacts.length} of ${contacts.total} contacts` : `${contacts.total} ${contacts.total === 1 ? 'contact' : 'contacts'}`}</span> : undefined}
@@ -82,7 +79,7 @@ export function ContactBook() {
                     <th scope="col" className="p-2 text-left">Name</th>
                     <th scope="col" className="p-2 text-left">Email</th>
                     <th scope="col" className="p-2 text-left">Phone</th>
-                    <th scope="col" className="w-44 p-2 text-left">Access</th>
+                    <th scope="col" className="w-44 p-2 text-left">Roles</th>
                     <th scope="col" className="w-56 p-2 text-left">Sunday School</th>
                   </tr>
                 }
@@ -135,7 +132,12 @@ export function ContactBook() {
 }
 
 function ContactRoles({ contact }: { contact: ContactBookEntry }) {
-  return <UserRoleTagBadges tags={contact.roleAssignments.map(assignment => assignment.tag)} legacyRole={contact.role} />
+  const roles = CONTACT_BOOK_ROLE_OPTIONS.filter(option => contact.roles.includes(option.value))
+  return roles.length > 0 ? (
+    <div className="flex flex-wrap gap-1">
+      {roles.map(({ value, label }) => <StatusBadge key={value} tone={value === 'SUNDAY_SCHOOL_COORDINATOR' ? 'gold' : 'info'} dot={false} className="text-[10px]">{label}</StatusBadge>)}
+    </div>
+  ) : <span className="text-ink-3">—</span>
 }
 
 function ContactResponsibilities({ contact, compact = false }: { contact: ContactBookEntry; compact?: boolean }) {
