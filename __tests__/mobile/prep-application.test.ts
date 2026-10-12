@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  applicationHeading,
   applicationProgress,
   canViewOwnApplication,
+  describeLoadFailure,
   fieldWithDraft,
   firstFieldProblem,
+  saveErrorMessage,
+  saveSuccessMessage,
   validateApprovalFile,
   validateFatherOfConfession,
   validateMentorFields,
@@ -105,5 +109,86 @@ describe("fieldWithDraft", () => {
   it("falls back to the server value, then to empty, when there's no draft", () => {
     expect(fieldWithDraft("Server name", null)).toBe("Server name");
     expect(fieldWithDraft(null, null)).toBe("");
+  });
+});
+
+describe("async students without a registration (parity with the corrected web page)", () => {
+  // What GET /api/registration/application returns for an active async student:
+  // no approved registration, but the annual mentor confirmation is required.
+  const asyncState = {
+    showChurchInformation: false,
+    showApprovalForm: false,
+    annualMentorRequired: true,
+    academicYear: { id: "y1", name: "2026-2027" },
+    missingDetails: ["mentorInformation"],
+    complete: false,
+  };
+
+  it("shows only the mentor section, with progress out of one (happy path)", () => {
+    expect(visibleSections(asyncState)).toEqual(["mentor"]);
+    expect(applicationProgress(asyncState)).toEqual({ done: 0, total: 1 });
+    expect(applicationProgress({ ...asyncState, missingDetails: [] })).toEqual({ done: 1, total: 1 });
+  });
+
+  it("does not require a father of confession when no church section is shown", () => {
+    const problem = firstFieldProblem(asyncState, "", { mentorName: "A", mentorPhone: "1", mentorEmail: "a@b.co" });
+    expect(problem).toBeNull();
+  });
+
+  it("keeps the in-person flow: church and approval form sections, father of confession required", () => {
+    const inPerson = { ...asyncState, showChurchInformation: true, showApprovalForm: true, annualMentorRequired: false, missingDetails: ["fatherOfConfession", "approvalForm", "mentorInformation"] };
+    expect(visibleSections(inPerson)).toEqual(["mentor", "church", "approvalForm"]);
+    expect(applicationProgress(inPerson)).toEqual({ done: 0, total: 3 });
+    expect(firstFieldProblem(inPerson, "", { mentorName: "A", mentorPhone: "1", mentorEmail: "a@b.co" })?.field).toBe(
+      "fatherOfConfessionName",
+    );
+  });
+});
+
+describe("applicationHeading", () => {
+  it("asks async students to confirm their mentor for the academic year, like the web page", () => {
+    expect(applicationHeading({ annualMentorRequired: true, academicYear: { id: "y", name: "2026-2027" } })).toEqual({
+      title: "Confirm your mentor",
+      subtitle: "Confirm your mentor servant's contact information for 2026-2027",
+    });
+  });
+
+  it("falls back to a generic year and to the Application heading for the in-person flow", () => {
+    expect(applicationHeading({ annualMentorRequired: true, academicYear: null }).subtitle).toContain("the current academic year");
+    expect(applicationHeading({ annualMentorRequired: false, academicYear: null }).title).toBe("Application");
+    expect(applicationHeading(null).title).toBe("Application");
+  });
+});
+
+describe("describeLoadFailure", () => {
+  it("never claims a missing or unapproved registration as the reason (highest-risk path)", () => {
+    const notFound = describeLoadFailure("Application information not found");
+    expect(notFound.title).toBe("Application unavailable");
+    expect(notFound.body).not.toMatch(/approved registration/i);
+    expect(notFound.body).toMatch(/enrollment|academic year/i);
+  });
+
+  it("tells an offline student to reconnect, and shows other server text as is", () => {
+    expect(describeLoadFailure("Could not reach the server. Check your connection and try again.").title).toBe("You're offline");
+    expect(describeLoadFailure("Database unavailable").body).toBe("Database unavailable");
+  });
+
+  it("has a readable fallback when there is no message at all", () => {
+    expect(describeLoadFailure(undefined).body).toBe("Application information is unavailable for this account.");
+    expect(describeLoadFailure("   ").body).toBe("Application information is unavailable for this account.");
+  });
+});
+
+describe("save feedback", () => {
+  it("words the confirmation the way the web page does", () => {
+    expect(saveSuccessMessage({ annualMentorRequired: true, complete: true })).toBe("Mentor information confirmed");
+    expect(saveSuccessMessage({ annualMentorRequired: false, complete: true })).toBe("Application completed");
+    expect(saveSuccessMessage({ annualMentorRequired: false, complete: false })).toBe("Application details saved");
+  });
+
+  it("explains a View As rejection instead of showing the raw code, and passes other errors through", () => {
+    expect(saveErrorMessage("ViewAsReadOnly")).toContain("read-only");
+    expect(saveErrorMessage("All mentor fields are required")).toBe("All mentor fields are required");
+    expect(saveErrorMessage(undefined)).toBe("Unable to save application. Please try again.");
   });
 });
