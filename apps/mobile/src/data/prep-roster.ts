@@ -73,28 +73,3 @@ export function unenrolledStudents(allStudents: AddableUser[], enrollments: { st
 export function graduationNoteRequired(graduationEligible: boolean | null): boolean {
   return graduationEligible === false;
 }
-
-// --- Sunday School serving-stint progress (real data: SundaySchoolAssignment + logs) ---
-
-export type SSLogStatus = "VERIFIED" | "MANUAL" | "EXCUSED" | "PENDING" | "REJECTED" | string;
-export type SSLog = { weekNumber: number; status: SSLogStatus };
-
-export type SSWeekState = "present" | "excused" | "absent" | "upcoming";
-
-/** One state per week slot (1..totalWeeks), for the colored progress bar. */
-export function ssWeekStates(logs: SSLog[], totalWeeks: number): SSWeekState[] {
-  const byWeek = new Map(logs.map((l) => [l.weekNumber, l.status]));
-  return Array.from({ length: totalWeeks }, (_, i) => {
-    const status = byWeek.get(i + 1);
-    if (status === "VERIFIED" || status === "MANUAL") return "present";
-    if (status === "EXCUSED") return "excused";
-    if (status) return "absent";
-    return "upcoming";
-  });
-}
-
-export function ssProgressSummary(logs: SSLog[], totalWeeks: number) {
-  const present = logs.filter((l) => l.status === "VERIFIED" || l.status === "MANUAL").length;
-  const excused = logs.filter((l) => l.status === "EXCUSED").length;
-  return { present, of: totalWeeks - excused };
-}
