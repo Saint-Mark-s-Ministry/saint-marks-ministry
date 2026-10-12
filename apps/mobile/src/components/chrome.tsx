@@ -13,24 +13,25 @@ import {
 } from "expo-glass-effect";
 import { serifDisplay, serifHeading, useAppTheme } from "@/theme";
 
-export function SectionStack() {
+// Shared native title styling for tab roots, pushed pages, and public flows.
+// iOS owns the collapse and scroll-edge glass transition.
+export function useNavigationHeaderOptions() {
   const { colors } = useAppTheme();
-  return (
-    <Stack
-      screenOptions={{
-        headerTintColor: colors.primary,
-        headerBackButtonDisplayMode: "minimal",
-        contentStyle: { backgroundColor: colors.background },
-        headerShadowVisible: false,
-        headerLargeTitle: Platform.OS === "ios",
-        // headerTintColor above is for bar buttons/back chevrons — the
-        // design source keeps the title itself in neutral ink regardless of
-        // ministry accent, so it needs its own explicit color here.
-        headerLargeTitleStyle: { fontFamily: serifDisplay, color: colors.text },
-        headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
-      }}
-    />
-  );
+  return {
+    headerTintColor: colors.primary,
+    headerBackButtonDisplayMode: "minimal" as const,
+    contentStyle: { backgroundColor: colors.background },
+    headerShadowVisible: false,
+    headerLargeTitle: Platform.OS === "ios",
+    headerTransparent: Platform.OS === "ios",
+    headerLargeTitleStyle: { fontFamily: serifDisplay, color: colors.text },
+    headerTitleStyle: { fontFamily: serifHeading, color: colors.text },
+  };
+}
+
+export function SectionStack() {
+  const options = useNavigationHeaderOptions();
+  return <Stack screenOptions={options} />;
 }
 
 // Glass belongs to controls. Content cards always use an opaque surface.

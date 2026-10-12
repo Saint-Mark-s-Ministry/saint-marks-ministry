@@ -10,7 +10,7 @@ import { endpoint, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { usePortal } from "@/data/portal-provider";
 import { levelRangeLabel } from "@/data/sunday-school-classes";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 export default function AgeGroups() {
   return (
@@ -46,8 +46,7 @@ function AgeGroupsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "",
-          headerLargeTitle: false,
+          title: "Age groups",
           headerRight: () =>
             isAdmin ? (
               <Pressable
@@ -73,7 +72,6 @@ function AgeGroupsScreen() {
         ) : (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Age groups</Copy>
               <Copy kind="caption">A coordinator of a band runs every class in it</Copy>
             </View>
 

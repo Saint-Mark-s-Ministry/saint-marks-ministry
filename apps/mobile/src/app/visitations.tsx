@@ -21,7 +21,7 @@ import {
   type ChildSort,
   type StatusFilter,
 } from "@/data/sunday-school-visitations";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -73,11 +73,9 @@ function VisitationsScreen() {
 
   return (
     <>
-      {/* The serif heading below carries the title, so the native large title stays off. */}
       <Stack.Screen
         options={{
-          title: "",
-          headerLargeTitle: false,
+          title: "Visitations",
           headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           // No header "+" for a new entry here (unlike the artboard's own
           // floating header circle) — a new entry always belongs to one
@@ -96,7 +94,6 @@ function VisitationsScreen() {
       />
       <Screen resetOnFocus refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Visitations</Copy>
           <Copy kind="caption">{primaryClass?.name ?? "All accessible classes"}</Copy>
         </View>
 

@@ -16,7 +16,7 @@ import {
   type ApplicationState,
   type FieldKey,
 } from "@/data/prep-application";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const NOT_FOUND = "Application information not found";
@@ -177,7 +177,7 @@ export default function PrepApplication() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Application" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -189,9 +189,6 @@ export default function PrepApplication() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-                Application
-              </Copy>
               <Copy kind="caption">
                 {data?.annualMentorRequired
                   ? `Confirm your mentor information for ${data.academicYear?.name ?? "this academic year"}`

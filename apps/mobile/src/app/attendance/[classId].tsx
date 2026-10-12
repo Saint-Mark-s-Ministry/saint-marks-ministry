@@ -244,19 +244,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen
         options={{
-          title: "",
-          // A two-line compact title (class + week) doesn't leave room for a
-          // large title underneath — this is a work/action screen, not a
-          // top-level content destination. Matches Servants Prep's own
-          // attendance screen, which already established this exact pattern.
-          headerLargeTitle: false,
+          title: "Take attendance",
           gestureEnabled: true,
-          headerTitle: () => (
-            <View style={{ alignItems: "center" }}>
-              <Copy style={{ fontWeight: "600", fontSize: 17 }}>{cls.name}</Copy>
-              <Copy kind="caption">{weekOfLabel(date)}</Copy>
-            </View>
-          ),
           headerRight: () => (
             <MenuView
               title="Roster"
@@ -278,17 +267,13 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        // "automatic" placement assumes a large title to dock under; with
-        // headerLargeTitle disabled on this work screen, it had nothing to
-        // anchor to and rendered detached near the bottom of the screen,
-        // overlapping the floating save bar. "stacked" forces its own fixed
-        // bar directly under the compact nav bar instead, every time.
-        placement="stacked"
+        placement="automatic"
         placeholder="Find a child"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
       />
       <Screen bottom={160 + insets.bottom}>
+        <Copy kind="caption">{cls.name} · {weekOfLabel(date)}</Copy>
         <ConnectionBadge />
 
         <GlassChrome style={{ borderRadius: 20, padding: 6 }}>

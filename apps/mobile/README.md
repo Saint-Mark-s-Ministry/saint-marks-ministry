@@ -98,6 +98,15 @@ React is pinned to 19.2.4 in both apps to avoid duplicate React copies. It is
 within React Native 0.86's peer range. Expo's exact 19.2.3 recommendation is
 excluded for React only. Keep both apps aligned when upgrading dependencies.
 
+### Detached Search tab on iOS 27
+
+The Bun patch in `patches/react-native-screens@4.26.2.patch` keeps Search in
+its own native glass bubble. On iOS 27, the tab adapter uses `UITab` and
+`prominentTabIdentifier`, preserving Expo's route keys, controllers, and tab
+appearance updates. Earlier iOS versions and other platforms retain the
+upstream implementation. Recheck this patch when upgrading react-native-screens;
+remove it once upstream supports the same behavior.
+
 ## Repository boundaries and remaining scope
 
 - `apps/mobile`: native UI and API transport.
@@ -114,3 +123,17 @@ iPhone 18 Pro simulator running iOS 27.
 is not linked to an account/project. Confirm naming, signing, store accounts,
 and release API configuration before TestFlight or Google Play distribution.
 Merging this branch does not publish a mobile app or include local env files.
+
+### View as
+
+Super Admins can open **Account → View as another user**. Mobile uses the same
+`/api/admin/view-as/users` picker and NextAuth session update as the web portal;
+the server verifies the original actor and audits each session change. A
+persistent **View as · Read-only** banner identifies the viewed account. Tap the
+account name to change users, or **Stop** to restore the original account.
+
+The session survives app restarts and is revalidated when the app returns to the
+foreground and every minute while active. Server expiry restores the original
+account. Identity changes clear resource caches, remount portal state, and
+invalidate pending responses. Mobile also blocks unsafe data requests while
+viewing; the existing server read-only barrier remains authoritative.

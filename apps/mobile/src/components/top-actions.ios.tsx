@@ -42,7 +42,7 @@ export function TopActions({
           onPress={() => router.push("/account" as Href)}
           style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center" }}
         >
-          <InitialsAvatar name={user?.name} size={30} />
+          <InitialsAvatar name={user?.name} size={30} filled={false} />
         </Pressable>
       </Stack.Toolbar.View>
     </Stack.Toolbar>

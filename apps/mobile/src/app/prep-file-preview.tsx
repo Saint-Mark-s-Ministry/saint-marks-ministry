@@ -43,6 +43,7 @@ export default function PrepFilePreview() {
             </View>
           ),
           headerLargeTitle: false,
+          headerTransparent: false,
           headerRight: () => (
             <Pressable accessibilityRole="button" accessibilityLabel="Share" hitSlop={8} onPress={share}>
               <Icon ios="square.and.arrow.up" android="share" size={20} />

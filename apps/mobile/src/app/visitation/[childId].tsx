@@ -50,7 +50,7 @@ function VisitationChildScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+      <Stack.Screen options={{ title: "Visitation" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()} bottom={child && cls?.canEdit ? 110 : 32}>
         {offline && resource.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>

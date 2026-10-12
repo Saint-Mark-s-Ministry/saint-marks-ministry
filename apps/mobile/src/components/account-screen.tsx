@@ -20,7 +20,7 @@ import { serifDisplay, useAppTheme, type AppearancePreference } from "@/theme";
 
 export function AccountScreen() {
   const { colors, isDark, preference, setPreference } = useAppTheme();
-  const { user, signOut } = useAuth();
+  const { user, viewingAs, signOut } = useAuth();
   const { refresh, loading } = usePortal();
   const years = useResource<AcademicYearLike[]>("/api/academic-years");
   const activeYear = sortAcademicYears(years.data ?? []).find((y) => y.isActive);
@@ -31,6 +31,7 @@ export function AccountScreen() {
         options={{
           title: "My account",
           headerLargeTitle: false,
+          headerTransparent: false,
           headerRight:
             Platform.OS === "android"
               ? () => (
@@ -63,6 +64,13 @@ export function AccountScreen() {
         </View>
 
         <ConnectionBadge />
+        {(user?.role === "SUPER_ADMIN" || viewingAs) && <RowLink
+          title={viewingAs ? "Change viewed account" : "View as another user"}
+          subtitle="Preview their access in a read-only session"
+          icon={<Icon ios="person.crop.circle.badge.checkmark" android="manage_accounts" size={18} />}
+          onPress={() => router.push("/view-as")}
+        />}
+
 
         <View style={{ gap: 10 }}>
           <RowLink
