@@ -43,10 +43,12 @@ export function TopBar({
         type="button"
         onClick={onToggleRail}
         aria-label={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-pressed={railCollapsed}
-        className="-ml-2 hidden size-[30px] cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink xl:flex"
+        aria-expanded={!railCollapsed}
+        aria-controls="app-sidebar"
+        title={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="-ml-2 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent-ink"
       >
-        <PanelLeft className="size-4" strokeWidth={1.75} />
+        <PanelLeft className="size-4" strokeWidth={1.75} aria-hidden />
       </button>
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
         <Link href={homeHref} className="text-ink-3 no-underline hover:text-ink">

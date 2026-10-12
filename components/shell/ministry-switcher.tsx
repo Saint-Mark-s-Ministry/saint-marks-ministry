@@ -42,7 +42,7 @@ export function MinistrySwitcher({
   const label = (
     <>
       <MinistryMark ministry={current} size={compact ? 26 : 32} />
-      <span className={cn('flex min-w-0 flex-col text-left leading-[1.2]', compact && 'leading-none')}>
+      <span className={cn('flex min-w-0 flex-col text-left leading-[1.2]', compact ? 'leading-none' : 'sidebar-label')}>
         <span className="truncate text-sm font-semibold text-ink">{MINISTRY_NAMES[current]}</span>
         {!compact && <span className="truncate text-[11.5px] text-ink-3 sidebar-label">St. Mark Ministry</span>}
       </span>
@@ -50,7 +50,7 @@ export function MinistrySwitcher({
   )
 
   if (options.length <= 1) {
-    return <div className={cn('flex min-w-0 items-center gap-2.5', className)}>{label}</div>
+    return <div title={MINISTRY_NAMES[current]} className={cn('flex min-w-0 items-center gap-2.5', className)}>{label}</div>
   }
 
   return (

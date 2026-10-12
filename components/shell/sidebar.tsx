@@ -54,6 +54,7 @@ export function NavList({
                 href={item.href}
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
+                aria-label={item.label}
                 title={item.label}
                 className={cn(
                   'sidebar-item flex items-center gap-2.5 rounded-md px-2.5 whitespace-nowrap no-underline transition-colors',
@@ -93,6 +94,7 @@ export function Sidebar({
 
   return (
     <aside
+      id="app-sidebar"
       data-sidebar
       data-rail={rail ? 'true' : 'false'}
       aria-label="Main"

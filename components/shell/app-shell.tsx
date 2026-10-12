@@ -27,7 +27,7 @@ export function usesAppShell(pathname: string) {
 }
 
 /**
- * Sidebar + fluid content on desktop, a 64px rail on tablets, app bar + tab
+ * Sidebar + fluid content on desktop, an optional 64px rail, app bar + tab
  * bar on phones (design system §07). One shell for every ministry; only the
  * nav groups and the accent change.
  */
@@ -40,7 +40,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      setRail(window.localStorage.getItem(RAIL_KEY) === '1')
+      const saved = window.localStorage.getItem(RAIL_KEY)
+      setRail(saved === null ? window.matchMedia('(max-width: 1279px)').matches : saved === '1')
     } catch {
       // Storage can be unavailable (private mode); the sidebar just starts open.
     }
