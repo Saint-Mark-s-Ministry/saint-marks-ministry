@@ -1,3 +1,4 @@
+import { latestAttendanceSave } from "@/lib/attendance-save-info"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -50,7 +51,7 @@ export async function GET(
       }),
       prisma.sundaySchoolChildAttendance.findMany({
         where: { sessionId: id },
-        select: { id: true, childId: true, status: true, notes: true },
+        select: { id: true, childId: true, status: true, notes: true, updatedAt: true, recorder: { select: { id: true, name: true } } },
       }),
     ])
 
@@ -58,6 +59,7 @@ export async function GET(
 
     return NextResponse.json({
       session,
+      lastSavedBy: latestAttendanceSave(records),
       roster: children.map(child => ({
         id: child.id,
         firstName: child.firstName,
@@ -66,7 +68,10 @@ export async function GET(
         gender: child.gender,
         // A photo servants added, else the child's own account photo
         profileImageUrl: child.photoUrl ?? child.user?.profileImageUrl ?? null,
-        attendance: recordByChild.get(child.id) ?? null,
+        attendance: (() => {
+          const record = recordByChild.get(child.id)
+          return record ? { id: record.id, childId: record.childId, status: record.status, notes: record.notes } : null
+        })(),
       })),
     })
   } catch (error: unknown) {

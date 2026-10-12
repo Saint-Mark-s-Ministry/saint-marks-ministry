@@ -1,5 +1,7 @@
 'use client'
 
+import { AttendanceSavedBy } from '@/components/attendance-saved-by'
+
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
@@ -206,6 +208,7 @@ function ServantAttendanceContent() {
               </>
             }
           >
+            {!attendanceLoading && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
             {attendanceLoading ? (
               <EmptyState message="Loading servant roster…" />
             ) : !attendance || attendance.roster.length === 0 ? (

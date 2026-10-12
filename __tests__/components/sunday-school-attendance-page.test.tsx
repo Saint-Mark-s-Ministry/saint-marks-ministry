@@ -86,6 +86,24 @@ describe('Sunday School attendance page', () => {
     })
   })
 
+
+  it('shows who last saved attendance when reopening a recorded week', async () => {
+    const original = mocks.fetch.getMockImplementation()!
+    mocks.fetch.mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.startsWith('/api/sunday-school/sessions?')) return { ok: true, json: async () => [{ id: 'session-1' }] }
+      if (url === '/api/sunday-school/sessions/session-1/attendance') return {
+        ok: true, json: async () => ({ session: { id: 'session-1' }, roster: [], lastSavedBy: {
+          savedAt: '2026-10-11T12:30:00Z', recorder: { id: 'servant-2', name: 'Mary Mark' },
+        } }),
+      }
+      return original(input)
+    })
+    render(<SundaySchoolAttendancePage />)
+    expect(await screen.findByText('Mary Mark')).toBeInTheDocument()
+    expect(screen.getByText(/Last saved by/)).toBeInTheDocument()
+  })
+
   it('keeps past child attendance editable and starts unmarked', async () => {
     render(<SundaySchoolAttendancePage />)
 

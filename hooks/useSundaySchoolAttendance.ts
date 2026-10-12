@@ -1,5 +1,7 @@
 'use client'
 
+import type { AttendanceSaveInfo } from '@/lib/attendance-save-info'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AttendanceStatus } from '@prisma/client'
 import { getChildPhotoUrl } from '@/lib/sunday-school-class'
@@ -154,7 +156,7 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
       const session = await requestJson<SundaySchoolSession>('/api/sunday-school/sessions', abort.signal,
         { classId, date, expectedUserId: userId })
       if (abort.signal.aborted) return false
-      const response = await requestJson<{ success: boolean }>('/api/sunday-school/attendance/batch', abort.signal, {
+      const response = await requestJson<{ success: boolean; lastSavedBy?: AttendanceSaveInfo | null }>('/api/sunday-school/attendance/batch', abort.signal, {
         sessionId: session.id, expectedUserId: userId,
         records: Object.entries(sent).map(([childId, status]) => ({ childId, status })),
       })
@@ -168,7 +170,7 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
       }
       publish({ ...latest, saving: false, finalizing: false, pending: remaining,
         recovered: false, removedCount: 0, saveError: null, retryable: false,
-        attendance: { ...prev.attendance, session }, lastSaved: new Date(), storageError: persist(remaining) })
+        attendance: { ...prev.attendance, session, lastSavedBy: response.lastSavedBy ?? prev.attendance.lastSavedBy }, lastSaved: new Date(), storageError: persist(remaining) })
       return true
     } catch (error: unknown) {
       if (!abort.signal.aborted) publish({ ...current.current, saving: false, finalizing: false,

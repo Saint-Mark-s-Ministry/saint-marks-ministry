@@ -1,3 +1,4 @@
+import { latestAttendanceSave } from "@/lib/attendance-save-info"
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
       session
         ? prisma.sundaySchoolServantAttendance.findMany({
             where: { sessionId: session.id },
-            select: { id: true, servantId: true, status: true },
+            select: { id: true, servantId: true, status: true, updatedAt: true, recorder: { select: { id: true, name: true } } },
           })
         : Promise.resolve([]),
     ])
@@ -82,12 +83,16 @@ export async function GET(request: Request) {
       ...assignment.user,
       userId: assignment.userId,
       authority: assignment.authority,
-      attendance: attendanceByServant.get(assignment.userId) ?? null,
+      attendance: (() => {
+        const record = attendanceByServant.get(assignment.userId)
+        return record ? { id: record.id, servantId: record.servantId, status: record.status } : null
+      })(),
     }))
 
     return NextResponse.json({
       class: sundaySchoolClass,
       session,
+      lastSavedBy: latestAttendanceSave(records),
       roster,
       canEdit: canTakeServantAttendance(access, classId) && isSessionDateToday(sessionDate),
     })

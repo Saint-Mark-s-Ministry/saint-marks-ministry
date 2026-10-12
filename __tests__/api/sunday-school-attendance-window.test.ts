@@ -77,7 +77,7 @@ describe('Sunday School child attendance edit window', () => {
       }
     ))
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ success: true, created: 0, updated: 0 })
+    expect(await response.json()).toEqual({ success: true, created: 0, updated: 0, lastSavedBy: null })
     expect(mocks.getSundaySchoolAccess).toHaveBeenCalledWith(
       { id: 'servant-1', role: 'SERVANT' },
       'year-1'

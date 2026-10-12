@@ -84,7 +84,7 @@ export async function PATCH(
 
     const updatedRecord = await prisma.attendanceRecord.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, recordedBy: user.id },
       include: {
         student: {
           select: {

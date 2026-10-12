@@ -286,7 +286,20 @@ describe('Sunday School servant attendance API', () => {
       update: {
         status: SundaySchoolServantAttendanceStatus.ABSENT,
         recordedBy: 'coordinator-1',
+        updatedAt: expect.any(Date),
       },
     }))
   })
+  it('returns the latest attendance recorder independently of the session creator', async () => {
+    mocks.sessionFindUnique.mockResolvedValue({ id: 'session-1', takenBy: 'creator' })
+    mocks.attendanceFindMany.mockResolvedValue([
+      { id: 'a', servantId: 'servant-1', status: 'PRESENT', updatedAt: new Date('2026-10-11T12:00Z'), recorder: { id: 'earlier', name: 'Earlier Servant' } },
+      { id: 'b', servantId: 'servant-2', status: 'ABSENT', updatedAt: new Date('2026-10-11T12:30Z'), recorder: { id: 'latest', name: 'Latest Servant' } },
+    ])
+    const response = await GET(new Request(`http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=${getSundaySchoolTodayDateInputValue()}`))
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.lastSavedBy).toEqual({ savedAt: '2026-10-11T12:30:00.000Z', recorder: { id: 'latest', name: 'Latest Servant' } })
+  })
+
 })

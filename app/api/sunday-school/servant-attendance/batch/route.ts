@@ -97,6 +97,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const savedAt = new Date()
+
     const result = await prisma.$transaction(async tx => {
       const session = await tx.sundaySchoolSession.upsert({
         where: { classId_date: { classId, date: sessionDate } },
@@ -124,8 +126,9 @@ export async function POST(request: Request) {
             servantId: record.servantId,
             status: record.status,
             recordedBy: user.id,
+            updatedAt: savedAt,
           },
-          update: { status: record.status, recordedBy: user.id },
+          update: { status: record.status, recordedBy: user.id, updatedAt: savedAt },
         })
       }
 
@@ -140,7 +143,7 @@ export async function POST(request: Request) {
       entityType: 'SundaySchoolSession', entityId: result.sessionId, targetName: sundaySchoolClass.name,
       attendanceDate: sessionDate, personIds: servantIds })
 
-    return NextResponse.json({ success: true, ...result })
+    return NextResponse.json({ success: true, ...result, lastSavedBy: { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } })
   } catch (error: unknown) {
     return handleApiError(error)
   }
