@@ -57,7 +57,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Used to attach a photo of a signed confession slip.",
-          "cameraPermission": "Used to photograph a signed confession slip."
+          "cameraPermission": "Used to photograph signed forms, such as a confession slip or a rotation form."
         }
       ],
       "./plugins/withSceneDelegate.js"
