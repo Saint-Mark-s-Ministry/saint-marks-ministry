@@ -1,0 +1,7 @@
+{
+  "name": "@stmark/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "exports": { ".": "./src/index.ts" },
+  "devDependencies": { "@prisma/client": "6.19.3" }
+}

@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SundaySchoolLevel } from '@prisma/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -109,6 +110,10 @@ describe('Sunday School attendance page', () => {
     render(<SundaySchoolAttendancePage />)
 
     expect(await screen.findByText('Mina Mark')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Week of'), {
+      target: { value: getSundaySchoolTodayDateInputValue() },
+    })
+    await screen.findByRole('button', { name: 'Save attendance' })
     expect(screen.queryByRole('button', { name: /excused/i })).not.toBeInTheDocument()
     const [present] = screen.getAllByRole('button', { name: 'Present' })
     expect(present).toHaveAttribute('aria-pressed', 'false')

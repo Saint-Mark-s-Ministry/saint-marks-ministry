@@ -20,6 +20,12 @@ lessons without granting ministry staffing, roster, or editing authority.
 
 ## Documentation
 
+The iOS/Android Expo app lives in [`apps/mobile`](apps/mobile/README.md). It
+connects to this application's API for the Sunday School experience, including
+classes, rosters, lessons, attendance, visitations, reports, and role-aware
+administration. Configure its API origin and run `bun run mobile` after
+`bun install`; see the mobile guide for local setup.
+
 | Document | For |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | The working guide — commands, layout, conventions, gotchas. Start here, whether you are a person or an AI coding agent. |

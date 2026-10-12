@@ -1,0 +1,49 @@
+{
+  "name": "@stmark/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "react"
+      ]
+    }
+  },
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "export": "expo export --platform ios --platform android"
+  },
+  "dependencies": {
+    "@expo-google-fonts/newsreader": "^0.4.1",
+    "@expo/ui": "~57.0.20",
+    "@stmark/contracts": "workspace:*",
+    "@stmark/domain": "workspace:*",
+    "expo": "~57.0.25",
+    "expo-clipboard": "~57.0.2",
+    "expo-constants": "~57.0.19",
+    "expo-document-picker": "~57.0.3",
+    "expo-font": "~57.0.4",
+    "expo-glass-effect": "~57.0.4",
+    "expo-haptics": "~57.0.3",
+    "expo-image-picker": "~57.0.20",
+    "expo-linking": "~57.0.11",
+    "expo-router": "~57.0.23",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-symbols": "~57.0.3",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.4",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.14",
+    "typescript": "~6.0.3"
+  }
+}

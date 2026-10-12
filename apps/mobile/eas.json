@@ -1,0 +1,22 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "preview": { "distribution": "internal", "ios": { "simulator": true } },
+    "internal": { "distribution": "internal" },
+    "beta": {
+      "distribution": "internal",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://servants-prep-app.vercel.app",
+        "EXPO_PUBLIC_DATA_LABEL": "Production"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://servants-prep-app.vercel.app",
+        "EXPO_PUBLIC_DATA_LABEL": "Production"
+      }
+    }
+  }
+}

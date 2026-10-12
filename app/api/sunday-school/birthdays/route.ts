@@ -4,8 +4,10 @@ import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
 
-// A deliberately small birthday-only view. Guardian and family contact details
-// stay out of this response because the birthday page does not need them.
+// GET /api/sunday-school/birthdays
+// A birthday-only view for the Sunday School birthday list. Limited to the
+// classes the caller can read. Guardian, family, and phone fields are never
+// selected.
 export async function GET() {
   try {
     const user = await requireAuth()
@@ -15,11 +17,22 @@ export async function GET() {
     }
 
     const allowedClassIds = visibleClassFilter(access)
+    const activeYear = await prisma.academicYear.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    })
+
     const children = await prisma.sundaySchoolChild.findMany({
       where: {
         isActive: true,
         birthDate: { not: null },
-        ...(allowedClassIds ? { classId: { in: allowedClassIds } } : {}),
+        // Scoped to the active academic year's classes, not just class
+        // access — an admin/priest's "all" access otherwise spans every
+        // class ever created, across every past year.
+        class: {
+          academicYearId: activeYear?.id ?? '__no_active_academic_year__',
+          ...(allowedClassIds ? { id: { in: allowedClassIds } } : {}),
+        },
       },
       select: {
         id: true,

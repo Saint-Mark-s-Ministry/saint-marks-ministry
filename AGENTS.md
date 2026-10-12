@@ -46,6 +46,9 @@ bun dev                  # Dev server with Turbopack (http://localhost:3000)
 bun run build            # Production build (generates Prisma Client; never changes a database)
 bun lint                 # ESLint
 bunx tsc --noEmit        # Typecheck without emitting
+bun run mobile          # Expo native app (see apps/mobile/README.md)
+bun run mobile:typecheck
+bun run mobile:export   # Bundle iOS and Android; not signed native binaries
 
 # Testing (Vitest)
 bun test                 # Watch mode
@@ -94,6 +97,18 @@ Optional: `COPTIC_IO_API_URL` overrides the church-calendar API (default
 `https://api.coptic.io`, no key needed). See [`docs/coptic-io.md`](docs/coptic-io.md).
 
 ## Repository layout
+
+This is a Bun workspace. The Next.js app remains at the root; `apps/mobile/`
+contains the Expo application, `packages/contracts/` contains shared type-only
+contracts, and `packages/domain/` contains platform-independent helpers. Use
+the checked-in hoisted linker configuration to avoid duplicate native modules.
+Mobile code must not import the Prisma runtime or Next.js/server-only modules.
+Import shared enum types from `@stmark/contracts` using `import type`.
+The native app uses the existing API and NextAuth credentials flow. Its API
+origin is `EXPO_PUBLIC_API_URL`; never put database URLs or secrets in Expo
+public variables. Local development uses git-ignored `.env.local` files.
+See `apps/mobile/README.md` for connection details and scope.
+Run both mobile checks above when changing mobile code or shared packages.
 
 ```
 app/
