@@ -42,6 +42,7 @@ const STATUS_META: Record<RegistrationStatus, { label: string; tone: 'warn' | 'o
   PENDING: { label: 'Pending', tone: 'warn' },
   APPROVED: { label: 'Approved', tone: 'ok' },
   REJECTED: { label: 'Rejected', tone: 'bad' },
+  CHANGES_REQUESTED: { label: 'Changes requested', tone: 'warn' },
 }
 
 const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

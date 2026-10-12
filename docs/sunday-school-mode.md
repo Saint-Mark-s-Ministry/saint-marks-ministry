@@ -226,7 +226,7 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
 | `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
-| `visitations/page.tsx` | Per-child visitation status and separate dated phone-call follow-up history across the viewer's assigned class scope |
+| `visitations/page.tsx` | Per-child visitation status, dated history and notes, and a separate dated phone-call follow-up history, across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 

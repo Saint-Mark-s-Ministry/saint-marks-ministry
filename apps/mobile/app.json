@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "St. Mark Portal",
+    "slug": "st-mark-portal",
+    "scheme": "stmarkportal",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/app-icon.png",
+    "ios": {
+      "icon": "./assets/app-icon.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "org.stmark.ministryportal",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "EXExpoAppSceneDelegate"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "android": {
+      "icon": "./assets/app-icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "backgroundColor": "#5C1A1A"
+      },
+      "package": "org.stmark.ministryportal",
+      "predictiveBackGestureEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-system-ui",
+      [
+        "expo-splash-screen",
+        {
+          "image": "../../public/sunday-school-favicon.png",
+          "imageWidth": 152,
+          "resizeMode": "contain",
+          "backgroundColor": "#5C1A1A",
+          "dark": {
+            "image": "../../public/sunday-school-favicon.png",
+            "backgroundColor": "#5C1A1A"
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Used to attach a photo of a signed confession slip.",
+          "cameraPermission": "Used to photograph a signed confession slip."
+        }
+      ],
+      "./plugins/withSceneDelegate.js"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cfcab609-094a-48dd-b957-3f7e0442ca10"
+      }
+    },
+    "owner": "joshuakaisar"
+  }
+}

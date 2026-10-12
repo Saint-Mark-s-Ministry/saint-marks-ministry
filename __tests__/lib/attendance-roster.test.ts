@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { organizeAttendanceRoster } from '@/lib/attendance-roster'
+import { organizeAttendanceRoster } from '@stmark/domain'
 
 const roster = [
   { id: '3', firstName: 'Zoe', lastName: 'Adams', gender: 'FEMALE' as const },
