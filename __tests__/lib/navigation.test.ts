@@ -15,15 +15,6 @@ const noSS = { sundaySchool: { hasAccess: false, isCoordinator: false } }
 const servesSS = { sundaySchool: { hasAccess: true, isCoordinator: false } }
 
 describe('navigationFor', () => {
-  it('shows mentee destinations only after confirming own assignments', () => {
-    for (const role of ['SUPER_ADMIN', 'SERVANT_PREP', 'PRIEST', 'MENTOR'] as UserRole[]) {
-      const destination = role === 'MENTOR' ? '/dashboard/mentor/my-mentees' : '/dashboard/admin/mentees'
-      expect(hrefs(role, 'prep')).not.toContain(destination)
-      expect(hrefs(role, 'prep', { hasMentees: false })).not.toContain(destination)
-      expect(hrefs(role, 'prep', { hasMentees: true })).toContain(destination)
-    }
-  })
-
   it('gives a super admin every prep destination, grouped', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
     expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church'])

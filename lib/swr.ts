@@ -1,5 +1,3 @@
-import type { UserRole } from '@prisma/client'
-import { canBeMentor } from '@/lib/roles'
 import type { ContactBookResponse } from '@/lib/contact-book'
 import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
@@ -42,18 +40,6 @@ export function useEnrollments(mentorId?: string, options?: SWRConfiguration) {
     ? `/api/enrollments?mentorId=${mentorId}`
     : '/api/enrollments'
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-/** The signed-in user's own assignments; never fetch the full roster while loading. */
-export function useMenteePageAccess(user?: { id: string; role: UserRole }) {
-  const { data, error, isLoading } = useSWR<{ id: string }[]>(
-    user && canBeMentor(user.role)
-      ? `/api/enrollments?mentorId=${encodeURIComponent(user.id)}`
-      : null,
-    fetcher,
-    { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 60000 },
-  )
-  return { hasMentees: !!data?.length, isLoading, error, data }
 }
 
 export function useDashboardStats(options?: SWRConfiguration) {

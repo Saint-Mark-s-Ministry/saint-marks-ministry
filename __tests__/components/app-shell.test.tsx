@@ -4,7 +4,6 @@ import { UserRole } from '@prisma/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  hasMentees: false,
   pathname: '/dashboard/servants',
   push: vi.fn(),
   openExams: [] as { id: string }[],
@@ -35,7 +34,6 @@ vi.mock('@/components/annual-mentor-reminder-banner', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
-  useMenteePageAccess: () => ({ hasMentees: mocks.hasMentees }),
   useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
 }))
@@ -51,7 +49,6 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
     mocks.push.mockClear()
-    mocks.hasMentees = false
     mocks.openExams = []
     mocks.user = {
       id: 'priest-1',
@@ -60,16 +57,6 @@ describe('AppShell', () => {
       profileImageUrl: null,
       sundaySchool: { hasAccess: true, isCoordinator: false },
     }
-  })
-
-  it.each([UserRole.MENTOR, UserRole.SERVANT_PREP, UserRole.SUPER_ADMIN, UserRole.PRIEST])('hides mentee links for %s until assignments exist', (role) => {
-    mocks.pathname = role === UserRole.MENTOR ? '/dashboard/mentor' : '/dashboard/admin'
-    mocks.user = { id: 'user-1', name: 'User', role }
-    const { rerender } = render(<AppShell>page</AppShell>)
-    expect(screen.queryAllByRole('link', { name: /mentees/i })).toHaveLength(0)
-    mocks.hasMentees = true
-    rerender(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: /mentees/i })).toBeInTheDocument()
   })
 
   it('shows loading feedback even when the guarded page renders nothing', () => {

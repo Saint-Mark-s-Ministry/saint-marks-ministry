@@ -190,11 +190,11 @@ export default function MentorDashboard() {
         <Panel
           title="My mentees"
           description={`${menteeCount} student${menteeCount === 1 ? '' : 's'}`}
-          actions={menteeCount > 0 && (
+          actions={
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard/mentor/my-mentees">View mentees</Link>
             </Button>
-          )}
+          }
         >
           {menteeCount === 0 ? (
             <EmptyState title="No mentees yet" message="Ask an administrator to assign mentees to you." />
