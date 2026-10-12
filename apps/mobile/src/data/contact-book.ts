@@ -25,12 +25,64 @@ export function isContactBookDeniedLocally(role: string | null | undefined): boo
   return role === "SUPER_ADMIN";
 }
 
-export function contactBookPath(search: string, page: number): string {
-  const params = new URLSearchParams();
-  const term = search.trim();
-  if (term) params.set("search", term);
-  params.set("page", String(Math.max(1, Math.trunc(page) || 1)));
-  return `/api/contact-book?${params.toString()}`;
+/** The server returns the whole directory; search, order and paging happen on the device. */
+export const CONTACT_BOOK_PATH = "/api/contact-book";
+export const CONTACT_BOOK_PAGE_SIZE = 50;
+
+/** Case-insensitive match on name, email, or phone, like the web directory. An empty term keeps everyone. */
+export function filterContacts(contacts: ContactBookEntry[], term: string): ContactBookEntry[] {
+  const query = term.trim().toLocaleLowerCase();
+  if (!query) return contacts;
+  return contacts.filter((contact) =>
+    [contact.name, contact.email, contact.phone ?? ""].some((value) => value.toLocaleLowerCase().includes(query)),
+  );
+}
+
+/** Alphabetical by name, then id, so the order never depends on how the server happened to return it. */
+export function sortContacts(contacts: ContactBookEntry[]): ContactBookEntry[] {
+  return [...contacts].sort(
+    (a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.id.localeCompare(b.id),
+  );
+}
+
+export interface ContactPage {
+  items: ContactBookEntry[];
+  /** The page actually shown, clamped into range when the list shrinks (search, refresh, revocation). */
+  page: number;
+  pages: number;
+  total: number;
+}
+
+export function paginateContacts(
+  contacts: ContactBookEntry[],
+  page: number,
+  pageSize: number = CONTACT_BOOK_PAGE_SIZE,
+): ContactPage {
+  const pages = Math.max(1, Math.ceil(contacts.length / pageSize));
+  const shown = Math.min(Math.max(1, Math.trunc(page) || 1), pages);
+  return {
+    items: contacts.slice((shown - 1) * pageSize, shown * pageSize),
+    page: shown,
+    pages,
+    total: contacts.length,
+  };
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  SUNDAY_SCHOOL_COORDINATOR: "Sunday School Coordinator",
+  SUNDAY_SCHOOL_SERVANT: "Sunday School Servant",
+  SERVANTS_PREP_SERVANT: "Servants Prep Servant",
+  MENTOR: "Mentor",
+  PRIEST: "Priest",
+  PARENT: "Parent",
+  SERVANTS_PREP_STUDENT: "Servants Prep Student",
+  SUNDAY_SCHOOL_STUDENT: "Sunday School Student",
+};
+
+/** "Mentor · Priest", or null when the server sent no roles. Unknown roles are skipped, not guessed. */
+export function roleSummary(roles: string[] | undefined): string | null {
+  const labels = (roles ?? []).flatMap((role) => (ROLE_LABELS[role] ? [ROLE_LABELS[role]] : []));
+  return labels.length ? labels.join(" · ") : null;
 }
 
 export function pageCount(total: number, pageSize: number): number {
@@ -77,15 +129,13 @@ export interface ContactBookState {
   status: ContactBookStatus;
   contacts: ContactBookEntry[];
   total: number;
-  page: number;
-  pageSize: number;
   message: string | null;
   /** Contacts are still shown, but the last refresh failed (offline, server error). */
   stale: boolean;
 }
 
 export function initialContactBookState(identity: string): ContactBookState {
-  return { identity, status: "loading", contacts: [], total: 0, page: 1, pageSize: 50, message: null, stale: false };
+  return { identity, status: "loading", contacts: [], total: 0, message: null, stale: false };
 }
 
 export type ContactBookEvent =
@@ -109,8 +159,8 @@ export function contactBookReducer(state: ContactBookState, event: ContactBookEv
   if (event.identity !== state.identity) return state;
 
   if (event.type === "loaded") {
-    const { contacts, total, page, pageSize } = event.response;
-    return { identity: state.identity, status: "ready", contacts, total, page, pageSize, message: null, stale: false };
+    const { contacts, total } = event.response;
+    return { identity: state.identity, status: "ready", contacts, total, message: null, stale: false };
   }
 
   const error = event.error;
