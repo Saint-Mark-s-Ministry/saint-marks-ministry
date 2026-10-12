@@ -1,9 +1,7 @@
-import { render, screen, within, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ role: 'MENTOR', replace: vi.fn() }))
-
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mocks.replace }) }))
+const mocks = vi.hoisted(() => ({ role: 'MENTOR' }))
 
 vi.mock('@/hooks/useAdminGuard', () => ({
   useAdminGuard: () => ({
@@ -12,8 +10,6 @@ vi.mock('@/hooks/useAdminGuard', () => ({
   }),
 }))
 
-import { SWRConfig } from 'swr'
-import AdminMenteesPage from '@/app/dashboard/admin/mentees/page'
 import MyMenteesPage from '@/app/dashboard/mentor/my-mentees/page'
 
 const analytics = (eligible: boolean, attendance: number, exam: number) => ({
@@ -39,38 +35,17 @@ function stubApi(enrollments: unknown[], byStudent: Record<string, unknown> = {}
   return fetchMock
 }
 
-function renderPage(page = <MyMenteesPage />) {
-  return render(<SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{page}</SWRConfig>)
-}
-
 describe('My mentees', () => {
-  beforeEach(() => mocks.replace.mockReset())
-
   afterEach(() => {
     vi.unstubAllGlobals()
     mocks.role = 'MENTOR'
   })
 
-  it.each(['MENTOR', 'SERVANT_PREP', 'SUPER_ADMIN', 'PRIEST'])('redirects %s with zero mentees without showing the page', async (role) => {
-    mocks.role = role
+  it('says what to do when a mentor has no mentees', async () => {
     stubApi([])
-    renderPage(role === 'MENTOR' ? <MyMenteesPage /> : <AdminMenteesPage />)
-    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith(role === 'MENTOR' ? '/dashboard/mentor' : '/dashboard/admin'))
-    expect(screen.queryByRole('heading', { name: /My mentees|All students/ })).not.toBeInTheDocument()
-  })
-
-  it('does not redirect or show the page while assignments are loading', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
-    renderPage()
-    expect(mocks.replace).not.toHaveBeenCalled()
-    expect(screen.queryByRole('heading', { name: 'My mentees' })).not.toBeInTheDocument()
-  })
-
-  it('reports a failed lookup without treating it as zero mentees', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) })))
-    renderPage()
-    expect(await screen.findByText('Unable to load mentees')).toBeInTheDocument()
-    expect(mocks.replace).not.toHaveBeenCalled()
+    render(<MyMenteesPage />)
+    expect(await screen.findByRole('heading', { name: 'My mentees' })).toBeInTheDocument()
+    expect(screen.getByText('Ask an administrator to assign mentees to you.')).toBeInTheDocument()
   })
 
   it('loads only this mentor’s students and lists at-risk mentees first', async () => {
@@ -78,7 +53,7 @@ describe('My mentees', () => {
       a: analytics(true, 93, 81),
       e: analytics(false, 92, 56),
     })
-    renderPage()
+    render(<MyMenteesPage />)
     const links = await screen.findAllByRole('link', { name: /Shehata|Matta/ })
     expect(links.map((l) => l.textContent)).toEqual(['Elaria Matta', 'Andrew Shehata'])
     expect(fetchMock).toHaveBeenCalledWith('/api/enrollments?mentorId=mentor-1')
@@ -89,8 +64,8 @@ describe('My mentees', () => {
 
   it('shows priests every enrolled student', async () => {
     mocks.role = 'PRIEST'
-    const fetchMock = stubApi([enrollment('a', 'Andrew Shehata')], { a: analytics(true, 93, 81) })
-    renderPage()
+    const fetchMock = stubApi([])
+    render(<MyMenteesPage />)
     expect(await screen.findByRole('heading', { name: 'All students' })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/enrollments')
   })
