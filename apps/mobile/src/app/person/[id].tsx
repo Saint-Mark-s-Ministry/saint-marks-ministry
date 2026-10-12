@@ -6,7 +6,14 @@ import { Button, Card, Copy } from "@/components/ui";
 import { Choice, Field, Page, ResourceState, Toggle, confirmAction, useAction } from "@/components/forms";
 import { endpoint, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { accessTagLabels, type Person } from "@/data/people";
+import {
+  accessTagLabels,
+  canChangeContactBookAccess,
+  contactBookAccessChanged,
+  contactBookAccessErrorMessage,
+  showsContactBookAccess,
+  type Person,
+} from "@/data/people";
 import { usePortal } from "@/data/portal-provider";
 import { MinistryTintProvider } from "@/theme";
 
@@ -19,13 +26,14 @@ export default function PersonScreen() {
   </Page></MinistryTintProvider>;
 }
 function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person; initiallyDisabled: boolean; refresh: () => Promise<void> }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [name, setName] = useState(person?.name ?? "");
   const [email, setEmail] = useState(person?.email ?? "");
   const [phone, setPhone] = useState(person?.phone ?? "");
   const [password, setPassword] = useState("");
   const [tags, setTags] = useState<RoleTag[]>(person?.roleAssignments.map(r => r.tag) ?? ["SUNDAY_SCHOOL_SERVANT"]);
   const [note, setNote] = useState("");
+  const [contactAccess, setContactAccess] = useState(person?.canAccessContactBook ?? false);
   const [isDisabled, setDisabled] = useState(initiallyDisabled);
   const action = useAction();
   return <><Card><Field label="Full name" value={name} onChange={setName} disabled={action.busy} /><Field label="Email" keyboardType="email-address" value={email} onChange={setEmail} disabled={action.busy || person?.id === user?.id} /><Field label="Phone" keyboardType="phone-pad" value={phone} onChange={setPhone} disabled={action.busy} />
@@ -33,9 +41,26 @@ function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person;
     {person && <Button label="Save contact details" disabled={action.busy || !name.trim() || !email.trim()} onPress={() => void action.run(async () => { await request(`/api/users/${encodeURIComponent(person.id)}`, "PATCH", { name, email, phone }); await refresh(); }, "Account updated")} />}
   </Card><Card><Copy kind="heading">Access tags</Copy><Copy kind="caption">Tags control participation. Servants still need class or age-group assignments to access ministry records.</Copy>
     {(Object.entries(accessTagLabels) as [RoleTag, string][]).map(([tag, label]) => <Toggle key={tag} label={label} value={tags.includes(tag)} disabled={action.busy || (person?.id === user?.id && tag === "SUPER_ADMIN")} onChange={selected => setTags(ts => selected ? [...ts, tag] : ts.filter(t => t !== tag))} />)}
+    {person && showsContactBookAccess({ exists: true, draftTags: tags }) && <>
+      <Toggle label="Allow contact book access" value={contactAccess} disabled={action.busy || !canChangeContactBookAccess({ actorRole: user?.role })} onChange={setContactAccess} />
+      <Copy kind="caption">Can view all app users’ names, emails, and phone numbers.</Copy>
+    </>}
     {person && <Field label="Reason for access change" value={note} onChange={setNote} multiline disabled={action.busy} />}
-    <Button label={person ? "Save access tags" : "Create account"} disabled={action.busy || (!person && (!name.trim() || !email.trim() || password.length < 8 || !tags.length))} onPress={() => confirmAction(person ? "Change account access?" : "Create account?", `Confirm access for ${email}: ${tags.map(t => accessTagLabels[t]).join(", ") || "No tags"}.`, () => void action.run(async () => {
-      if (person) { await request(`/api/admin/users/${encodeURIComponent(person.id)}/roles`, "PUT", { roleTags: tags, note }); await refresh(); }
+    <Button label={person ? "Save access tags" : "Create account"} disabled={action.busy || (!person && (!name.trim() || !email.trim() || password.length < 8 || !tags.length))} onPress={() => confirmAction(person ? "Change account access?" : "Create account?", `Confirm access for ${email}: ${tags.map(t => accessTagLabels[t]).join(", ") || "No tags"}.${person && showsContactBookAccess({ exists: true, draftTags: tags }) ? ` Contact book: ${contactAccess ? "allowed" : "not allowed"}.` : ""}`, () => void action.run(async () => {
+      if (person) {
+        await request(`/api/admin/users/${encodeURIComponent(person.id)}/roles`, "PUT", { roleTags: tags, note });
+        if (contactBookAccessChanged({ draftTags: tags, original: person.canAccessContactBook, next: contactAccess })) {
+          try {
+            // A dedicated endpoint: ordinary profile updates are rejected for this field.
+            await request(`/api/admin/users/${encodeURIComponent(person.id)}/contact-book-access`, "PUT", { canAccessContactBook: contactAccess });
+          } catch (error) {
+            await refresh();
+            throw new Error(`Access tags were saved, but contact book access was not updated: ${contactBookAccessErrorMessage(error)}`);
+          }
+          if (person.id === user?.id) await refreshUser();
+        }
+        await refresh();
+      }
       else { const created = await request<Person>("/api/users", "POST", { name, email: email.trim().toLowerCase(), phone, password, role: "SERVANT", roleTags: tags }); setPassword(""); router.replace({ pathname: "/person/[id]", params: { id: created.id } }); }
     }, person ? "Access updated" : "Account created"))} />
   </Card>

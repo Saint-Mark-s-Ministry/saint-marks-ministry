@@ -10,6 +10,7 @@ import {
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
+import { canSeeContactBook } from "@/data/contact-book";
 import { useAppTheme } from "@/theme";
 
 type MinistryLink = { id: string; title: string; subtitle: string; href: Href };
@@ -32,6 +33,13 @@ const ADMIN_LINKS: MinistryLink[] = [
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
 ];
 
+const CONTACT_BOOK_LINK: MinistryLink = {
+  id: "contact-book",
+  title: "Contact Book",
+  subtitle: "Find app users and contact them",
+  href: "/contact-book",
+};
+
 const SHARED_LINKS: MinistryLink[] = [
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
 ];
@@ -47,7 +55,9 @@ export default function PrepMinistry() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const isAdminLike = !user || ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"].includes(user.role);
-  const links = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
+  const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
+  // Menu visibility only; the screen and API re-check access themselves.
+  const links = canSeeContactBook(user) ? [...baseLinks, CONTACT_BOOK_LINK] : baseLinks;
   return (
     <>
       <Stack.Screen

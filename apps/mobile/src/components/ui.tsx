@@ -573,17 +573,21 @@ export function CircleIconButton({
   android,
   label,
   onPress,
+  disabled = false,
 }: {
   ios: SFSymbol;
   android: AndroidSymbol;
   label: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   const { colors } = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
         onPress();
@@ -595,7 +599,7 @@ export function CircleIconButton({
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: colors.hover,
-        opacity: pressed ? 0.7 : 1,
+        opacity: disabled ? 0.35 : pressed ? 0.7 : 1,
       })}
     >
       <Icon ios={ios} android={android} size={20} color={colors.text} />
