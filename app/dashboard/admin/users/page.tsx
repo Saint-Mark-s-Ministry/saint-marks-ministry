@@ -37,6 +37,7 @@ import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { BulkBar } from '@/components/ds/bulk-bar'
+import { PeopleTable, PeopleTableRow, PeopleCardList, PeopleCard } from '@/components/ds/people-directory'
 import { Initials } from '@/components/ds/person'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
@@ -669,9 +670,9 @@ export default function UsersPage() {
           )}
           <div>
             {/* Desktop View */}
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full text-[13px] text-ink">
-                <thead className="bg-raised text-xs text-ink-3 [&_th]:h-9 [&_th]:font-medium">
+            <PeopleTable
+              empty={users.length === 0 ? <EmptyState message={searchQuery || roleFilter ? 'No users match your search.' : 'No users yet.'} /> : undefined}
+              header={
                   <tr>
                     {isSuperAdmin && (
                       <th className="text-center p-2 w-10">
@@ -693,8 +694,8 @@ export default function UsersPage() {
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-32">Actions</th>
                   </tr>
-                </thead>
-                <tbody>
+              }
+            >
                   {users.map((user) => {
                     const isCurrentUser = user.id === session?.user?.id
                     const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
@@ -703,7 +704,7 @@ export default function UsersPage() {
 
                     return (
                       <React.Fragment key={user.id}>
-                        <tr className={`h-[52px] border-b border-line ${isEditing || selectedUsers.has(user.id) ? 'bg-accent-tint' : user.isDisabled ? 'text-ink-3' : 'hover:bg-hover/60'}`}>
+                        <PeopleTableRow className={isEditing || selectedUsers.has(user.id) ? 'bg-accent-tint' : user.isDisabled ? 'text-ink-3' : 'hover:bg-hover/60'}>
                           {isSuperAdmin && (
                             <td className="p-2 text-center">
                               {canSelect ? (
@@ -807,7 +808,7 @@ export default function UsersPage() {
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </PeopleTableRow>
                         {/* Inline Edit Form - Desktop */}
                         {isEditing && (
                           <tr>
@@ -911,16 +912,10 @@ export default function UsersPage() {
                       </React.Fragment>
                     )
                   })}
-                </tbody>
-              </table>
-
-              {users.length === 0 && (
-                <EmptyState message={searchQuery || roleFilter ? 'No users match your search.' : 'No users yet.'} />
-              )}
-            </div>
+            </PeopleTable>
 
             {/* Mobile View */}
-            <div className="lg:hidden space-y-1">
+            <PeopleCardList>
               {users.map((user) => {
                 const isCurrentUser = user.id === session?.user?.id
                 const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
@@ -929,7 +924,7 @@ export default function UsersPage() {
 
                 return (
                   <div key={user.id}>
-                    <div className={`flex items-center gap-2 p-2 border rounded-md ${isEditing ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 rounded-b-none' : user.isDisabled ? 'bg-red-50' : 'bg-white dark:bg-gray-900'}`}>
+                    <PeopleCard className={isEditing ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 rounded-b-none' : user.isDisabled ? 'bg-red-50' : 'bg-white dark:bg-gray-900'}>
                       {isSuperAdmin && (
                         <div className="shrink-0">
                           {canSelect ? (
@@ -1007,7 +1002,7 @@ export default function UsersPage() {
                           </>
                         )}
                       </div>
-                    </div>
+                    </PeopleCard>
                     {/* Inline Edit Form - Mobile */}
                     {isEditing && (
                       <div ref={editFormRef} className="border border-t-0 border-blue-200 dark:border-blue-800 rounded-b-md bg-blue-50/50 dark:bg-blue-950/10 p-3">
@@ -1103,7 +1098,7 @@ export default function UsersPage() {
               {users.length === 0 && (
                 <EmptyState message={searchQuery || roleFilter ? 'No users match your search.' : 'No users yet.'} />
               )}
-            </div>
+            </PeopleCardList>
           </div>
         </Panel>
       </div>

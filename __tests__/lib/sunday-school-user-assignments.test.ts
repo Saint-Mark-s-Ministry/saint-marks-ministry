@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
-import { getSundaySchoolAssignmentLevels, getSundaySchoolResponsibilityLabels } from '@/lib/sunday-school-user-assignments'
+import { getSundaySchoolAssignmentLevels, getSundaySchoolResponsibilityLabels, getSundaySchoolResponsibilities } from '@/lib/sunday-school-user-assignments'
 
 describe('Sunday School user assignment levels', () => {
   it('combines direct class and age-group assignments in grade order', () => {
@@ -89,5 +89,28 @@ describe('Sunday School responsibility labels', () => {
   it('does not infer responsibility from a role tag alone', () => {
     expect(getSundaySchoolResponsibilityLabels(undefined)).toEqual([])
     expect(getSundaySchoolResponsibilityLabels([])).toEqual([])
+  })
+})
+
+describe('Sunday School class responsibility scopes', () => {
+  it('preserves separate class names for coordinators of the same grade', () => {
+    const assignments = ['Class 1', 'Class 2'].map((name, index) => ({
+      id: `assignment-${index}`, authority: SundaySchoolAuthority.COORDINATOR,
+      classId: `first-${index}`, ageGroupId: null, ageGroup: null,
+      class: { id: `first-${index}`, name, level: SundaySchoolLevel.GRADE_1 },
+    }))
+    expect(getSundaySchoolResponsibilities(assignments)).toEqual([
+      { key: 'class:first-0:GRADE_1:COORDINATOR', label: '1st Grade Coordinator', scope: 'Class 1' },
+      { key: 'class:first-1:GRADE_1:COORDINATOR', label: '1st Grade Coordinator', scope: 'Class 2' },
+    ])
+  })
+
+  it('keeps a named age-group scope distinct from a direct class assignment', () => {
+    expect(getSundaySchoolResponsibilities([
+      { id: 'class', authority: 'COORDINATOR', classId: 'first', ageGroupId: null, ageGroup: null,
+        class: { id: 'first', name: 'Class 1', level: 'GRADE_1' } },
+      { id: 'band', authority: 'COORDINATOR', classId: null, ageGroupId: 'elementary', class: null,
+        ageGroup: { id: 'elementary', name: 'Elementary School', levels: ['GRADE_1'] } },
+    ]).map(responsibility => responsibility.scope)).toEqual(['Class 1', 'Elementary School'])
   })
 })

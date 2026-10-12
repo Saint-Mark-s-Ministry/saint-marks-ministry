@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ id: 'actor', role: UserRole.SUPER_ADMIN, canAccessContactBook: true })
   mocks.session.mockResolvedValue({ user: { id: 'actor' } })
   mocks.findUser.mockResolvedValue(principal())
-  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }])
+  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }])
   mocks.count.mockResolvedValue(1)
   mocks.update.mockResolvedValue({ id: 'target', canAccessContactBook: true })
   mocks.transaction.mockImplementation(async input => Array.isArray(input) ? Promise.all(input) : input({
@@ -64,10 +64,10 @@ describe('contact book reads', () => {
     const response = await GET()
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toContain('no-store')
-    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1 })
+    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1 })
     expect(mocks.findContacts).toHaveBeenCalledWith(expect.objectContaining({
       select: expect.objectContaining({
-        id: true, name: true, email: true, phone: true, role: true,
+        id: true, name: true, email: true, phone: true, profileImageUrl: true, role: true,
         roleAssignments: expect.objectContaining({ where: { revokedAt: null }, select: { tag: true } }),
         sundaySchoolServing: expect.objectContaining({ where: { academicYear: { isActive: true }, endedAt: null } }),
       }),
@@ -103,7 +103,7 @@ describe('contact book reads', () => {
   it('returns the complete directory without pagination or an extra count query', async () => {
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
     const contacts = Array.from({ length: 75 }, (_, index) => ({
-      id: String(index), name: `Contact ${index}`, email: `${index}@example.com`, phone: null,
+      id: String(index), name: `Contact ${index}`, email: `${index}@example.com`, phone: null, profileImageUrl: null,
       role: UserRole.SERVANT, roleAssignments: [], sundaySchoolServing: [],
     }))
     mocks.findContacts.mockResolvedValue(contacts)

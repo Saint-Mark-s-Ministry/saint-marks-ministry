@@ -17,7 +17,7 @@ export async function GET() {
 
     const contacts = await prisma.user.findMany({
       select: {
-        id: true, name: true, email: true, phone: true, role: true,
+        id: true, name: true, email: true, phone: true, profileImageUrl: true, role: true,
         roleAssignments: {
           where: { revokedAt: null },
           select: { tag: true },

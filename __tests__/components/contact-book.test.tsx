@@ -10,7 +10,7 @@ import { ContactBook } from '@/components/contact-book'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 
 const response = {
-  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [{ id: 'assignment', authority: 'COORDINATOR', classId: 'grade-12', ageGroupId: null, class: { id: 'grade-12', name: 'St. Mary', level: 'GRADE_12' }, ageGroup: null }] }],
+  contacts: [{ id: '1', name: 'Mariam', email: 'mariam@example.com', phone: null, profileImageUrl: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [{ id: 'assignment', authority: 'COORDINATOR', classId: 'grade-12', ageGroupId: null, class: { id: 'grade-12', name: 'St. Mary', level: 'GRADE_12' }, ageGroup: null }] }],
   total: 1,
 }
 beforeEach(() => {
@@ -22,29 +22,57 @@ beforeEach(() => {
 describe('ContactBook', () => {
   it('shows names, contact actions, missing-phone text, and a contact count', () => {
     render(<ContactBook />)
-    expect(screen.getByText('Mariam')).toBeInTheDocument()
-    expect(screen.getByText('Sunday School Servant', { selector: 'span' })).toBeInTheDocument()
-    expect(screen.getByText('12th Grade Coordinator')).toBeInTheDocument()
-    expect(screen.getByText('mariam@example.com')).toBeInTheDocument()
-    expect(screen.getByText('No phone number')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Contact options for email (Mariam)' })).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Sunday School Servant', { selector: 'span' })).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('12th Grade Coordinator')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('mariam@example.com')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('No phone number')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByRole('button', { name: 'Contact options for email (Mariam)' })).toBeInTheDocument()
     expect(screen.getByText('1 contact')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search contacts' }), { target: { value: 'Mariam' } })
-    expect(screen.getByText('Mariam')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
     expect(mocks.hook).toHaveBeenLastCalledWith('viewer')
+  })
+
+  it('uses the users-page table columns, avatars, and compact mobile rows', () => {
+    mocks.hook.mockReturnValue({ data: { ...response, contacts: [{ ...response.contacts[0], profileImageUrl: '/mariam.jpg' }] } })
+    render(<ContactBook />)
+    const table = screen.getByRole('table', { name: 'Contacts' })
+    expect(within(table).getAllByRole('columnheader').map(header => header.textContent))
+      .toEqual(['Name', 'Email', 'Phone', 'Access', 'Sunday School'])
+    expect(screen.getAllByRole('button', { name: "View Mariam's photo" })).toHaveLength(2)
+    expect(screen.getByRole('heading', { name: 'Mariam', level: 2 })).toBeInTheDocument()
+    expect(screen.getByText('Sunday School: 12th Grade Coordinator · St. Mary')).toBeInTheDocument()
+  })
+
+  it('distinguishes two coordinators for different classes in the same grade', () => {
+    const coordinators = ['Class 1', 'Class 2'].map((name, index) => ({
+      ...response.contacts[0], id: String(index), name: index ? 'Mina' : 'Mariam',
+      sundaySchoolServing: [{ ...response.contacts[0].sundaySchoolServing[0],
+        class: { id: `first-${index}`, name, level: 'GRADE_1' } }],
+    }))
+    mocks.hook.mockReturnValue({ data: { contacts: coordinators, total: 2 } })
+    render(<ContactBook />)
+    const table = screen.getByRole('table', { name: 'Contacts' })
+    for (const [index, name] of ['Mariam', 'Mina'].entries()) {
+      const row = within(table).getByRole('row', { name: new RegExp(name) })
+      expect(within(row).getByText('1st Grade Coordinator')).toBeInTheDocument()
+      expect(within(row).getByText(`Class ${index + 1}`)).toBeInTheDocument()
+      expect(screen.getByText(`Sunday School: 1st Grade Coordinator · Class ${index + 1}`)).toBeInTheDocument()
+    }
   })
 
   it('combines grade and role filters and clears an empty result', () => {
     render(<ContactBook />)
     fireEvent.change(screen.getByRole('combobox', { name: 'Filter by grade' }), { target: { value: 'GRADE_12' } })
-    expect(screen.getByText('Mariam')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
     fireEvent.change(screen.getByRole('combobox', { name: 'Filter by role' }), { target: { value: 'PARENT' } })
     expect(screen.queryByText('Mariam')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('No contacts match your filters')
+    expect(screen.getAllByRole('status').every(status => status.textContent === 'No contacts match your filters.')).toBe(true)
     expect(screen.getByText('0 of 1 contacts')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(screen.getByText('Mariam')).toBeInTheDocument()
+    expect(within(screen.getByRole('table', { name: 'Contacts' })).getByText('Mariam')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter by grade' })).toHaveValue('')
     expect(screen.getByRole('combobox', { name: 'Filter by role' })).toHaveValue('')
   })
@@ -54,7 +82,7 @@ describe('ContactBook', () => {
       sundaySchoolServing: [{ ...response.contacts[0].sundaySchoolServing[0], class: { id: 'first', name: 'St. George', level: 'GRADE_1' } }] }
     mocks.hook.mockReturnValue({ data: { contacts: [response.contacts[0], firstGrade], total: 2 } })
     render(<ContactBook />)
-    const names = () => screen.getAllByRole('listitem').map(item => within(item).getByRole('heading').textContent)
+    const names = () => within(screen.getByRole('table', { name: 'Contacts' })).getAllByRole('row').slice(1).map(row => within(row).getByText(/^(Mariam|Zoe)$/).textContent)
     expect(names()).toEqual(['Mariam', 'Zoe'])
     fireEvent.change(screen.getByRole('combobox', { name: 'Sort contacts' }), { target: { value: 'grade' } })
     expect(names()).toEqual(['Zoe', 'Mariam'])
@@ -88,9 +116,9 @@ describe('ContactBook', () => {
   it('renders empty searches and offers retry for server errors', () => {
     mocks.hook.mockReturnValue({ data: { ...response, contacts: [], total: 0 }, isValidating: false })
     const { rerender } = render(<ContactBook />)
-    expect(screen.getByRole('status')).toHaveTextContent('No contacts yet')
+    expect(screen.getAllByRole('status').every(status => status.textContent === 'No contacts yet.')).toBe(true)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'missing' } })
-    expect(screen.getByRole('status')).toHaveTextContent('No contacts match')
+    expect(screen.getAllByRole('status').every(status => status.textContent?.includes('No contacts match'))).toBe(true)
     const retry = vi.fn()
     mocks.hook.mockReturnValue({ error: { status: 500 }, mutate: retry })
     rerender(<ContactBook />)
