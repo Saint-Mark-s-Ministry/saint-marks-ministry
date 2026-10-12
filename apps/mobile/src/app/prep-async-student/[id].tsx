@@ -1,16 +1,20 @@
-import { useState } from "react";
-import { Alert, Image, Modal, Pressable, Share, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import { MenuView } from "@expo/ui/community/menu";
-import { Button, Copy, Icon, InitialsAvatar, Screen, StatusPill, styles } from "@/components/ui";
+import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
-import { api } from "@/data/auth-provider";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
 import { canViewStudentRoster } from "@/data/prep-students";
-import { canManageEnrollments, ssProgressSummary, ssWeekStates, type SSLog } from "@/data/prep-roster";
+import { canManageEnrollments } from "@/data/prep-roster";
+import {
+  assignmentFormStatus,
+  rotationPlace,
+  sortAssignments,
+  type PrepRotationAssignmentRow,
+} from "@/data/async-rotations";
+import { rotationRange } from "@/data/rotation-forms";
 
 const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 
@@ -21,11 +25,13 @@ type Enrollment = {
   isAsyncStudent: boolean;
   student: { id: string; name: string };
 };
-type LessonItem = { id: string; lessonNumber: number; scheduledDate: string; status: string; isExamDay?: boolean };
-type AttendanceRecord = { lessonId: string; status: "PRESENT" | "LATE" | "ABSENT" | "EXCUSED" };
-type Slip = { id: string; imageUrl: string; attendanceRecords: { lesson: { id: string; lessonNumber: number } }[] };
-type SSAssignment = { id: string; grade: string; totalWeeks: number; startDate: string; logs: SSLog[] };
 
+/**
+ * One async student: their Sunday School rotations and each rotation's form
+ * status. Students upload their own signed forms from their Sunday School
+ * screen, so there is nothing to upload here; submissions arrive in the
+ * Rotation forms queue for a human to approve or return.
+ */
 export default function PrepAsyncStudentDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -35,78 +41,56 @@ export default function PrepAsyncStudentDetail() {
 
   const enrollments = useResource<Enrollment[]>(canView ? "/api/enrollments" : null);
   const enrollment = enrollments.data?.find((e) => e.studentId === id);
-  const lessonsRes = useResource<LessonItem[]>(canView ? "/api/lessons?excludeExamDays=true" : null);
-  const attendanceRes = useResource<AttendanceRecord[]>(canView ? `/api/attendance?studentId=${encodeURIComponent(id)}` : null);
-  const slipsRes = useResource<Slip[]>(canView ? `/api/slips?type=ATTENDANCE&studentId=${encodeURIComponent(id)}` : null);
-  const ssRes = useResource<SSAssignment[]>(canView ? `/api/sunday-school/assignments?studentId=${encodeURIComponent(id)}` : null);
+  const rotations = useResource<PrepRotationAssignmentRow[]>(
+    canView ? `/api/sunday-school/assignments?studentId=${encodeURIComponent(id)}` : null,
+  );
 
-  const [uploadTargets, setUploadTargets] = useState<LessonItem[] | null>(null);
-
-  const offline = lessonsRes.error === "Could not reach the server. Check your connection and try again.";
-
-  const attendanceByLesson = new Map((attendanceRes.data ?? []).map((r) => [r.lessonId, r.status]));
-  const slipByLesson = new Map<string, Slip>();
-  for (const slip of slipsRes.data ?? []) {
-    for (const rec of slip.attendanceRecords) slipByLesson.set(rec.lesson.id, slip);
-  }
-  const pastLessons = [...(lessonsRes.data ?? [])]
-    .filter((l) => new Date(l.scheduledDate) <= new Date())
-    .sort((a, b) => a.lessonNumber - b.lessonNumber);
-  const outstanding = pastLessons.filter((l) => !slipByLesson.has(l.id) && attendanceByLesson.get(l.id) !== "PRESENT" && attendanceByLesson.get(l.id) !== "LATE");
-
-  function printSlip() {
-    const lines = outstanding.map((l) => `Lesson ${l.lessonNumber} — ${new Date(l.scheduledDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`);
-    void Share.share({
-      message: `${enrollment?.student.name ?? "Student"} — outstanding attendance slips\n\n${lines.length ? lines.join("\n") : "None — all caught up."}`,
-    }).catch(() => undefined);
-  }
+  const offline = enrollments.error === "Could not reach the server. Check your connection and try again.";
+  const rows = sortAssignments(rotations.data ?? [], "name").sort((a, b) => Number(b.isActive) - Number(a.isActive));
 
   return (
     <>
       <Stack.Screen
         options={{
           title: enrollment?.student.name ?? "Async student",
-          headerRight: () => (
-            <View style={[styles.row, { gap: 4 }]}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Print slip" hitSlop={8} onPress={printSlip} style={{ padding: 6 }}>
-                <Icon ios="square.and.arrow.up" android="share" size={20} color={colors.text} />
-              </Pressable>
-              {canManage && (
-                <MenuView
-                  title="More"
-                  actions={[{ id: "withdraw", title: "Withdraw student", attributes: { destructive: true } }]}
-                  onPressAction={({ nativeEvent }) => {
-                    if (nativeEvent.event === "withdraw") {
-                      confirmAction(
-                        `Withdraw ${enrollment?.student.name}?`,
-                        "This marks the student inactive. They can be reactivated later from Roster.",
-                        () => {
-                          void (async () => {
-                            try {
-                              await request(`/api/enrollments/${encodeURIComponent(enrollment!.studentId)}`, "PATCH", { status: "WITHDRAWN" });
-                              router.back();
-                            } catch (error) {
-                              Alert.alert("Unable to withdraw", error instanceof Error ? error.message : "Please try again.");
-                            }
-                          })();
-                        },
-                        true,
-                      );
-                    }
-                  }}
-                >
-                  <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} style={{ padding: 6 }}>
-                    <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
-                  </Pressable>
-                </MenuView>
-              )}
-            </View>
-          ),
+          headerRight: () =>
+            canManage ? (
+              <MenuView
+                title="More"
+                actions={[{ id: "withdraw", title: "Withdraw student", attributes: { destructive: true } }]}
+                onPressAction={({ nativeEvent }) => {
+                  if (nativeEvent.event === "withdraw") {
+                    confirmAction(
+                      `Withdraw ${enrollment?.student.name}?`,
+                      "This marks the student inactive. They can be reactivated later from Roster.",
+                      () => {
+                        void (async () => {
+                          try {
+                            await request(`/api/enrollments/${encodeURIComponent(enrollment!.studentId)}`, "PATCH", { status: "WITHDRAWN" });
+                            router.back();
+                          } catch (error) {
+                            Alert.alert("Unable to withdraw", error instanceof Error ? error.message : "Please try again.");
+                          }
+                        })();
+                      },
+                      true,
+                    );
+                  }
+                }}
+              >
+                <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={8} style={{ padding: 6 }}>
+                  <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
+                </Pressable>
+              </MenuView>
+            ) : undefined,
         }}
       />
       <Screen
-        refreshing={enrollments.loading || lessonsRes.loading}
-        onRefresh={() => { void enrollments.refresh(); void lessonsRes.refresh(); void attendanceRes.refresh(); void slipsRes.refresh(); void ssRes.refresh(); }}
+        refreshing={enrollments.loading || rotations.loading}
+        onRefresh={() => {
+          void enrollments.refresh();
+          void rotations.refresh();
+        }}
       >
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -124,9 +108,12 @@ export default function PrepAsyncStudentDetail() {
               </View>
             )}
             <ResourceState
-              loading={enrollments.loading || lessonsRes.loading}
-              error={offline ? undefined : enrollments.error || lessonsRes.error}
-              retry={() => { void enrollments.refresh(); void lessonsRes.refresh(); }}
+              loading={enrollments.loading}
+              error={offline ? undefined : enrollments.error || rotations.error}
+              retry={() => {
+                void enrollments.refresh();
+                void rotations.refresh();
+              }}
             />
 
             {enrollment && (
@@ -145,224 +132,47 @@ export default function PrepAsyncStudentDetail() {
                   </View>
                 </View>
 
-                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Attendance slips</Copy>
-                <View style={{ backgroundColor: colors.surface, borderRadius: 24, overflow: "hidden" }}>
-                  {!pastLessons.length && (
-                    <View style={{ padding: 16 }}>
-                      <Copy kind="caption">No lessons have happened yet.</Copy>
-                    </View>
-                  )}
-                  {pastLessons.map((lesson, index) => {
-                    const status = attendanceByLesson.get(lesson.id);
-                    const slip = slipByLesson.get(lesson.id);
-                    const covered = status === "PRESENT" || status === "LATE" || !!slip;
-                    const dateLabel = new Date(lesson.scheduledDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                    return (
-                      <View
-                        key={lesson.id}
-                        style={[
-                          { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 58, paddingVertical: 8, paddingHorizontal: 16 },
-                          index < pastLessons.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
-                        ]}
-                      >
-                        <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: covered ? colors.successSoft : colors.warningSoft }}>
-                          <Icon ios={covered ? "checkmark" : "clock"} android={covered ? "check" : "schedule"} size={16} color={covered ? colors.success : colors.warning} />
-                        </View>
-                        <View style={{ flex: 1, gap: 1 }}>
-                          <Copy style={{ fontWeight: "500" }}>Lesson {lesson.lessonNumber} · {dateLabel}</Copy>
-                          <Copy kind="caption">{slip ? "On a slip" : covered ? "Marked present" : "Not logged yet"}</Copy>
-                        </View>
-                        {!covered && canManage && (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Upload slip covering lesson ${lesson.lessonNumber}`}
-                            onPress={() => setUploadTargets([lesson])}
-                            style={{ height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}
-                          >
-                            <Copy style={{ fontSize: 14, fontWeight: "600" }}>Upload</Copy>
-                          </Pressable>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-                {!!outstanding.length && canManage && (
-                  <Button label={`Upload slip for ${outstanding.length} outstanding`} secondary onPress={() => setUploadTargets(outstanding)} />
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotations</Copy>
+                {!rows.length && (
+                  <ListSurface style={{ padding: 16 }}>
+                    <Copy kind="caption">No Sunday School rotation assigned.</Copy>
+                  </ListSurface>
                 )}
-
-                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Serving</Copy>
-                {!ssRes.data?.length && (
-                  <View style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 16 }}>
-                    <Copy kind="caption">No Sunday School serving stint assigned.</Copy>
-                  </View>
-                )}
-                {(ssRes.data ?? []).map((a) => {
-                  const states = ssWeekStates(a.logs, a.totalWeeks);
-                  const summary = ssProgressSummary(a.logs, a.totalWeeks);
+                {rows.map((row) => {
+                  const status = assignmentFormStatus(row);
+                  const color =
+                    status.tone === "success" ? colors.success : status.tone === "danger" ? colors.danger : status.tone === "warning" ? colors.warning : colors.text2;
+                  const soft =
+                    status.tone === "success" ? colors.successSoft : status.tone === "danger" ? colors.dangerSoft : status.tone === "warning" ? colors.warningSoft : colors.hover;
                   return (
-                    <View key={a.id} style={{ backgroundColor: colors.surface, borderRadius: 24, padding: 16, gap: 10 }}>
-                      <View style={[styles.row, { justifyContent: "space-between" }]}>
-                        <Copy style={{ fontWeight: "600" }}>Sunday School · {a.grade.replace(/_/g, " ")}</Copy>
-                        <Copy kind="caption">{summary.present} of {summary.of}</Copy>
-                      </View>
-                      <View style={{ flexDirection: "row", gap: 6 }}>
-                        {states.map((state, i) => (
-                          <View
-                            key={i}
-                            style={{
-                              flexGrow: 1,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor:
-                                state === "present" ? colors.success : state === "excused" ? colors.warning : state === "absent" ? colors.danger : colors.border,
-                            }}
-                          />
-                        ))}
+                    <ListSurface key={row.id} style={{ padding: 16, gap: 10 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Copy style={{ fontSize: 17, fontWeight: "600" }}>{rotationPlace(row)}</Copy>
+                          <Copy kind="caption">{row.isActive ? "Current rotation" : "Past rotation"}</Copy>
+                        </View>
+                        <StatusPill label={status.label} color={color} soft={soft} />
                       </View>
                       <Copy kind="caption">
-                        Started {new Date(a.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {row.academicYear?.name ?? "—"} · {rotationRange(row.startDate, row.totalWeeks)}
                       </Copy>
-                    </View>
+                    </ListSurface>
                   );
                 })}
+
+                <ListSurface style={{ padding: 16, gap: 10 }}>
+                  <Copy style={{ fontWeight: "600" }}>Signed forms</Copy>
+                  <Copy kind="caption">
+                    {enrollment.student.name} uploads their signed four-week form from their own Sunday School screen. It
+                    appears in the Rotation forms queue for you to approve or return for correction.
+                  </Copy>
+                  <Button secondary label="Open rotation forms" onPress={() => router.push("/prep-async-students")} />
+                </ListSurface>
               </>
             )}
           </>
         )}
       </Screen>
-
-      {uploadTargets && enrollment && (
-        <AttendanceUploadSheet
-          studentId={enrollment.studentId}
-          lessons={uploadTargets}
-          onClose={() => setUploadTargets(null)}
-          onUploaded={() => {
-            setUploadTargets(null);
-            void attendanceRes.refresh();
-            void slipsRes.refresh();
-          }}
-        />
-      )}
     </>
-  );
-}
-
-function AttendanceUploadSheet({ studentId, lessons, onClose, onUploaded }: { studentId: string; lessons: LessonItem[]; onClose: () => void; onUploaded: () => void }) {
-  const { colors } = useAppTheme();
-  const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  async function pickFromLibrary() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setPermissionMessage("Photo access is needed to choose the slip.");
-      return;
-    }
-    setPermissionMessage(null);
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
-    if (!result.canceled) setAsset(result.assets[0]);
-  }
-  async function pickFromCamera() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      setPermissionMessage("Camera access is needed to photograph the slip.");
-      return;
-    }
-    setPermissionMessage(null);
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8 });
-    if (!result.canceled) setAsset(result.assets[0]);
-  }
-
-  async function upload() {
-    if (!asset || !api) return;
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-      const form = new FormData();
-      form.append("file", blob, asset.fileName ?? "slip.jpg");
-      form.append("studentId", studentId);
-      form.append("type", "ATTENDANCE");
-      form.append("lessonIds", JSON.stringify(lessons.map((l) => l.id)));
-      await api.request("/api/slips", { method: "POST", body: form });
-      onUploaded();
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Unable to upload. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 24, gap: 16 }}>
-        <View style={[styles.row, { justifyContent: "space-between" }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            disabled={uploading}
-            onPress={onClose}
-            style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}
-          >
-            <Icon ios="xmark" android="close" size={18} />
-          </Pressable>
-          <Copy style={{ fontSize: 17, fontWeight: "600" }}>Upload slip</Copy>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <Copy kind="caption">
-          Covers {lessons.length === 1 ? "Lesson " + lessons[0].lessonNumber : `${lessons.length} lessons`}: {lessons.map((l) => l.lessonNumber).join(", ")}
-        </Copy>
-
-        {!!permissionMessage && (
-          <Copy kind="caption" color={colors.warning}>{permissionMessage}</Copy>
-        )}
-
-        {asset ? (
-          <View style={{ borderRadius: 24, overflow: "hidden" }}>
-            <Image source={{ uri: asset.uri }} style={{ width: "100%", height: 220 }} resizeMode="cover" accessibilityLabel="Selected slip photo" />
-          </View>
-        ) : (
-          <View
-            style={{
-              borderWidth: 1.5,
-              borderStyle: "dashed",
-              borderColor: colors.borderStrong,
-              borderRadius: 24,
-              height: 150,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-            }}
-          >
-            <Icon ios="square.and.arrow.up" android="upload" size={28} color={colors.muted} />
-            <Copy kind="caption">Photo of the signed slip</Copy>
-            <View style={[styles.row, { gap: 8 }]}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void pickFromCamera()}
-                style={{ height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}
-              >
-                <Copy style={{ fontSize: 14, fontWeight: "600" }}>Camera</Copy>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void pickFromLibrary()}
-                style={{ height: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}
-              >
-                <Copy style={{ fontSize: 14, fontWeight: "600" }}>Photos</Copy>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {!!uploadError && <Copy kind="caption" color={colors.danger}>{uploadError}</Copy>}
-
-        <Button label={uploading ? "Uploading…" : "Upload"} disabled={!asset || uploading} onPress={() => void upload()} />
-      </View>
-    </Modal>
   );
 }
