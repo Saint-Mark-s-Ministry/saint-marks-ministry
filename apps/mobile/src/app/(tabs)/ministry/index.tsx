@@ -10,7 +10,6 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
-import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { ResourceState } from "@/components/forms";
 import { AcademicYearContext } from "@/components/academic-year-context";
 import { endpoint, useResource } from "@/data/resources";
@@ -129,7 +128,6 @@ export default function Ministry() {
         refreshing={resource.loading || resource.refreshing}
         onRefresh={() => void resource.refresh()}
       >
-        <MinistrySwitcherPill current="sundaySchool" />
         <ResourceState
           loading={resource.loading}
           error={resource.error}
