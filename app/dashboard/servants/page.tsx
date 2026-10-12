@@ -200,60 +200,65 @@ export default function SundaySchoolDashboardPage() {
           <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} />
         </Panel>
 
-        <div className="flex min-w-0 flex-col gap-5">
-          <TodayInChurch />
-          <Panel
-            title="This Sunday"
-            description={
-              nextSunday ? (
-                <span className="flex flex-col gap-1.5">
-                  {formatUTC(nextSunday, { weekday: 'long', month: 'long', day: 'numeric' })}
-                  <LiturgicalDateTags day={sundayCalendar?.[nextSunday]} />
-                </span>
-              ) : undefined
-            }
-            actions={
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/dashboard/servants/lessons">Lessons</Link>
-              </Button>
-            }
-          >
-            {sundayLessons.length > 0 ? (
-              <ul className="divide-y divide-line">
-                {sundayLessons.slice(0, 4).map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-[13.5px] font-medium text-ink">{l.title || 'Lesson not chosen yet'}</span>
-                      <span className="truncate text-xs text-ink-3">{l.class.name}</span>
-                    </span>
-                    {l.status === 'READY' ? <StatusBadge tone="ok">Ready</StatusBadge> : l.status === 'NEEDS_LINKS' ? <StatusBadge tone="warn">Needs links</StatusBadge> : <StatusBadge tone="neutral">Unassigned</StatusBadge>}
-                  </li>
-                ))}
-                {sundayLessons.length > 4 && <li className="px-4 py-2 text-xs text-ink-3">+{sundayLessons.length - 4} more classes</li>}
-              </ul>
-            ) : (
-              <EmptyState message="No weekly lessons scheduled yet." />
-            )}
-            {due.length > 0 && (
-              <div className="border-t border-line">
-                <p className="px-4 pt-3 text-xs font-medium tracking-[0.06em] text-warn uppercase">
-                  Attendance still open{weekOf ? ` · ${formatUTC(weekOf, { month: 'short', day: 'numeric' })}` : ''}
-                </p>
-                <ul className="py-1">
-                  {due.slice(0, 6).map((c) => (
-                    <li key={c.id} className="flex items-center justify-between gap-2 px-4 py-1.5">
-                      <span className="truncate text-[13px] text-ink">
-                        {c.name} <span className="text-ink-3">· {c.ageGroup?.name ?? getLevelDisplayName(c.level)}</span>
+        {/* On desktop the calendar sets the row height; the summary scrolls within it. */}
+        <div className="relative min-w-0 xl:self-stretch">
+          <div className="flex min-w-0 flex-col gap-5 xl:absolute xl:inset-0">
+            <TodayInChurch className="shrink-0" />
+            <Panel
+              title="This Sunday"
+              className="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:[&>header]:shrink-0"
+              bodyClassName="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
+              description={
+                nextSunday ? (
+                  <span className="flex flex-col gap-1.5">
+                    {formatUTC(nextSunday, { weekday: 'long', month: 'long', day: 'numeric' })}
+                    <LiturgicalDateTags day={sundayCalendar?.[nextSunday]} />
+                  </span>
+                ) : undefined
+              }
+              actions={
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/dashboard/servants/lessons">Lessons</Link>
+                </Button>
+              }
+            >
+              {sundayLessons.length > 0 ? (
+                <ul className="divide-y divide-line">
+                  {sundayLessons.slice(0, 4).map((l) => (
+                    <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate text-[13.5px] font-medium text-ink">{l.title || 'Lesson not chosen yet'}</span>
+                        <span className="truncate text-xs text-ink-3">{l.class.name}</span>
                       </span>
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/dashboard/servants/attendance?classId=${c.id}`}>Take</Link>
-                      </Button>
+                      {l.status === 'READY' ? <StatusBadge tone="ok">Ready</StatusBadge> : l.status === 'NEEDS_LINKS' ? <StatusBadge tone="warn">Needs links</StatusBadge> : <StatusBadge tone="neutral">Unassigned</StatusBadge>}
                     </li>
                   ))}
+                  {sundayLessons.length > 4 && <li className="px-4 py-2 text-xs text-ink-3">+{sundayLessons.length - 4} more classes</li>}
                 </ul>
-              </div>
-            )}
-          </Panel>
+              ) : (
+                <EmptyState message="No weekly lessons scheduled yet." />
+              )}
+              {due.length > 0 && (
+                <div className="border-t border-line">
+                  <p className="px-4 pt-3 text-xs font-medium tracking-[0.06em] text-warn uppercase">
+                    Attendance still open{weekOf ? ` · ${formatUTC(weekOf, { month: 'short', day: 'numeric' })}` : ''}
+                  </p>
+                  <ul className="py-1">
+                    {due.slice(0, 6).map((c) => (
+                      <li key={c.id} className="flex items-center justify-between gap-2 px-4 py-1.5">
+                        <span className="truncate text-[13px] text-ink">
+                          {c.name} <span className="text-ink-3">· {c.ageGroup?.name ?? getLevelDisplayName(c.level)}</span>
+                        </span>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/dashboard/servants/attendance?classId=${c.id}`}>Take</Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Panel>
+          </div>
         </div>
       </div>
 
