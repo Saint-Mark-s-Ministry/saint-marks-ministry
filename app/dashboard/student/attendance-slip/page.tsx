@@ -6,7 +6,7 @@ import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Download, Printer } from 'lucide-react'
+import { ChevronLeft, Printer } from 'lucide-react'
 
 // Printable rotation form matching the ministry's Google Doc:
 // https://docs.google.com/document/d/1zek9b1hcWBt9ygwvkv2Cv8fSZ8L1irlgCrCCSlYQTMc/edit
@@ -30,18 +30,10 @@ export default function AttendanceSlipPage() {
             <ChevronLeft />
             Back
           </Button>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <a href="/forms/servants-prep-rotations-form.pdf" download="servants-prep-rotations-form.pdf">
-                <Download />
-                Download PDF
-              </a>
-            </Button>
-            <Button onClick={() => window.print()}>
-              <Printer />
-              Print
-            </Button>
-          </div>
+          <Button onClick={() => window.print()}>
+            <Printer />
+            Print
+          </Button>
         </div>
 
         {/* The slip is paper in both themes: it gets printed and signed. */}
