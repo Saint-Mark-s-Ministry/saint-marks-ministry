@@ -13,6 +13,7 @@ import {
   type ServantSignupDraft,
 } from "@/data/servant-signup";
 import { useAppTheme } from "@/theme";
+import { LegalLinks } from "@/components/legal-links";
 
 const DRAFT_KEY = "stmark.signup-servant-draft";
 
@@ -156,6 +157,7 @@ export default function ServantSignup() {
             <Copy style={{ fontWeight: "500" }} color={colors.muted}>Back</Copy>
           </Pressable>
         </View>
+        <LegalLinks consent />
       </Screen>
     </>
   );

@@ -17,9 +17,7 @@ type MinistryLink = { id: string; title: string; subtitle: string; href: Href };
 
 /**
  * Grouped secondary destinations, mirroring the web's prepAdminNav groups
- * (lib/navigation.ts). Each destination is a placeholder route — real
- * content is SMM-32–61. This hub's job is only to prove the navigation
- * structure and role gating exist.
+ * (lib/navigation.ts), filtered by role.
  */
 const ADMIN_LINKS: MinistryLink[] = [
   { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance" },

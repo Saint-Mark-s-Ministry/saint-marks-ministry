@@ -9,6 +9,7 @@ import { AppThemeProvider, MinistryTintProvider, serifDisplay, serifHeading, use
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry } from "@/data/navigation";
+import { SIGNED_IN_ROUTES } from "@/data/route-access";
 import LaunchScreen from "@/components/launch-screen";
 import { AttendanceAccessory } from "@/components/attendance-accessory";
 import { usePushNotificationRegistration } from "@/data/push-notifications";
@@ -57,6 +58,12 @@ function AuthStack() {
         <Stack.Screen name="signup/parent" options={{ title: "" }} />
         <Stack.Screen name="signup/servant" options={{ title: "" }} />
         <Stack.Screen name="roster-signup" options={{ title: "" }} />
+        {/* Nothing that needs a session may mount while signed out; see data/route-access.ts. */}
+        <Stack.Protected guard={false}>
+          {SIGNED_IN_ROUTES.map((name) => (
+            <Stack.Screen key={name} name={name} />
+          ))}
+        </Stack.Protected>
       </Stack>
     </ThemeProvider>
   );

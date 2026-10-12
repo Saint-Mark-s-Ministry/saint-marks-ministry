@@ -13,6 +13,7 @@ import {
   type ParentSignupDraft,
 } from "@/data/parent-signup";
 import { useAppTheme } from "@/theme";
+import { LegalLinks } from "@/components/legal-links";
 
 // Non-sensitive fields only (name/email/phone) survive an interruption —
 // password/confirm are never written to disk, same reasoning as the
@@ -178,6 +179,7 @@ export default function ParentSignup() {
             <Copy style={{ fontWeight: "500" }} color={colors.primary}>Sign up as a servant</Copy>
           </Pressable>
         </View>
+        <LegalLinks consent />
       </Screen>
     </>
   );

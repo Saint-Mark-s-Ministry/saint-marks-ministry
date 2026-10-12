@@ -10,6 +10,10 @@ for the people who own the Apple account.
 
 | Area | State | Where |
 |---|---|---|
+| First launch while signed out (2.1) | Fixed. Screens that need a session are protected while signed out and `/` lands on Sign in; a test keeps the route list in sync with the files | `apps/mobile/src/data/route-access.ts`, `app/_layout.tsx` |
+| Privacy Policy / Terms reachable before sign-in (5.1.1(i)) | Done on Sign in and every public registration/sign-up screen, with consent wording on forms that create an account | `apps/mobile/src/components/legal-links.tsx` |
+| Password recovery | "Forgot password?" on Sign in opens the existing web reset | `components/sign-in.tsx` |
+| Older iOS versions | Glass button styles are iOS 26+; earlier versions get filled bordered buttons instead of plain text | `native-action-button.ios.tsx` |
 | In-app account deletion (guideline 5.1.1(v)) | Done. Account screen → Delete account, password-confirmed; same routine and protections an administrator already has | `app/api/account/delete`, `apps/mobile/src/app/delete-account.tsx` |
 | Privacy policy and terms linked in the app | Done, public routes (`/privacy`, `/terms`) | Account screen, `proxy.ts` |
 | Privacy manifest (`PrivacyInfo.xcprivacy`) | Done: required-reason APIs, no tracking, collected data types | `apps/mobile/app.json` → `ios.privacyManifests` |

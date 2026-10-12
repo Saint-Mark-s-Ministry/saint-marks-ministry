@@ -434,35 +434,6 @@ export function SectionTitle({
  * (SMM-32–61 own Servants Prep page content; this shell only owns the
  * destination existing and being reachable by the right roles).
  */
-export function ComingSoon({
-  title,
-  icon,
-}: {
-  title: string;
-  icon: SFSymbol;
-}) {
-  const { colors } = useAppTheme();
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 10,
-        padding: 32,
-      }}
-    >
-      <Icon ios={icon} android="schedule" size={34} color={colors.muted} />
-      <Copy kind="heading" style={{ textAlign: "center" }}>
-        {title}
-      </Copy>
-      <Copy kind="caption" style={{ textAlign: "center" }}>
-        Coming soon.
-      </Copy>
-    </View>
-  );
-}
-
 export function RowLink({
   title,
   subtitle,

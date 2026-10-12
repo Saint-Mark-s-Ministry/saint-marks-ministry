@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, Copy, Icon, Screen } from "@/components/ui";
 import { useAppTheme } from "@/theme";
+import { LegalLinks } from "@/components/legal-links";
 
 /**
  * The artboard's "Roster sign-up" / "Roster sign-up done" flow — a public,
@@ -43,6 +44,7 @@ export default function RosterSignup() {
           </Copy>
           <Button label="Sign up as a parent" onPress={() => router.replace("/signup/parent")} />
         </View>
+        <LegalLinks consent />
       </Screen>
     </>
   );

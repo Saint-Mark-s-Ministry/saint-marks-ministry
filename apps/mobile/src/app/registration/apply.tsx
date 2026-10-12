@@ -22,6 +22,7 @@ import {
   type WizardStep,
 } from "@/data/registration-wizard";
 import { useAppTheme } from "@/theme";
+import { LegalLinks } from "@/components/legal-links";
 
 const DRAFT_KEY = "stmark.registration-draft";
 
@@ -304,6 +305,7 @@ export default function RegistrationApply() {
             {duplicate && <Button label="Sign in instead" secondary onPress={() => router.replace("/sign-in")} />}
           </>
         )}
+        <LegalLinks consent />
       </Screen>
     </>
   );
