@@ -7,6 +7,7 @@ import type { RotationAssignment, RotationProgressResponse } from "@stmark/contr
 import { Button, Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState, Toggle } from "@/components/forms";
 import { RotationEvidence } from "@/components/rotation-evidence";
+import { servingClassSummary } from "@/data/class-lessons";
 import { ApiError } from "@/data/api-client";
 import { api, useAuth } from "@/data/auth-provider";
 import { invalidateResourceCache, useResource } from "@/data/resources";
@@ -121,6 +122,8 @@ export default function PrepRotation() {
               <ResourceState loading={progress.loading} error={progress.error} retry={() => void progress.refresh()} />
             )}
 
+            {data && <ServingClassCard summary={servingClassSummary(data)} />}
+
             {data && <ProgressCard completed={data.completedRotations} required={data.requiredRotations} allMet={data.graduation.allMet} />}
 
             {data && !data.assignments.length && (
@@ -144,6 +147,37 @@ export default function PrepRotation() {
         )}
       </Screen>
     </>
+  );
+}
+
+function ServingClassCard({ summary }: { summary: ReturnType<typeof servingClassSummary> }) {
+  const { colors } = useAppTheme();
+  return (
+    <ListSurface style={{ padding: 16, gap: 10 }}>
+      <Copy kind="caption">Your serving class</Copy>
+      {summary.kind === "assigned" && (
+        <Copy accessibilityLabel={`Your serving class: ${summary.name}`} style={{ fontSize: 22, fontWeight: "600" }}>
+          {summary.name}
+        </Copy>
+      )}
+      {summary.kind === "complete" && (
+        <>
+          <Copy style={{ fontSize: 17, fontWeight: "600" }}>All ten rotations complete</Copy>
+          <Copy kind="caption">You have no new class assignment.</Copy>
+        </>
+      )}
+      {summary.kind === "unassigned" && (
+        <>
+          <Copy style={{ fontSize: 17, fontWeight: "600" }}>No serving class assigned</Copy>
+          <Copy kind="caption" color={colors.text2}>
+            Ask a Servants Prep servant to link your active serving assignment to a Sunday School class.
+          </Copy>
+        </>
+      )}
+      {summary.kind === "assigned" && (
+        <Button secondary label="Class lessons" onPress={() => router.push("/prep-class-lessons" as Href)} />
+      )}
+    </ListSurface>
   );
 }
 
