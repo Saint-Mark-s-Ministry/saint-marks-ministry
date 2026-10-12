@@ -7,7 +7,7 @@ import { ApiError } from "@/data/api-client";
 import { useAuth } from "@/data/auth-provider";
 import { request, useResource } from "@/data/resources";
 import { savedLabel } from "@/data/prep-lessons";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 import {
   canViewOwnServing,
   currentWeekOf,
@@ -81,7 +81,7 @@ export default function PrepServingCode() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Serving code" }} />
       <Screen
         refreshing={assignments.loading || assignments.refreshing || logs.refreshing}
         onRefresh={() => {
@@ -99,7 +99,6 @@ export default function PrepServingCode() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Serving code</Copy>
               <Copy kind="caption">Log your weekly Sunday School serving</Copy>
             </View>
 

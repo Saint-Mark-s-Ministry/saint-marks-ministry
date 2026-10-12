@@ -23,7 +23,7 @@ import {
   type FormErrors,
   type RegistrationForm,
 } from "@/data/parent-children";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const DEFAULT_BIRTH_DAY = new Date(2015, 0, 1);
 
@@ -169,10 +169,9 @@ export default function ParentRegister() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Register a child" }} />
       <Screen>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Register a child</Copy>
           <Copy kind="caption">St. Mark Sunday School</Copy>
         </View>
 

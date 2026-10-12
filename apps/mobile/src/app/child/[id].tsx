@@ -77,10 +77,7 @@ export default function Child() {
     <MinistryTintProvider ministry="sundaySchool">
       <Stack.Screen
         options={{
-          title: "",
-          // This screen draws its own centered avatar/name header; the native
-          // large title would otherwise reserve a second, empty title band above it.
-          headerLargeTitle: false,
+          title: isNew ? "New child" : editing ? "Edit child" : "Child profile",
           headerRight: () =>
             !isNew && child && canEdit && !editing ? (
               // A shared Button goes zero-width as a header-right row sibling;

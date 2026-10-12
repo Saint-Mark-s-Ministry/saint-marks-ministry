@@ -29,7 +29,7 @@ export default function RosterSignup() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Roster sign-up" }} />
       <Screen>
         <View style={{ alignItems: "center", gap: 10, paddingTop: 60 }}>
           <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}>

@@ -1,3 +1,4 @@
+import { Stack } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type {
@@ -53,46 +54,48 @@ function RegistrationsScreen() {
   const offline = resource.error === OFFLINE;
 
   return (
-    <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
-      <View style={{ paddingHorizontal: 4, gap: 4 }}>
-        <Copy kind="title">Child registrations</Copy>
-        <Copy kind="caption">Requests at levels you coordinate</Copy>
-      </View>
-
-      <Choice
-        label="Status"
-        compact
-        value={status}
-        onChange={(value) => setStatus(value as SundaySchoolRegistrationStatus)}
-        options={STATUS_FILTERS}
-      />
-
-      {offline && resource.stale && (
-        <View style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft }}>
-          <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
-          <Copy kind="caption">Showing the last queue we had. Pull down to try again.</Copy>
+    <>
+      <Stack.Screen options={{ title: "Child registrations" }} />
+      <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
+        <View style={{ paddingHorizontal: 4, gap: 4 }}>
+          <Copy kind="caption">Requests at levels you coordinate</Copy>
         </View>
-      )}
-      {!resource.stale && (
-        <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
-      )}
 
-      {resource.data && !resource.data.length && (
-        <Card>
-          <Copy>No {statusLabel(status).toLowerCase()} registrations right now.</Copy>
-        </Card>
-      )}
-
-      {resource.data?.map((r) => (
-        <RegistrationCard
-          key={r.id}
-          registration={r}
-          refresh={async () => {
-            await Promise.all([resource.refresh(), dashboard.refresh()]);
-          }}
+        <Choice
+          label="Status"
+          compact
+          value={status}
+          onChange={(value) => setStatus(value as SundaySchoolRegistrationStatus)}
+          options={STATUS_FILTERS}
         />
-      ))}
-    </Screen>
+
+        {offline && resource.stale && (
+          <View style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft }}>
+            <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
+            <Copy kind="caption">Showing the last queue we had. Pull down to try again.</Copy>
+          </View>
+        )}
+        {!resource.stale && (
+          <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
+        )}
+
+        {resource.data && !resource.data.length && (
+          <Card>
+            <Copy>No {statusLabel(status).toLowerCase()} registrations right now.</Copy>
+          </Card>
+        )}
+
+        {resource.data?.map((r) => (
+          <RegistrationCard
+            key={r.id}
+            registration={r}
+            refresh={async () => {
+              await Promise.all([resource.refresh(), dashboard.refresh()]);
+            }}
+          />
+        ))}
+      </Screen>
+    </>
   );
 }
 

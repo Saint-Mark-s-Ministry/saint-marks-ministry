@@ -29,7 +29,7 @@ export default function AcademicYears() {
     <>
       <Stack.Screen
         options={{
-          title: "",
+          title: "Academic years",
           headerRight: canManage
             ? () => (
                 <Pressable accessibilityRole="button" accessibilityLabel="Add academic year" onPress={() => setEditor("new")} hitSlop={10}>
@@ -41,7 +41,6 @@ export default function AcademicYears() {
       />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy kind="title">Academic years</Copy>
           <Copy kind="caption">Dashboards show the active year by default</Copy>
         </View>
 

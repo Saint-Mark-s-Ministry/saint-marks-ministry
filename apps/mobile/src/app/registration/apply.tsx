@@ -174,7 +174,7 @@ export default function RegistrationApply() {
   if (done) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "", headerLeft: () => null, gestureEnabled: false }} />
+        <Stack.Screen options={{ title: "Servants Prep registration", headerLeft: () => null, gestureEnabled: false }} />
         <View style={{ alignItems: "center", gap: 10, paddingTop: 60 }}>
           <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.successSoft, alignItems: "center", justifyContent: "center" }}>
             <Copy style={{ fontSize: 32, color: colors.success }}>✓</Copy>
@@ -193,7 +193,7 @@ export default function RegistrationApply() {
     <>
       <Stack.Screen
         options={{
-          title: "",
+          title: "Servants Prep registration",
           headerLeft: () =>
             stepIndex === 0 ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={requestClose}>

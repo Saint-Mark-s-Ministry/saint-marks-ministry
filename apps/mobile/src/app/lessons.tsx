@@ -34,7 +34,7 @@ import {
   type LessonOwnership,
   type LessonSchedule,
 } from "@/data/sunday-school-lessons";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const SCHEDULES: LessonSchedule[] = ["upcoming", "past"];
@@ -82,8 +82,7 @@ function LessonsScreen() {
       {/* The serif heading in the body carries the title, so the native large title stays off. */}
       <Stack.Screen
         options={{
-          title: "",
-          headerLargeTitle: false,
+          title: "Lessons",
           headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
@@ -95,7 +94,6 @@ function LessonsScreen() {
         onRefresh={() => void resource.refresh()}
       >
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Lessons</Copy>
           <Copy kind="caption">Assign each Sunday and share resources</Copy>
         </View>
 

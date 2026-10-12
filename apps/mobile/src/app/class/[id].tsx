@@ -21,7 +21,7 @@ import {
   sessionAttendanceSubtitle,
   shortMonthDay,
 } from "@/data/sunday-school-classes";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 type Detail = SundaySchoolClass & { children: SundaySchoolChild[]; sessions: SundaySchoolSession[] };
 
@@ -56,7 +56,7 @@ function ClassDetailScreen() {
   if (id === "new" || (cls && editing)) {
     return (
       <>
-        <Stack.Screen options={{ title: id === "new" ? "New class" : "Edit class", headerLargeTitle: false }} />
+        <Stack.Screen options={{ title: id === "new" ? "New class" : "Edit class" }} />
         <Screen refreshing={dashboard.loading} onRefresh={() => void dashboard.refresh()}>
           <ResourceState loading={dashboard.loading} error={dashboard.error} retry={() => void dashboard.refresh()} />
           {dashboard.data && (
@@ -86,8 +86,7 @@ function ClassDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "",
-          headerLargeTitle: false,
+          title: cls?.name ?? "Class",
           headerRight: () =>
             cls && menuActions.length ? (
               <MenuView
@@ -121,7 +120,6 @@ function ClassDetailScreen() {
         {cls && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>{cls.name}</Copy>
               <Copy kind="caption">
                 {getLevelDisplayName(cls.level)}
                 {summary?.ageGroup ? ` · ${summary.ageGroup.name}` : ""}

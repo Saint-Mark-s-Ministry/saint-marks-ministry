@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { Copy, Icon, ListSurface, RowLink, Screen } from "@/components/ui";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 // The chooser/entry flow this ticket's own Scope calls for — no artboard
 // depicts one (every Registration/sign-up artboard is a destination form
@@ -12,12 +12,9 @@ export default function Registration() {
   const { colors } = useAppTheme();
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Get started" }} />
       <Screen>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-            Get started
-          </Copy>
           <Copy kind="caption">Choose how you&apos;d like to join St. Mark Ministry Portal.</Copy>
         </View>
 

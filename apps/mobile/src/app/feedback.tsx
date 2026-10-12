@@ -19,7 +19,7 @@ import {
   type FeedbackView,
 } from "@/data/sunday-school-feedback";
 import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
-import { MinistryTintProvider, serifDisplay, useAppTheme, type ThemeColors } from "@/theme";
+import { MinistryTintProvider, useAppTheme, type ThemeColors } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const VIEWS: FeedbackView[] = ["top", "newest", "mine"];
@@ -69,7 +69,7 @@ function FeedbackScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "",
+          title: "Feedback",
           headerRight: resource.data?.viewer.canSubmit
             ? () => (
                 <Pressable accessibilityRole="button" accessibilityLabel="Post feedback" onPress={() => setComposerOpen(true)} hitSlop={10}>
@@ -88,7 +88,6 @@ function FeedbackScreen() {
       />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Feedback</Copy>
           <Copy kind="caption">Vote on what matters most</Copy>
         </View>
 

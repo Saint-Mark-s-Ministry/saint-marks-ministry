@@ -132,17 +132,6 @@ export default function PrepExamScores() {
       <Stack.Screen
         options={{
           title: exam?.examSection?.displayName ?? "Exam",
-          headerLargeTitle: false,
-          headerTitle: exam
-            ? () => (
-                <View style={{ alignItems: "center" }}>
-                  <Copy style={{ fontWeight: "600", fontSize: 17 }}>{exam.examSection?.displayName ?? "Exam"}</Copy>
-                  <Copy kind="caption">
-                    {YEAR_LABELS[exam.yearLevel] ?? exam.yearLevel} · {dateLabel}
-                  </Copy>
-                </View>
-              )
-            : undefined,
           headerRight: canEdit
             ? () => (
                 <MenuView
@@ -168,6 +157,7 @@ export default function PrepExamScores() {
         onCancelButtonPress={() => setQuery("")}
       />
       <Screen bottom={140} refreshing={enrollments.loading || scoresRes.loading} onRefresh={() => { void enrollments.refresh(); void scoresRes.refresh(); }}>
+        {exam && <Copy kind="caption">{YEAR_LABELS[exam.yearLevel] ?? exam.yearLevel} · {dateLabel}</Copy>}
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
             <Copy kind="heading" style={{ textAlign: "center" }}>Nothing to show here yet</Copy>

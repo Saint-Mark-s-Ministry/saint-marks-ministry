@@ -87,7 +87,7 @@ export default function ServantSignup() {
   if (done) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "" }} />
+        <Stack.Screen options={{ title: "Servant sign-up" }} />
         <View style={{ alignItems: "center", gap: 10, paddingTop: 60 }}>
           <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.successSoft, alignItems: "center", justifyContent: "center" }}>
             <Copy style={{ fontSize: 32, color: colors.success }}>✓</Copy>
@@ -104,11 +104,10 @@ export default function ServantSignup() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Servant sign-up" }} />
       <Screen>
         <View style={{ alignItems: "center", gap: 8, paddingTop: 6 }}>
           <Brand />
-          <Copy style={{ fontWeight: "600", fontSize: 22 }}>Servant sign-up</Copy>
           <Copy kind="caption" style={{ textAlign: "center", maxWidth: 300 }}>
             Request Sunday School servant access. Applications require approval.
           </Copy>
