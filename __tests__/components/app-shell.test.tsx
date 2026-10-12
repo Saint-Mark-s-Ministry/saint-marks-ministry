@@ -43,7 +43,7 @@ import { AppShell } from '@/components/shell/app-shell'
 const sidebar = () => screen.getByRole('complementary', { name: 'Main' })
 
 describe('AppShell', () => {
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+  afterEach(() => vi.restoreAllMocks())
 
   beforeEach(() => {
     window.localStorage.clear()
@@ -80,19 +80,10 @@ describe('AppShell', () => {
     expect(window.localStorage.getItem('sidebar-rail')).toBe('0')
   })
 
-  it('defaults to a rail on tablets but allows a saved expanded preference', async () => {
-    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
-      matches: query === '(max-width: 1279px)',
-      media: query,
-      addEventListener: vi.fn(), removeEventListener: vi.fn(),
-    })))
-    const { unmount } = render(<AppShell>page</AppShell>)
-    expect(sidebar()).toHaveAttribute('data-rail', 'true')
-    await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
-    expect(sidebar()).toHaveAttribute('data-rail', 'false')
-    unmount()
+  it('starts expanded when no sidebar preference is saved', () => {
     render(<AppShell>page</AppShell>)
     expect(sidebar()).toHaveAttribute('data-rail', 'false')
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('still toggles when preference storage is unavailable', async () => {

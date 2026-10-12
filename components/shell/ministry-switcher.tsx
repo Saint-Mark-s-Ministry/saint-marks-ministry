@@ -44,7 +44,7 @@ export function MinistrySwitcher({
       <MinistryMark ministry={current} size={compact ? 26 : 32} />
       <span className={cn('flex min-w-0 flex-col text-left leading-[1.2]', compact ? 'leading-none' : 'sidebar-label')}>
         <span className="truncate text-sm font-semibold text-ink">{MINISTRY_NAMES[current]}</span>
-        {!compact && <span className="truncate text-[11.5px] text-ink-3 sidebar-label">St. Mark Ministry</span>}
+        {!compact && <span className="truncate text-[11.5px] text-ink-3">St. Mark Ministry</span>}
       </span>
     </>
   )
