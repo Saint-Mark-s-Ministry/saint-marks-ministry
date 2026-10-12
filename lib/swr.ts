@@ -339,12 +339,10 @@ export function useSundaySchoolMeetings(ageGroupId: string, meetingId?: string) 
   return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, defaultSWRConfig)
 }
 
-/** Cache directory pages by effective identity so View as cannot reuse another user's contacts. */
-export function useContactBook(userId: string | undefined, search: string, page: number) {
-  const params = new URLSearchParams({ page: String(page) })
-  if (search.trim()) params.set('search', search.trim())
+/** Cache the directory by effective identity so View as cannot reuse another user's contacts. */
+export function useContactBook(userId: string | undefined) {
   return useSWR<ContactBookResponse, Error & { status?: number }>(
-    userId ? ['contact-book', userId, `/api/contact-book?${params}`] : null,
+    userId ? ['contact-book', userId, '/api/contact-book'] : null,
     ([, , url]: [string, string, string]) => fetcher(url),
     {
       ...defaultSWRConfig,

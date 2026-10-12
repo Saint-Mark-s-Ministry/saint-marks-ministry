@@ -48,71 +48,73 @@ beforeEach(() => {
 describe('contact book reads', () => {
   it('rejects unauthenticated requests before reading contacts', async () => {
     mocks.auth.mockRejectedValue(new Error('Unauthorized'))
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(401)
+    expect((await GET()).status).toBe(401)
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it.each(Object.values(UserRole))('does not let %s or a stale JWT bypass the database flag', async role => {
     mocks.auth.mockResolvedValue({ id: 'actor', role, canAccessContactBook: true })
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect((await GET()).status).toBe(403)
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it.each(Object.values(UserRole).filter(role => role !== UserRole.SUPER_ADMIN))('allows an explicitly enabled %s without ministry assignments', async role => {
     mocks.auth.mockResolvedValue({ id: 'actor', role })
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
-    const response = await GET(new Request('https://example.test/api/contact-book'))
+    const response = await GET()
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toContain('no-store')
-    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1, page: 1, pageSize: 50 })
+    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1 })
     expect(mocks.findContacts).toHaveBeenCalledWith(expect.objectContaining({
       select: expect.objectContaining({
         id: true, name: true, email: true, phone: true, role: true,
         roleAssignments: expect.objectContaining({ where: { revokedAt: null }, select: { tag: true } }),
         sundaySchoolServing: expect.objectContaining({ where: { academicYear: { isActive: true }, endedAt: null } }),
-      }), where: {}, take: 50, skip: 0,
+      }),
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     }))
   })
 
   it.each([false, true])('denies a current super admin with stored directory flag %s', async canAccessContactBook => {
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect((await GET()).status).toBe(403)
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it('denies a disabled super admin even with a current admin grant', async () => {
     mocks.findUser.mockResolvedValue(principal({ isDisabled: true, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] }))
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect((await GET()).status).toBe(403)
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it('denies disabled users even with permission', async () => {
     mocks.findUser.mockResolvedValue(principal({ isDisabled: true, canAccessContactBook: true }))
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect((await GET()).status).toBe(403)
     expect(mocks.findContacts).not.toHaveBeenCalled()
   })
 
   it('revokes access on the next request of the same session', async () => {
     mocks.findUser.mockResolvedValueOnce(principal({ canAccessContactBook: true })).mockResolvedValueOnce(principal())
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(200)
-    expect((await GET(new Request('https://example.test/api/contact-book'))).status).toBe(403)
+    expect((await GET()).status).toBe(200)
+    expect((await GET()).status).toBe(403)
     expect(mocks.findContacts).toHaveBeenCalledTimes(1)
   })
 
-  it('searches all contact fields and paginates', async () => {
+  it('returns the complete directory without pagination or an extra count query', async () => {
     mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
-    expect((await GET(new Request('https://example.test/api/contact-book?search=%20Mariam%20&page=2'))).status).toBe(200)
-    expect(mocks.findContacts).toHaveBeenCalledWith(expect.objectContaining({ skip: 50, take: 50, where: {
-      OR: ['name', 'email', 'phone'].map(field => ({ [field]: { contains: 'Mariam', mode: 'insensitive' } })),
-    } }))
+    const contacts = Array.from({ length: 75 }, (_, index) => ({
+      id: String(index), name: `Contact ${index}`, email: `${index}@example.com`, phone: null,
+      role: UserRole.SERVANT, roleAssignments: [], sundaySchoolServing: [],
+    }))
+    mocks.findContacts.mockResolvedValue(contacts)
+    const response = await GET()
+    await expect(response.json()).resolves.toEqual({ contacts, total: 75 })
+    const query = mocks.findContacts.mock.calls[0][0]
+    expect(query).not.toHaveProperty('skip')
+    expect(query).not.toHaveProperty('take')
+    expect(mocks.count).not.toHaveBeenCalled()
   })
 
-  it.each(['0', '-1', '1.5', 'abc', '9007199254740991'])('rejects invalid page %s', async page => {
-    mocks.findUser.mockResolvedValue(principal({ canAccessContactBook: true }))
-    expect((await GET(new Request(`https://example.test/api/contact-book?page=${page}`))).status).toBe(400)
-    expect(mocks.findContacts).not.toHaveBeenCalled()
-  })
 })
 
 describe('contact book permission updates', () => {
