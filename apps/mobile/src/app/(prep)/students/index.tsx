@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { yearLevelLabel } from "@/data/year-level";
 import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
@@ -21,14 +22,13 @@ import {
 type StudentAnalytics = {
   studentId: string;
   studentName: string;
-  yearLevel: string;
+  yearLevel: string | null;
   attendancePercentage: number | null;
   examAverage: number | null;
   graduationEligible: boolean;
 };
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
-const yearLabel = (level: string) => YEAR_LABELS[level] ?? level;
+const yearLabel = yearLevelLabel;
 
 const COPY_BY_ROLE: Record<string, { title: string }> = {
   STUDENT: { title: "My lessons" },

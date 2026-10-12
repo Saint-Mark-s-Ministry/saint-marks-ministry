@@ -1,4 +1,5 @@
 import { Linking, Pressable, View } from "react-native";
+import { yearLevelLabel } from "@/data/year-level";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { CircleIconButton, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
@@ -15,7 +16,6 @@ import {
   type RecentActivity,
 } from "@/data/prep-students";
 
-const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2" };
 const ATTENDANCE_LABEL: Record<string, string> = {
   PRESENT: "Present",
   LATE: "Late",
@@ -26,7 +26,7 @@ const ATTENDANCE_LABEL: Record<string, string> = {
 type StudentAnalytics = {
   studentId: string;
   studentName: string;
-  yearLevel: string;
+  yearLevel: string | null;
   attendancePercentage: number | null;
   totalLessons: number;
   examAverage: number | null;
@@ -127,7 +127,7 @@ export default function PrepStudentDetail() {
                   />
                 )}
                 <View style={[styles.pill, { backgroundColor: colors.hover }]}>
-                  <Copy kind="caption">{YEAR_LABELS[student.yearLevel] ?? student.yearLevel}</Copy>
+                  <Copy kind="caption">{yearLevelLabel(student.yearLevel)}</Copy>
                 </View>
               </View>
               {details.data?.student && (
