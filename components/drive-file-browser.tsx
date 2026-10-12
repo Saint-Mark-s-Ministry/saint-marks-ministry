@@ -1,10 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { DriveFile } from '@/lib/drive'
 import { mimeLabel, isFolder, formatSize, formatDate } from '@/lib/drive'
-import { DRIVE_FOLDER_ID, DRIVE_RESOURCE_KEY } from '@/lib/drive-folders'
+import {
+  DRIVE_PATH_STORAGE_KEY,
+  DRIVE_ROOT_CRUMB,
+  parseStoredCrumbs,
+  serializeCrumbs,
+  type DriveCrumb,
+} from '@/lib/drive-folders'
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -15,12 +21,6 @@ function useIsMobile() {
     return () => window.removeEventListener('resize', check)
   }, [])
   return isMobile
-}
-
-interface Crumb {
-  id: string
-  name: string
-  resourceKey?: string
 }
 
 function previewUrl(file: DriveFile): string {
@@ -155,9 +155,29 @@ function PreviewPanel({ file, onClose }: { file: DriveFile; onClose: () => void 
 export default function DriveFileBrowser() {
   const router = useRouter()
   const isMobile = useIsMobile()
-  const [crumbs, setCrumbs] = useState<Crumb[]>([
-    { id: DRIVE_FOLDER_ID, name: 'Files', resourceKey: DRIVE_RESOURCE_KEY },
-  ])
+  const [crumbs, setCrumbs] = useState<DriveCrumb[]>([DRIVE_ROOT_CRUMB])
+  const [restored, setRestored] = useState(false)
+
+  // Reopen the folder this tab was last in: on phones a file preview is its
+  // own page, and coming back from it used to drop people at the root.
+  // Read after mount so the server and first client render agree.
+  useEffect(() => {
+    try {
+      setCrumbs(parseStoredCrumbs(window.sessionStorage.getItem(DRIVE_PATH_STORAGE_KEY)))
+    } catch {
+      // Storage unavailable (private mode): start at the root.
+    }
+    setRestored(true)
+  }, [])
+
+  useEffect(() => {
+    if (!restored) return
+    try {
+      window.sessionStorage.setItem(DRIVE_PATH_STORAGE_KEY, serializeCrumbs(crumbs))
+    } catch {
+      // Not persisted; navigation still works.
+    }
+  }, [crumbs, restored])
   const [files, setFiles] = useState<DriveFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -183,28 +203,33 @@ export default function DriveFileBrowser() {
     }
   }
 
-  const load = useCallback(async (folderId: string, resourceKey?: string) => {
+  useEffect(() => {
+    if (!restored) return
+    // Only the latest folder's response may land: without this, opening one
+    // folder and then another before the first loads shows the wrong contents.
+    const controller = new AbortController()
     setLoading(true)
     setError(false)
-    try {
-      const params = new URLSearchParams({ folderId })
-      if (resourceKey) params.set('resourceKey', resourceKey)
-      const res = await fetch(`/api/drive?${params}`)
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      setFiles(data.files ?? [])
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load(current.id, current.resourceKey)
     setSearch('')
     setSelected(null)
-  }, [current.id, current.resourceKey, load])
+    const params = new URLSearchParams({ folderId: current.id })
+    if (current.resourceKey) params.set('resourceKey', current.resourceKey)
+    fetch(`/api/drive?${params}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Drive listing failed: ${res.status}`)
+        const data = await res.json()
+        if (controller.signal.aborted) return
+        setFiles(data.files ?? [])
+        setLoading(false)
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return
+        setFiles([])
+        setError(true)
+        setLoading(false)
+      })
+    return () => controller.abort()
+  }, [current.id, current.resourceKey, restored])
 
   // Prevent body scroll while preview is open (critical on mobile)
   useEffect(() => {
@@ -220,7 +245,7 @@ export default function DriveFileBrowser() {
     setCrumbs((prev) => [...prev, { id: f.id, name: f.name }])
 
   const goToCrumb = (i: number) =>
-    setCrumbs((prev) => prev.slice(0, i + 1))
+    setCrumbs((prev) => (i < prev.length - 1 ? prev.slice(0, i + 1) : prev))
 
   const filtered = files.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
@@ -237,7 +262,7 @@ export default function DriveFileBrowser() {
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1
           return (
-            <span key={crumb.id} className="flex items-center gap-1">
+            <span key={`${i}-${crumb.id}`} className="flex items-center gap-1">
               {i > 0 && (
                 <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

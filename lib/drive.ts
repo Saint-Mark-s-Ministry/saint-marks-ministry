@@ -49,30 +49,62 @@ export function formatDate(iso: string): string {
   })
 }
 
+/** Drive returns at most this many items per page; we follow nextPageToken for the rest. */
+const PAGE_SIZE = 1000
+/** A safety bound on pagination: 10 pages is 10,000 items in one folder. */
+const MAX_PAGES = 10
+
+/**
+ * Every file in a Drive folder, or `null` when Drive could not be reached or
+ * refused the request, so callers can tell a failure from an empty folder.
+ * `folderId` must already be validated with `isDriveId`.
+ */
 export async function getDriveFiles(
   folderId: string,
   resourceKey?: string
-): Promise<DriveFile[]> {
+): Promise<DriveFile[] | null> {
   const apiKey = process.env.GOOGLE_API_KEY
-  if (!apiKey) return []
-
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`)
-  const fields = encodeURIComponent(
-    "files(id,name,mimeType,webViewLink,iconLink,modifiedTime,size)"
-  )
+  if (!apiKey) {
+    console.error("Drive: GOOGLE_API_KEY is not set")
+    return null
+  }
 
   const headers: HeadersInit = { "Content-Type": "application/json" }
   if (resourceKey) {
     headers["X-Goog-Drive-Resource-Keys"] = `${folderId}/${resourceKey}`
   }
 
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&key=${apiKey}&fields=${fields}&orderBy=folder,name`,
-    { headers, next: { revalidate: process.env.NODE_ENV === "development" ? 0 : 3600 } }
-  )
+  const files: DriveFile[] = []
+  let pageToken: string | undefined
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      q: `'${folderId}' in parents and trashed = false`,
+      key: apiKey,
+      fields: "nextPageToken,files(id,name,mimeType,webViewLink,iconLink,modifiedTime,size)",
+      orderBy: "folder,name",
+      pageSize: String(PAGE_SIZE),
+    })
+    if (pageToken) params.set("pageToken", pageToken)
 
-  if (!res.ok) return []
+    let res: Response
+    try {
+      res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+        headers,
+        next: { revalidate: process.env.NODE_ENV === "development" ? 0 : 3600 },
+      })
+    } catch (error: unknown) {
+      console.error("Drive: request failed:", error instanceof Error ? error.message : error)
+      return null
+    }
+    if (!res.ok) {
+      console.error(`Drive: listing folder ${folderId} responded ${res.status}`)
+      return null
+    }
 
-  const data = await res.json()
-  return (data.files as DriveFile[]) ?? []
+    const data = (await res.json()) as { files?: DriveFile[]; nextPageToken?: string }
+    files.push(...(data.files ?? []))
+    pageToken = data.nextPageToken
+    if (!pageToken) break
+  }
+  return files
 }
