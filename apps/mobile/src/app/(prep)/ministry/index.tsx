@@ -8,7 +8,6 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
-import { MinistrySwitcherPill } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { canSeeContactBook } from "@/data/contact-book";
 import { useAppTheme } from "@/theme";
@@ -66,7 +65,6 @@ export default function PrepMinistry() {
       />
       {Platform.OS === "ios" && <TopActions />}
       <Screen resetOnFocus>
-        <MinistrySwitcherPill current="prep" />
         <View style={{ gap: 10 }}>
           <SectionTitle title="Servants Prep" />
           <ListSurface>

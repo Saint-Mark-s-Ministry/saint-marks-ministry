@@ -20,7 +20,7 @@ import {
   type ApplicationState,
   type FieldKey,
 } from "@/data/prep-application";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 // The same template the web student page links to — not reproduced or re-hosted here.
@@ -187,8 +187,7 @@ export default function PrepApplication() {
 
   return (
     <>
-      {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: heading.title }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -200,9 +199,6 @@ export default function PrepApplication() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-                {heading.title}
-              </Copy>
               <Copy kind="caption">{heading.subtitle}</Copy>
             </View>
 

@@ -5,9 +5,13 @@
  * and how a refusal is explained.
  */
 
-/** Super administrators can't remove their own account; the server refuses too. */
-export function canDeleteOwnAccount(role?: string | null): boolean {
-  return !!role && role !== "SUPER_ADMIN";
+/**
+ * Super administrators can't remove their own account, and while viewing as
+ * someone the account on screen isn't the signed-in person's own. The server
+ * refuses both too.
+ */
+export function canDeleteOwnAccount(role?: string | null, viewingAs: boolean = false): boolean {
+  return !!role && role !== "SUPER_ADMIN" && !viewingAs;
 }
 
 export function validateDeletionPassword(password: string): string | null {

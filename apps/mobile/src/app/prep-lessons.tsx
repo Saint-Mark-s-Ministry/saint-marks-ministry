@@ -6,7 +6,7 @@ import { Copy, ListSurface, Screen, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 import {
   attendanceLabel,
   canViewOwnLessons,
@@ -44,7 +44,7 @@ export default function PrepLessons() {
   return (
     <>
       {/* Large in-content heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "My lessons" }} />
       <Stack.SearchBar
         autoCapitalize="none"
         placement="automatic"
@@ -70,7 +70,6 @@ export default function PrepLessons() {
         {canView && !notEnrolled && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>My lessons</Copy>
               <Copy kind="caption">Lessons, resources and attendance</Copy>
             </View>
 

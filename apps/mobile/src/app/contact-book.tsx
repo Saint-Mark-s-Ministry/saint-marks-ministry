@@ -18,7 +18,7 @@ import {
   type ContactBookEntry,
 } from "@/data/contact-book";
 import { useContactBook } from "@/data/use-contact-book";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -52,15 +52,12 @@ export default function ContactBook() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Contact Book" }} />
       <Screen
         refreshing={!denied && state.status === "loading"}
         onRefresh={denied ? undefined : book.retry}
       >
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>
-            Contact Book
-          </Copy>
           <Copy kind="caption">Find app users and contact them</Copy>
         </View>
 

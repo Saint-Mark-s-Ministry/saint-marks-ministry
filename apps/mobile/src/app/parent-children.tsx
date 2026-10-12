@@ -9,7 +9,7 @@ import { savedLabel } from "@/data/prep-lessons";
 import { levelLabel, canViewFamily, placementLabel, requestLabel, type Level, type RequestStatus } from "@/data/parent-children";
 import { familyHomework } from "@/data/sunday-school-homework";
 import { FamilyHomework } from "@/components/family-homework";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 type Child = {
   id: string;
@@ -60,7 +60,7 @@ export default function ParentChildren() {
   return (
     <>
       {/* The large heading below carries the title; an empty bar title avoids repeating it. */}
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "My children" }} />
       <Screen refreshing={family.loading || family.refreshing} onRefresh={() => void family.refresh()}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -72,7 +72,6 @@ export default function ParentChildren() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>My children</Copy>
               <Copy kind="caption">Sunday School · St. Mark</Copy>
             </View>
 

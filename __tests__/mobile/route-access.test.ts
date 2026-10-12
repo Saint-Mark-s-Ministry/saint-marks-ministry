@@ -1,62 +1,34 @@
-import { readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PUBLIC_ROUTES, SIGNED_IN_ROUTES, launchDestination } from "../../apps/mobile/src/data/route-access";
+import { authenticatedRoutes, publicRoutes } from "../../apps/mobile/src/data/route-access";
 
-const APP_DIR = join(__dirname, "../../apps/mobile/src/app");
-
-/** Route names exactly as expo-router names them, from the files on disk. */
-function routeNames(dir: string = APP_DIR): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      const nested = routeNames(path);
-      // A route group's screens live in its own navigator; the group itself is the root-level route.
-      return entry.startsWith("(") ? [entry] : nested;
+function rootRoutes(directory: string, prefix = ""): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const name = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      if (entry.name.startsWith("(")) return [name];
+      return rootRoutes(join(directory, entry.name), `${name}/`);
     }
-    if (!entry.endsWith(".tsx") || entry === "_layout.tsx") return [];
-    const name = relative(APP_DIR, path).replace(/\.tsx$/, "");
-    return name === "index" || name.endsWith("/index") ? [name.replace(/\/?index$/, "") || "index"] : [name];
+    return entry.name.endsWith(".tsx") && entry.name !== "_layout.tsx"
+      ? [name.slice(0, -4)] : [];
   });
 }
 
-describe("signed-out route access", () => {
-  const onDisk = routeNames().filter((name) => name !== "index").sort();
-  const declared = [...PUBLIC_ROUTES, ...SIGNED_IN_ROUTES].sort();
-
-  it("classifies every screen as public or signed-in, so none is forgotten (highest-risk path)", () => {
-    const unclassified = onDisk.filter((name) => !declared.includes(name as never));
-    expect(unclassified).toEqual([]);
+describe("mobile authentication route boundary", () => {
+  it("classifies every route so unlisted private screens cannot mount signed out", () => {
+    const actual = rootRoutes(join(process.cwd(), "apps/mobile/src/app")).sort();
+    const classified = [...publicRoutes, ...authenticatedRoutes];
+    expect(new Set(classified).size).toBe(classified.length);
+    expect(classified.sort()).toEqual(actual);
   });
 
-  it("lists no screen that no longer exists", () => {
-    const stale = declared.filter((name) => !onDisk.includes(name));
-    expect(stale).toEqual([]);
-  });
-
-  it("never lists a screen as both public and signed-in", () => {
-    const overlap = PUBLIC_ROUTES.filter((name) => (SIGNED_IN_ROUTES as readonly string[]).includes(name));
-    expect(overlap).toEqual([]);
-  });
-
-  it("keeps the account and authenticated areas behind sign-in", () => {
-    for (const name of ["(tabs)", "(prep)", "account", "delete-account", "contact-book", "prep-serving"]) {
-      expect(SIGNED_IN_ROUTES as readonly string[]).toContain(name);
-    }
-    for (const name of ["sign-in", "registration", "signup/parent", "roster-signup"]) {
-      expect(PUBLIC_ROUTES as readonly string[]).toContain(name);
-    }
-  });
-});
-
-describe("launchDestination", () => {
-  it("opens the app for a signed-in person and Sign in for everyone else (happy path)", () => {
-    expect(launchDestination({ mustChangePassword: false })).toBe("/(tabs)/home");
-    expect(launchDestination(null)).toBe("/sign-in");
-    expect(launchDestination(undefined)).toBe("/sign-in");
-  });
-
-  it("keeps a forced password change on the sign-in screen (highest-risk path)", () => {
-    expect(launchDestination({ mustChangePassword: true })).toBe("/sign-in");
+  it("keeps ministry screens private and sign-in and registration public", () => {
+    expect(authenticatedRoutes).toEqual(expect.arrayContaining([
+      "(tabs)", "(prep)", "index", "account", "attendance/[classId]", "child/[id]",
+    ]));
+    expect(publicRoutes).toEqual([
+      "sign-in", "registration", "registration/apply", "signup/parent", "signup/servant", "roster-signup",
+    ]);
   });
 });

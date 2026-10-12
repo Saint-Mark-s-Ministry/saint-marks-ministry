@@ -69,7 +69,7 @@ export default function PrepClassLessons() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Class lessons" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -81,7 +81,6 @@ export default function PrepClassLessons() {
         {canView && (
           <>
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Class lessons</Copy>
               <Copy kind="caption">Upcoming Sunday School slides and resources for your class</Copy>
             </View>
 

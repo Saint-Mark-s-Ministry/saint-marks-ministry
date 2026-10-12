@@ -15,7 +15,7 @@ import {
   type HomeworkDraft,
 } from "@/data/sunday-school-homework";
 import { shortMonthDay } from "@/data/sunday-school-classes";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const MARK_OPTIONS: { value: SundaySchoolHomeworkDisplayStatus; label: string }[] = [
@@ -116,10 +116,9 @@ function HomeworkScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Homework" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Homework</Copy>
           <Copy kind="caption">Publish Elementary homework and track completion through the school year</Copy>
         </View>
 

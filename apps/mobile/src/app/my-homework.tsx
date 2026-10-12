@@ -6,7 +6,7 @@ import { ResourceState } from "@/components/forms";
 import { FamilyHomework } from "@/components/family-homework";
 import { endpoint, useResource } from "@/data/resources";
 import { familyHomework } from "@/data/sunday-school-homework";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -32,10 +32,9 @@ function MyHomeworkScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "" }} />
+      <Stack.Screen options={{ title: "Homework" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 36, fontWeight: "500" }}>Homework</Copy>
           <Copy kind="caption">Sunday School · assigned by your class servants</Copy>
         </View>
 
