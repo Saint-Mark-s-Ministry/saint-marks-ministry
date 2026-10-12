@@ -29,7 +29,23 @@ export async function GET(request: Request) {
     const [contacts, total] = await prisma.$transaction([
       prisma.user.findMany({
         where,
-        select: { id: true, name: true, email: true, phone: true },
+        select: {
+          id: true, name: true, email: true, phone: true, role: true,
+          roleAssignments: {
+            where: { revokedAt: null },
+            select: { tag: true },
+            orderBy: { grantedAt: 'asc' },
+          },
+          sundaySchoolServing: {
+            where: { academicYear: { isActive: true }, endedAt: null },
+            select: {
+              id: true, authority: true, classId: true, ageGroupId: true,
+              class: { select: { id: true, name: true, level: true } },
+              ageGroup: { select: { id: true, name: true, levels: true } },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
         skip: (page - 1) * CONTACT_BOOK_PAGE_SIZE,
         take: CONTACT_BOOK_PAGE_SIZE,

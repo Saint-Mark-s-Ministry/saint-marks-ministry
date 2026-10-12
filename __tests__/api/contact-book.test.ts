@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ id: 'actor', role: UserRole.SUPER_ADMIN, canAccessContactBook: true })
   mocks.session.mockResolvedValue({ user: { id: 'actor' } })
   mocks.findUser.mockResolvedValue(principal())
-  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null }])
+  mocks.findContacts.mockResolvedValue([{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }])
   mocks.count.mockResolvedValue(1)
   mocks.update.mockResolvedValue({ id: 'target', canAccessContactBook: true })
   mocks.transaction.mockImplementation(async input => Array.isArray(input) ? Promise.all(input) : input({
@@ -64,9 +64,13 @@ describe('contact book reads', () => {
     const response = await GET(new Request('https://example.test/api/contact-book'))
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toContain('no-store')
-    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null }], total: 1, page: 1, pageSize: 50 })
+    await expect(response.json()).resolves.toEqual({ contacts: [{ id: 'target', name: 'Mariam', email: 'mariam@example.com', phone: null, role: UserRole.SERVANT, roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }], sundaySchoolServing: [] }], total: 1, page: 1, pageSize: 50 })
     expect(mocks.findContacts).toHaveBeenCalledWith(expect.objectContaining({
-      select: { id: true, name: true, email: true, phone: true }, where: {}, take: 50, skip: 0,
+      select: expect.objectContaining({
+        id: true, name: true, email: true, phone: true, role: true,
+        roleAssignments: expect.objectContaining({ where: { revokedAt: null }, select: { tag: true } }),
+        sundaySchoolServing: expect.objectContaining({ where: { academicYear: { isActive: true }, endedAt: null } }),
+      }), where: {}, take: 50, skip: 0,
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     }))
   })

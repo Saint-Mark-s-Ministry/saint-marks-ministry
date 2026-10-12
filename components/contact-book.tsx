@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { UserRoleTagBadges } from '@/components/user-role-tag-badges'
+import { getSundaySchoolResponsibilityLabels } from '@/lib/sunday-school-user-assignments'
 import { ContactLink } from '@/components/contact-link'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -26,7 +29,7 @@ export function ContactBook() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Contact Book" meta="App users’ names, emails, and phone numbers" />
+      <PageHeader title="Contact Book" meta="App users’ roles, responsibilities, and contact details" />
       {denied ? (
         <Panel bodyClassName="space-y-3 p-6">
           <p role="alert">You do not have access to the contact book.</p>
@@ -59,6 +62,12 @@ export function ContactBook() {
               {contacts.contacts.map(contact => (
                 <li key={contact.id} className="min-w-0 space-y-2 p-4 md:border-b md:border-line">
                   <h2 className="font-medium text-ink">{contact.name}</h2>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <UserRoleTagBadges tags={contact.roleAssignments.map(assignment => assignment.tag)} legacyRole={contact.role} />
+                    {getSundaySchoolResponsibilityLabels(contact.sundaySchoolServing).map(label => (
+                      <StatusBadge key={label} tone="gold" dot={false}>{label}</StatusBadge>
+                    ))}
+                  </div>
                   <div className="flex flex-col items-start gap-2 text-sm">
                     <ContactLink kind="email" value={contact.email} name={contact.name} />
                     {contact.phone ? <ContactLink kind="phone" value={contact.phone} name={contact.name} /> : <span className="text-ink-3">No phone number</span>}
