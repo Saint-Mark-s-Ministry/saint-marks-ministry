@@ -16,6 +16,7 @@ import { apiOrigin, dataLabel, useAuth } from "@/data/auth-provider";
 import { usePortal } from "@/data/portal-provider";
 import { useResource } from "@/data/resources";
 import { ministryAccessSummary, roleLabel, sortAcademicYears, type AcademicYearLike } from "@/data/account";
+import { canDeleteOwnAccount } from "@/data/account-deletion";
 import { serifDisplay, useAppTheme, type AppearancePreference } from "@/theme";
 
 export function AccountScreen() {
@@ -148,6 +149,15 @@ export function AccountScreen() {
         >
           <Copy style={{ color: colors.danger, fontWeight: "600", fontSize: 17 }}>Sign out</Copy>
         </Pressable>
+
+        {canDeleteOwnAccount(user?.role) && (
+          <RowLink
+            title="Delete account"
+            subtitle="Permanently delete your account and sign-in"
+            icon={<Icon ios="trash" android="delete" size={16} color={colors.danger} />}
+            onPress={() => router.push("/delete-account")}
+          />
+        )}
 
         <Copy kind="caption" style={{ textAlign: "center" }}>
           St. Mark Ministry Portal · 0.1.0

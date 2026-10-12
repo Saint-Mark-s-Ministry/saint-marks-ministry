@@ -12,6 +12,7 @@ Deep references live in `docs/`:
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
 | [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
 | [`docs/coptic-io.md`](docs/coptic-io.md) | The church calendar (Coptic IO): readings, Synaxarium, fasts and feasts, shown to every role |
+| [`docs/ios-release.md`](docs/ios-release.md) | Taking the native iOS app to TestFlight and the App Store: review compliance, owner actions, and the server-first rollout order |
 
 ## What this application is
 
