@@ -77,7 +77,7 @@ describe('Sunday School child attendance API', () => {
     expect(mocks.recordAttendanceAudit).toHaveBeenCalledWith({
       actorUserId: 'servant-1', action: 'attendance.sunday_school_children.save',
       entityType: 'SundaySchoolSession', entityId: 'session-1', targetName: 'Grade 3',
-      attendanceDate: new Date('2026-10-11'), personIds: ['child-1', 'child-2'],
+      attendanceDate: new Date(`${getSundaySchoolTodayDateInputValue()}T00:00:00.000Z`), personIds: ['child-1', 'child-2'],
     })
     expect(mocks.transaction.mock.invocationCallOrder[0]).toBeLessThan(mocks.recordAttendanceAudit.mock.invocationCallOrder[0])
   })
