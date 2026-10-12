@@ -93,7 +93,7 @@ describe('Sunday School attendance page', () => {
       const url = String(input)
       if (url.startsWith('/api/sunday-school/sessions?')) return { ok: true, json: async () => [{ id: 'session-1' }] }
       if (url === '/api/sunday-school/sessions/session-1/attendance') return {
-        ok: true, json: async () => ({ session: { id: 'session-1' }, roster: [], lastSavedBy: {
+        ok: true, json: async () => ({ session: { id: 'session-1' }, roster: [{ id: 'child-1', firstName: 'Mina', lastName: 'Mark', level: SundaySchoolLevel.GRADE_5, attendance: null }], lastSavedBy: {
           savedAt: '2026-10-11T12:30:00Z', recorder: { id: 'servant-2', name: 'Mary Mark' },
         } }),
       }
@@ -101,7 +101,8 @@ describe('Sunday School attendance page', () => {
     })
     render(<SundaySchoolAttendancePage />)
     expect(await screen.findByText('Mary Mark')).toBeInTheDocument()
-    expect(screen.getByText(/Last saved by/)).toBeInTheDocument()
+    expect(within(screen.getByRole('status')).getByText('Mary Mark')).toBeInTheDocument()
+    expect(screen.getAllByText(/Last saved by/)).toHaveLength(1)
   })
 
   it('keeps past child attendance editable and starts unmarked', async () => {
@@ -154,7 +155,7 @@ describe('Sunday School attendance page', () => {
     let acknowledge!: () => void
     mocks.fetch.mockImplementationOnce(async () => ({ ok: true, json: async () => ({ id: 'session-1' }) }))
     mocks.fetch.mockImplementationOnce(() => new Promise(resolve => {
-      acknowledge = () => resolve({ ok: true, json: async () => ({ success: true }) })
+      acknowledge = () => resolve({ ok: true, json: async () => ({ success: true, lastSavedBy: { savedAt: '2026-10-11T12:30:00Z', recorder: { id: 'servant-1', name: 'Mina Servant' } } }) })
     }))
 
     await user.click(within(screen.getByText('Mina Mark').closest('li')!).getByRole('button', { name: 'Present' }))
@@ -163,7 +164,7 @@ describe('Sunday School attendance page', () => {
     await waitFor(() => expect(statusSlot).toHaveTextContent('Saving marks…'))
     expect(Array.from(sections.children)).toEqual(originalSections)
     acknowledge()
-    await waitFor(() => expect(statusSlot).toHaveTextContent('Saved at'))
+    await waitFor(() => expect(statusSlot).toHaveTextContent('Last saved by Mina Servant'))
     expect(screen.getByRole('status')).toBe(statusSlot)
     expect(Array.from(sections.children)).toEqual(originalSections)
     expect(originalSections[0].textContent).toBe(headerText)
