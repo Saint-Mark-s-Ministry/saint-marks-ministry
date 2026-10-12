@@ -20,7 +20,7 @@ also rejects uploads before the fourth rotation week. A servant checks the
 actual signatures and dates before approval. Three weeks do not complete a
 rotation, even if the attendance percentage so far is 100%.
 
-In **Async students → Sunday School → Rotation forms**, a Servants Prep servant
+In **Async students → Rotation forms**, a Servants Prep servant
 views the evidence and either:
 
 - approves four completed, signed weeks; or

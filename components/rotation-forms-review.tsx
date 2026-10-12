@@ -41,8 +41,8 @@ export function RotationFormsReview({ canReview }: { canReview: boolean }) {
 
   if (isLoading) return <PageLoading />
   if (error) return <Panel><EmptyState message="Could not load rotation forms." /><Button onClick={() => void mutate()}>Try again</Button></Panel>
-  return <Panel title="Rotation forms" description="Verify four fully attended, signed weeks. Approval advances the student one grade and prefers a class with no other rotating student.">
-    {!forms?.length ? <EmptyState message="No rotation forms have been uploaded yet." /> : <ul className="divide-y divide-line">
+  return <Panel title="Rotation forms" description="Students upload their signed four-week forms. Review all four signatures before approving a rotation and advancing the student to the next grade.">
+    {!forms?.length ? <EmptyState message="No student submissions yet. Students upload their signed four-week form from Sunday School in their portal; it will appear here for review." /> : <ul className="divide-y divide-line">
       {forms.map(form => <li key={form.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <p className="font-medium text-ink">{form.assignment.student.name} · {form.assignment.class?.name ?? form.assignment.grade}</p>
