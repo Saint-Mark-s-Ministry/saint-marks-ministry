@@ -177,7 +177,7 @@ function SundaySchoolAttendanceContent() {
               </>
             }
           >
-            {!loadingSession && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
+            {!canEdit && !loadingSession && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
             <div className="border-b border-line px-4 py-2.5">
               <AttendanceLegend showExcused={false} />
             </div>
@@ -230,7 +230,7 @@ function SundaySchoolAttendanceContent() {
               unmarkedCount={unmarkedCount}
               pendingCount={pendingCount}
               saving={saving}
-              lastSaved={lastSaved}
+              lastSavedBy={attendance.lastSavedBy ?? null}
               saveError={Boolean(editor.saveError)}
               recovered={editor.recovered}
               disabled={saving || loadingSession || !session?.user?.id}
