@@ -1,13 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { UserRoleTagBadges } from '@/components/user-role-tag-badges'
-import { getSundaySchoolResponsibilityLabels } from '@/lib/sunday-school-user-assignments'
+import { getSundaySchoolResponsibilities } from '@/lib/sunday-school-user-assignments'
 import { ContactLink } from '@/components/contact-link'
 import { PageHeader } from '@/components/ds/page-header'
+import { Initials } from '@/components/ds/person'
+import { PeopleTable, PeopleTableRow, PeopleCardList, PeopleCard } from '@/components/ds/people-directory'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
 import { FilterSelect } from '@/components/ui/filter-select'
@@ -15,6 +19,7 @@ import { ROLE_TAG_OPTIONS } from '@/lib/role-tags'
 import { getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import { filterContactBook, type ContactBookRoleFilter, type ContactBookGradeFilter, type ContactBookSort } from '@/lib/contact-book-filters'
 import { Button } from '@/components/ui/button'
+import type { ContactBookEntry } from '@/lib/contact-book'
 import { useContactBook } from '@/lib/swr'
 
 export function ContactBook() {
@@ -47,14 +52,16 @@ export function ContactBook() {
         <Panel
           toolbar={
             <>
-              <SearchField value={search} onChange={setSearch} label="Search contacts" placeholder="Search name, email, phone" className="md:w-[260px]" />
-              <FilterSelect className="w-full sm:w-auto" aria-label="Filter by role" value={role} onChange={value => setRole(value as ContactBookRoleFilter)}
+              <div className="relative w-full md:w-auto">
+                <SearchField value={search} onChange={setSearch} label="Search contacts" placeholder="Search name, email, phone" className="md:w-[260px]" />
+              </div>
+              <FilterSelect className="max-w-full" aria-label="Filter by role" value={role} onChange={value => setRole(value as ContactBookRoleFilter)}
                 options={[{ value: '', label: 'All roles' }, ...ROLE_TAG_OPTIONS.map(option => ({ value: option.value, label: option.label })), { value: 'MENTOR', label: 'Mentor' }]} />
-              <FilterSelect className="w-full sm:w-auto" aria-label="Filter by grade" value={grade} onChange={value => setGrade(value as ContactBookGradeFilter)}
+              <FilterSelect className="max-w-full" aria-label="Filter by grade" value={grade} onChange={value => setGrade(value as ContactBookGradeFilter)}
                 options={[{ value: '', label: 'All grades' }, ...LEVEL_ORDER.map(level => ({ value: level, label: getLevelDisplayName(level) })), { value: 'UNASSIGNED', label: 'No grade assignment' }]} />
-              <FilterSelect className="w-full sm:w-auto" aria-label="Sort contacts" value={sort} onChange={value => setSort(value as ContactBookSort)}
+              <FilterSelect className="max-w-full" aria-label="Sort contacts" value={sort} onChange={value => setSort(value as ContactBookSort)}
                 options={[{ value: 'name', label: 'Name (A–Z)' }, { value: 'grade', label: 'Grade (Pre-K → College & Grad)' }]} />
-              {canReset && <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setRole(''); setGrade(''); setSort('name') }}>Clear filters</Button>}
+              {canReset && <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setRole(''); setGrade(''); setSort('name') }} aria-label="Clear filters"><X aria-hidden />Clear</Button>}
             </>
           }
           footer={contacts ? <span className="tabular" aria-live="polite">{hasFilters ? `${visibleContacts.length} of ${contacts.total} contacts` : `${contacts.total} ${contacts.total === 1 ? 'contact' : 'contacts'}`}</span> : undefined}
@@ -66,29 +73,92 @@ export function ContactBook() {
             </div>
           ) : status === 'loading' || isLoading || isValidating || !contacts ? (
             <p role="status" className="p-6 text-sm text-ink-3">Loading contacts…</p>
-          ) : visibleContacts.length === 0 ? (
-            <p role="status" className="p-6 text-sm text-ink-3">{hasFilters ? 'No contacts match your filters.' : 'No contacts yet.'}</p>
           ) : (
-            <ul className="grid divide-y divide-line md:grid-cols-2 md:divide-y-0">
-              {visibleContacts.map(contact => (
-                <li key={contact.id} className="min-w-0 space-y-2 p-4 md:border-b md:border-line">
-                  <h2 className="font-medium text-ink">{contact.name}</h2>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <UserRoleTagBadges tags={contact.roleAssignments.map(assignment => assignment.tag)} legacyRole={contact.role} />
-                    {getSundaySchoolResponsibilityLabels(contact.sundaySchoolServing).map(label => (
-                      <StatusBadge key={label} tone="gold" dot={false}>{label}</StatusBadge>
-                    ))}
-                  </div>
-                  <div className="flex flex-col items-start gap-2 text-sm">
-                    <ContactLink kind="email" value={contact.email} name={contact.name} />
-                    {contact.phone ? <ContactLink kind="phone" value={contact.phone} name={contact.name} /> : <span className="text-ink-3">No phone number</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <PeopleTable
+                label="Contacts"
+                header={
+                  <tr>
+                    <th scope="col" className="p-2 text-left">Name</th>
+                    <th scope="col" className="p-2 text-left">Email</th>
+                    <th scope="col" className="p-2 text-left">Phone</th>
+                    <th scope="col" className="w-44 p-2 text-left">Access</th>
+                    <th scope="col" className="w-56 p-2 text-left">Sunday School</th>
+                  </tr>
+                }
+                empty={visibleContacts.length === 0 ? <ContactBookEmptyState filtered={hasFilters} /> : undefined}
+              >
+                {visibleContacts.map(contact => (
+                  <PeopleTableRow key={contact.id} className="hover:bg-hover/60">
+                    <td className="p-2 font-medium whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <Initials name={contact.name} imageUrl={contact.profileImageUrl} />
+                        <span>{contact.name}</span>
+                      </div>
+                    </td>
+                    <td className="p-2"><ContactLink kind="email" value={contact.email} name={contact.name} /></td>
+                    <td className="p-2">
+                      {contact.phone ? <ContactLink kind="phone" value={contact.phone} name={contact.name} /> : <span className="text-ink-3">No phone number</span>}
+                    </td>
+                    <td className="p-2 text-center"><ContactRoles contact={contact} /></td>
+                    <td className="p-2">
+                      <ContactResponsibilities contact={contact} />
+                    </td>
+                  </PeopleTableRow>
+                ))}
+              </PeopleTable>
+              <PeopleCardList>
+                {visibleContacts.map(contact => (
+                  <PeopleCard key={contact.id} className="bg-white dark:bg-gray-900">
+                    <Initials name={contact.name} imageUrl={contact.profileImageUrl} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h2 className="text-sm font-medium text-ink">{contact.name}</h2>
+                        <ContactRoles contact={contact} />
+                      </div>
+                      <div className="flex flex-col items-start text-xs text-ink-3">
+                        <ContactLink kind="email" value={contact.email} name={contact.name} />
+                        {contact.phone ? <ContactLink kind="phone" value={contact.phone} name={contact.name} /> : <span>No phone number</span>}
+                      </div>
+                      <ContactResponsibilities contact={contact} compact />
+                    </div>
+                  </PeopleCard>
+                ))}
+                {visibleContacts.length === 0 && <ContactBookEmptyState filtered={hasFilters} />}
+              </PeopleCardList>
+            </>
           )}
         </Panel>
       )}
     </div>
   )
+}
+
+function ContactRoles({ contact }: { contact: ContactBookEntry }) {
+  return <UserRoleTagBadges tags={contact.roleAssignments.map(assignment => assignment.tag)} legacyRole={contact.role} />
+}
+
+function ContactResponsibilities({ contact, compact = false }: { contact: ContactBookEntry; compact?: boolean }) {
+  const responsibilities = getSundaySchoolResponsibilities(contact.sundaySchoolServing)
+  if (compact) {
+    return responsibilities.length > 0 ? (
+      <p className="mt-0.5 text-[11px] text-info">
+        Sunday School: {responsibilities.map(({ label, scope }) => `${label} · ${scope}`).join('; ')}
+      </p>
+    ) : null
+  }
+  return responsibilities.length > 0 ? (
+    <div className="space-y-1.5 py-1">
+      {responsibilities.map(({ key, label, scope }) => (
+        <div key={key} className="flex flex-col items-start gap-0.5">
+          <StatusBadge tone="gold" dot={false}>{label}</StatusBadge>
+          <span className="text-xs text-ink-3">{scope}</span>
+        </div>
+      ))}
+    </div>
+  ) : <span className="text-ink-3">—</span>
+}
+
+function ContactBookEmptyState({ filtered }: { filtered: boolean }) {
+  return <div role="status"><EmptyState message={filtered ? 'No contacts match your filters.' : 'No contacts yet.'} /></div>
 }

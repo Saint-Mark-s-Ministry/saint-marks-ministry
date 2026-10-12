@@ -33,24 +33,45 @@ export function getSundaySchoolAssignmentLevels(
   )
 }
 
-/** Current responsibilities, with the grade and authority kept together. */
-export function getSundaySchoolResponsibilityLabels(
+export interface SundaySchoolResponsibility {
+  key: string
+  label: string
+  scope: string
+}
+
+/** Keep class and age-group scopes separate, even when they cover the same grade. */
+export function getSundaySchoolResponsibilities(
   assignments: SundaySchoolAssignmentSummary[] | undefined
-): string[] {
-  const labels = new Set<string>()
+): SundaySchoolResponsibility[] {
+  const responsibilities = new Map<string, SundaySchoolResponsibility>()
   const levels = getSundaySchoolAssignmentLevels(assignments)
 
   for (const level of levels) {
     for (const authority of ['COORDINATOR', 'SERVANT'] as const) {
-      const servesLevel = assignments?.some(assignment =>
-        assignment.authority === authority &&
-        (assignment.class?.level === level || assignment.ageGroup?.levels.includes(level))
-      )
-      if (servesLevel) {
-        labels.add(`${getLevelDisplayName(level)} ${authority === 'COORDINATOR' ? 'Coordinator' : 'Servant'}`)
+      for (const assignment of assignments ?? []) {
+        if (assignment.authority !== authority) continue
+        const scope = assignment.class?.level === level
+          ? { key: `class:${assignment.class.id}`, name: assignment.class.name }
+          : assignment.ageGroup?.levels.includes(level)
+            ? { key: `age-group:${assignment.ageGroup.id}`, name: assignment.ageGroup.name }
+            : null
+        if (!scope) continue
+        const key = `${scope.key}:${level}:${authority}`
+        responsibilities.set(key, {
+          key,
+          label: `${getLevelDisplayName(level)} ${authority === 'COORDINATOR' ? 'Coordinator' : 'Servant'}`,
+          scope: scope.name,
+        })
       }
     }
   }
 
-  return [...labels]
+  return [...responsibilities.values()]
+}
+
+/** Grade and authority labels for places that do not need the class scope. */
+export function getSundaySchoolResponsibilityLabels(
+  assignments: SundaySchoolAssignmentSummary[] | undefined
+): string[] {
+  return [...new Set(getSundaySchoolResponsibilities(assignments).map(responsibility => responsibility.label))]
 }
