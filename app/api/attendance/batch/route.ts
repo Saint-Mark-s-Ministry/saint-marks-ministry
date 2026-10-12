@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -280,6 +281,10 @@ export async function POST(request: Request) {
         }
       }
     })
+
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.prep.save',
+      entityType: 'Lesson', entityId: lessonId, targetName: lesson.title,
+      attendanceDate: lesson.scheduledDate, personIds: records.map(r => r.studentId) })
 
     // Send notifications to mentors (non-blocking)
     const studentIds = records.map((r: AttendanceRecord) => r.studentId)

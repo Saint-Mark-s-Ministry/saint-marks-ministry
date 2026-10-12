@@ -1,3 +1,4 @@
+import { ATTENDANCE_AUDIT_ACTIONS, bundleAttendanceEvents } from '@/lib/attendance-audit'
 import { AuditEventResult, Prisma, RoleTag } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
@@ -64,6 +65,8 @@ export async function GET(request: Request) {
               { entityType: { contains: search, mode: 'insensitive' } },
               { entityId: { contains: search, mode: 'insensitive' } },
               { reason: { contains: search, mode: 'insensitive' } },
+              { metadata: { path: ['targetName'], string_contains: search, mode: 'insensitive' } },
+              { metadata: { path: ['attendanceDate'], string_contains: search } },
               { actor: { name: { contains: search, mode: 'insensitive' } } },
               { actor: { email: { contains: search, mode: 'insensitive' } } },
               ...(matchingTargetUserIds.length > 0
@@ -74,18 +77,34 @@ export async function GET(request: Request) {
         : {}),
     }
 
-    const [events, total] = await Promise.all([
+    const attendanceWhere: Prisma.AuditEventWhereInput = {
+      AND: [where, { action: { in: ATTENDANCE_AUDIT_ACTIONS }, result: 'SUCCESS' }],
+    }
+    const otherWhere: Prisma.AuditEventWhereInput = {
+      ...where,
+      NOT: { action: { in: ATTENDANCE_AUDIT_ACTIONS }, result: 'SUCCESS' },
+    }
+    const [otherEvents, otherTotal, attendanceEvents] = await Promise.all([
       prisma.auditEvent.findMany({
-        where,
+        where: otherWhere,
         include: {
           actor: { select: { id: true, name: true, email: true } },
         },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: page * pageSize,
       }),
-      prisma.auditEvent.count({ where }),
+      prisma.auditEvent.count({ where: otherWhere }),
+      prisma.auditEvent.findMany({
+        where: attendanceWhere,
+        include: { actor: { select: { id: true, name: true, email: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      }),
     ])
+    const bundled = bundleAttendanceEvents(attendanceEvents)
+    const total = otherTotal + bundled.length
+    const events = [...otherEvents, ...bundled]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+      .slice((page - 1) * pageSize, page * pageSize)
 
     const targetUserIds = Array.from(new Set(
       events.flatMap(event =>

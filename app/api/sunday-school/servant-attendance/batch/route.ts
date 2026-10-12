@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { SundaySchoolServantAttendanceStatus } from "@prisma/client"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id: classId },
-      select: { id: true, academicYearId: true },
+      select: { id: true, academicYearId: true, name: true },
     })
     if (!sundaySchoolClass) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -134,6 +135,10 @@ export async function POST(request: Request) {
         updated: records.filter(record => existingIds.has(record.servantId)).length,
       }
     })
+
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_servants.save',
+      entityType: 'SundaySchoolSession', entityId: result.sessionId, targetName: sundaySchoolClass.name,
+      attendanceDate: sessionDate, personIds: servantIds })
 
     return NextResponse.json({ success: true, ...result })
   } catch (error: unknown) {

@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => ({
   childFindMany: vi.fn(),
   attendanceFindMany: vi.fn(),
   transaction: vi.fn(),
+  recordAttendanceAudit: vi.fn(),
 }))
+
+vi.mock('@/lib/attendance-audit', () => ({ recordAttendanceAudit: mocks.recordAttendanceAudit }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/sunday-school-access', () => ({
@@ -33,7 +36,8 @@ describe('Sunday School child attendance API', () => {
     mocks.sessionFindUnique.mockResolvedValue({
       id: 'session-1',
       classId: 'class-1',
-      class: { academicYearId: 'year-1' },
+      date: new Date('2026-10-11'),
+      class: { academicYearId: 'year-1', name: 'Grade 3' },
     })
   })
 
@@ -55,5 +59,26 @@ describe('Sunday School child attendance API', () => {
     expect(body.error).toBe('Invalid status. Must be one of: PRESENT, LATE, ABSENT')
     expect(mocks.childFindMany).not.toHaveBeenCalled()
     expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(mocks.recordAttendanceAudit).not.toHaveBeenCalled()
   })
+  it('logs a successful class save once with the authenticated recorder', async () => {
+    mocks.childFindMany.mockResolvedValue([{ id: 'child-1' }, { id: 'child-2' }])
+    mocks.attendanceFindMany.mockResolvedValue([])
+    mocks.transaction.mockResolvedValue(undefined)
+    const response = await POST(new Request('http://localhost/api/sunday-school/attendance/batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'session-1', records: [
+        { childId: 'child-1', status: 'PRESENT' }, { childId: 'child-2', status: 'ABSENT' },
+      ] }),
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.recordAttendanceAudit).toHaveBeenCalledOnce()
+    expect(mocks.recordAttendanceAudit).toHaveBeenCalledWith({
+      actorUserId: 'servant-1', action: 'attendance.sunday_school_children.save',
+      entityType: 'SundaySchoolSession', entityId: 'session-1', targetName: 'Grade 3',
+      attendanceDate: new Date('2026-10-11'), personIds: ['child-1', 'child-2'],
+    })
+    expect(mocks.transaction.mock.invocationCallOrder[0]).toBeLessThan(mocks.recordAttendanceAudit.mock.invocationCallOrder[0])
+  })
+
 })

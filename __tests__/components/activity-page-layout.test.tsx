@@ -52,4 +52,21 @@ describe('Activity log', () => {
     expect(await screen.findByText('Record ID')).toBeInTheDocument()
     expect(screen.getByText('user-123')).toBeInTheDocument()
   })
+  it('shows who saved attendance and opens the bundled save details', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({
+      events: [{ ...event, action: 'attendance.sunday_school_children.save', result: 'SUCCESS',
+        entityType: 'SundaySchoolSession', entityId: 'session-1', metadata: {
+          targetName: 'Grade 3', attendanceDate: '2026-09-28', personCount: 12, saveCount: 4,
+          firstSavedAt: '2026-09-28T18:35:00.000Z', lastSavedAt: event.createdAt,
+        } }], page: 1, total: 1, totalPages: 1, retention: { hours: 2, maxEvents: 50000 },
+    }) })))
+    render(<ActivityPage />)
+    const row = await screen.findByRole('button', { name: /Mina Servant/ })
+    expect(within(row).getByText('Saved Sunday School children’s attendance for 12 people')).toBeInTheDocument()
+    expect(within(row).getByText(/Grade 3 · 2026-09-28/)).toBeInTheDocument()
+    await userEvent.click(row)
+    expect(screen.getByText('First saved')).toBeInTheDocument()
+    expect(screen.getByText('Saves bundled')).toBeInTheDocument()
+  })
+
 })

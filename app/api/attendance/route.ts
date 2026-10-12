@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -116,6 +117,8 @@ export async function POST(request: Request) {
       }
     }
 
+    const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } })
+
     const record = await prisma.attendanceRecord.create({
       data: {
         lessonId,
@@ -134,6 +137,10 @@ export async function POST(request: Request) {
         }
       }
     })
+
+    if (lesson) await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.prep.save',
+      entityType: 'Lesson', entityId: lessonId, targetName: lesson.title,
+      attendanceDate: lesson.scheduledDate, personIds: [studentId] })
 
     return NextResponse.json(record, { status: 201 })
   } catch (error: unknown) {

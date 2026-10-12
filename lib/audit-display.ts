@@ -20,11 +20,18 @@ const REASON_LABELS: Record<string, string> = {
 }
 
 const ENTITY_LABELS: Record<string, string> = {
+  Lesson: 'Servants Prep lesson',
+  SundaySchoolSession: 'Sunday School session',
   User: 'User account',
   SundaySchoolPriestNote: 'Confidential visitation note',
 }
 
 const METADATA_LABELS: Record<string, string> = {
+  personCount: 'People included',
+  saveCount: 'Saves bundled',
+  attendanceDate: 'Attendance date',
+  firstSavedAt: 'First saved',
+  lastSavedAt: 'Last saved',
   provider: 'Sign-in method',
   readOnly: 'Read-only session',
   previousTargetUserId: 'Previous viewed user ID',
@@ -36,7 +43,7 @@ const METADATA_LABELS: Record<string, string> = {
   compatibilityRole: 'Primary role',
   visitationId: 'Visitation ID',
   childId: 'Child ID',
-  targetName: 'User name',
+  targetName: 'Record name',
   targetEmail: 'User email',
   bulkDelete: 'Bulk deletion',
 }
@@ -76,6 +83,14 @@ export function auditTargetLabel(event: DisplayableAuditEvent): string {
 export function auditActionSummary(event: DisplayableAuditEvent): string {
   const target = auditTargetLabel(event)
 
+  if (event.action.startsWith('attendance.')) {
+    const metadata = event.metadata as Record<string, unknown> | null
+    const count = Number(metadata?.personCount ?? 0)
+    const kind = event.action === 'attendance.prep.save' ? 'Servants Prep'
+      : event.action === 'attendance.sunday_school_children.save' ? 'Sunday School children’s' : 'Sunday School servants’'
+    return `Saved ${kind} attendance for ${count} ${count === 1 ? 'person' : 'people'}`
+  }
+
   switch (event.action) {
     case 'AUTH_LOGIN':
       if (event.result === 'DENIED') return 'Sign-in attempt denied'
@@ -109,6 +124,9 @@ export function auditReasonLabel(reason: string | null): string | null {
 }
 
 function formatMetadataValue(key: string, value: unknown): string {
+  if ((key === 'firstSavedAt' || key === 'lastSavedAt') && typeof value === 'string') {
+    return new Date(value).toLocaleString()
+  }
   if (key === 'provider') {
     if (value === 'credentials') return 'Email and password'
     if (value === 'google') return 'Google'

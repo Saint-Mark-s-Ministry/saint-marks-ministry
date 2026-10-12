@@ -1,3 +1,4 @@
+import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
+      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true, name: true } } },
     })
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
@@ -147,6 +148,10 @@ export async function POST(request: Request) {
         data: { takenBy: user.id },
       })
     })
+
+    await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_children.save',
+      entityType: 'SundaySchoolSession', entityId: sessionId, targetName: session.class.name,
+      attendanceDate: session.date, personIds: childIds })
 
     return NextResponse.json({
       success: true,
