@@ -144,6 +144,28 @@ Use `Copy` for text; a raw `Text` or `TextInput` needs an explicit
 `fontFamily` from `theme.tsx`. Native controls (tab bar, `Button`) keep the
 system font.
 
+### Ministry tint and role landing
+
+- **Tint** (gold for Sunday School, maroon for Servants Prep) is chosen once at
+  the root from the active route (`ministryForSegments`, `src/data/navigation.ts`),
+  so a pushed screen's header, toolbar and body always agree. Shared screens
+  (account, notifications, readings, calendar day) keep the ministry you came
+  from. Don't tint a screen by hand.
+- **Which ministry a role lands in** follows the web: administrators and mentors
+  with class access get both; servants and parents are Sunday School only (a
+  parent's tabs are Home, Calendar, Children, More); students are Prep only even
+  when assigned to a class as a pupil. "Has a class" never means "serves".
+- **Tab roots share one header**: ministry switcher on the left, notifications
+  and the account avatar on the right. Pushed screens show a back button and
+  only their own actions, and one search placement (`stacked`).
+
+### Daily readings
+
+`/readings` shows the day's Katameros and Synaxarium from `/api/liturgical/*`
+(Coptic IO), with the Coptic date leading, a day stepper, an English/Arabic
+switch and tap-to-expand readings. Home and More link to it, and a day on the
+Calendar opens it for that date. Pure helpers are in `src/data/readings.ts`.
+
 ### Notifications open in the app
 
 A notification's web link and type are mapped to a native route in

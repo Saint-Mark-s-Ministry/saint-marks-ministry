@@ -90,6 +90,7 @@ export default function PrepActivity() {
         <Stack.SearchBar
           autoCapitalize="none"
           placement="stacked"
+          hideWhenScrolling={false}
           placeholder="Search activity"
           onChangeText={(event) => applyFilters({ search: event.nativeEvent.text })}
         />

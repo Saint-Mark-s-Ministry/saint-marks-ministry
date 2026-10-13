@@ -48,6 +48,7 @@ export default function PrepLessons() {
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Search lessons or speakers"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
@@ -109,6 +110,9 @@ export default function PrepLessons() {
                   <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
                     <Copy kind="heading">{all.length ? (query ? "No lessons match" : "Nothing here yet") : "No lessons yet"}</Copy>
                     {!all.length && <Copy kind="caption">Your lessons will show up here once they're scheduled.</Copy>}
+                    {!!all.length && !query && (
+                      <Copy kind="caption">Switch to Completed or All to see your other lessons.</Copy>
+                    )}
                   </View>
                 )}
 

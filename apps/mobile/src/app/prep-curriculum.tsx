@@ -60,6 +60,7 @@ export default function PrepCurriculum() {
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Search topics, speakers"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}

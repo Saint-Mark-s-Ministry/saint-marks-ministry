@@ -49,6 +49,7 @@ export default function SundayBirthdays() {
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Search children"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}

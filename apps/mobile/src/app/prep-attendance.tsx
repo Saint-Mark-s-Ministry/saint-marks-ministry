@@ -255,6 +255,7 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Find a student"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}

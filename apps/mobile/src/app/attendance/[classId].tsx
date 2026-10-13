@@ -278,6 +278,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Find a child"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}

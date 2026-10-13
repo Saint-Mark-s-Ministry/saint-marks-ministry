@@ -71,6 +71,7 @@ export default function PrepMentees() {
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Search mentees"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />

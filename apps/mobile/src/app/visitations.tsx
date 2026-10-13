@@ -84,6 +84,7 @@ function VisitationsScreen() {
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"
+        hideWhenScrolling={false}
         placeholder="Find a child"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />
