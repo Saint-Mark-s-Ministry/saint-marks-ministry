@@ -12,6 +12,8 @@ import { usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
 import { apiOrigin } from "@/data/auth-provider";
+import { resolveNotificationRoute } from "@/data/notification-routes";
+import { openNotificationRoute } from "@/data/notification-navigation";
 
 export default function Notifications() {
   const { colors } = useAppTheme();
@@ -88,11 +90,23 @@ export default function Notifications() {
                 ) : undefined
               }
               onPress={() => {
+                const route = resolveNotificationRoute({ url: item.url, type: item.type });
                 if (item.isPersistent) {
-                  void openRequiredAction(item.url);
+                  // Persistent ones can't be marked read; they clear when the
+                  // action is done. Open it in the app when we can.
+                  if (route) openNotificationRoute(route, { fromSheet: true });
+                  else void openRequiredAction(item.url);
                   return;
                 }
-                void markRead(item.id).catch((error) =>
+                const read = item.isRead ? Promise.resolve() : markRead(item.id);
+                if (route) {
+                  // Never make the person wait on, or lose, the destination
+                  // because the read receipt failed.
+                  void read.catch(() => undefined);
+                  openNotificationRoute(route, { fromSheet: true });
+                  return;
+                }
+                void read.catch((error) =>
                   Alert.alert(
                     "Unable to update notification",
                     error instanceof Error ? error.message : "Try again.",
@@ -101,7 +115,15 @@ export default function Notifications() {
               }}
             />
             <Copy kind="caption">
-              {item.isPersistent ? "Action required · Tap to continue" : item.isRead ? "Read" : "Tap to mark as read"}
+              {item.isPersistent
+                ? "Action required · Tap to continue"
+                : resolveNotificationRoute({ url: item.url, type: item.type })
+                  ? item.isRead
+                    ? "Tap to open"
+                    : "Tap to open and mark as read"
+                  : item.isRead
+                    ? "Read"
+                    : "Tap to mark as read"}
             </Copy>
           </Card>
         ))}

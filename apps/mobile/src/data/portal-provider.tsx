@@ -33,6 +33,8 @@ export type PortalNotification = {
   isRead: boolean;
   isPersistent?: boolean;
   url?: string | null;
+  type?: string | null;
+  createdAt?: string;
 };
 type AttendanceSummary = { marks: AttendanceMarks; savedAt: string | null };
 export const attendanceKey = (classId: string, date: string) =>

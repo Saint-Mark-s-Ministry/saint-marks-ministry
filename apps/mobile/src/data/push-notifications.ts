@@ -16,6 +16,8 @@ import * as Notifications from "expo-notifications";
 import { Linking } from "react-native";
 import { request } from "./resources";
 import { apiOrigin } from "./auth-provider";
+import { resolveNotificationRoute } from "./notification-routes";
+import { openNotificationRoute } from "./notification-navigation";
 
 try {
   // Runs at module load, before any component renders — never let a missing
@@ -58,8 +60,17 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   }
 }
 
-/** Opens a notification's target the same way the in-app history list does. */
-function openNotificationTarget(url?: string | null) {
+/**
+ * Opens a notification's target the same way the in-app history list does:
+ * in the app when there is a native screen for it, the website otherwise.
+ */
+function openNotificationTarget(data?: { url?: string | null; type?: string | null }) {
+  const route = resolveNotificationRoute({ url: data?.url, type: data?.type });
+  if (route) {
+    openNotificationRoute(route);
+    return;
+  }
+  const url = data?.url;
   if (!url || !apiOrigin) return;
   void Linking.openURL(new URL(url, `${apiOrigin}/`).toString()).catch(() => {});
 }
@@ -97,8 +108,11 @@ export function usePushNotificationRegistration(userId: string | undefined) {
   useEffect(() => {
     try {
       const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content.data as { url?: string } | undefined;
-        openNotificationTarget(data?.url);
+        // The server sends the notification type as `tag` on push payloads.
+        const data = response.notification.request.content.data as
+          | { url?: string | null; type?: string | null; tag?: string | null }
+          | undefined;
+        openNotificationTarget({ url: data?.url, type: data?.type ?? data?.tag });
       });
       return () => subscription.remove();
     } catch {
