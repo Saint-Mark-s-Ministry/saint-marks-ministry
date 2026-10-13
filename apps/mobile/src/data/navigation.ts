@@ -41,7 +41,12 @@ export function availableMinistries(
       : [];
   }
   const prep: MinistryOption = { id: "prep", name: MINISTRY_NAMES.prep };
-  if (!hasSundaySchoolAccess) return [prep];
+  // Sunday School is a servant's ministry. A student can be *assigned* to a
+  // class (an async student does their rotation in one) without being a
+  // servant, and "has a class" must not open the servant tools to them; the
+  // web offers Sunday School only to administrators and mentors with access.
+  const SERVES_SUNDAY_SCHOOL = ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP", "MENTOR"];
+  if (!hasSundaySchoolAccess || !SERVES_SUNDAY_SCHOOL.includes(user.role)) return [prep];
   return [prep, { id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool }];
 }
 

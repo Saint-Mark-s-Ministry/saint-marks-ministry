@@ -19,6 +19,7 @@ import {
   toDateInputValue,
 } from "@stmark/domain";
 import { api } from "./auth-provider";
+import { ApiError } from "./api-client";
 import { resolveAttendanceNote, rosterProgress, type AttendanceMarks } from "./attendance-draft";
 import {
   clearResourceCache,
@@ -93,19 +94,36 @@ export function PortalProvider({ children }: PropsWithChildren) {
     setLoading(true);
     setError(null);
     try {
-      const [nextClasses, lessonData, notificationData, sessions] =
-        await Promise.all([
-          request<SundaySchoolClass[]>(
-            "/api/sunday-school/classes?isActive=true",
-          ),
-          request<{ lessons: SundaySchoolWeeklyLesson[] }>(
-            "/api/sunday-school/lessons",
-          ),
-          request<{ notifications: PortalNotification[]; unreadCount: number }>(
-            "/api/notifications",
-          ),
-          request<SundaySchoolSession[]>("/api/sunday-school/sessions"),
-        ]);
+      // Each source stands alone. A role with no class access (a parent, a
+      // student) gets 403 for the class data; that must read as "no classes",
+      // not fail the whole load and wipe their notifications with it.
+      const settle = async <T,>(promise: Promise<T>, empty: T): Promise<{ value: T; failure: Error | null }> => {
+        try {
+          return { value: await promise, failure: null };
+        } catch (failure) {
+          if (failure instanceof ApiError && failure.status === 403) return { value: empty, failure: null };
+          return { value: empty, failure: failure instanceof Error ? failure : new Error("Request failed") };
+        }
+      };
+      const [classesResult, lessonsResult, notificationsResult, sessionsResult] = await Promise.all([
+        settle(request<SundaySchoolClass[]>("/api/sunday-school/classes?isActive=true"), [] as SundaySchoolClass[]),
+        settle(
+          request<{ lessons: SundaySchoolWeeklyLesson[] }>("/api/sunday-school/lessons"),
+          { lessons: [] as SundaySchoolWeeklyLesson[] },
+        ),
+        settle(
+          request<{ notifications: PortalNotification[]; unreadCount: number }>("/api/notifications"),
+          { notifications: [] as PortalNotification[], unreadCount: 0 },
+        ),
+        settle(request<SundaySchoolSession[]>("/api/sunday-school/sessions"), [] as SundaySchoolSession[]),
+      ]);
+      const failure =
+        classesResult.failure ?? lessonsResult.failure ?? notificationsResult.failure ?? sessionsResult.failure;
+      if (failure) throw failure;
+      const nextClasses = classesResult.value;
+      const lessonData = lessonsResult.value;
+      const notificationData = notificationsResult.value;
+      const sessions = sessionsResult.value;
       if (id !== refreshId.current) return;
       setClasses(nextClasses);
       setLessons(lessonData.lessons);

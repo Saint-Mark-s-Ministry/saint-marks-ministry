@@ -1,6 +1,7 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Platform } from "react-native";
 import { MinistryTintProvider, useAppTheme } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
 
 export default function TabLayout() {
   return (
@@ -12,6 +13,9 @@ export default function TabLayout() {
 
 function Tabs() {
   const { colors, isDark } = useAppTheme();
+  const { user } = useAuth();
+  // A parent has no classes to serve; the tab is their children.
+  const classesLabel = user?.role === "PARENT" ? "Children" : "Classes";
   return (
     <NativeTabs
       tintColor={colors.primary}
@@ -60,7 +64,7 @@ function Tabs() {
           sf={{ default: "person.2", selected: "person.2.fill" }}
           md="groups"
         />
-        <NativeTabs.Trigger.Label>Classes</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{classesLabel}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="ministry"

@@ -27,6 +27,35 @@ type MinistryLink = {
 };
 
 export default function Ministry() {
+  const { user } = useAuth();
+  if (user?.role === "PARENT") return <ParentMore />;
+  return <StaffMore />;
+}
+
+/** A parent's More: their children and the daily readings, nothing that needs class access. */
+function ParentMore() {
+  const links: MinistryLink[] = [
+    { id: "children", title: "My children", subtitle: "Classes, registrations, and new children", href: "/parent-children" },
+    { id: "readings", title: "Daily readings", subtitle: "Coptic date, lectionary and Synaxarium", href: "/readings" },
+  ];
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: "More",
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
+      />
+      {Platform.OS === "ios" && <TopActions />}
+      <Screen resetOnFocus>
+        <MinistryGroup title="Sunday School" links={links} />
+      </Screen>
+    </>
+  );
+}
+
+function StaffMore() {
   const resource = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const { classes } = usePortal();
   const { user } = useAuth();

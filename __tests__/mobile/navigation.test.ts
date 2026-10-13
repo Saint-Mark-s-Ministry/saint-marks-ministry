@@ -16,7 +16,7 @@ const roles = [
 ] as const;
 
 describe("mobile ministry switching", () => {
-  it.each(roles.filter((role) => role !== "SERVANT" && role !== "PARENT"))(
+  it.each(roles.filter((role) => role !== "SERVANT" && role !== "PARENT" && role !== "STUDENT"))(
     "gives %s both ministries once they have Sunday School access, defaulting to Sunday School",
     (role) => {
       const options = availableMinistries({ role }, true);
@@ -36,6 +36,13 @@ describe("mobile ministry switching", () => {
       expect(defaultMinistry({ role }, false)).toBe("prep");
     },
   );
+
+  it("keeps a STUDENT in Prep even when they are assigned to a Sunday School class (highest-risk path)", () => {
+    // An async student does their rotation in a class; that is not servant
+    // access, and must not open Roster/Visitations to them.
+    expect(availableMinistries({ role: "STUDENT" }, true).map((o) => o.id)).toEqual(["prep"]);
+    expect(defaultMinistry({ role: "STUDENT" }, true)).toBe("prep");
+  });
 
   it("never gives a SERVANT the Prep ministry", () => {
     expect(availableMinistries({ role: "SERVANT" }, true)).toEqual([

@@ -79,7 +79,7 @@ export default function Home() {
         </View>
         <DataStatus />
 
-        {!loading && !error && !classes.length && (
+        {!loading && !error && !classes.length && user?.role !== "PARENT" && (
           <Card>
             <Copy kind="heading">No assigned class</Copy>
             <Copy kind="caption">

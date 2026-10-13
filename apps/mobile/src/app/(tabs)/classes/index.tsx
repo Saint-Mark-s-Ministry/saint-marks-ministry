@@ -6,6 +6,8 @@ import type { SundaySchoolDashboard, SundaySchoolPinnedClassesResponse } from "@
 import { Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
+import ParentChildren from "../../parent-children";
+import { useAuth } from "@/data/auth-provider";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
@@ -15,7 +17,33 @@ import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
-export default function Classes() {
+/**
+ * The Classes tab. A parent serves no class; what they have are their
+ * children, who each sit in one, so the tab shows that (the same screen
+ * Home's "My children" opens) rather than a "Forbidden" error.
+ */
+export default function ClassesTab() {
+  const { user } = useAuth();
+  if (user?.role === "PARENT") return <ParentChildrenTab />;
+  return <Classes />;
+}
+
+function ParentChildrenTab() {
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
+      />
+      {Platform.OS === "ios" && <TopActions />}
+      <ParentChildren />
+    </>
+  );
+}
+
+function Classes() {
   return (
     <MinistryTintProvider ministry="sundaySchool">
       <ClassesScreen />
