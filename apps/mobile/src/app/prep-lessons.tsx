@@ -47,7 +47,7 @@ export default function PrepLessons() {
       <Stack.Screen options={{ title: "My lessons" }} />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Search lessons or speakers"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}

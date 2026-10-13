@@ -81,7 +81,7 @@ function FeedbackScreen() {
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Search feedback"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
         onCancelButtonPress={() => setSearch("")}

@@ -6,7 +6,6 @@ import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView } from "@expo/ui/community/menu";
 import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { Field, ResourceState, useAction } from "@/components/forms";
-import { TopActions } from "@/components/top-actions";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { apiOrigin } from "@/data/auth-provider";
@@ -79,10 +78,9 @@ export default function PrepRegistrations() {
                   </Pressable>
                 </MenuView>
               )
-            : () => <TopActions />,
+            : undefined,
         }}
       />
-      {Platform.OS === "ios" && <TopActions />}
       <Screen refreshing={submissions.loading} onRefresh={refreshAll}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>

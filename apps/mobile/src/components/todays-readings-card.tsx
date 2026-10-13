@@ -38,7 +38,7 @@ export function TodaysReadingsCard() {
             backgroundColor: colors.primarySoft,
           }}
         >
-          <Icon ios="book.closed.fill" android="menu_book" size={20} />
+          <Icon ios="text.book.closed.fill" android="menu_book" size={20} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Copy kind="caption">Today's readings</Copy>

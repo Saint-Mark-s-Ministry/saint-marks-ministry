@@ -89,7 +89,7 @@ export default function Roster() {
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Search children"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />

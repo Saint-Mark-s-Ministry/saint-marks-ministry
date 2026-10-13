@@ -10,6 +10,7 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { canSeeContactBook } from "@/data/contact-book";
 import { useAppTheme } from "@/theme";
@@ -60,7 +61,7 @@ const MENTOR_LINKS: MinistryLink[] = [
 /** One glyph per destination (the SS More list does the same), not a single generic one. */
 function linkIcon(id: string): { ios: SFSymbol; android: AndroidSymbol } {
   switch (id) {
-    case "readings": return { ios: "book.closed.fill", android: "menu_book" };
+    case "readings": return { ios: "text.book.closed.fill", android: "menu_book" };
     case "attendance": return { ios: "checkmark.circle", android: "check_circle" };
     case "exams": return { ios: "doc.text", android: "description" };
     case "curriculum": return { ios: "list.bullet.rectangle", android: "list_alt" };
@@ -89,6 +90,7 @@ export default function PrepMinistry() {
       <Stack.Screen
         options={{
           title: "More",
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />

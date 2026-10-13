@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
@@ -14,7 +14,6 @@ import {
   StatusPill,
   styles,
 } from "@/components/ui";
-import { TopActions } from "@/components/top-actions";
 import { ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -82,10 +81,8 @@ function LessonsScreen() {
       <Stack.Screen
         options={{
           title: "Lessons",
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions />}
       <Screen
         resetOnFocus
         refreshing={resource.loading || resource.refreshing}

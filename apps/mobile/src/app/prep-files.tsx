@@ -62,7 +62,7 @@ export default function PrepFiles() {
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Search files"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />

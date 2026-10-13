@@ -38,8 +38,8 @@ export function searchTools(
     },
     {
       id: "roster",
-      title: "Children & families",
-      subtitle: "Roster and child profiles",
+      title: "Roster",
+      subtitle: "Children, families and profiles",
       href: primaryClass ? `/roster?classId=${primaryClass.id}` : "/roster",
     },
     {

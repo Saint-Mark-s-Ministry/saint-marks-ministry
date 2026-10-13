@@ -5,7 +5,6 @@ import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Button, Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { Choice, Field, ResourceState, useAction } from "@/components/forms";
-import { TopActions } from "@/components/top-actions";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -50,10 +49,8 @@ export default function PrepExams() {
       <Stack.Screen
         options={{
           title: "Exams",
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions />}
       <Screen refreshing={exams.loading} onRefresh={() => { void exams.refresh(); void analytics.refresh(); }}>
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>

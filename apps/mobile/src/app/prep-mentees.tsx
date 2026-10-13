@@ -70,7 +70,7 @@ export default function PrepMentees() {
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Search mentees"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />

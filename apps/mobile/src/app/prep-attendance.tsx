@@ -254,7 +254,7 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Find a student"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
@@ -369,7 +369,7 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
       </Screen>
 
       {!!roster.length && (
-        <View style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 80 }}>
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 18 }}>
           <GlassChrome interactive style={{ borderRadius: 26, padding: 14, gap: 10 }}>
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 14 }}>
               <Copy kind="caption" color={colors.success} style={{ fontWeight: "600" }}>

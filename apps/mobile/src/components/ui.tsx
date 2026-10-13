@@ -45,6 +45,9 @@ export function Icon({
       name={{ ios, android }}
       size={size}
       tintColor={color ?? colors.primary}
+      // Decoration only: the row or button it sits in carries the label.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
     />
   );
 }

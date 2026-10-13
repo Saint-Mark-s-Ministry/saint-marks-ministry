@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import type { SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { TopActions } from "@/components/top-actions";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -80,10 +79,8 @@ function VisitationsScreen() {
           // specific child, so it lives on that child's own detail screen
           // (which has the real, fully-working "New entry" action) instead
           // of inventing a child-picker step this list screen doesn't need.
-          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      {Platform.OS === "ios" && <TopActions />}
       <Stack.SearchBar
         autoCapitalize="none"
         placement="stacked"

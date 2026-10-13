@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, View } from "react-native";
-import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider } from "expo-router";
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
@@ -10,7 +10,7 @@ import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono";
 import { AppThemeProvider, MinistryTintProvider, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
-import { defaultMinistry } from "@/data/navigation";
+import { defaultMinistry, ministryForSegments, type Ministry } from "@/data/navigation";
 import { authenticatedRoutes, publicRoutes } from "@/data/route-access";
 import { ViewAsBanner } from "@/components/view-as-banner";
 import { ActivityIndicator } from "react-native";
@@ -60,6 +60,15 @@ function AuthStack() {
       </Stack>
     </ThemeProvider>
   );
+}
+
+/** Tints everything under it, headers included, by the ministry of the active route. */
+function RouteMinistryTint({ children }: { children: React.ReactNode }) {
+  const segments = useSegments();
+  const last = useRef<Ministry>("sundaySchool");
+  const ministry = ministryForSegments(segments as string[], last.current);
+  last.current = ministry;
+  return <MinistryTintProvider ministry={ministry}>{children}</MinistryTintProvider>;
 }
 
 function Navigation() {
@@ -226,7 +235,9 @@ function AuthenticatedApp() {
           <AuthStack />
         ) : (
           <PortalProvider key={`${user.id}:${viewingAs?.originalId ?? ""}`}>
-            <Navigation />
+            <RouteMinistryTint>
+              <Navigation />
+            </RouteMinistryTint>
           </PortalProvider>
         ))}
       {switchingIdentity && <View accessibilityViewIsModal style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}><ActivityIndicator accessibilityLabel="Changing viewed account" /></View>}

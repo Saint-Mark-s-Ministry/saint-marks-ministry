@@ -10,8 +10,8 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { ResourceState } from "@/components/forms";
-import { AcademicYearContext } from "@/components/academic-year-context";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { usePortal } from "@/data/portal-provider";
@@ -44,8 +44,8 @@ export default function Ministry() {
     },
     {
       id: "roster",
-      title: "Children & families",
-      subtitle: "Roster and profiles",
+      title: "Roster",
+      subtitle: "Children, families and profiles",
       href: "/roster",
     },
     ...(homework.data?.eligible
@@ -136,6 +136,7 @@ export default function Ministry() {
       <Stack.Screen
         options={{
           title: "More",
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           headerRight:
             Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
@@ -153,7 +154,6 @@ export default function Ministry() {
         />
         {resource.data && (
           <>
-            <AcademicYearContext dashboard={resource.data} />
             <MinistryGroup title="Sunday School" links={common} />
             {!!admin.length && (
               <MinistryGroup title="Administration" links={admin} />
@@ -198,7 +198,7 @@ function MinistryIcon({ id }: { id: string }) {
   const { colors } = useAppTheme();
   const symbols =
     id === "readings"
-      ? ({ ios: "book.closed.fill", android: "menu_book" } as const)
+      ? ({ ios: "text.book.closed.fill", android: "menu_book" } as const)
       : id === "roster"
       ? ({ ios: "person.3.fill", android: "diversity_3" } as const)
       : id === "visitations"

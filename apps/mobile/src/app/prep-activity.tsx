@@ -89,7 +89,7 @@ export default function PrepActivity() {
       {canView && !forbidden && (
         <Stack.SearchBar
           autoCapitalize="none"
-          placement="automatic"
+          placement="stacked"
           placeholder="Search activity"
           onChangeText={(event) => applyFilters({ search: event.nativeEvent.text })}
         />

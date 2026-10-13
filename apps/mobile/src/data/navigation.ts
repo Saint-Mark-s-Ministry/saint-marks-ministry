@@ -56,3 +56,39 @@ export function defaultMinistry(
     ? "sundaySchool"
     : "prep";
 }
+
+/**
+ * Screens that belong to neither ministry (account, notifications, readings…):
+ * they keep whichever ministry's tint you arrived from.
+ */
+const SHARED_ROUTES = new Set([
+  "account",
+  "notifications",
+  "profile",
+  "switch-ministry",
+  "change-password",
+  "delete-account",
+  "view-as",
+  "readings",
+  "calendar-day",
+  "academic-years",
+  "contact-book",
+  "index",
+  "sign-in",
+  "+not-found",
+]);
+
+/**
+ * Which ministry's accent a route should be drawn in, from its first path
+ * segment (`(prep)`, `(tabs)`, `prep-files`, `roster`, …). Decided once at the
+ * root so a pushed screen's header, toolbar and bars agree with its body, rather
+ * than each screen tinting only part of itself.
+ */
+export function ministryForSegments(segments: readonly string[], previous: Ministry): Ministry {
+  const first = segments[0];
+  if (!first) return previous;
+  if (first === "(prep)" || first.startsWith("prep-")) return "prep";
+  if (first === "(tabs)") return "sundaySchool";
+  if (SHARED_ROUTES.has(first)) return previous;
+  return "sundaySchool";
+}
