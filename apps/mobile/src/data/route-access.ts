@@ -58,6 +58,7 @@ export const authenticatedRoutes = [
   "switch-ministry",
   "visitation/[childId]",
   "visitations",
+  "calendar-day",
   "contact-book",
   "delete-account",
   "lesson-scheduler",
