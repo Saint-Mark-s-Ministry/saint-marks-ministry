@@ -1,5 +1,7 @@
 import { Platform, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
+import type { SFSymbol } from "sf-symbols-typescript";
+import type { AndroidSymbol } from "expo-symbols";
 import {
   CompactRow,
   Icon,
@@ -18,6 +20,13 @@ type MinistryLink = { id: string; title: string; subtitle: string; href: Href };
  * Grouped secondary destinations, mirroring the web's prepAdminNav groups
  * (lib/navigation.ts), filtered by role.
  */
+const READINGS_LINK: MinistryLink = {
+  id: "readings",
+  title: "Daily readings",
+  subtitle: "Coptic date, lectionary and Synaxarium",
+  href: "/readings",
+};
+
 const ADMIN_LINKS: MinistryLink[] = [
   { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance" },
   { id: "exams", title: "Exams", subtitle: "Scores and averages", href: "/prep-exams" },
@@ -48,13 +57,33 @@ const MENTOR_LINKS: MinistryLink[] = [
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
 ];
 
+/** One glyph per destination (the SS More list does the same), not a single generic one. */
+function linkIcon(id: string): { ios: SFSymbol; android: AndroidSymbol } {
+  switch (id) {
+    case "readings": return { ios: "book.closed.fill", android: "menu_book" };
+    case "attendance": return { ios: "checkmark.circle", android: "check_circle" };
+    case "exams": return { ios: "doc.text", android: "description" };
+    case "curriculum": return { ios: "list.bullet.rectangle", android: "list_alt" };
+    case "confession": return { ios: "heart.text.square", android: "volunteer_activism" };
+    case "roster": return { ios: "person.3.fill", android: "diversity_3" };
+    case "async-students": return { ios: "tray.full", android: "inbox" };
+    case "registrations": return { ios: "person.badge.plus", android: "person_add" };
+    case "activity": return { ios: "clock", android: "history" };
+    case "files": return { ios: "folder.fill", android: "folder" };
+    case "contact-book": return { ios: "book.closed.fill", android: "contacts" };
+    case "mentor-dashboard": return { ios: "chart.bar.fill", android: "bar_chart" };
+    case "mentees": return { ios: "person.2.fill", android: "groups" };
+    default: return { ios: "square.grid.2x2", android: "dashboard" };
+  }
+}
+
 export default function PrepMinistry() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const isAdminLike = !user || ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"].includes(user.role);
   const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
   // Menu visibility only; the screen and API re-check access themselves.
-  const links = canSeeContactBook(user) ? [...baseLinks, CONTACT_BOOK_LINK] : baseLinks;
+  const links = [READINGS_LINK, ...baseLinks, ...(canSeeContactBook(user) ? [CONTACT_BOOK_LINK] : [])];
   return (
     <>
       <Stack.Screen
@@ -85,7 +114,7 @@ export default function PrepMinistry() {
                       backgroundColor: colors.primarySoft,
                     }}
                   >
-                    <Icon ios="square.grid.2x2" android="dashboard" size={18} />
+                    <Icon {...linkIcon(link.id)} size={18} />
                   </View>
                 }
                 onPress={() => router.push(link.href)}

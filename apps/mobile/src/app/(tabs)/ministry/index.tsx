@@ -37,6 +37,12 @@ export default function Ministry() {
   const homework = useResource<SundaySchoolHomeworkResponse>(endpoint("homework"));
   const common: MinistryLink[] = [
     {
+      id: "readings",
+      title: "Daily readings",
+      subtitle: "Coptic date, lectionary and Synaxarium",
+      href: "/readings",
+    },
+    {
       id: "roster",
       title: "Children & families",
       subtitle: "Roster and profiles",
@@ -191,7 +197,9 @@ function MinistryGroup({
 function MinistryIcon({ id }: { id: string }) {
   const { colors } = useAppTheme();
   const symbols =
-    id === "roster"
+    id === "readings"
+      ? ({ ios: "book.closed.fill", android: "menu_book" } as const)
+      : id === "roster"
       ? ({ ios: "person.3.fill", android: "diversity_3" } as const)
       : id === "visitations"
         ? ({ ios: "house", android: "home" } as const)

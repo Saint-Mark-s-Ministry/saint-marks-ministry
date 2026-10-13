@@ -20,7 +20,7 @@ import {
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
-import { AcademicYearContext } from "@/components/academic-year-context";
+import { TodaysReadingsCard } from "@/components/todays-readings-card";
 import { useAuth } from "@/data/auth-provider";
 import { endpoint, useResource } from "@/data/resources";
 import { birthdayCaption, birthdayParts, upcomingBirthdays, type Birthday } from "@/data/sunday-school-birthdays";
@@ -78,7 +78,6 @@ export default function Home() {
           <ConnectionBadge />
         </View>
         <DataStatus />
-        {dashboard.data && <AcademicYearContext dashboard={dashboard.data} />}
 
         {!loading && !error && !classes.length && (
           <Card>
@@ -152,6 +151,8 @@ export default function Home() {
             </Card>
           </View>
         )}
+
+        <TodaysReadingsCard />
 
         {user?.role === "PARENT" && (
           <ListSurface>

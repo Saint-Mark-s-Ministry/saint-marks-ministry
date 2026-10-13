@@ -50,6 +50,7 @@ export const authenticatedRoutes = [
   "prep-serving",
   "prep-student/[id]",
   "profile",
+  "readings",
   "registrations",
   "reports",
   "roster",

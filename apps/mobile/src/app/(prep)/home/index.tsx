@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
+import { TodaysReadingsCard } from "@/components/todays-readings-card";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { serifDisplay, useAppTheme } from "@/theme";
@@ -122,15 +123,14 @@ export default function PrepHome() {
           void childHomework.refresh();
         }}
       >
-        {stats.data?.academicYear && (
-          <Copy
-            kind="caption"
-            accessibilityLabel={`${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}, ${stats.data.academicYear} academic year`}
-          >
-            {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} ·{" "}
-            {stats.data.academicYear}
-          </Copy>
-        )}
+        <Copy
+          kind="caption"
+          accessibilityLabel={now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        >
+          {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+        </Copy>
+
+        <TodaysReadingsCard />
 
         {user?.role === "STUDENT" && (
           <ListSurface>

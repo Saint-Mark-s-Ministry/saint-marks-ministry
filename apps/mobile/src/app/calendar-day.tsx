@@ -1,6 +1,6 @@
 import { View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
-import { Copy, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { CompactRow, Copy, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { CalendarEventRow } from "@/components/calendar-parts";
 import { useAppTheme } from "@/theme";
@@ -16,17 +16,8 @@ interface LiturgicalDayDetail {
   fasting: { fast: { name: string } | null } | null;
   feasts: { name: string; category: string }[];
   saints: { name: string }[];
-  readings: { key: string; label: string; service: string; reference: string }[];
   available: boolean;
 }
-
-const SERVICE_LABELS: Record<string, string> = {
-  vespers: "Vespers",
-  matins: "Matins",
-  liturgy: "Divine Liturgy",
-  evening: "Evening",
-};
-const SERVICE_ORDER = ["vespers", "matins", "liturgy", "evening"];
 
 /**
  * One day of the calendar: what the church celebrates (Coptic date, season,
@@ -41,11 +32,6 @@ export default function CalendarDay() {
   const { eventsOn, loading: eventsLoading } = useCalendarEvents([date]);
   const events = eventsOn(date);
   const detail = day.data;
-
-  const sections = SERVICE_ORDER.map((service) => ({
-    service,
-    items: (detail?.readings ?? []).filter((reading) => reading.service === service),
-  })).filter((section) => section.items.length > 0);
 
   const fastName = detail?.fasting?.fast?.name;
 
@@ -84,6 +70,14 @@ export default function CalendarDay() {
             <Copy kind="caption">Nothing scheduled.</Copy>
           </View>
         )}
+
+        <ListSurface>
+          <CompactRow
+            title="Daily readings"
+            subtitle="Lectionary and Synaxarium for this day"
+            onPress={() => router.push({ pathname: "/readings", params: { date } })}
+          />
+        </ListSurface>
 
         <ResourceState
           loading={day.loading}
@@ -139,28 +133,6 @@ export default function CalendarDay() {
           </>
         )}
 
-        {sections.map((section) => (
-          <View key={section.service} style={{ gap: 10 }}>
-            <SectionTitle title={`Readings · ${SERVICE_LABELS[section.service] ?? section.service}`} />
-            <ListSurface>
-              {section.items.map((reading, index) => (
-                <View
-                  key={`${reading.key}-${index}`}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    gap: 2,
-                    borderBottomWidth: index < section.items.length - 1 ? 0.5 : 0,
-                    borderBottomColor: colors.border,
-                  }}
-                >
-                  <Copy kind="caption">{reading.label}</Copy>
-                  <Copy style={{ fontWeight: "500" }}>{reading.reference}</Copy>
-                </View>
-              ))}
-            </ListSurface>
-          </View>
-        ))}
       </Screen>
     </>
   );
