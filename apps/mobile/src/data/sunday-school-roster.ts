@@ -11,6 +11,7 @@
  */
 
 import { MONTHS, birthdayParts } from "./sunday-school-birthdays";
+import { dialablePhone } from "./contact-book";
 
 export type AttendanceRecordStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";
 
@@ -82,6 +83,39 @@ export function primaryContact(family: FamilyRef, guardian: GuardianRef): Contac
   if (family?.motherPhone) return { label: family.motherName || "Mother", phone: family.motherPhone };
   if (family?.fatherPhone) return { label: family.fatherName || "Father", phone: family.fatherPhone };
   if (guardian.guardianPhone) return { label: guardian.guardianName || "Guardian", phone: guardian.guardianPhone };
+  return null;
+}
+
+export type AbsenceContact = {
+  /** The raw number as stored, for display. */
+  phone: string;
+  /** Who it rings: the child's first name, or the parent's name/role. */
+  who: string;
+  relation: "child" | "parent";
+} | null;
+
+/**
+ * Who to call or text when a child is absent: the child's own number if they
+ * have one, otherwise a parent — mother, then father, then the guardian on the
+ * child's record. Numbers that can't be dialled (blank, punctuation only) are
+ * skipped, so a stray "-" never hides a real parent number behind it.
+ */
+export function absenceContact(
+  child: { firstName: string; cellPhone?: string | null; guardianName?: string | null; guardianPhone?: string | null },
+  family: FamilyRef,
+): AbsenceContact {
+  if (dialablePhone(child.cellPhone)) {
+    return { phone: child.cellPhone as string, who: child.firstName, relation: "child" };
+  }
+  if (dialablePhone(family?.motherPhone)) {
+    return { phone: family!.motherPhone as string, who: family?.motherName || "Mother", relation: "parent" };
+  }
+  if (dialablePhone(family?.fatherPhone)) {
+    return { phone: family!.fatherPhone as string, who: family?.fatherName || "Father", relation: "parent" };
+  }
+  if (dialablePhone(child.guardianPhone)) {
+    return { phone: child.guardianPhone as string, who: child.guardianName || "Guardian", relation: "parent" };
+  }
   return null;
 }
 

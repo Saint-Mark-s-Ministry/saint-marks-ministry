@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { ActivityIndicator, Alert, Image, Linking, Pressable, View } from "react-native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView } from "@expo/ui/community/menu";
 import type {
   AttendanceStatus,
+  SundaySchoolChild,
   SundaySchoolSessionAttendance,
 } from "@stmark/contracts";
 import {
@@ -22,7 +23,9 @@ import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attend
 import { useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
 import { MinistryTintProvider } from "@/theme";
-import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
+import { absenceContact, type AbsenceContact } from "@/data/sunday-school-roster";
+import { smsUrl, telUrl } from "@/data/contact-book";
+import { endpoint, useResource } from "@/data/resources";
 
 const STATUSES: { value: AttendanceStatus; label: string }[] = [
   { value: "PRESENT", label: "Present" },
@@ -84,12 +87,19 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const [groupByGender, setGroupByGender] = useState(false);
   const [query, setQuery] = useState("");
   const [lastWeekSummary, setLastWeekSummary] = useState<{ present: number; total: number } | null>(null);
-  // "Make the call action easy to find during child follow-up" (SMM-76):
-  // the absent-child shortcut, routed into the same phone-call sheet and
-  // authorization check (canEdit, == canServeClass) as the Visitation child
-  // screen's own call action.
-  const [callChild, setCallChild] = useState<{ id: string; name: string } | null>(null);
-  const callDraftKey = user && callChild ? `stmark.phone-call-draft.${user.id}.${callChild.id}` : null;
+  // Follow-up for an absent child: call or text them directly (their own
+  // number, else a parent's) rather than opening a call-log form. Contact
+  // details come from the class's children list, which the server already
+  // limits to servants of this class.
+  const children = useResource<SundaySchoolChild[]>(
+    `${endpoint("children")}?classId=${encodeURIComponent(classId)}&isActive=true`,
+  );
+  const contacts = useMemo(() => {
+    if (!children.data) return undefined;
+    return new Map<string, AbsenceContact>(
+      children.data.map((child) => [child.id, absenceContact(child, child.family ?? null)]),
+    );
+  }, [children.data]);
 
   useEffect(() => {
     let active = true;
@@ -241,7 +251,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <>
       <Stack.Screen
         options={{
           title: "Take attendance",
@@ -267,7 +277,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       />
       <Stack.SearchBar
         autoCapitalize="none"
-        placement="automatic"
+        placement="stacked"
         placeholder="Find a child"
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
@@ -377,7 +387,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
                       divider={index < group.entries.length - 1}
                       onSetStatus={(status) => setDraft(classId, date, { ...marks, [child.id]: status })}
                       onEditNote={() => editNote(child.id, getChildFullName(child))}
-                      onLogCall={() => setCallChild({ id: child.id, name: getChildFullName(child) })}
+                      childId={child.id}
+                      contact={contacts ? (contacts.get(child.id) ?? null) : undefined}
                     />
                   ))}
                 </View>
@@ -428,18 +439,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
         </View>
       )}
 
-      {callChild && (
-        <PhoneCallEntrySheet
-          childId={callChild.id}
-          childName={callChild.name}
-          draftKey={callDraftKey}
-          onClose={() => setCallChild(null)}
-          onSaved={async () => {
-            setCallChild(null);
-          }}
-        />
-      )}
-    </View>
+    </>
   );
 }
 
@@ -510,7 +510,8 @@ function RosterRow({
   divider,
   onSetStatus,
   onEditNote,
-  onLogCall,
+  childId,
+  contact,
 }: {
   name: string;
   note?: string;
@@ -521,7 +522,9 @@ function RosterRow({
   divider: boolean;
   onSetStatus: (status: AttendanceStatus) => void;
   onEditNote: () => void;
-  onLogCall: () => void;
+  childId: string;
+  /** undefined while contact details load; null when there is no number at all. */
+  contact: AbsenceContact | undefined;
 }) {
   const { colors } = useAppTheme();
   const fillFor = (value: AttendanceStatus) => {
@@ -559,16 +562,7 @@ function RosterRow({
             takes a line of height, pushing the name off-center against its row. */}
         {!!note && <Copy kind="caption" numberOfLines={1}>{note}</Copy>}
       </Pressable>
-      {status === "ABSENT" && canEdit && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Log a call for ${name}`}
-          onPress={onLogCall}
-          style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}
-        >
-          <Icon ios="phone" android="call" size={16} color={colors.text2} />
-        </Pressable>
-      )}
+      {status === "ABSENT" && canEdit && <ContactButton name={name} childId={childId} contact={contact} />}
       <View style={{ flexDirection: "row", gap: 4 }}>
         {STATUSES.map((item) => {
           const selected = status === item.value;
@@ -597,6 +591,65 @@ function RosterRow({
         })}
       </View>
     </View>
+  );
+}
+
+/**
+ * Shown on an absent child's row: opens a menu to call or text them. With no
+ * number anywhere it says so and offers the profile, where one can be added.
+ */
+function ContactButton({ name, childId, contact }: { name: string; childId: string; contact: AbsenceContact | undefined }) {
+  const { colors } = useAppTheme();
+  const button = (
+    <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}>
+      <Icon ios="phone" android="call" size={16} color={colors.text2} />
+    </View>
+  );
+
+  if (!contact) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Contact for ${name}`}
+        onPress={() =>
+          contact === undefined
+            ? Alert.alert("Still loading", "Contact details are loading. Try again in a moment.")
+            : Alert.alert(
+                "No phone number",
+                `There's no phone number on file for ${name} or their parents.`,
+                [
+                  { text: "Open profile", onPress: () => router.push({ pathname: "/child/[id]", params: { id: childId } }) },
+                  { text: "OK", style: "cancel" },
+                ],
+              )
+        }
+      >
+        {button}
+      </Pressable>
+    );
+  }
+
+  const owner = contact.relation === "child" ? contact.who : `${contact.who} (parent)`;
+  return (
+    <MenuView
+      title={`Contact ${owner}`}
+      actions={[
+        { id: "call", title: `Call ${contact.phone}`, image: "phone" },
+        { id: "text", title: `Text ${contact.phone}`, image: "message" },
+      ]}
+      onPressAction={({ nativeEvent }) => {
+        const url = nativeEvent.event === "call" ? telUrl(contact.phone) : smsUrl(contact.phone);
+        if (url) void Linking.openURL(url).catch(() => Alert.alert("Couldn't open", "This device can't place that call or text."));
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Call or text ${owner} about ${name}`}
+        hitSlop={4}
+      >
+        {button}
+      </Pressable>
+    </MenuView>
   );
 }
 
