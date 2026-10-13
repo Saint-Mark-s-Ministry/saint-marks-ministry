@@ -126,13 +126,21 @@ excluded for React only. Keep both apps aligned when upgrading dependencies.
 
 ### Search tab on iOS 27
 
-Search is a regular native tab. An earlier Bun patch to react-native-screens
-(`RNSTabBarController` rebuilt on `UITab` with `prominentTabIdentifier`) gave
-Search its own detached glass bubble on iOS 27, but it made touches stop
-reaching React on most tabs: the profile button, More rows and Search quick
-access did nothing, while Home worked. It was removed. react-native-screens
-4.29 migrates its tabs to `UITab` upstream; try that, with a tap test on every
-tab, before reintroducing any local patch.
+Search sits in a separate native glass bubble beside the four main tabs in both
+ministries. react-native-screens is pinned to 4.29.0 for its upstream UITab
+implementation. The Search triggers pass the native search role and
+`automaticallyActivatesSearch` through Expo Router’s `unstable_nativeProps`,
+which detaches the search tab on iOS 27 and activates its native search field.
+
+The previous custom UITab reconstruction is not used. A small version-pinned
+Bun patch preserves an admitted native selection across React mounting, until
+UIKit’s didSelectTab callback consumes it. Without this, a mount between the
+shouldSelectTab and didSelectTab callbacks drops the JS focus update and leaves
+newly selected content untappable until the tab is tapped a second time.
+Verify tab content,
+header profile/menu controls, More rows, and Search links after upgrades. The
+explicit react-native-screens version is excluded from Expo’s SDK version
+alignment; review compatibility when updating Expo or React Native.
 
 ### Typography
 

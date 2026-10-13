@@ -1,0 +1,15 @@
+diff --git a/ios/tabs/host/RNSTabBarController.mm b/ios/tabs/host/RNSTabBarController.mm
+index 0177faa0b28e7ca2328027c709dc9b893f75aaec..602095fac990ae9b9df12b0dc564359998f39c2e 100644
+--- a/ios/tabs/host/RNSTabBarController.mm
++++ b/ios/tabs/host/RNSTabBarController.mm
+@@ -331,7 +331,9 @@ - (void)reactMountingTransactionDidMount
+ 
+ - (void)performContainerUpdate
+ {
+-  _isHandlingUserTabSelection = NO;
++  // React may mount between UIKit shouldSelectTab: and didSelectTab:.
++  // Preserve the admitted user selection until its delegate callback consumes it;
++  // clearing it here drops the JS focus event and leaves visible content untappable.
+   _isHandlingExplicitSelectionUpdate = YES;
+   [self createTabBarItemsIfNeeded];
+   [self updateChildViewControllersIfNeeded];
