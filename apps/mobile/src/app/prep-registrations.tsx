@@ -7,7 +7,6 @@ import { MenuView } from "@expo/ui/community/menu";
 import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { Field, ResourceState, useAction } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { apiOrigin } from "@/data/auth-provider";
@@ -62,7 +61,6 @@ export default function PrepRegistrations() {
       <Stack.Screen
         options={{
           title: "Registrations",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: Platform.OS === "ios"
             ? () => (
                 <MenuView

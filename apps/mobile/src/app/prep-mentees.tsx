@@ -5,7 +5,6 @@ import { MenuView } from "@expo/ui/community/menu";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -56,7 +55,6 @@ export default function PrepMentees() {
       <Stack.Screen
         options={{
           title: isAdmin ? "Students" : "My mentees",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: () => (
             <MenuView
               title="Sort by"

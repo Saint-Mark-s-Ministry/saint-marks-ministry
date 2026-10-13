@@ -2,7 +2,6 @@ import { View } from "react-native";
 import { Stack } from "expo-router";
 import { Copy, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -46,7 +45,6 @@ export default function PrepMentorDashboard() {
       <Stack.Screen
         options={{
           title: "Dashboard",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
         }}
       />
       <Screen refreshing={analytics.loading} onRefresh={() => { void analytics.refresh(); void classAverages.refresh(); }}>

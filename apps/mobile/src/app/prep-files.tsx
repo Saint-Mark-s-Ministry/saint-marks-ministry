@@ -3,7 +3,6 @@ import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
 import {
@@ -58,7 +57,7 @@ export default function PrepFiles() {
       <Stack.Screen
         options={{
           title: current.name,
-          headerLeft: () => (stack.length > 1 ? <BackToParent name={stack[stack.length - 2].name} onPress={() => setStack((s) => s.slice(0, -1))} /> : <MinistrySwitcherHeaderLeft ministry="prep" />),
+          headerLeft: stack.length > 1 ? () => <BackToParent name={stack[stack.length - 2].name} onPress={() => setStack((s) => s.slice(0, -1))} /> : undefined,
         }}
       />
       <Stack.SearchBar

@@ -6,7 +6,6 @@ import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Button, Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { Choice, Field, ResourceState, useAction } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -51,7 +50,6 @@ export default function PrepExams() {
       <Stack.Screen
         options={{
           title: "Exams",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
           headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />

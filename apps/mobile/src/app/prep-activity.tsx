@@ -4,7 +4,6 @@ import { Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Button, Copy, Icon, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { query, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -85,7 +84,6 @@ export default function PrepActivity() {
       <Stack.Screen
         options={{
           title: "Activity",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
         }}
       />
       {canView && !forbidden && (

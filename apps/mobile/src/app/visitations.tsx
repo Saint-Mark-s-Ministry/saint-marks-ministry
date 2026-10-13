@@ -7,7 +7,6 @@ import type { SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
-import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -76,7 +75,6 @@ function VisitationsScreen() {
       <Stack.Screen
         options={{
           title: "Visitations",
-          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="sundaySchool" />,
           // No header "+" for a new entry here (unlike the artboard's own
           // floating header circle) — a new entry always belongs to one
           // specific child, so it lives on that child's own detail screen
