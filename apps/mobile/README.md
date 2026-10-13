@@ -124,14 +124,15 @@ React is pinned to 19.2.4 in both apps to avoid duplicate React copies. It is
 within React Native 0.86's peer range. Expo's exact 19.2.3 recommendation is
 excluded for React only. Keep both apps aligned when upgrading dependencies.
 
-### Detached Search tab on iOS 27
+### Search tab on iOS 27
 
-The Bun patch in `patches/react-native-screens@4.26.2.patch` keeps Search in
-its own native glass bubble. On iOS 27, the tab adapter uses `UITab` and
-`prominentTabIdentifier`, preserving Expo's route keys, controllers, and tab
-appearance updates. Earlier iOS versions and other platforms retain the
-upstream implementation. Recheck this patch when upgrading react-native-screens;
-remove it once upstream supports the same behavior.
+Search is a regular native tab. An earlier Bun patch to react-native-screens
+(`RNSTabBarController` rebuilt on `UITab` with `prominentTabIdentifier`) gave
+Search its own detached glass bubble on iOS 27, but it made touches stop
+reaching React on most tabs: the profile button, More rows and Search quick
+access did nothing, while Home worked. It was removed. react-native-screens
+4.29 migrates its tabs to `UITab` upstream; try that, with a tap test on every
+tab, before reintroducing any local patch.
 
 ## Repository boundaries and remaining scope
 

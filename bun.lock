@@ -128,9 +128,6 @@
       },
     },
   },
-  "patchedDependencies": {
-    "react-native-screens@4.26.2": "patches/react-native-screens@4.26.2.patch",
-  },
   "overrides": {
     "deepmerge-ts": ">=8.0.2",
     "defu": ">=6.1.5",
