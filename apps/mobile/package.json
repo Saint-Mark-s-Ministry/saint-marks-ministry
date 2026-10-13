@@ -18,6 +18,8 @@
     "export": "expo export --platform ios --platform android"
   },
   "dependencies": {
+    "@expo-google-fonts/geist": "^0.4.2",
+    "@expo-google-fonts/geist-mono": "^0.4.3",
     "@expo-google-fonts/newsreader": "^0.4.1",
     "@expo/ui": "~57.0.20",
     "@stmark/contracts": "workspace:*",

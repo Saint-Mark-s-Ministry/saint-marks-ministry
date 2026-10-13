@@ -125,14 +125,30 @@ function withAlpha(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// The reference's design source (not just the PDF export) specifies
-// Newsreader for display text — confirmed against project/iOS-Home-*.dc.html's
-// literal `font-family: 'Newsreader'` — not Playfair Display, which was a
-// guess from screenshots alone. It's used narrowly: the big page title and a
-// handful of hero numbers (e.g. "Lesson 2 of 11"), not general section
-// headings — those stay system sans at weight 600, per the same source.
+// Type system, from the UI/UX reference's literal artboard source:
+//  - Newsreader 500 — the one big page title per screen (34pt), and the odd
+//    editorial moment such as a person's name at the top of their own profile.
+//  - Geist 400 / 500 / 600 — every other piece of text (body, rows, section
+//    headings, captions, buttons in our own components).
+//  - Geist Mono 400 — codes meant to be read out or typed, e.g. the serving code.
+// React Native cannot synthesise weights for a custom family, so each weight is
+// its own face; `Copy` picks the right one from `fontWeight`.
 export const serifDisplay = "Newsreader_500Medium";
 export const serifHeading = "Newsreader_500Medium";
+export const sansRegular = "Geist_400Regular";
+export const sansMedium = "Geist_500Medium";
+export const sansSemibold = "Geist_600SemiBold";
+export const monoRegular = "GeistMono_400Regular";
+
+/** The Geist face for a CSS-style font weight (400 / 500 / 600 are the loaded ones). */
+export function sansFamilyForWeight(weight?: string | number | null): string {
+  const value = typeof weight === "number" ? String(weight) : (weight ?? "400");
+  if (value === "bold" || value === "600" || value === "700" || value === "800" || value === "900") {
+    return sansSemibold;
+  }
+  if (value === "500") return sansMedium;
+  return sansRegular;
+}
 
 export type AppearancePreference = "system" | "light" | "dark";
 type ResolvedAppearance = "light" | "dark";

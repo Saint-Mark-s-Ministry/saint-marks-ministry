@@ -6,7 +6,7 @@ import { Button, Copy, Icon, Screen, StatusPill, styles } from "@/components/ui"
 import { Field, ResourceState, confirmAction, useAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme } from "@/theme";
 import { isAdminLike } from "@/data/prep-home";
 import { canManageCurriculum, isSafeResourceUrl, speakerSuggestions, type LessonListItem } from "@/data/prep-curriculum";
 import { LessonFormSheet } from "@/components/lesson-form-sheet";
@@ -175,7 +175,7 @@ function LessonDetailBody({
                     </View>
                   )}
                 </View>
-                <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 26, lineHeight: 30, fontWeight: "500" }}>
+                <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, fontWeight: "500" }}>
                   {lesson.title || "[Topic title]"}
                 </Copy>
                 {!!lesson.subtitle && <Copy kind="caption">{lesson.subtitle}</Copy>}

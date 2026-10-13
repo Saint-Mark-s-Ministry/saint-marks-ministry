@@ -134,6 +134,23 @@ access did nothing, while Home worked. It was removed. react-native-screens
 4.29 migrates its tabs to `UITab` upstream; try that, with a tap test on every
 tab, before reintroducing any local patch.
 
+### Typography
+
+Type follows the UI/UX reference: **Newsreader 500** for the one page title per
+screen, **Geist 400/500/600** for everything else, **Geist Mono** for codes.
+Custom families have no synthesised weights on iOS, so `Copy` resolves the
+Geist face from `fontWeight` (see `sansFamilyForWeight` in `src/theme.tsx`).
+Use `Copy` for text; a raw `Text` or `TextInput` needs an explicit
+`fontFamily` from `theme.tsx`. Native controls (tab bar, `Button`) keep the
+system font.
+
+### Notifications open in the app
+
+A notification's web link and type are mapped to a native route in
+`src/data/notification-routes.ts` (tests check every target is a real screen).
+Tapping one in the list, or a push, opens that screen; only a link with no
+native counterpart falls back to the browser.
+
 ## Repository boundaries and remaining scope
 
 - `apps/mobile`: native UI and API transport.

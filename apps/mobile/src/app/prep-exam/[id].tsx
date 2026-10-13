@@ -8,7 +8,7 @@ import { GlassChrome } from "@/components/chrome";
 import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { sansMedium, useAppTheme } from "@/theme";
 import { canViewStudentRoster } from "@/data/prep-students";
 import {
   canManageExams,
@@ -251,6 +251,7 @@ export default function PrepExamScores() {
                           color: colors.text,
                           textAlign: "center",
                           fontSize: 17,
+                          fontFamily: sansMedium,
                           opacity: canEdit ? 1 : 0.5,
                         }}
                       />

@@ -5,6 +5,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { Newsreader_500Medium } from "@expo-google-fonts/newsreader";
+import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold } from "@expo-google-fonts/geist";
+import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono";
 import { AppThemeProvider, MinistryTintProvider, useAppTheme } from "@/theme";
 import { AuthProvider, useAuth } from "@/data/auth-provider";
 import { PortalProvider, usePortal } from "@/data/portal-provider";
@@ -175,6 +177,10 @@ function AuthenticatedApp() {
   const { colors } = useAppTheme();
   const [fontsLoaded] = useFonts({
     Newsreader_500Medium,
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    GeistMono_400Regular,
   });
   const ready = !loading && fontsLoaded;
   const [showSplash, setShowSplash] = useState(true);

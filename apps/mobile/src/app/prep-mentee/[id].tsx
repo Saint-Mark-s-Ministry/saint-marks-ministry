@@ -6,7 +6,7 @@ import { Button, CircleIconButton, Copy, InitialsAvatar, ListSurface, Screen, St
 import { Field, ResourceState, useAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme } from "@/theme";
 import {
   canViewMentees,
   canViewPhone,
@@ -84,7 +84,7 @@ export default function PrepMenteeDetail() {
           <>
             <View style={{ alignItems: "center", gap: 8, paddingVertical: 4 }}>
               <InitialsAvatar name={mentee.studentName} size={76} variant="neutral" />
-              <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{mentee.studentName}</Copy>
+              <Copy style={{ fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{mentee.studentName}</Copy>
               <Copy kind="caption">{yearLevelLabel(enrollment?.yearLevel)} · your mentee</Copy>
               <StatusPill
                 label={riskLabel(mentee.graduationEligible)}

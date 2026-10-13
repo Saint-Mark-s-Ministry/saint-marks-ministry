@@ -4,7 +4,7 @@ import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { Stack } from "expo-router";
 import { Button, Card, Copy, Icon, Screen } from "./ui";
 import { GlassChrome } from "./chrome";
-import { useAppTheme } from "@/theme";
+import { sansRegular, useAppTheme } from "@/theme";
 
 export const Field = forwardRef<TextInput, {
   label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean;
@@ -28,7 +28,7 @@ export const Field = forwardRef<TextInput, {
     accessibilityLabel={label} accessibilityHint={error} value={value} onChangeText={onChange} editable={!disabled}
     multiline={multiline} autoCapitalize={rest.keyboardType === "email-address" || rest.keyboardType === "url" || secureTextEntry ? "none" : "sentences"}
     autoCorrect={!secureTextEntry && rest.keyboardType !== "url"} secureTextEntry={secureTextEntry && !passwordVisible} placeholderTextColor={colors.muted}
-    style={{ backgroundColor: colors.surface, color: colors.text,
+    style={{ backgroundColor: colors.surface, color: colors.text, fontFamily: sansRegular, fontSize: 16,
       borderColor: error ? colors.danger : colors.border, borderWidth: error ? 1.5 : 1,
       borderRadius: 12, padding: 14, minHeight: multiline ? 100 : 50, textAlignVertical: "top", opacity: disabled ? 0.5 : 1 }} {...rest} />
     {!!error && <View accessibilityLiveRegion="polite"><Copy kind="caption" color={colors.danger}>{error}</Copy></View>}

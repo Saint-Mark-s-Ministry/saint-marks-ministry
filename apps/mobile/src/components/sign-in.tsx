@@ -11,7 +11,7 @@ import {
 import { router } from "expo-router";
 import { Brand, Button, Card, Copy, Screen, StatusPill } from "@/components/ui";
 import { apiOrigin, useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { sansRegular, useAppTheme } from "@/theme";
 import { PasswordForm } from "@/components/password-form";
 import { canSubmitSignIn, looksLikeEmail, signInFailureKind } from "@/data/sign-in";
 import { LegalLinks } from "@/components/legal-links";
@@ -104,7 +104,7 @@ export default function SignIn() {
                   placeholder="name@example.com"
                   placeholderTextColor={colors.muted}
                   editable={!busy}
-                  style={{ flex: 1, color: colors.text, fontSize: 16 }}
+                  style={{ flex: 1, color: colors.text, fontSize: 16, fontFamily: sansRegular }}
                 />
               </View>
               <View style={{ height: 0.5, backgroundColor: colors.border, marginLeft: 16 }} />
@@ -125,7 +125,7 @@ export default function SignIn() {
                   onSubmitEditing={() => {
                     if (canSubmitSignIn(email, password, !!apiOrigin) && !busy) void submit();
                   }}
-                  style={{ flex: 1, color: colors.text, fontSize: 16 }}
+                  style={{ flex: 1, color: colors.text, fontSize: 16, fontFamily: sansRegular }}
                 />
                 <Pressable
                   accessibilityRole="button"

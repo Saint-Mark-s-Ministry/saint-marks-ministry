@@ -9,7 +9,7 @@ import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource, invalidateResourceCache } from "@/data/resources";
 import { api } from "@/data/auth-provider";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme } from "@/theme";
 import { isAdminLike } from "@/data/prep-home";
 import { canManageAttendance } from "@/data/prep-attendance";
 import {
@@ -159,7 +159,7 @@ export default function PrepConfession() {
             {currentPeriod && activeYear && (
               <View style={{ backgroundColor: colors.surface, borderRadius: 26, padding: 18, gap: 10 }}>
                 <View style={[styles.row, { justifyContent: "space-between" }]}>
-                  <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 24, fontWeight: "500" }}>
+                  <Copy style={{ fontFamily: serifDisplay, fontSize: 24, fontWeight: "500" }}>
                     {formatConfessionPeriod(currentPeriod)}
                   </Copy>
                   <Copy kind="caption" color={closed ? colors.danger : colors.warning} style={{ fontWeight: "600" }}>

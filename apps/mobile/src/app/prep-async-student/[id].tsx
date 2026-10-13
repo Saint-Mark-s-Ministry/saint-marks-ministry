@@ -6,7 +6,7 @@ import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, st
 import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme } from "@/theme";
 import { canViewStudentRoster } from "@/data/prep-students";
 import { canManageEnrollments } from "@/data/prep-roster";
 import {
@@ -120,7 +120,7 @@ export default function PrepAsyncStudentDetail() {
               <>
                 <View style={{ alignItems: "center", gap: 8, paddingTop: 4 }}>
                   <InitialsAvatar name={enrollment.student.name} size={76} />
-                  <Copy style={{ fontFamily: "Newsreader_500Medium", fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{enrollment.student.name}</Copy>
+                  <Copy style={{ fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, fontWeight: "500" }}>{enrollment.student.name}</Copy>
                   <Copy kind="caption">{yearLevelLabel(enrollment.yearLevel)} · async student</Copy>
                   <View style={[styles.row, { gap: 6 }]}>
                     <StatusPill label="Async" color={colors.info} soft={colors.infoSoft} />

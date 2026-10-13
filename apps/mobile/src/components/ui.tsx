@@ -17,13 +17,14 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { serifDisplay, useAppTheme, sansFamilyForWeight, sansSemibold } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
 import { NativeActionButton } from "./native-action-button";
 
@@ -158,6 +159,10 @@ export function Copy({
   accessibilityLabel?: string;
 }>) {
   const { colors } = useAppTheme();
+  // A custom family has no synthesised weights on iOS, so resolve the Geist
+  // face from fontWeight here (once, for every screen) and drop the weight.
+  const flat: TextStyle = StyleSheet.flatten([styles[kind] as TextStyle, style]) ?? {};
+  const fontFamily = flat.fontFamily ?? sansFamilyForWeight(flat.fontWeight);
   return (
     <Text
       numberOfLines={numberOfLines}
@@ -172,6 +177,7 @@ export function Copy({
               : colors.text),
         },
         style,
+        { fontFamily, fontWeight: undefined },
       ]}
     >
       {children}
@@ -394,7 +400,7 @@ export function InitialsAvatar({
       <Text
         style={{
           color: fg,
-          fontWeight: "600",
+          fontFamily: sansSemibold,
           fontSize: size * 0.38,
           letterSpacing: 0.3,
         }}

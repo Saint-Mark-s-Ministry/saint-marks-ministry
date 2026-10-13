@@ -18,7 +18,7 @@ import {
   type ContactBookEntry,
 } from "@/data/contact-book";
 import { useContactBook } from "@/data/use-contact-book";
-import { useAppTheme } from "@/theme";
+import { sansRegular, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -108,6 +108,7 @@ export default function ContactBook() {
                 paddingVertical: 12,
                 minHeight: 50,
                 fontSize: 17,
+                fontFamily: sansRegular,
               }}
             />
           </View>
