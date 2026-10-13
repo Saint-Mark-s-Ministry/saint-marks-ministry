@@ -74,7 +74,7 @@ export default function PrepRegistrations() {
                   }}
                 >
                   <Pressable accessibilityRole="button" accessibilityLabel="More" hitSlop={10}>
-                    <Icon ios="ellipsis.circle" android="more_horiz" size={22} />
+                    <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
                   </Pressable>
                 </MenuView>
               )

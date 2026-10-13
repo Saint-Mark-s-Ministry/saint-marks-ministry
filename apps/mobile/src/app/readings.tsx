@@ -105,7 +105,7 @@ function ReadingsPage({ initialDate }: { initialDate: string | null }) {
         {/* The Coptic date leads the page. */}
         <View style={{ paddingHorizontal: 4, gap: 6 }}>
           <Copy
-            style={{ fontFamily: serifDisplay, fontSize: 34, lineHeight: 38, letterSpacing: -0.4 }}
+            kind="title"
             accessibilityLabel={copticDate ? `Coptic date, ${copticDate.label}` : undefined}
           >
             {copticDate ? copticDate.label : formatLongDay(shownDate)}

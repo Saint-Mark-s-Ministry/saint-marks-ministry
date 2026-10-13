@@ -135,6 +135,13 @@ function withAlpha(hex: string, alpha: number) {
 // its own face; `Copy` picks the right one from `fontWeight`.
 export const serifDisplay = "Newsreader_500Medium";
 export const serifHeading = "Newsreader_500Medium";
+/**
+ * The two editorial sizes below the 34pt page title. A person's name or a
+ * lesson's title at the head of a detail screen is `serifHero`; a serif line
+ * inside a card is `serifCard`. Nothing else uses the serif at other sizes.
+ */
+export const serifHero = { fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, letterSpacing: -0.3 } as const;
+export const serifCard = { fontFamily: serifDisplay, fontSize: 24, lineHeight: 28, letterSpacing: -0.2 } as const;
 export const sansRegular = "Geist_400Regular";
 export const sansMedium = "Geist_500Medium";
 export const sansSemibold = "Geist_600SemiBold";

@@ -32,7 +32,7 @@ import {
   primaryContact,
   truncatedName,
 } from "@/data/sunday-school-roster";
-import { serifDisplay, MinistryTintProvider, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
 
 type AttendanceRecord = { id: string; status: "PRESENT" | "LATE" | "ABSENT" | "EXCUSED"; notes: string | null; session: { date: string; topic: string | null } };
 type ChildDetail = SundaySchoolChild & { attendance: AttendanceRecord[] };
@@ -106,7 +106,7 @@ export default function Child() {
 
             <View style={{ alignItems: "center", gap: 8, paddingTop: 4 }}>
               <InitialsAvatar name={`${child.firstName} ${child.lastName}`} size={76} variant="accent" />
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, fontWeight: "500" }}>
+              <Copy style={{ ...serifHero, }}>
                 {truncatedName(child.firstName, child.lastName)}
               </Copy>
               <Copy kind="caption">

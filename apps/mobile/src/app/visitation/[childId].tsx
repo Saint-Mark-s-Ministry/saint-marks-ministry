@@ -12,7 +12,7 @@ import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
 import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
 import { VisitationEntrySheet } from "@/components/visitation-entry-sheet";
 import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
-import { MinistryTintProvider, serifDisplay, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 
@@ -75,7 +75,7 @@ function VisitationChildScreen() {
           <>
             <View style={{ alignItems: "center", gap: 6, paddingTop: 4 }}>
               <InitialsAvatar name={`${child.firstName} ${child.lastName}`} size={76} variant="accent" />
-              <Copy style={{ fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, fontWeight: "500" }}>
+              <Copy style={{ ...serifHero, }}>
                 {child.firstName} {child.lastName}
               </Copy>
               <Copy kind="caption">{cls?.name}</Copy>

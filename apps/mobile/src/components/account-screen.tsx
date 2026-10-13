@@ -17,7 +17,7 @@ import { usePortal } from "@/data/portal-provider";
 import { useResource } from "@/data/resources";
 import { ministryAccessSummary, roleLabel, sortAcademicYears, type AcademicYearLike } from "@/data/account";
 import { canDeleteOwnAccount } from "@/data/account-deletion";
-import { serifDisplay, useAppTheme, type AppearancePreference } from "@/theme";
+import { useAppTheme, type AppearancePreference, serifHero } from "@/theme";
 
 export function AccountScreen() {
   const { colors, isDark, preference, setPreference } = useAppTheme();
@@ -56,7 +56,7 @@ export function AccountScreen() {
       <Screen>
         <View style={{ alignItems: "center", gap: 8, paddingTop: 8 }}>
           <InitialsAvatar name={user?.name} size={76} />
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, fontWeight: "500" }}>
+          <Copy style={{ ...serifHero, }}>
             {user?.name ?? "Ministry account"}
           </Copy>
           {user?.email && <Copy kind="caption">{user.email}</Copy>}

@@ -56,7 +56,7 @@ function AgeGroupsScreen() {
                 onPress={() => setEditor("new")}
                 style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? colors.primarySoft : colors.hover })}
               >
-                <Icon ios="plus" android="add" size={18} />
+                <Icon ios="plus" android="add" size={22} />
               </Pressable>
             ) : undefined,
         }}

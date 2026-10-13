@@ -26,7 +26,7 @@ import {
   validateLinkDraft,
   type LinkDraft,
 } from "@/data/sunday-school-lessons";
-import { serifDisplay, MinistryTintProvider, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
 
 // No Sunday School-specific artboard exists for this detail screen (only the
 // Servants Prep lesson detail and the Lessons list do). This follows the list
@@ -99,7 +99,7 @@ export default function Lesson() {
             <View style={{ alignItems: "center", gap: 6, paddingTop: 4 }}>
               <Copy kind="caption">{lesson.class.name}</Copy>
               <Copy
-                style={{ fontFamily: serifDisplay, fontSize: 28, lineHeight: 32, fontWeight: "500", textAlign: "center" }}
+                style={{ ...serifHero, textAlign: "center" }}
               >
                 {lessonTitle(lesson)}
               </Copy>

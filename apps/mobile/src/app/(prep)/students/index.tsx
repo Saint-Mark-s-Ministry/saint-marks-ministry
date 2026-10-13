@@ -9,6 +9,7 @@ import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
+import PrepLessons from "../../prep-lessons";
 import { useResource } from "@/data/resources";
 import {
   canViewStudentRoster,
@@ -36,7 +37,33 @@ const COPY_BY_ROLE: Record<string, { title: string }> = {
   PARENT: { title: "My children" },
 };
 
-export default function PrepStudents() {
+/**
+ * The third Prep tab. A student's people-list is their own lessons, which is
+ * the same screen Home's "My lessons" opens, so show that here rather than a
+ * placeholder; everyone else gets the student/mentee roster.
+ */
+export default function PrepStudentsTab() {
+  const { user } = useAuth();
+  if (user?.role === "STUDENT") return <MyLessonsTab />;
+  return <PrepStudents />;
+}
+
+function MyLessonsTab() {
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
+      />
+      {Platform.OS === "ios" && <TopActions />}
+      <PrepLessons />
+    </>
+  );
+}
+
+function PrepStudents() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const canView = canViewStudentRoster(user?.role);

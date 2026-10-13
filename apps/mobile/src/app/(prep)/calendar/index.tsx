@@ -31,6 +31,9 @@ export default function PrepCalendar() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const adminLike = canManageCalendar(user?.role);
+  // Students and mentors see the program's lesson schedule (read-only); only
+  // administrators also get exams, attendance progress and "new event".
+  const canSee = adminLike || user?.role === "STUDENT" || user?.role === "MENTOR";
 
   const [view, setView] = useState<ViewMode>("month");
   const [cursor, setCursor] = useState(() => new Date());
@@ -38,12 +41,12 @@ export default function PrepCalendar() {
   const [selectedDate, setSelectedDate] = useState(today);
 
   const stats = useResource<{ activeStudents: number }>(adminLike ? "/api/dashboard/stats" : null);
-  const lessons = useResource<LessonForCalendar[]>(adminLike ? "/api/lessons" : null);
+  const lessons = useResource<LessonForCalendar[]>(canSee ? "/api/lessons" : null);
   const exams = useResource<ExamForCalendar[]>(adminLike ? "/api/exams" : null);
 
   // Matches api-client.ts's exact message for a failed fetch (no ApiError, meaning the request never reached the server).
   const offline = lessons.error === "Could not reach the server. Check your connection and try again.";
-  const loading = adminLike && (lessons.loading || exams.loading);
+  const loading = canSee && (lessons.loading || (adminLike && exams.loading));
 
   const events = buildCalendarEvents(lessons.data ?? [], exams.data ?? []);
   const byDate = eventsByDate(events);
@@ -71,9 +74,17 @@ export default function PrepCalendar() {
   };
   const openEvent = (event: CalendarEvent) => {
     const id = event.id.replace(/^(lesson|exam)-/, "");
-    if (event.type === "lesson") router.push({ pathname: "/prep-lesson/[id]", params: { id } });
-    else router.push({ pathname: "/prep-exam/[id]", params: { id } });
+    // A student opens their own lesson page; administrators the management one.
+    if (event.type === "lesson") {
+      router.push(
+        user?.role === "STUDENT"
+          ? { pathname: "/prep-my-lesson/[id]", params: { id } }
+          : { pathname: "/prep-lesson/[id]", params: { id } },
+      );
+    } else router.push({ pathname: "/prep-exam/[id]", params: { id } });
   };
+  // Mentors can see the schedule but have no lesson page to open.
+  const canOpenEvents = adminLike || user?.role === "STUDENT";
 
   return (
     <>
@@ -103,18 +114,18 @@ export default function PrepCalendar() {
           void exams.refresh();
         }}
       >
-        {!adminLike && (
+        {!canSee && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
             <Copy kind="heading" style={{ textAlign: "center" }}>
               Nothing to show here yet
             </Copy>
             <Copy kind="caption" style={{ textAlign: "center" }}>
-              The Servants Prep calendar is for administrators. Your own view ships separately.
+              The Servants Prep calendar isn't available for this account.
             </Copy>
           </View>
         )}
 
-        {adminLike && offline && (
+        {canSee && offline && (
           <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>
             <Copy style={{ fontWeight: "600" }} color={colors.danger}>
               You're offline
@@ -123,7 +134,7 @@ export default function PrepCalendar() {
           </View>
         )}
 
-        {adminLike && (
+        {canSee && (
           <>
             <ResourceState
               loading={loading}
@@ -146,7 +157,7 @@ export default function PrepCalendar() {
                     Today
                   </Copy>
                 </Pressable>
-                <HeaderIconButton icon="plus" label="New event" onPress={() => router.push("/prep-curriculum")} />
+                {adminLike && <HeaderIconButton icon="plus" label="New event" onPress={() => router.push("/prep-curriculum")} />}
               </View>
             </View>
 
@@ -297,8 +308,8 @@ export default function PrepCalendar() {
                         key={event.id}
                         event={event}
                         divider={index < selectedEvents.length - 1}
-                        onPress={() => openEvent(event)}
-                        showResume={!!upNext && event.id === `lesson-${upNext.id}`}
+                        onPress={canOpenEvents ? () => openEvent(event) : undefined}
+                        showResume={adminLike && !!upNext && event.id === `lesson-${upNext.id}`}
                         inProgress={inProgress}
                         marked={marked}
                         roster={roster}
@@ -324,8 +335,8 @@ export default function PrepCalendar() {
                         key={event.id}
                         event={event}
                         divider={index < upcoming.length - 1}
-                        onPress={() => openEvent(event)}
-                        showResume={!!upNext && event.id === `lesson-${upNext.id}`}
+                        onPress={canOpenEvents ? () => openEvent(event) : undefined}
+                        showResume={adminLike && !!upNext && event.id === `lesson-${upNext.id}`}
                         inProgress={inProgress}
                         marked={marked}
                         roster={roster}
@@ -377,7 +388,7 @@ function EventRow({
 }: {
   event: CalendarEvent;
   divider: boolean;
-  onPress: () => void;
+  onPress?: () => void;
   showResume: boolean;
   inProgress: boolean;
   marked: number;
@@ -393,8 +404,9 @@ function EventRow({
 
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={`${event.title}, ${event.subtitle}${event.time ? `, ${event.time}` : ""}`}
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [
         styles.compactRow,

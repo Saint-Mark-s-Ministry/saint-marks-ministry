@@ -51,7 +51,7 @@ export default function PrepCurriculum() {
           headerRight: canManage
             ? () => (
                 <Pressable accessibilityRole="button" accessibilityLabel="Add new lesson" hitSlop={8} onPress={() => setCreating(true)} style={{ padding: 6 }}>
-                  <Icon ios="plus" android="add" size={20} color={colors.primary} />
+                  <Icon ios="plus" android="add" size={22} color={colors.primary} />
                 </Pressable>
               )
             : undefined,

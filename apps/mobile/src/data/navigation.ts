@@ -29,7 +29,13 @@ export function availableMinistries(
   user: Pick<PortalUser, "role">,
   hasSundaySchoolAccess: boolean,
 ): MinistryOption[] {
-  if (user.role === "SERVANT" || user.role === "PARENT") {
+  // A parent's whole app is Sunday School (their children, registrations);
+  // they serve no class, so "has classes" must not be what grants it, or they
+  // land in a Servants Prep dashboard with nothing for them.
+  if (user.role === "PARENT") {
+    return [{ id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool }];
+  }
+  if (user.role === "SERVANT") {
     return hasSundaySchoolAccess
       ? [{ id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool }]
       : [];

@@ -11,6 +11,7 @@ import { Button, Copy, InitialsAvatar, ListSurface, Screen, SectionTitle } from 
 import { ResourceState, Toggle, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
+import { serifHero } from "@/theme";
 
 const MODES: SundaySchoolScheduleMode[] = ["one-each", "fill-year"];
 const MODE_LABEL: Record<SundaySchoolScheduleMode, string> = {
@@ -68,7 +69,7 @@ export default function LessonScheduler() {
       <Stack.Screen options={{ title: "Lesson scheduler" }} />
       <Screen refreshing={preview.loading} onRefresh={() => void preview.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy kind="title">{cls?.name ?? "Lesson scheduler"}</Copy>
+          <Copy style={serifHero}>{cls?.name ?? "Lesson scheduler"}</Copy>
           <Copy kind="caption">
             Assigns teachers to upcoming Sundays with no teacher yet. A week that already has one is never changed —
             use the lesson itself to swap it.

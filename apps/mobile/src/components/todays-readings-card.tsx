@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { Card, Copy, Icon } from "@/components/ui";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme, serifCard } from "@/theme";
 import { useResource } from "@/data/resources";
 import { headlineReference, readingsPath, type DailyReadings } from "@/data/readings";
 
@@ -42,7 +42,7 @@ export function TodaysReadingsCard() {
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Copy kind="caption">Today's readings</Copy>
-          <Copy style={{ fontFamily: serifDisplay, fontSize: 22, lineHeight: 26 }} numberOfLines={1}>
+          <Copy style={{ ...serifCard, lineHeight: 26 }} numberOfLines={1}>
             {data?.copticDate ? data.copticDate.label : "Lectionary and Synaxarium"}
           </Copy>
           {!!headline && (

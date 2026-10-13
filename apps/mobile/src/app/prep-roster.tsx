@@ -70,7 +70,7 @@ export default function PrepRoster() {
               </MenuView>
               {canManage && (
                 <Pressable accessibilityRole="button" accessibilityLabel="Enroll student" hitSlop={8} onPress={() => setEnrolling(true)} style={{ padding: 6 }}>
-                  <Icon ios="plus" android="add" size={20} color={colors.primary} />
+                  <Icon ios="plus" android="add" size={22} color={colors.primary} />
                 </Pressable>
               )}
             </View>

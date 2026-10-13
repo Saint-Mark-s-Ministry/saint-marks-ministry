@@ -4,7 +4,7 @@ import { Button, Copy, ListSurface, Screen, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
-import { useAppTheme } from "@/theme";
+import { useAppTheme, serifHero } from "@/theme";
 import {
   attendanceLabel,
   canViewOwnLessons,
@@ -60,7 +60,7 @@ export default function PrepMyLesson() {
         {canView && lesson && (
           <>
             <View style={{ gap: 6, paddingHorizontal: 4 }}>
-              <Copy kind="title" style={{ fontSize: 28, lineHeight: 32 }}>{lesson.title ?? `Lesson ${lesson.lessonNumber}`}</Copy>
+              <Copy style={serifHero}>{lesson.title ?? `Lesson ${lesson.lessonNumber}`}</Copy>
               <Copy kind="caption">{formatLessonWhen(lesson.scheduledDate)}</Copy>
               {lesson.speaker && <Copy kind="caption">Speaker: {lesson.speaker}</Copy>}
               <View style={{ alignSelf: "flex-start", marginTop: 4 }}>

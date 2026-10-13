@@ -24,6 +24,7 @@ import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import { initialsFor } from "@/data/initials";
 import { serifDisplay, useAppTheme, sansFamilyForWeight, sansSemibold } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
 import { NativeActionButton } from "./native-action-button";
@@ -363,11 +364,7 @@ export function ConnectionBadge() {
   );
 }
 
-export function initials(name?: string | null) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
-}
+export const initials = initialsFor;
 
 export function InitialsAvatar({
   name,

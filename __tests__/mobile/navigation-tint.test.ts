@@ -22,3 +22,22 @@ describe("which ministry a route is drawn in", () => {
     expect(ministryForSegments([], "prep")).toBe("prep");
   });
 });
+
+import { availableMinistries, defaultMinistry } from "../../apps/mobile/src/data/navigation";
+
+describe("which ministry a role lands in", () => {
+  it("puts a parent in Sunday School even though they serve no class (highest-risk path)", () => {
+    expect(availableMinistries({ role: "PARENT" }, false).map((m) => m.id)).toEqual(["sundaySchool"]);
+    expect(defaultMinistry({ role: "PARENT" }, false)).toBe("sundaySchool");
+  });
+
+  it("keeps servants to Sunday School only when they have a class", () => {
+    expect(availableMinistries({ role: "SERVANT" }, true).map((m) => m.id)).toEqual(["sundaySchool"]);
+    expect(availableMinistries({ role: "SERVANT" }, false)).toEqual([]);
+  });
+
+  it("lets Prep roles with a class switch, and keeps students in Prep", () => {
+    expect(availableMinistries({ role: "SUPER_ADMIN" }, true).map((m) => m.id)).toEqual(["prep", "sundaySchool"]);
+    expect(defaultMinistry({ role: "STUDENT" }, false)).toBe("prep");
+  });
+});

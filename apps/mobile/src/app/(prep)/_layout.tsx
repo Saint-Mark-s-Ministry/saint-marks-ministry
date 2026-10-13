@@ -1,6 +1,7 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Platform } from "react-native";
 import { MinistryTintProvider, useAppTheme } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
 
 /**
  * Servants Prep tab set. Mirrors the shape of `(tabs)/_layout.tsx` (Sunday
@@ -16,6 +17,11 @@ export default function PrepTabLayout() {
 
 function Tabs() {
   const { colors, isDark } = useAppTheme();
+  const { user } = useAuth();
+  // The third tab is the person's own people-list: students see their
+  // lessons, mentors their mentees, staff the student roster.
+  const peopleLabel =
+    user?.role === "STUDENT" ? "Lessons" : user?.role === "MENTOR" ? "Mentees" : "Students";
   return (
     <NativeTabs
       tintColor={colors.primary}
@@ -58,7 +64,7 @@ function Tabs() {
           sf={{ default: "person.2", selected: "person.2.fill" }}
           md="groups"
         />
-        <NativeTabs.Trigger.Label>Students</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{peopleLabel}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ministry">
         <NativeTabs.Trigger.Icon

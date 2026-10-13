@@ -18,7 +18,7 @@ import {
   type ClassLessonsResponse,
 } from "@/data/class-lessons";
 import { canViewOwnRotation } from "@/data/rotation-forms";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme, serifCard } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const REVALIDATE_MS = 15_000;
@@ -141,7 +141,7 @@ export default function PrepClassLessons() {
                         soft={status.ready ? colors.successSoft : colors.warningSoft}
                       />
                     </View>
-                    <Copy style={{ fontFamily: serifDisplay, fontSize: 22, lineHeight: 26, fontWeight: "500" }}>
+                    <Copy style={{ ...serifCard, }}>
                       {lessonTitle(lesson)}
                     </Copy>
                     {lesson.resources.length === 0 ? (

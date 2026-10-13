@@ -5,7 +5,7 @@ import { CircleIconButton, Copy, Icon, InitialsAvatar, ListSurface, Screen, Stat
 import { ResourceState } from "@/components/forms";
 import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme, serifHero } from "@/theme";
 import {
   canManageStudentRecord,
   eligibilityLabel,
@@ -109,7 +109,7 @@ export default function PrepStudentDetail() {
             <View style={{ alignItems: "center", gap: 10, paddingTop: 4 }}>
               <InitialsAvatar name={student.studentName} size={84} />
               <Copy
-                style={{ fontFamily: serifDisplay, fontSize: 30, lineHeight: 34, fontWeight: "500" }}
+                style={{ ...serifHero, }}
               >
                 {student.studentName}
               </Copy>

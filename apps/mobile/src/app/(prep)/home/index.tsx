@@ -15,7 +15,7 @@ import { TopActions } from "@/components/top-actions";
 import { TodaysReadingsCard } from "@/components/todays-readings-card";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
-import { serifDisplay, useAppTheme } from "@/theme";
+import { useAppTheme, serifCard } from "@/theme";
 import { endpoint, useResource } from "@/data/resources";
 import { atRiskTone, attendanceProgress, examAverageTone, isAdminLike, nextLessonIndex, type Tone } from "@/data/prep-home";
 
@@ -211,7 +211,7 @@ export default function PrepHome() {
                       {" · "}
                       {new Date(upNext.scheduledDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </Copy>
-                    <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, marginTop: 2 }}>
+                    <Copy style={{ ...serifCard, marginTop: 2 }}>
                       {upNext.isExamDay ? "Exam day" : `Lesson ${upNextIndex + 1} of ${ordered.length}`}
                     </Copy>
                     <Copy kind="caption" style={{ color: colors.text2, fontSize: 15 }}>

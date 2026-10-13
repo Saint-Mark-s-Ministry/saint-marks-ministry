@@ -16,7 +16,7 @@ import {
   validateFeedbackResponseDraft,
 } from "@/data/sunday-school-feedback";
 import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
-import { MinistryTintProvider, useAppTheme } from "@/theme";
+import { MinistryTintProvider, serifHero, useAppTheme } from "@/theme";
 
 const STATUSES: SundaySchoolFeedbackStatus[] = ["OPEN", "PLANNED", "IN_PROGRESS", "COMPLETED", "DECLINED"];
 const VOTE_OPTIONS: { value: string; label: string }[] = [
@@ -179,7 +179,7 @@ function FeedbackDetailScreen() {
             <StatusPill label={typeLabel(idea.type)} color={idea.type === "PROBLEM" ? colors.danger : colors.info} soft={idea.type === "PROBLEM" ? colors.dangerSoft : colors.infoSoft} />
             <StatusPill label={statusLabel(idea.status)} color={colors.text2} soft={colors.hover} />
           </View>
-          <Copy kind="title">{idea.title}</Copy>
+          <Copy style={serifHero}>{idea.title}</Copy>
           <Copy kind="caption">{submittedLabel(idea)} · {idea.score} net votes</Copy>
         </View>
 
