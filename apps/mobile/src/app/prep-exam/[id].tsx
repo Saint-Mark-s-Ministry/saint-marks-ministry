@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
-import { Alert, Pressable, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, TextInput, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { MenuView } from "@expo/ui/community/menu";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
-import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
-import { GlassChrome } from "@/components/chrome";
+import { Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
 import { ResourceState, confirmAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
@@ -55,15 +54,15 @@ export default function PrepExamScores() {
 
   const serverScoreByStudent = new Map((scoresRes.data ?? []).map((s) => [s.studentId, s]));
   const roster = enrollments.data ?? [];
-  const rows = roster
-    .filter((e) => !query.trim() || e.student.name.toLowerCase().includes(query.trim().toLowerCase()))
-    .map((e) => ({
-      studentId: e.studentId,
-      name: e.student.name,
-      mentorId: e.mentorId,
-      server: serverScoreByStudent.get(e.studentId),
-      score: serverScoreByStudent.get(e.studentId)?.score ?? null,
-    }));
+  const scoreRows = roster.map((e) => ({
+    studentId: e.studentId,
+    name: e.student.name,
+    mentorId: e.mentorId,
+    server: serverScoreByStudent.get(e.studentId),
+    score: serverScoreByStudent.get(e.studentId)?.score ?? null,
+  }));
+  const rows = scoreRows.filter((row) => !query.trim() || row.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const rosterCounts = scoreRosterCounts(scoreRows, user?.id);
   const counts = scoreRosterCounts(rows, user?.id);
   const visibleRows = filterScoreRoster(rows, segment, user?.id);
 
@@ -132,23 +131,41 @@ export default function PrepExamScores() {
       <Stack.Screen
         options={{
           title: exam?.examSection?.displayName ?? "Exam",
-          headerRight: canEdit
+          headerRight: Platform.OS !== "ios" && canView
             ? () => (
-                <MenuView
-                  title="Exam options"
-                  actions={[{ id: "delete", title: "Delete exam", attributes: { destructive: true } }]}
-                  onPressAction={({ nativeEvent }) => {
-                    if (nativeEvent.event === "delete") deleteExam();
-                  }}
-                >
-                  <Pressable accessibilityRole="button" accessibilityLabel="Exam options" hitSlop={8} style={{ padding: 6 }}>
-                    <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  {canEdit && (
+                    <MenuView
+                      title="Exam options"
+                      actions={[{ id: "delete", title: "Delete exam", attributes: { destructive: true } }]}
+                      onPressAction={({ nativeEvent }) => {
+                        if (nativeEvent.event === "delete") deleteExam();
+                      }}
+                    >
+                      <Pressable accessibilityRole="button" accessibilityLabel="Exam options" hitSlop={8} style={{ padding: 6 }}>
+                        <Icon ios="ellipsis.circle" android="more_horiz" size={22} color={colors.text} />
+                      </Pressable>
+                    </MenuView>
+                  )}
+                  <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={() => router.back()}
+                    style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+                    <Copy color={colors.primary} style={{ fontWeight: "600" }}>Done</Copy>
                   </Pressable>
-                </MenuView>
+                </View>
               )
             : undefined,
         }}
       />
+      {Platform.OS === "ios" && canView && (
+        <Stack.Toolbar placement="right">
+          {canEdit && (
+            <Stack.Toolbar.Menu accessibilityLabel="Exam options" title="Exam options" icon="ellipsis.circle" separateBackground>
+              <Stack.Toolbar.MenuAction destructive onPress={deleteExam}>Delete exam</Stack.Toolbar.MenuAction>
+            </Stack.Toolbar.Menu>
+          )}
+          <Stack.Toolbar.Button accessibilityLabel="Done" variant="done" separateBackground onPress={() => router.back()}>Done</Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      )}
       <Stack.SearchBar
         autoCapitalize="none"
         placement="automatic"
@@ -156,7 +173,7 @@ export default function PrepExamScores() {
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
       />
-      <Screen bottom={140} refreshing={enrollments.loading || scoresRes.loading} onRefresh={() => { void enrollments.refresh(); void scoresRes.refresh(); }}>
+      <Screen refreshing={enrollments.loading || scoresRes.loading} onRefresh={() => { void enrollments.refresh(); void scoresRes.refresh(); }}>
         {exam && <Copy kind="caption">{YEAR_LABELS[exam.yearLevel] ?? exam.yearLevel} · {dateLabel}</Copy>}
         {!canView && (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
@@ -186,14 +203,19 @@ export default function PrepExamScores() {
             )}
 
             {!!roster.length && (
-              <SegmentedControl
-                values={[`All ${counts.all}`, `Not entered ${counts.notEntered}`, "Mentees"]}
-                selectedIndex={(["all", "notEntered", "mentees"] as const).indexOf(segment)}
-                onChange={({ nativeEvent }) =>
-                  setSegment((["all", "notEntered", "mentees"] as const)[nativeEvent.selectedSegmentIndex] ?? "all")
-                }
-                style={{ width: "100%", minHeight: 36 }}
-              />
+              <>
+                <SegmentedControl
+                  values={[`All ${counts.all}`, `Not entered ${counts.notEntered}`, "Mentees"]}
+                  selectedIndex={(["all", "notEntered", "mentees"] as const).indexOf(segment)}
+                  onChange={({ nativeEvent }) =>
+                    setSegment((["all", "notEntered", "mentees"] as const)[nativeEvent.selectedSegmentIndex] ?? "all")
+                  }
+                  style={{ width: "100%", minHeight: 36 }}
+                />
+                <Copy kind="caption">
+                  <Copy style={{ fontWeight: "600" }}>{rosterCounts.all - rosterCounts.notEntered}</Copy> of {rosterCounts.all} entered
+                </Copy>
+              </>
             )}
 
             {!!roster.length && !visibleRows.length && (
@@ -219,7 +241,7 @@ export default function PrepExamScores() {
                     >
                       <InitialsAvatar name={row.name} size={34} variant="neutral" />
                       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-                        <Copy numberOfLines={1}>{row.name}</Copy>
+                        <Copy numberOfLines={2}>{row.name}</Copy>
                         <Copy kind="caption" color={error ? colors.danger : toneColor}>
                           {error ?? ((row.score !== null && row.score !== undefined) ? `${Math.round((row.score / exam.totalPoints) * 1000) / 10}%` : "Not entered")}
                         </Copy>
@@ -266,17 +288,6 @@ export default function PrepExamScores() {
           </>
         )}
       </Screen>
-
-      {!!roster.length && (
-        <View style={{ position: "absolute", left: 16, right: 16, bottom: 26 }}>
-          <GlassChrome style={{ borderRadius: 26, padding: 14, gap: 10 }}>
-            <Copy kind="caption" style={{ textAlign: "center" }}>
-              <Copy style={{ fontWeight: "700" }}>{roster.length - counts.notEntered}</Copy> of {roster.length} entered
-            </Copy>
-            <Button label="Done" onPress={() => router.back()} />
-          </GlassChrome>
-        </View>
-      )}
     </>
   );
 }
