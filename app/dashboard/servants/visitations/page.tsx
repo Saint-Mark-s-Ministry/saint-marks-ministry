@@ -314,7 +314,10 @@ export default function SundaySchoolVisitationsPage() {
                           {selectedClass?.canEdit ? <Button variant="ghost" size="icon" disabled={savingPriority !== null} aria-pressed={child.visitationPriority} aria-label={`${child.visitationPriority ? 'Remove' : 'Add'} ${name} ${child.visitationPriority ? 'from' : 'to'} priority visits`} onClick={() => void togglePriority(child)}><Star className={child.visitationPriority ? 'fill-warn text-warn' : 'text-ink-3'} /></Button> : child.visitationPriority ? <Star aria-label="Priority visit" className="h-4 w-4 fill-warn text-warn" /> : null}
                           <Initials name={name} />
                           <span className="flex min-w-0 flex-col leading-tight">
-                            <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>
+                            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>
+                              {child.visitationPriority && <StatusBadge tone="warn">Priority visit</StatusBadge>}
+                            </span>
                             <span className="truncate text-xs text-ink-3">
                               {latest?.notes || (child.visitations.length > 0 ? `${child.visitations.length} ${child.visitations.length === 1 ? 'visit' : 'visits'}` : 'No visits recorded yet')}
                             </span>
