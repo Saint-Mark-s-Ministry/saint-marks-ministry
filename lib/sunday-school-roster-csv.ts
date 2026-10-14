@@ -7,6 +7,16 @@ export const ROSTER_CSV_TEMPLATE_HEADERS = [
   'guardian_phone',
   'guardian_email',
   'notes',
+  'cell_phone',
+  'father_of_confession',
+  'family_name',
+  'home_address',
+  'mother_name',
+  'mother_phone',
+  'mother_email',
+  'father_name',
+  'father_phone',
+  'father_email',
 ] as const
 
 export interface SundaySchoolRosterCsvRow {
@@ -19,6 +29,16 @@ export interface SundaySchoolRosterCsvRow {
   guardianPhone: string | null
   guardianEmail: string | null
   notes: string | null
+  cellPhone?: string | null
+  fatherOfConfession?: string | null
+  familyName?: string | null
+  homeAddress?: string | null
+  motherName?: string | null
+  motherPhone?: string | null
+  motherEmail?: string | null
+  fatherName?: string | null
+  fatherPhone?: string | null
+  fatherEmail?: string | null
 }
 
 export interface SundaySchoolRosterCsvError {
@@ -29,6 +49,7 @@ export interface SundaySchoolRosterCsvError {
 export interface ParsedSundaySchoolRosterCsv {
   rows: SundaySchoolRosterCsvRow[]
   errors: SundaySchoolRosterCsvError[]
+  ignoredColumns?: string[]
 }
 
 const HEADER_ALIASES: Record<string, keyof Omit<SundaySchoolRosterCsvRow, 'rowNumber'>> = {
@@ -59,13 +80,46 @@ const HEADER_ALIASES: Record<string, keyof Omit<SundaySchoolRosterCsvRow, 'rowNu
   'parent email': 'guardianEmail',
   note: 'notes',
   notes: 'notes',
+  cell_phone: 'cellPhone',
+  cellphone: 'cellPhone',
+  father_of_confession: 'fatherOfConfession',
+  fatherofconfession: 'fatherOfConfession',
+  family_name: 'familyName',
+  familyname: 'familyName',
+  home_address: 'homeAddress',
+  homeaddress: 'homeAddress',
+  mother_name: 'motherName',
+  mothername: 'motherName',
+  mother_phone: 'motherPhone',
+  motherphone: 'motherPhone',
+  mother_email: 'motherEmail',
+  motheremail: 'motherEmail',
+  father_name: 'fatherName',
+  fathername: 'fatherName',
+  father_phone: 'fatherPhone',
+  fatherphone: 'fatherPhone',
+  father_email: 'fatherEmail',
+  fatheremail: 'fatherEmail',
+  child_phone: 'cellPhone',
+  student_phone: 'cellPhone',
+  child_cell_number: 'cellPhone',
+  cell_number: 'cellPhone',
+  phone: 'cellPhone',
+  phone_number: 'cellPhone',
+  address: 'homeAddress',
+  mom_name: 'motherName',
+  mom_phone: 'motherPhone',
+  mom_email: 'motherEmail',
+  dad_name: 'fatherName',
+  dad_phone: 'fatherPhone',
+  dad_email: 'fatherEmail',
 }
 
-const FULL_NAME_HEADERS = new Set(['name', 'full_name', 'full name', 'student_name', 'student name'])
+const FULL_NAME_HEADERS = new Set(['name', 'full_name', 'student_name'])
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function normalizeHeader(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+  return value.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }
 
 function nullable(value: string | undefined): string | null {
@@ -175,6 +229,25 @@ export function validateSundaySchoolRosterRow(
   if (row.notes && row.notes.length > 2000) {
     errors.push({ rowNumber: row.rowNumber, message: 'Notes must be 2,000 characters or fewer' })
   }
+  for (const [field, label, maxLength] of [
+    ['cellPhone', "Child's phone", 50],
+    ['fatherOfConfession', 'Father of confession', 200],
+    ['familyName', 'Family name', 200],
+    ['homeAddress', 'Home address', 2000],
+    ['motherName', 'Mother name', 200],
+    ['fatherName', 'Father name', 200],
+    ['motherPhone', 'Mother phone', 50],
+    ['fatherPhone', 'Father phone', 50],
+  ] as const) {
+    if (row[field] && row[field]!.length > maxLength) {
+      errors.push({ rowNumber: row.rowNumber, message: `${label} must be ${maxLength} characters or fewer` })
+    }
+  }
+  for (const field of ['motherEmail', 'fatherEmail'] as const) {
+    if (row[field] && !EMAIL_PATTERN.test(row[field]!)) {
+      errors.push({ rowNumber: row.rowNumber, message: `${field === 'motherEmail' ? 'Mother' : 'Father'} email is invalid` })
+    }
+  }
   return errors
 }
 
@@ -222,6 +295,16 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
       guardianPhone: nullable(fields.guardianPhone),
       guardianEmail: nullable(fields.guardianEmail)?.toLowerCase() ?? null,
       notes: nullable(fields.notes),
+      cellPhone: nullable(fields.cellPhone),
+      fatherOfConfession: nullable(fields.fatherOfConfession),
+      familyName: nullable(fields.familyName),
+      homeAddress: nullable(fields.homeAddress),
+      motherName: nullable(fields.motherName),
+      motherPhone: nullable(fields.motherPhone),
+      motherEmail: nullable(fields.motherEmail)?.toLowerCase() ?? null,
+      fatherName: nullable(fields.fatherName),
+      fatherPhone: nullable(fields.fatherPhone),
+      fatherEmail: nullable(fields.fatherEmail)?.toLowerCase() ?? null,
     }
     const normalizedBirthDate = normalizeRosterBirthDate(row.birthDate)
     if (normalizedBirthDate) row.birthDate = normalizedBirthDate
@@ -233,9 +316,10 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
   return {
     rows: parsedRows,
     errors: parsedRows.flatMap(validateSundaySchoolRosterRow),
+    ignoredColumns: csvRows[0].values.filter((header, index) => header.trim() && !mappedHeaders[index] && !FULL_NAME_HEADERS.has(headers[index])),
   }
 }
 
 export function createSundaySchoolRosterCsvTemplate() {
-  return `${ROSTER_CSV_TEMPLATE_HEADERS.join(',')}\nJane,Doe,Female,2015-04-12,John Doe,555-123-4567,parent@example.com,Allergy information here\n`
+  return `${ROSTER_CSV_TEMPLATE_HEADERS.join(',')}\nJane,Doe,Female,2015-04-12,John Doe,555-123-4567,parent@example.com,Allergy information here,555-234-5678,Fr. John,Doe Family,123 Main St,Jane Doe,555-345-6789,mother@example.com,John Doe,555-456-7890,father@example.com\n`
 }
