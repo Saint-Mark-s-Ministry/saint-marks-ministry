@@ -290,7 +290,7 @@ describe('Sunday School feedback page', () => {
     await user.selectOptions(screen.getByLabelText('Filter feedback type'), 'PROBLEM')
     await user.selectOptions(screen.getByLabelText('Filter feedback status'), 'PLANNED')
     await user.type(screen.getByLabelText('Search feedback'), ' CALENDAR ')
-    expect(screen.queryByRole('button', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Calendar does not load')
 
     await user.selectOptions(screen.getByLabelText('Sort feedback'), 'NEWEST')
@@ -315,29 +315,29 @@ describe('Sunday School feedback page', () => {
     await user.selectOptions(screen.getByLabelText('Filter feedback status'), 'OPEN')
     await user.click(screen.getByRole('button', { name: 'Roadmap' }))
     for (const [label, status] of [['Planned', 'PLANNED'], ['In progress', 'IN_PROGRESS'], ['Completed', 'COMPLETED']]) {
-      expect(within(screen.getByRole('region', { name: `${label} feedback` })).getByRole('button', { name: `Request ${status}` })).toBeInTheDocument()
+      expect(within(screen.getByRole('region', { name: `${label} feedback` })).getByRole('heading', { name: `Request ${status}` })).toBeInTheDocument()
     }
-    expect(screen.queryByRole('button', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Request DECLINED' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Request DECLINED' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upvote Request COMPLETED' })).toBeDisabled()
 
     await user.selectOptions(screen.getByLabelText('Filter feedback type'), 'PROBLEM')
-    expect(screen.queryByRole('button', { name: 'Request PLANNED' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Request PLANNED' })).not.toBeInTheDocument()
     expect(screen.getAllByText('No matching feedback in this stage.')).toHaveLength(3)
   })
 
-  it('opens the complete request and team response from a title', async () => {
+  it('shows complete messages inline with a plain title and no detail popup', () => {
     const response = makeResponse()
     response.ideas[0].teamResponse = 'We are reviewing this request.'
     mocks.useSundaySchoolFeedback.mockReturnValue({ data: response, error: null, isLoading: false, mutate: mocks.mutate })
-    const user = userEvent.setup()
     render(<SundaySchoolFeedbackPage />)
 
-    await user.click(screen.getByRole('button', { name: 'Add lesson reminders' }))
-    const detail = within(screen.getByRole('dialog', { name: 'Add lesson reminders' }))
-    expect(detail.getByText('Send a reminder before class.')).not.toHaveClass('line-clamp-2')
-    expect(detail.getByText('We are reviewing this request.')).not.toHaveClass('line-clamp-2')
-    expect(detail.getByRole('button', { name: 'Upvote Add lesson reminders' })).toBeEnabled()
+    expect(screen.getByRole('heading', { name: 'Add lesson reminders' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Send a reminder before class.')).not.toHaveClass('line-clamp-2')
+    expect(screen.getByText('We are reviewing this request.')).not.toHaveClass('line-clamp-2')
+    expect(screen.getByRole('button', { name: 'Upvote Add lesson reminders' })).toBeEnabled()
   })
 
   it('offers a retry when feedback fails to load', async () => {
