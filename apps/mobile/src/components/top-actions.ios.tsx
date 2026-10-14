@@ -1,6 +1,7 @@
 import { Pressable } from "react-native";
 import { router, Stack, type Href } from "expo-router";
 import { AccountAvatar } from "./account-avatar";
+import { feedback } from "@/data/haptics";
 
 /**
  * This file is the actual iOS implementation of TopActions (Metro resolves
@@ -20,7 +21,7 @@ export function TopActions({
         <Stack.Toolbar.Button
           accessibilityLabel={`Notifications, ${unread} unread`}
           separateBackground
-          onPress={() => router.push("/notifications")}
+          onPress={() => { feedback("selection"); router.push("/notifications"); }}
         >
           <Stack.Toolbar.Icon sf="bell" />
           <Stack.Toolbar.Label>Notifications</Stack.Toolbar.Label>
@@ -37,7 +38,7 @@ export function TopActions({
           accessibilityRole="button"
           accessibilityLabel="Account"
           hitSlop={6}
-          onPress={() => router.push("/account" as Href)}
+          onPress={() => { feedback("selection"); router.push("/account" as Href); }}
           style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center" }}
         >
           <AccountAvatar size={32} />

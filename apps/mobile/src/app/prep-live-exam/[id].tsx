@@ -7,6 +7,7 @@ import { ExamAnswerChoices } from "@/components/exam-answer-choices";
 import { useAuth } from "@/data/auth-provider";
 import { useExamAwake, useNativeExamAttempt } from "@/data/use-live-exam";
 import { liveExamAudience } from "@/data/live-exams";
+import { feedback } from "@/data/haptics";
 import { useAppTheme } from "@/theme";
 
 export default function LiveExam() {
@@ -70,7 +71,7 @@ function AnswerSheet({ id, userId }: { id: string; userId: string }) {
             <Copy style={{ fontWeight: "600" }}>Question {question + 1}</Copy>
             <Pressable accessibilityRole="button" accessibilityLabel={`${control.starredQuestions.includes(question) ? "Unstar" : "Star"} question ${question + 1} for review`}
               accessibilityState={{ selected: control.starredQuestions.includes(question), disabled: !!viewingAs }} disabled={!!viewingAs}
-              onPress={() => control.toggleStar(question)} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+              onPress={() => { feedback("selection"); control.toggleStar(question); }} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
               <Icon ios={control.starredQuestions.includes(question) ? "star.fill" : "star"} android={control.starredQuestions.includes(question) ? "star" : "star_border"} size={22}
                 color={control.starredQuestions.includes(question) ? colors.warning : colors.muted} />
             </Pressable>

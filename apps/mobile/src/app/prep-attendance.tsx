@@ -7,6 +7,7 @@ import { MenuView } from "@expo/ui/community/menu";
 import { Button, Copy, Icon, Screen, styles } from "@/components/ui";
 import { GlassChrome } from "@/components/chrome";
 import { ResourceState, confirmAction, useAction } from "@/components/forms";
+import { feedback } from "@/data/haptics";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -189,6 +190,7 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
     void action.run(async () => {
       await request("/api/attendance/batch", "POST", { lessonId: lesson.id, records: buildBatchRecords(draft, rosterIds) });
       await attendance.refresh();
+      feedback("success");
     });
   }
 
@@ -456,7 +458,7 @@ function RosterRow({
               accessibilityState={{ selected, disabled: !canEdit }}
               accessibilityLabel={`${name}: ${status.label}`}
               disabled={!canEdit}
-              onPress={() => onSetStatus(status.value)}
+              onPress={() => { if (!selected) feedback("selection"); onSetStatus(status.value); }}
               style={{
                 width: 44,
                 height: 44,

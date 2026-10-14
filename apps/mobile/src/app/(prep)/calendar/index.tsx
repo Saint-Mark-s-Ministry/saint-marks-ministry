@@ -8,6 +8,7 @@ import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
+import { feedback } from "@/data/haptics";
 import { useResource } from "@/data/resources";
 import { attendanceProgress, nextLessonIndex } from "@/data/prep-home";
 import {
@@ -63,10 +64,12 @@ export default function PrepCalendar() {
   const upcoming = events.filter((e) => e.date >= today);
 
   const goToday = () => {
+    if (selectedDate !== today || localDateKey(cursor) !== today) feedback("selection");
     setCursor(new Date());
     setSelectedDate(today);
   };
   const shiftMonth = (delta: number) => {
+    feedback("selection");
     const next = new Date(cursor);
     if (view === "week") next.setDate(next.getDate() + delta * 7);
     else {
@@ -75,6 +78,10 @@ export default function PrepCalendar() {
     }
     setCursor(next);
     setSelectedDate(localDateKey(next));
+  };
+  const selectDate = (key: string) => {
+    if (key !== selectedDate) feedback("selection");
+    setSelectedDate(key);
   };
   const openEvent = (event: CalendarEvent) => {
     const id = event.id.replace(/^(lesson|exam)-/, "");
@@ -196,7 +203,7 @@ export default function PrepCalendar() {
                         key={key}
                         accessibilityRole="button"
                         accessibilityLabel={`${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dots.length ? ", has events" : ""}`}
-                        onPress={() => setSelectedDate(key)}
+                        onPress={() => selectDate(key)}
                         style={{ width: `${100 / 7}%`, alignItems: "center", paddingVertical: 6, gap: 3 }}
                       >
                         <View
@@ -248,7 +255,7 @@ export default function PrepCalendar() {
                     <Pressable
                       key={key}
                       accessibilityRole="button"
-                      onPress={() => setSelectedDate(key)}
+                      onPress={() => selectDate(key)}
                       style={{
                         flexGrow: 1,
                         flexBasis: 0,

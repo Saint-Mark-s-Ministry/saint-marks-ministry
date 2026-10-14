@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { router, type Href } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { feedback } from "@/data/haptics";
 import { Icon } from "./ui";
 import { AccountAvatar } from "./account-avatar";
 import { useAppTheme } from "@/theme";
@@ -22,7 +22,7 @@ function HeaderButton({
       accessibilityLabel={label}
       hitSlop={6}
       onPress={() => {
-        void Haptics.selectionAsync().catch(() => undefined);
+        feedback("selection");
         onPress();
       }}
       style={({ pressed }) => ({

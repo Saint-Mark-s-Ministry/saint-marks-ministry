@@ -1,6 +1,6 @@
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { feedback } from "@/data/haptics";
 import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
@@ -69,7 +69,7 @@ export default function SwitchMinistry() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: option.id === current }}
                   onPress={() => {
-                    void Haptics.selectionAsync().catch(() => undefined);
+                    feedback("selection");
                     if (option.id === current) {
                       router.back();
                       return;

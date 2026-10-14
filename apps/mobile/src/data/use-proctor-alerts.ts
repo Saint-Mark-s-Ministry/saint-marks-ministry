@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
-import * as Haptics from "expo-haptics";
+import { feedback } from "./haptics";
 import * as Notifications from "expo-notifications";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
@@ -31,7 +31,7 @@ export function useProctorAlerts(examId: string, view?: DigitalExamView) {
     if (!pauses.length) return;
     setAlerts(previous => [...pauses.reverse(), ...previous].slice(0, 8));
     if (!focused.current || AppState.currentState !== "active") return;
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    feedback("warning");
     if (!sound || Date.now() - lastSound.current < 8000) return;
     lastSound.current = Date.now();
     const latest = pauses[0];

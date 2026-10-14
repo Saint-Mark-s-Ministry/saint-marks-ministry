@@ -15,6 +15,7 @@ import {
   type AttendanceRosterNameOrder,
 } from "@stmark/domain";
 import { GlassChrome } from "@/components/chrome";
+import { feedback } from "@/data/haptics";
 import { Copy, Icon, ConnectionBadge, Screen, styles } from "@/components/ui";
 import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
@@ -219,12 +220,14 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     setSaving(true);
     try {
       const confirmed = await saveAttendance(classId, date, current, marks, notesDraft);
+      feedback("success");
       setLoaded({ date, value: confirmed });
       if (notesDraftKey) {
         setNotesDraft({});
         await SecureStore.deleteItemAsync(notesDraftKey).catch(() => undefined);
       }
     } catch (error) {
+      feedback("error");
       Alert.alert(
         "Unable to save",
         error instanceof Error ? error.message : "Please try again.",
@@ -580,7 +583,7 @@ function RosterRow({
               accessibilityState={{ selected, disabled: !canEdit }}
               accessibilityLabel={`${name}: ${item.label}`}
               disabled={!canEdit}
-              onPress={() => onSetStatus(item.value)}
+              onPress={() => { if (!selected) feedback("selection"); onSetStatus(item.value); }}
               style={{
                 width: 44,
                 height: 44,

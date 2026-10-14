@@ -110,6 +110,21 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
 - Glass is limited to navigation and selected controls. Content uses opaque
   surfaces; custom glass respects Reduce Transparency and falls back on Android.
 
+### Interaction feedback
+
+Haptics use one shared, best-effort policy. Custom answer choices, review stars,
+attendance marks and calendar selections use a soft tick. Existing action
+buttons retain light feedback; explicit save confirmations and failed actions
+use short system outcome patterns. Copy feedback follows a successful copy.
+Typing, score/answer autosaves, ordinary refreshes and restored state stay quiet.
+Native switches and segmented controls keep their system behavior.
+
+Feedback runs only while the app is active. A shared cooldown prevents duplicate
+pulses from nested controls and rapid taps, outcomes have an additional cooldown,
+and proctor warning pulses are spaced by at least eight seconds. Unsupported
+hardware and native failures never block an action. Device haptic settings and
+availability remain authoritative; physical devices are needed to assess feel.
+
 ## Verification
 
 ```bash

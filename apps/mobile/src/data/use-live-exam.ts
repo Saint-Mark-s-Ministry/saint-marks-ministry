@@ -9,6 +9,7 @@ import { apiOrigin } from "./auth-provider";
 import { request } from "./resources";
 import { ExamAttemptController, type ExamDraftStore } from "./exam-attempt";
 import { digitalExamPath } from "./live-exams";
+import { feedback } from "./haptics";
 
 /** Poll only the visible screen. Monitoring never presents cached status as live. */
 export function useLiveResource<T>(path: string | null) {
@@ -122,7 +123,12 @@ export function useNativeExamAttempt(examId: string, userId: string) {
     return () => { clearInterval(interval); subscription.remove(); blur?.remove(); focus?.remove(); controller.visibility(false); };
   }, [controller]));
   useEffect(() => () => controller.stop(), [controller]);
-  return { ...state, start: controller.start, submit: controller.submit,
+  const submit = useCallback(async () => {
+    const wasSubmitted = controller.snapshot().attempt?.state === "SUBMITTED";
+    await controller.submit();
+    if (!wasSubmitted && controller.snapshot().attempt?.state === "SUBMITTED") feedback("success");
+  }, [controller]);
+  return { ...state, start: controller.start, submit,
     choose: (question: number, answer: string) => controller.choose(question, answer),
     toggleStar: (question: number) => controller.toggleStar(question), refresh: controller.refresh };
 }

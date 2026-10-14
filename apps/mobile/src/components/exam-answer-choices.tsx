@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
 import { EXAM_CHOICES } from "@/data/live-exams";
+import { feedback } from "@/data/haptics";
 import { useAppTheme } from "@/theme";
 import { Copy } from "./ui";
 
@@ -16,7 +17,7 @@ export function ExamAnswerChoices({ question, answer, count, disabled, choose }:
       accessibilityRole="radio" accessibilityLabel={`Question ${question + 1}, answer ${choice}`}
       accessibilityHint={answer === choice ? "Tap again to clear this answer" : "Select this answer"}
       accessibilityState={{ selected: answer === choice, checked: answer === choice, disabled }} disabled={disabled}
-      onPress={() => choose(answer === choice ? "" : choice)} style={({ pressed }) => ({
+      onPress={() => { feedback("selection"); choose(answer === choice ? "" : choice); }} style={({ pressed }) => ({
         flex: 1, minWidth: 44, minHeight: 52, borderRadius: 14, borderWidth: 1,
         alignItems: "center", justifyContent: "center", opacity: disabled ? 0.55 : pressed ? 0.7 : 1,
         backgroundColor: answer === choice ? colors.primary : colors.surface,
