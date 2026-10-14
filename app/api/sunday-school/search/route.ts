@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { SundaySchoolLevel } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
@@ -7,10 +6,11 @@ import {
   getSundaySchoolAccess,
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
-import {
-  getLevelDisplayName,
-  LEVEL_ORDER,
-} from "@/lib/sunday-school-class"
+import { getLevelDisplayName, LEVEL_ORDER } from "@stmark/domain"
+import type {
+  SundaySchoolLevel,
+  SundaySchoolSearchResponse,
+} from "@stmark/contracts"
 
 const MONTHS = [
   "january",
@@ -42,21 +42,17 @@ function matchingDate(query: string): Date | null {
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(query)
   if (iso) {
     const value = new Date(`${query}T00:00:00.000Z`)
-    return Number.isNaN(value.getTime()) ||
-      value.toISOString().slice(0, 10) !== query
+    return Number.isNaN(value.getTime()) || value.toISOString().slice(0, 10) !== query
       ? null
       : value
   }
 
-  const named =
-    /^(?:([a-z]+)\s+(\d{1,2})|(\d{1,2})\s+([a-z]+))(?:,?\s+(\d{4}))?$/i.exec(
-      query,
-    )
+  const named = /^(?:([a-z]+)\s+(\d{1,2})|(\d{1,2})\s+([a-z]+))(?:,?\s+(\d{4}))?$/i.exec(
+    query,
+  )
   if (!named) return null
   const monthName = (named[1] ?? named[4]).toLowerCase()
-  const month = MONTHS.findIndex((candidate) =>
-    candidate.startsWith(monthName),
-  )
+  const month = MONTHS.findIndex((candidate) => candidate.startsWith(monthName))
   const day = Number(named[2] ?? named[3])
   const year = Number(named[5] ?? new Date().getUTCFullYear())
   if (month < 0 || day < 1 || day > 31) return null
@@ -69,7 +65,7 @@ function matchingDate(query: string): Date | null {
 }
 
 // Summary-only universal search for Sunday School. Guardian and family contact
-// data stays in the protected child detail routes and is never selected here.
+// data must remain in the protected child detail routes and is never selected.
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
@@ -149,18 +145,8 @@ export async function GET(request: Request) {
               AND: terms.map((term) => ({
                 OR: [
                   { title: { contains: term, mode: "insensitive" as const } },
-                  {
-                    class: {
-                      name: { contains: term, mode: "insensitive" as const },
-                    },
-                  },
-                  {
-                    resources: {
-                      some: {
-                        title: { contains: term, mode: "insensitive" as const },
-                      },
-                    },
-                  },
+                  { class: { name: { contains: term, mode: "insensitive" as const } } },
+                  { resources: { some: { title: { contains: term, mode: "insensitive" as const } } } },
                 ],
               })),
             },
@@ -179,30 +165,31 @@ export async function GET(request: Request) {
       }),
     ])
 
-    return NextResponse.json({
+    const response: SundaySchoolSearchResponse = {
       query,
       children: children.map((child) => ({
-        kind: "child" as const,
+        kind: "child",
         id: child.id,
         title: `${child.firstName} ${child.lastName}`,
         subtitle: `${child.class?.name ?? "Unassigned"} · ${getLevelDisplayName(child.level)}`,
         classId: child.classId,
       })),
       classes: classes.map((schoolClass) => ({
-        kind: "class" as const,
+        kind: "class",
         id: schoolClass.id,
         title: schoolClass.name,
         subtitle: `${getLevelDisplayName(schoolClass.level)} · ${schoolClass._count.children} ${schoolClass._count.children === 1 ? "child" : "children"}`,
       })),
       lessons: lessons.map((lesson) => ({
-        kind: "lesson" as const,
+        kind: "lesson",
         id: lesson.id,
         title: lesson.title || "Weekly lesson",
         subtitle: `${lesson.class.name} · ${getLevelDisplayName(lesson.class.level)}`,
         classId: lesson.classId,
         sundayDate: lesson.sundayDate.toISOString(),
       })),
-    })
+    }
+    return NextResponse.json(response)
   } catch (error: unknown) {
     return handleApiError(error)
   }

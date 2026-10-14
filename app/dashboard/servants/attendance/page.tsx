@@ -24,7 +24,7 @@ import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashbo
 import {
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
-} from '@/lib/attendance-roster'
+} from '@stmark/domain'
 import {
   getChildFullName,
   getLevelDisplayName,

@@ -2,34 +2,36 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(),
-  access: vi.fn(),
-  visibleClassFilter: vi.fn(),
+  requireAuth: vi.fn(),
+  getAccess: vi.fn(),
   findMany: vi.fn(),
+  findFirstYear: vi.fn(),
 }))
 
-vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
-vi.mock('@/lib/sunday-school-access', () => ({
-  getSundaySchoolAccess: mocks.access,
-  visibleClassFilter: mocks.visibleClassFilter,
-}))
+vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
+vi.mock('@/lib/sunday-school-access', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/sunday-school-access')>()
+  return { ...actual, getSundaySchoolAccess: mocks.getAccess }
+})
 vi.mock('@/lib/prisma', () => ({
-  prisma: { sundaySchoolChild: { findMany: mocks.findMany } },
+  prisma: {
+    sundaySchoolChild: { findMany: mocks.findMany },
+    academicYear: { findFirst: mocks.findFirstYear },
+  },
 }))
 
 import { GET } from '@/app/api/sunday-school/birthdays/route'
 
-describe('Sunday School birthdays', () => {
+describe('GET /api/sunday-school/birthdays', () => {
   beforeEach(() => {
-    vi.resetAllMocks()
-    mocks.auth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
-    mocks.access.mockResolvedValue({ canRead: true })
-    mocks.visibleClassFilter.mockReturnValue(['class-1'])
+    vi.clearAllMocks()
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
     mocks.findMany.mockResolvedValue([])
+    mocks.findFirstYear.mockResolvedValue({ id: 'year-active' })
   })
 
-  it('rejects accounts without Sunday School access', async () => {
-    mocks.access.mockResolvedValue({ canRead: false })
+  it('refuses a caller without Sunday School read access, and reads nothing', async () => {
+    mocks.getAccess.mockResolvedValue({ canRead: false, visibleClassIds: new Set() })
 
     const response = await GET()
 
@@ -37,31 +39,50 @@ describe('Sunday School birthdays', () => {
     expect(mocks.findMany).not.toHaveBeenCalled()
   })
 
-  it('only loads active children with birthdays from the viewer’s classes', async () => {
+  it('limits birthdays to the classes the caller can see, within the active academic year', async () => {
+    mocks.getAccess.mockResolvedValue({ canRead: true, visibleClassIds: new Set(['class-a']) })
+
     await GET()
 
-    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
-        isActive: true,
-        birthDate: { not: null },
-        classId: { in: ['class-1'] },
+    expect(mocks.findMany.mock.calls[0][0].where).toEqual({
+      isActive: true,
+      birthDate: { not: null },
+      class: {
+        academicYearId: 'year-active',
+        id: { in: ['class-a'] },
       },
-    }))
+    })
   })
 
-  it('selects birthday display fields without contact or family details', async () => {
+  it("further limits an admin/priest's unrestricted access to the active academic year's classes", async () => {
+    mocks.getAccess.mockResolvedValue({ canRead: true, visibleClassIds: 'all' })
+
     await GET()
 
-    const query = mocks.findMany.mock.calls[0][0]
-    expect(query.select).toEqual(expect.objectContaining({
-      id: true,
-      firstName: true,
-      lastName: true,
-      birthDate: true,
-      class: expect.any(Object),
-    }))
-    expect(query.select).not.toHaveProperty('guardianPhone')
-    expect(query.select).not.toHaveProperty('cellPhone')
-    expect(query.select).not.toHaveProperty('family')
+    expect(mocks.findMany.mock.calls[0][0].where.class).toEqual({
+      academicYearId: 'year-active',
+    })
+  })
+
+  it('selects birthday display fields only: no guardian, family, or phone details', async () => {
+    mocks.getAccess.mockResolvedValue({ canRead: true, visibleClassIds: 'all' })
+
+    await GET()
+
+    const select = mocks.findMany.mock.calls[0][0].select
+    expect(Object.keys(select).sort()).toEqual([
+      'birthDate',
+      'class',
+      'classId',
+      'firstName',
+      'id',
+      'lastName',
+      'level',
+      'photoUrl',
+      'user',
+    ])
+    expect(select).not.toHaveProperty('guardianPhone')
+    expect(select).not.toHaveProperty('cellPhone')
+    expect(select).not.toHaveProperty('family')
   })
 })

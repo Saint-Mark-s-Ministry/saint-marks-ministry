@@ -20,10 +20,63 @@ interface NotificationPayload {
   notificationId?: string
 }
 
+const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send'
+
 /**
- * Send push notification to a specific user (all their subscriptions)
+ * Send push notification to the Expo/React Native app's registered devices
+ * for this user. A distinct transport from Web Push (sendPushToUser below) —
+ * Expo's push service relays to APNs (iOS) or FCM (Android) on our behalf,
+ * so this is a plain HTTPS call, no platform SDK or certificate needed.
+ */
+async function sendExpoPushToUser(userId: string, payload: NotificationPayload) {
+  const tokens = await prisma.mobilePushToken.findMany({ where: { userId } })
+  if (tokens.length === 0) return
+
+  let response: Response
+  try {
+    response = await fetch(EXPO_PUSH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(
+        tokens.map((t) => ({
+          to: t.token,
+          title: payload.title,
+          body: payload.body,
+          sound: 'default',
+          data: { url: payload.url, tag: payload.tag, notificationId: payload.notificationId },
+        }))
+      ),
+    })
+  } catch {
+    return // Best-effort, matching sendPushToUser's own non-blocking behavior.
+  }
+  if (!response.ok) return
+
+  const result: unknown = await response.json().catch(() => null)
+  const tickets = result && typeof result === 'object' && 'data' in result ? (result as { data: unknown }).data : null
+  if (!Array.isArray(tickets)) return
+
+  // A device that uninstalled the app (or reset it) reports DeviceNotRegistered —
+  // clear that token so future sends don't keep paying for a dead device.
+  const deadTokenIds = tickets.flatMap((ticket, index) => {
+    const status = ticket && typeof ticket === 'object' ? (ticket as { status?: string }).status : undefined
+    const errorCode = ticket && typeof ticket === 'object'
+      ? (ticket as { details?: { error?: string } }).details?.error
+      : undefined
+    return status === 'error' && errorCode === 'DeviceNotRegistered' ? [tokens[index].id] : []
+  })
+  if (deadTokenIds.length > 0) {
+    await prisma.mobilePushToken.deleteMany({ where: { id: { in: deadTokenIds } } }).catch(() => {})
+  }
+}
+
+/**
+ * Send push notification to a specific user, across every channel they have
+ * registered (browser Web Push and/or the native mobile app).
  */
 async function sendPushToUser(userId: string, payload: NotificationPayload) {
+  await sendExpoPushToUser(userId, payload).catch(() => {})
+
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const subscriptions = await prisma.pushSubscription.findMany({
@@ -667,27 +720,37 @@ export async function notifyChildRegistrationSubmitted({
 }
 
 /**
- * Notify a parent when their child registration request is approved/rejected
+ * Notify a parent when their child registration request is
+ * approved/rejected, or sent back for changes.
  */
 export async function notifyChildRegistrationReviewed({
   userId,
   status,
   childName,
   className,
+  note,
 }: {
   userId: string
-  status: 'APPROVED' | 'REJECTED'
+  status: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED'
   childName: string
   className?: string
+  note?: string | null
 }) {
   await createNotification({
     userId,
     type: NotificationType.CHILD_REGISTRATION_REVIEWED,
-    title: `Child Registration ${status === 'APPROVED' ? 'Approved' : 'Reviewed'}`,
+    title:
+      status === 'APPROVED'
+        ? 'Child Registration Approved'
+        : status === 'CHANGES_REQUESTED'
+          ? 'Changes Requested'
+          : 'Child Registration Reviewed',
     body:
       status === 'APPROVED'
         ? `${childName} has been placed in ${className ?? 'a Sunday School class'}.`
-        : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
+        : status === 'CHANGES_REQUESTED'
+          ? `A coordinator needs more info about ${childName}'s registration${note ? `: ${note}` : '.'}`
+          : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
     url: '/dashboard/parent',
     metadata: { childName, className },
   })

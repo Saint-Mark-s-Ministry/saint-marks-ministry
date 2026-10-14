@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@stmark/contracts', '@stmark/domain'],
   turbopack: {
     // Keep builds rooted in this app when a parent directory has another lockfile.
     root: process.cwd(),

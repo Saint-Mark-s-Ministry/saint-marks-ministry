@@ -59,6 +59,41 @@ export function getConfessionPeriodStatus(
   return period.end <= now ? 'missing' : 'due'
 }
 
+export interface ConfessionPeriodView {
+  start: string
+  end: string // exclusive
+  status: ConfessionPeriodStatus
+  uploadedAt: string | null
+}
+
+/**
+ * One student's confession status for every period of an academic year, matched
+ * the way the admin tracker matches them: a slip belongs to a period when its
+ * periodStart equals the period's start. Returns ISO strings so it can be sent
+ * as JSON as-is; never includes the slip's image URL.
+ */
+export function buildConfessionPeriodViews(
+  year: { startDate: Date | string; endDate: Date | string },
+  enrollment: {
+    attendanceStartDate?: Date | string | null
+    academicYear?: { startDate: Date | string } | null
+    enrolledAt: Date | string
+  },
+  slips: { periodStart: Date | null; createdAt: Date }[],
+  now: Date = new Date()
+): ConfessionPeriodView[] {
+  const studentStart = getStudentStart(enrollment)
+  return getConfessionPeriods(year).map(period => {
+    const slip = slips.find(s => s.periodStart?.getTime() === period.start.getTime())
+    return {
+      start: period.start.toISOString(),
+      end: period.end.toISOString(),
+      status: getConfessionPeriodStatus(period, studentStart, !!slip, now),
+      uploadedAt: slip ? slip.createdAt.toISOString() : null,
+    }
+  })
+}
+
 export function formatConfessionPeriod(period: ConfessionPeriod): string {
   const month = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
   const last = new Date(period.end.getTime() - 1)

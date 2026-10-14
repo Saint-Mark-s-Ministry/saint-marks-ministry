@@ -1,0 +1,24 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "preview": { "bun": "1.4.3", "distribution": "internal", "ios": { "simulator": true } },
+    "internal": { "bun": "1.4.3", "distribution": "internal" },
+    "beta": {
+      "bun": "1.4.3",
+      "distribution": "internal",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.stmarkministry.app",
+        "EXPO_PUBLIC_DATA_LABEL": "Production"
+      }
+    },
+    "production": {
+      "bun": "1.4.3",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.stmarkministry.app",
+        "EXPO_PUBLIC_DATA_LABEL": "Production"
+      }
+    }
+  }
+}
