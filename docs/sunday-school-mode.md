@@ -107,6 +107,18 @@ can represent future preparation; `SundaySchoolSession` accepts attendance
 writes only on that session's church-local calendar day and is created on save. History displays
 join the two by class and normalized UTC date.
 
+Teaching reminders run Tuesday at 14:00 UTC through the `CRON_SECRET`-protected
+`GET /api/cron/sunday-school-lesson-reminders`. Assigned owners receive an in-app
+notification and best-effort device push for lessons before the following
+Tuesday, covering Saturday and Sunday classes. Only active classes in open
+Sunday School years (or the active legacy academic year) and active accounts
+with a current direct class assignment qualify. The message includes the class,
+date, optional title, and a link to the lesson page. Stable notification IDs and
+duplicate-skipping inserts prevent repeat delivery while the notification exists;
+push is awaited before the cron response. No database migration is required.
+Deploy the code and Vercel cron configuration to activate the schedule; device
+push requires configured VAPID keys and a teacher's browser subscription.
+
 **A class's band is derived, not stored.** There is no `ageGroupId` on
 `SundaySchoolClass`. During compatibility the enum array remains; the durable
 mapping is `SundaySchoolAgeGroupLevel`, unique per year and level. Whichever
