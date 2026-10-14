@@ -513,6 +513,10 @@ former roster members with saved marks in that class. Blank cells are unrecorded
 not absences. Totals and rate use saved marks only; late counts half and excused
 is excluded. Names can be searched and the table scrolls horizontally on phones.
 History refreshes after attendance saves and is read-only for every viewer.
+Selecting a child’s name on the attendance roster opens that child’s saved
+weekly history in a dialog, with status totals and rate. Meetings appear newest
+first, and missing marks remain unrecorded. Opening or closing history does not
+change pending attendance marks.
 
 `GET /api/sunday-school/attendance/history?classId=…` resolves the principal and
 class visibility from current database state. It uses the compatibility class

@@ -208,6 +208,8 @@ Full detail: [`docs/permissions.md`](docs/permissions.md).
 
 ## Conventions
 
+Use descriptive Git branch names without a `codex/` prefix.
+
 ### API routes
 
 ```typescript
