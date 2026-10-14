@@ -1,3 +1,4 @@
+import { formatPercent } from "@/data/format-percent";
 import { useState } from "react";
 import { View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
@@ -74,7 +75,7 @@ export default function PrepSearch() {
                     key={s.studentId}
                     divider={index < matchingStudents.length - 1}
                     title={s.studentName}
-                    subtitle={`Att ${s.attendancePercentage ?? "—"}% · Exam ${s.examAverage ?? "—"}%`}
+                    subtitle={`Att ${formatPercent(s.attendancePercentage)} · Exam ${formatPercent(s.examAverage)}`}
                     icon={<InitialsAvatar name={s.studentName} size={38} />}
                     trailing={
                       <StatusPill

@@ -60,9 +60,7 @@ export function riskLabel(graduationEligible: boolean): "On track" | "At risk" {
 }
 
 /** Server returns `null` average when a mentee has zero applicable scores yet — never divide/format against that. */
-export function formatPercent(value: number | null): string {
-  return value === null ? "—" : `${value.toFixed(1)}%`;
-}
+export { formatPercent } from "./format-percent";
 
 export function diff(menteesAvg: number | null, classAvg: number | null): number | null {
   if (menteesAvg === null || classAvg === null) return null;

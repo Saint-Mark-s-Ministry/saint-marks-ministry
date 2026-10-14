@@ -5,6 +5,8 @@ import {
   canManageCalendar,
   dotTypesForDay,
   eventsByDate,
+  eventsForMonth,
+  type CalendarEvent,
   formatEventTime,
   localDateKey,
   monthGrid,
@@ -13,6 +15,12 @@ import {
 
 describe("Prep Calendar (SMM-33)", () => {
   describe("happy path", () => {
+    it("shows the whole displayed month, including past dates but excluding adjacent months and years", () => {
+      const dates = ["2025-10-10", "2026-09-30", "2026-10-01", "2026-10-16", "2026-10-31", "2026-11-01"];
+      const events: CalendarEvent[] = dates.map((date) => ({ id: date, date, type: "lesson", time: null, title: "Lesson", subtitle: "" }));
+      expect(eventsForMonth(events, new Date(2026, 9, 14)).map((event) => event.date)).toEqual(dates.slice(2, 5));
+      expect(eventsForMonth(events, new Date(2026, 11, 1))).toEqual([]);
+    });
     it("reads a local calendar date, not a UTC-shifted one", () => {
       // 11:30 PM local — toISOString().slice(0,10) would roll this to the next
       // UTC day in any timezone behind UTC. localDateKey must not.

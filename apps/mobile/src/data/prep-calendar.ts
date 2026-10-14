@@ -131,3 +131,9 @@ export function dotTypesForDay(events: CalendarEvent[]): CalendarEventType[] {
   if (events.some((e) => e.type === "exam")) types.push("exam");
   return types.slice(0, 2);
 }
+
+/** All events in the displayed month, including past days and excluding grid overflow. */
+export function eventsForMonth(events: CalendarEvent[], month: Date): CalendarEvent[] {
+  const prefix = localDateKey(month).slice(0, 7);
+  return events.filter((event) => event.date.slice(0, 7) === prefix);
+}

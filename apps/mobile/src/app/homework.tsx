@@ -1,3 +1,4 @@
+import { formatPercent } from "@/data/format-percent";
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { Stack } from "expo-router";
@@ -258,7 +259,7 @@ function HomeworkScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14 }}>
                       <Copy style={{ fontWeight: "500", flex: 1 }}>{child.firstName} {child.lastName}</Copy>
                       <Copy kind="caption">
-                        {child.completed} done · {child.notCompleted} not done · {child.rate === null ? "—" : `${child.rate}%`}
+                        {child.completed} done · {child.notCompleted} not done · {formatPercent(child.rate)}
                       </Copy>
                     </View>
                     {index < arr.length - 1 && <View style={{ height: 0.5, backgroundColor: colors.border }} />}

@@ -1,3 +1,4 @@
+import { formatPercent } from "@/data/format-percent";
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
 import type { SundaySchoolHomeworkResponse } from "@stmark/contracts";
@@ -27,6 +28,8 @@ type DashboardStats = {
   academicYear: string | null;
 };
 
+type AcademicYear = { id: string; isActive: boolean };
+
 type AtRiskStudent = {
   id: string;
   name: string;
@@ -42,6 +45,7 @@ type DashboardAnalytics = {
 
 type LessonListItem = {
   id: string;
+  lessonNumber: number;
   title: string | null;
   scheduledDate: string;
   status: "SCHEDULED" | "CANCELLED" | "NO_CLASS" | "COMPLETED";
@@ -73,7 +77,11 @@ export default function PrepHome() {
 
   const stats = useResource<DashboardStats>(adminLike ? "/api/dashboard/stats" : null);
   const analytics = useResource<DashboardAnalytics>(adminLike ? "/api/dashboard/analytics" : null);
-  const lessons = useResource<LessonListItem[]>(adminLike ? "/api/lessons?forAttendance=true" : null);
+  const years = useResource<AcademicYear[]>(adminLike ? "/api/academic-years" : null);
+  const activeYearId = years.data?.find((year) => year.isActive)?.id;
+  const lessons = useResource<LessonListItem[]>(
+    adminLike && activeYearId ? `/api/lessons?academicYearId=${encodeURIComponent(activeYearId)}` : null,
+  );
 
   // Matches api-client.ts's exact message for a failed fetch (no ApiError,
   // meaning the request never reached the server at all).
@@ -118,6 +126,7 @@ export default function PrepHome() {
         onRefresh={() => {
           void stats.refresh();
           void analytics.refresh();
+          void years.refresh();
           void lessons.refresh();
           void childHomework.refresh();
         }}
@@ -168,11 +177,12 @@ export default function PrepHome() {
         {adminLike && (
           <>
             <ResourceState
-              loading={stats.loading}
-              error={offline ? undefined : stats.error}
+              loading={stats.loading || years.loading || lessons.loading}
+              error={offline ? undefined : stats.error || years.error || lessons.error}
               retry={() => {
                 void stats.refresh();
                 void analytics.refresh();
+                void years.refresh();
                 void lessons.refresh();
               }}
             />
@@ -186,7 +196,7 @@ export default function PrepHome() {
               </View>
             )}
 
-            {!lessons.loading && !upNext && stats.data && stats.data.activeStudents > 0 && (
+            {!years.loading && !years.error && !lessons.loading && !lessons.error && !upNext && stats.data && stats.data.activeStudents > 0 && (
               <View style={{ backgroundColor: colors.surface, borderRadius: 26, padding: 18, gap: 4 }}>
                 <Copy style={{ fontWeight: "600" }}>No upcoming lesson scheduled</Copy>
                 <Copy kind="caption">Check Curriculum to schedule the next one.</Copy>
@@ -199,7 +209,7 @@ export default function PrepHome() {
                 accessibilityLabel={
                   upNext.isExamDay
                     ? `Exam day, ${new Date(upNext.scheduledDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`
-                    : `Up next, lesson ${upNextIndex + 1} of ${ordered.length}, ${upNext.examSection?.displayName ?? "all sections"}, ${roster} students${inProgress ? `, attendance in progress, ${marked} of ${roster} marked` : ""}`
+                    : `Up next, lesson ${upNext.lessonNumber} of ${ordered.length}, ${upNext.examSection?.displayName ?? "all sections"}, ${roster} students${inProgress ? `, attendance in progress, ${marked} of ${roster} marked` : ""}`
                 }
                 style={{ backgroundColor: colors.surface, borderRadius: 26, padding: 18, gap: 14 }}
               >
@@ -212,7 +222,7 @@ export default function PrepHome() {
                       {new Date(upNext.scheduledDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </Copy>
                     <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, marginTop: 2 }}>
-                      {upNext.isExamDay ? "Exam day" : `Lesson ${upNextIndex + 1} of ${ordered.length}`}
+                      {upNext.isExamDay ? "Exam day" : `Lesson ${upNext.lessonNumber} of ${ordered.length}`}
                     </Copy>
                     <Copy kind="caption" style={{ color: colors.text2, fontSize: 15 }}>
                       {upNext.examSection?.displayName ?? "All sections"}
@@ -275,7 +285,7 @@ export default function PrepHome() {
                     color={(analytics.data?.totalAtRisk ?? 0) > 0 ? colors.danger : undefined}
                   />
                   <Metric
-                    value={(examAverage !== null && examAverage !== undefined) ? `${examAverage.toFixed(1)}%` : "—"}
+                    value={formatPercent(examAverage)}
                     label="Exam average"
                     sublabel="target ≥ 75%"
                     color={examColor}
@@ -363,7 +373,7 @@ export default function PrepHome() {
                       <Pressable
                         key={student.id}
                         accessibilityRole="button"
-                        accessibilityLabel={`${student.name}, attendance ${student.attendanceRate ?? "unknown"} percent, exam average ${student.examAverage ?? "unknown"} percent`}
+                        accessibilityLabel={`${student.name}, attendance ${formatPercent(student.attendanceRate)}, exam average ${formatPercent(student.examAverage)}`}
                         onPress={() => router.push({ pathname: "/prep-student/[id]", params: { id: student.id } })}
                         style={({ pressed }) => [
                           styles.compactRow,
@@ -375,9 +385,9 @@ export default function PrepHome() {
                         <View style={{ flex: 1, gap: 1 }}>
                           <Copy numberOfLines={1}>{student.name}</Copy>
                           <Copy kind="caption">
-                            Att <Copy kind="caption" color={attColor}>{student.attendanceRate ?? "—"}%</Copy>
+                            Att <Copy kind="caption" color={attColor}>{formatPercent(student.attendanceRate)}</Copy>
                             {" · Exam "}
-                            <Copy kind="caption" color={examColorRow}>{student.examAverage ?? "—"}%</Copy>
+                            <Copy kind="caption" color={examColorRow}>{formatPercent(student.examAverage)}</Copy>
                           </Copy>
                         </View>
                       </Pressable>

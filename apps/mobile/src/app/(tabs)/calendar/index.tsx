@@ -32,7 +32,7 @@ type Mode = (typeof MODES)[number];
 export default function Calendar() {
   const { colors } = useAppTheme();
   const today = todayKey();
-  const [mode, setMode] = useState<Mode>("month");
+  const [mode, setMode] = useState<Mode>("week");
   const [selected, setSelected] = useState<DateKey>(today);
   const [visibleMonth, setVisibleMonth] = useState<DateKey>(startOfMonth(today));
 
@@ -178,14 +178,7 @@ export default function Calendar() {
         )}
 
         {mode === "month" && (
-          <DayAgenda
-            day={selected}
-            today={today}
-            events={eventsOn(selected)}
-            copticLabel={liturgical[selected]?.copticDate?.label}
-            fast={liturgical[selected]?.fast?.name}
-            onOpenDay={() => openDay(selected)}
-          />
+          <ListMode days={listDays} today={today} eventsOn={eventsOn} loading={loading} onOpenDay={openDay} />
         )}
 
         {mode === "week" &&
