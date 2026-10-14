@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Keyboard, Pressable, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
@@ -20,7 +20,7 @@ import { Copy, Icon, ConnectionBadge, Screen, styles } from "@/components/ui";
 import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
 import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attendance-draft";
-import { useAppTheme } from "@/theme";
+import { sansRegular, useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
 import { MinistryTintProvider } from "@/theme";
 import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
@@ -268,14 +268,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
           ),
         }}
       />
-      <Stack.SearchBar
-        autoCapitalize="none"
-        placement="automatic"
-        placeholder="Find a child"
-        onChangeText={(event) => setQuery(event.nativeEvent.text)}
-        onCancelButtonPress={() => setQuery("")}
-      />
-      <Screen bottom={160 + insets.bottom}>
+      <Screen bottom={24}>
         <Copy kind="caption">{cls.name} · {weekOfLabel(date)}</Copy>
         <ConnectionBadge />
 
@@ -355,6 +348,41 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
               <StatusCount label="Absent" value={totals.absent} color={colors.danger} />
             </View>
 
+            {/* Automatic native search placement floats over the save actions
+                on iOS 27. Keep roster search in the scrolling content. */}
+            <View style={{
+              flexDirection: "row", alignItems: "center", gap: 8,
+              backgroundColor: colors.surface, borderColor: colors.border,
+              borderWidth: 1, borderRadius: 16, paddingHorizontal: 12,
+            }}>
+              <Icon ios="magnifyingglass" android="search" size={20} color={colors.muted} />
+              <TextInput
+                accessibilityLabel="Find a child"
+                placeholder="Find a child"
+                placeholderTextColor={colors.muted}
+                value={query}
+                onChangeText={setQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+                style={{
+                  flex: 1, minWidth: 0, minHeight: 48, paddingVertical: 12,
+                  fontFamily: sansRegular, fontSize: 16, color: colors.text,
+                }}
+              />
+              {!!query && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear child search"
+                  onPress={() => setQuery("")}
+                  style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Icon ios="xmark.circle.fill" android="cancel" size={20} color={colors.muted} />
+                </Pressable>
+              )}
+            </View>
+
             {searchedRoster.length === 0 && (
               <Copy kind="caption">No children match "{query.trim()}".</Copy>
             )}
@@ -390,8 +418,10 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
         )}
       </Screen>
 
+      {/* A sibling of the scroll view reserves its actual height, so the last
+          roster row stays above the actions. */}
       {!!roster.length && (
-        <View style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 18 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 18 }}>
           {/* "Glass belongs to controls. Content cards always use an opaque
               surface" (chrome.tsx's own rule) — this bar's two solid-colored
               action buttons are content, not ambient chrome, so it gets the
