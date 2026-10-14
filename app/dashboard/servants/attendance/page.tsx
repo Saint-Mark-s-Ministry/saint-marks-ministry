@@ -119,7 +119,14 @@ function SundaySchoolAttendanceContent() {
         actions={
           selectedClassId && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" aria-expanded={showHistory} onClick={() => setShowHistory(value => !value)}>Individual history</Button>
+              <Button
+                variant={showHistory ? 'default' : 'outline'}
+                aria-expanded={showHistory}
+                aria-controls="individual-attendance-history"
+                onClick={() => setShowHistory(value => !value)}
+              >
+                {showHistory ? 'Hide individual history' : 'Individual history'}
+              </Button>
               <Button asChild variant="outline">
                 <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
                   <Users />
@@ -137,7 +144,11 @@ function SundaySchoolAttendanceContent() {
         </Panel>
       ) : (
         <>
-          {showHistory && selectedClassId && <SundaySchoolIndividualAttendance key={selectedClassId} classId={selectedClassId} savedAt={lastSaved} />}
+          {showHistory && selectedClassId && (
+            <div id="individual-attendance-history">
+              <SundaySchoolIndividualAttendance key={selectedClassId} classId={selectedClassId} savedAt={lastSaved} />
+            </div>
+          )}
 
           <Panel
             toolbar={
