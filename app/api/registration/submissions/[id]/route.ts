@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canViewRegistrations, canReviewRegistrations } from '@/lib/roles'
 import { del } from '@vercel/blob'
+import { withRegistrationNameMatches } from '@/lib/registration-name-matches'
 
 /**
  * GET /api/registration/submissions/[id]
@@ -61,7 +62,8 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(submission)
+    const [detail] = await withRegistrationNameMatches([submission])
+    return NextResponse.json(detail)
   } catch (error: unknown) {
     console.error('Error fetching registration submission:', error)
     return NextResponse.json(

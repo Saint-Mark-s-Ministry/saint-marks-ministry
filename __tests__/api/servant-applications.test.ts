@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findApplication: vi.fn(),
   findUser: vi.fn(),
+  findNameMatches: vi.fn(),
   createApplication: vi.fn(),
   updateApplication: vi.fn(),
   createUser: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock('bcryptjs', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     servantApplication: { findMany: mocks.findMany },
+    user: { findMany: mocks.findNameMatches },
     $transaction: mocks.transaction,
   },
 }))
@@ -57,6 +59,7 @@ describe('servant applications API', () => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'admin-1', role: 'SUPER_ADMIN' })
     mocks.findMany.mockResolvedValue([])
+    mocks.findNameMatches.mockResolvedValue([])
     mocks.findFirst.mockResolvedValue(null)
     mocks.findApplication.mockResolvedValue({
       id: 'application-1',
@@ -190,6 +193,44 @@ describe('servant applications API', () => {
 
     expect(response.status).toBe(403)
     expect(mocks.findMany).not.toHaveBeenCalled()
+    expect(mocks.findNameMatches).not.toHaveBeenCalled()
+  })
+
+  it('shows existing exact-name accounts while excluding an already-linked account', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'application-1', fullName: 'Sunday Servant', createdUserId: 'linked', motivation: 'Grade 3',
+    }])
+    const match = { id: 'other', name: 'Sunday Servant', email: 'other@example.com', isDisabled: true }
+    mocks.findNameMatches.mockResolvedValue([
+      { ...match, id: 'linked', email: 'linked@example.com' }, match,
+      { ...match, id: 'different-case', name: 'sunday servant' },
+    ])
+    const response = await GET(new Request('http://localhost/api/servant-applications'))
+    expect(response.status).toBe(200)
+    expect((await response.json())[0].exactNameMatches).toEqual([match])
+    expect(mocks.findNameMatches).toHaveBeenCalledWith(expect.objectContaining({
+      where: { name: { in: ['Sunday Servant'] } },
+      select: { id: true, name: true, email: true, isDisabled: true },
+    }))
+  })
+
+  it('returns no warnings when no existing account has the same exact name', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'application-1', fullName: 'Sunday Servant', createdUserId: null, motivation: 'Grade 3',
+    }])
+    const response = await GET(new Request('http://localhost/api/servant-applications'))
+    expect((await response.json())[0].exactNameMatches).toEqual([])
+  })
+
+  it('flags a pending applicant with the same exact name and a different email', async () => {
+    mocks.findMany.mockResolvedValue([{
+      id: 'application-1', fullName: 'Sunday Servant', email: 'new@example.com',
+      createdUserId: null, motivation: 'Grade 3',
+    }])
+    const existing = { id: 'existing', name: 'Sunday Servant', email: 'existing@example.com', isDisabled: false }
+    mocks.findNameMatches.mockResolvedValue([existing])
+    const response = await GET(new Request('http://localhost/api/servant-applications'))
+    expect((await response.json())[0]).toMatchObject({ email: 'new@example.com', exactNameMatches: [existing] })
   })
 
   it('exposes the stored compatibility value as currentGrade', async () => {

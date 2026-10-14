@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { canReviewServantApplications } from '@/lib/roles'
 import { RegistrationStatus } from '@prisma/client'
+import { withRegistrationNameMatches } from '@/lib/registration-name-matches'
 
 // GET /api/servant-applications?status=PENDING|APPROVED|REJECTED
 // Auth: SUPER_ADMIN only — servant accounts are SUPER_ADMIN-created, so
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
         status: true,
         email: true,
         fullName: true,
+        createdUserId: true,
         phone: true,
         motivation: true,
         createdAt: true,
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json(
-      applications.map(({ motivation, ...application }) => ({
+      (await withRegistrationNameMatches(applications)).map(({ motivation, ...application }) => ({
         ...application,
         currentGrade: motivation,
       }))

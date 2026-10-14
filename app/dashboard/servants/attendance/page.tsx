@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
@@ -53,6 +54,7 @@ function SundaySchoolAttendanceContent() {
   const [selectedClassId, setSelectedClassId] = useState<string>('')
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
+  const [showHistory, setShowHistory] = useState(false)
   const [showPhotos, setShowPhotos] = useState(true)
   const [groupByGender, setGroupByGender] = useState(false)
 
@@ -116,12 +118,15 @@ function SundaySchoolAttendanceContent() {
         meta="Marks save automatically; Save attendance also marks anyone left unmarked absent"
         actions={
           selectedClassId && (
-            <Button asChild variant="outline">
-              <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
-                <Users />
-                Roster
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" aria-expanded={showHistory} onClick={() => setShowHistory(value => !value)}>Individual history</Button>
+              <Button asChild variant="outline">
+                <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
+                  <Users />
+                  Roster
+                </Link>
+              </Button>
+            </div>
           )
         }
       />
@@ -132,6 +137,8 @@ function SundaySchoolAttendanceContent() {
         </Panel>
       ) : (
         <>
+          {showHistory && selectedClassId && <SundaySchoolIndividualAttendance key={selectedClassId} classId={selectedClassId} savedAt={lastSaved} />}
+
           <Panel
             toolbar={
               <>

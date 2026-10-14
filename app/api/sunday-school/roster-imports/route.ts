@@ -68,6 +68,16 @@ function normalizeRequestRows(value: unknown): SundaySchoolRosterCsvRow[] | null
       guardianPhone: stringOrNull('guardianPhone'),
       guardianEmail: stringOrNull('guardianEmail')?.toLowerCase() ?? null,
       notes: stringOrNull('notes'),
+      cellPhone: stringOrNull('cellPhone'),
+      fatherOfConfession: stringOrNull('fatherOfConfession'),
+      familyName: stringOrNull('familyName'),
+      homeAddress: stringOrNull('homeAddress'),
+      motherName: stringOrNull('motherName'),
+      motherPhone: stringOrNull('motherPhone'),
+      motherEmail: stringOrNull('motherEmail')?.toLowerCase() ?? null,
+      fatherName: stringOrNull('fatherName'),
+      fatherPhone: stringOrNull('fatherPhone'),
+      fatherEmail: stringOrNull('fatherEmail')?.toLowerCase() ?? null,
     }
   })
 }
@@ -252,6 +262,7 @@ export async function POST(request: Request) {
         firstName: true,
         lastName: true,
         birthDate: true,
+        familyId: true,
         classId: true,
         class: { select: { name: true } },
         enrollments: {
@@ -309,6 +320,28 @@ export async function POST(request: Request) {
           },
         })
         resultRows.push({ rowNumber: row.rowNumber, outcome, message })
+      }
+
+      const importFamily = async (row: SundaySchoolRosterCsvRow, familyId?: string | null) => {
+        // Update only supplied values. Keep the child's existing household link;
+        // never infer sibling links from a shared name, address, or phone.
+        const data = {
+          ...(row.familyName ? { name: row.familyName } : {}),
+          ...(row.homeAddress ? { homeAddress: row.homeAddress } : {}),
+          ...(row.motherName ? { motherName: row.motherName } : {}),
+          ...(row.motherPhone ? { motherPhone: row.motherPhone } : {}),
+          ...(row.motherEmail ? { motherEmail: row.motherEmail } : {}),
+          ...(row.fatherName ? { fatherName: row.fatherName } : {}),
+          ...(row.fatherPhone ? { fatherPhone: row.fatherPhone } : {}),
+          ...(row.fatherEmail ? { fatherEmail: row.fatherEmail } : {}),
+        }
+        if (Object.keys(data).length === 0) return familyId
+        if (familyId) {
+          await tx.sundaySchoolFamily.update({ where: { id: familyId }, data })
+          return familyId
+        }
+        const family = await tx.sundaySchoolFamily.create({ data })
+        return family.id
       }
 
       for (const row of normalizedRows) {
@@ -374,6 +407,7 @@ export async function POST(request: Request) {
             continue
           }
 
+          const familyId = await importFamily(row, existingChild.familyId)
           await tx.sundaySchoolChild.update({
             where: { id: existingChild.id },
             data: {
@@ -387,6 +421,9 @@ export async function POST(request: Request) {
               ...(row.guardianPhone ? { guardianPhone: row.guardianPhone } : {}),
               ...(row.guardianEmail ? { guardianEmail: row.guardianEmail } : {}),
               ...(row.notes ? { notes: row.notes } : {}),
+              ...(row.cellPhone ? { cellPhone: row.cellPhone } : {}),
+              ...(row.fatherOfConfession ? { fatherOfConfession: row.fatherOfConfession } : {}),
+              ...(familyId ? { familyId } : {}),
             },
           })
 
@@ -420,6 +457,7 @@ export async function POST(request: Request) {
           continue
         }
 
+        const familyId = await importFamily(row)
         const child = await tx.sundaySchoolChild.create({
           data: {
             firstName: row.firstName,
@@ -432,6 +470,9 @@ export async function POST(request: Request) {
             guardianPhone: row.guardianPhone,
             guardianEmail: row.guardianEmail,
             notes: row.notes,
+            cellPhone: row.cellPhone,
+            fatherOfConfession: row.fatherOfConfession,
+            familyId,
             status: 'ACTIVE',
             isActive: true,
           },

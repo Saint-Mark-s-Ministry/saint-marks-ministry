@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
+import { RegistrationNameMatchWarning } from '@/components/registration-name-match-warning'
+import type { RegistrationNameMatch } from '@/lib/registration-name-matches'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -25,7 +27,7 @@ type RegistrationSubmission = Prisma.RegistrationSubmissionGetPayload<{
     reviewer: { select: { id: true; name: true; email: true } }
     createdUser: { select: { id: true; name: true; email: true } }
   }
-}> & { reviewNote?: string | null }
+}> & { reviewNote?: string | null; exactNameMatches?: RegistrationNameMatch[] }
 
 type InviteCode = Prisma.InviteCodeGetPayload<{
   include: {
@@ -211,6 +213,9 @@ function SubmissionsTab() {
                   onClick={() => setSelectedId(submission.id)}
                 />
                 <span className="w-28 text-[13px] text-ink-2">{getGradeDisplayName(submission.grade)}</span>
+                {Boolean(submission.exactNameMatches?.length) && (
+                  <StatusBadge tone="warn">Possible duplicate · exact name</StatusBadge>
+                )}
                 <span className="w-28 text-[13px] text-ink-3">
                   {new Date(submission.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
@@ -365,6 +370,7 @@ function SubmissionDetail({
       }
     >
       <div className="flex flex-col gap-3">
+        <RegistrationNameMatchWarning matches={submission.exactNameMatches ?? []} />
         {isReturningApplicant && (
           <p className="rounded-md bg-info-tint px-3 py-2 text-[13px] text-info">
             Returning applicant — linked to the existing account for{' '}

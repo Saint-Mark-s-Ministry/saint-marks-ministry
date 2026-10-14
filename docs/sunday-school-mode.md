@@ -107,6 +107,18 @@ can represent future preparation; `SundaySchoolSession` accepts attendance
 writes only on that session's church-local calendar day and is created on save. History displays
 join the two by class and normalized UTC date.
 
+Teaching reminders run Tuesday at 14:00 UTC through the `CRON_SECRET`-protected
+`GET /api/cron/sunday-school-lesson-reminders`. Assigned owners receive an in-app
+notification and best-effort device push for lessons before the following
+Tuesday, covering Saturday and Sunday classes. Only active classes in open
+Sunday School years (or the active legacy academic year) and active accounts
+with a current direct class assignment qualify. The message includes the class,
+date, optional title, and a link to the lesson page. Stable notification IDs and
+duplicate-skipping inserts prevent repeat delivery while the notification exists;
+push is awaited before the cron response. No database migration is required.
+Deploy the code and Vercel cron configuration to activate the schedule; device
+push requires configured VAPID keys and a teacher's browser subscription.
+
 **A class's band is derived, not stored.** There is no `ageGroupId` on
 `SundaySchoolClass`. During compatibility the enum array remains; the durable
 mapping is `SundaySchoolAgeGroupLevel`, unique per year and level. Whichever
@@ -229,6 +241,15 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `visitations/page.tsx` | Per-child visitation status, dated history and notes, and a separate dated phone-call follow-up history, across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
+
+Roster CSV imports add new children and update matched children using supplied
+nonblank values. Supported details include gender, birth date, child phone,
+father of confession, guardian contact, notes, household name/address, and
+mother/father names, phones, and emails. Existing household links are preserved;
+imports do not infer sibling links from matching contact details. The preview
+lists unrecognized columns so they are not silently discarded. Source files are
+not synced: upload a new CSV to apply later changes. Students missing from an
+upload remain on the roster.
 
 The app shell shows a **mode switcher** between Servants Prep and Sunday School
 for anyone with access to both. A Sunday School servant without an active
@@ -482,3 +503,32 @@ keep it open until the church save is confirmed. Reloading a roster in the same
 open editor preserves its in-memory pending marks even when storage fails.
 No database migration or service worker is needed. Draft recovery after a full
 page reload requires a connection to validate permission and the current roster.
+
+
+## Individual attendance history and priority visits
+
+**Attendance → Individual history** shows one row per child and one column per
+past scheduled meeting or saved session in the selected active class. It includes
+former roster members with saved marks in that class. Blank cells are unrecorded,
+not absences. Totals and rate use saved marks only; late counts half and excused
+is excluded. Names can be searched and the table scrolls horizontally on phones.
+History refreshes after attendance saves and is read-only for every viewer.
+
+`GET /api/sunday-school/attendance/history?classId=…` resolves the principal and
+class visibility from current database state. It uses the compatibility class
+resolver, matching the existing attendance editor while year backfills are being
+reconciled. It returns names and class-scoped attendance marks without contact,
+attendance notes, or pastoral notes.
+
+On **Visitations**, servants can star a child and use **Priority visits** to see
+that class's shared follow-up list. Stars persist across devices for the whole
+class team, separately from visit and phone-call histories. Recording a visit
+never clears a star automatically. Priests can view priorities but cannot change
+them. `PATCH /api/sunday-school/visitations` accepts `{ childId, priority }` and
+requires current class-serving authority; an atomic update rejects concurrent
+class transfers. The child flag follows the child if the roster is transferred.
+
+Migration: `20261014120000_add_visitation_priority` adds a non-null boolean with
+`false` as its default. Apply the committed migration with the direct connection
+using `bun db:deploy` before deploying the code, following the migration runbook.
+Production-derived branches must remain private.

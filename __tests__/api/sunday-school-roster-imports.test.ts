@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   createEnrollment: vi.fn(),
   updateEnrollment: vi.fn(),
   createPlacement: vi.fn(),
+  createFamily: vi.fn(),
+  updateFamily: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
@@ -59,6 +61,7 @@ const transactionClient = {
     update: mocks.updateEnrollment,
   },
   sundaySchoolClassPlacement: { create: mocks.createPlacement },
+  sundaySchoolFamily: { create: mocks.createFamily, update: mocks.updateFamily },
 }
 
 function request(rows: Array<Record<string, unknown>>) {
@@ -85,6 +88,7 @@ describe('Sunday School roster CSV import API', () => {
     mocks.findChildren.mockResolvedValue([])
     mocks.createImport.mockResolvedValue({ id: 'import-1' })
     mocks.createChild.mockResolvedValue({ id: 'child-1' })
+    mocks.createFamily.mockResolvedValue({ id: 'family-new' })
     mocks.createEnrollment.mockResolvedValue({ id: 'enrollment-1' })
     mocks.updateEnrollment.mockResolvedValue({ id: 'enrollment-existing' })
     mocks.createPlacement.mockResolvedValue({ id: 'placement-1' })
@@ -192,6 +196,59 @@ describe('Sunday School roster CSV import API', () => {
       where: { id: 'enrollment-existing' },
       data: { status: 'ACTIVE', endedAt: null },
     })
+  })
+
+  it('updates matched Grade 11 student and household details, preserving blank fields', async () => {
+    mocks.findClass.mockResolvedValue({ ...targetClass, name: 'Grade 11', level: 'GRADE_11' })
+    mocks.findChildren.mockResolvedValue([{
+      id: 'child-existing', firstName: 'Jane', lastName: 'Doe', birthDate: null,
+      classId: 'class-1', familyId: 'family-existing',
+      enrollments: [{ id: 'enrollment-existing', level: 'GRADE_11',
+        placements: [{ id: 'placement-existing', classId: 'class-1' }] }],
+    }])
+    const response = await POST(request([{
+      firstName: 'Jane', lastName: 'Doe', cellPhone: '555-1111', fatherOfConfession: 'Fr. Mark',
+      motherName: 'Mary Doe', motherPhone: '555-2222', motherEmail: 'MOM@EXAMPLE.COM',
+      homeAddress: '123 Main St', fatherPhone: '', guardianPhone: '', notes: '',
+    }]))
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({ matchedRows: 1, createdRows: 0 })
+    expect(mocks.updateChild).toHaveBeenCalledWith({
+      where: { id: 'child-existing' },
+      data: { classId: 'class-1', level: 'GRADE_11', status: 'ACTIVE', isActive: true,
+        cellPhone: '555-1111', fatherOfConfession: 'Fr. Mark', familyId: 'family-existing' },
+    })
+    expect(mocks.updateFamily).toHaveBeenCalledWith({
+      where: { id: 'family-existing' },
+      data: { motherName: 'Mary Doe', motherPhone: '555-2222', motherEmail: 'mom@example.com', homeAddress: '123 Main St' },
+    })
+    expect(mocks.createFamily).not.toHaveBeenCalled()
+    expect(mocks.createChild).not.toHaveBeenCalled()
+  })
+
+  it('creates and links a household for new students with parent information', async () => {
+    const response = await POST(request([{
+      firstName: 'Jane', lastName: 'Doe', fatherName: 'John Doe', fatherPhone: '555-3333',
+      cellPhone: '555-1111', fatherOfConfession: 'Fr. Mark',
+    }]))
+    expect(response.status).toBe(201)
+    expect(mocks.createFamily).toHaveBeenCalledWith({ data: { fatherName: 'John Doe', fatherPhone: '555-3333' } })
+    expect(mocks.createChild).toHaveBeenCalledWith({ data: expect.objectContaining({
+      familyId: 'family-new', cellPhone: '555-1111', fatherOfConfession: 'Fr. Mark',
+    }) })
+  })
+
+  it('adds a household link to an existing student without one', async () => {
+    mocks.findChildren.mockResolvedValue([{
+      id: 'child-existing', firstName: 'Jane', lastName: 'Doe', birthDate: null,
+      classId: 'class-1', familyId: null, enrollments: [],
+    }])
+    const response = await POST(request([{ firstName: 'Jane', lastName: 'Doe', motherName: 'Mary Doe' }]))
+    expect(response.status).toBe(201)
+    expect(mocks.createFamily).toHaveBeenCalledWith({ data: { motherName: 'Mary Doe' } })
+    expect(mocks.updateChild).toHaveBeenCalledWith({ where: { id: 'child-existing' },
+      data: expect.objectContaining({ familyId: 'family-new' }) })
+    expect(mocks.createChild).not.toHaveBeenCalled()
   })
 
   it('rejects imports from users who cannot manage the selected class', async () => {
