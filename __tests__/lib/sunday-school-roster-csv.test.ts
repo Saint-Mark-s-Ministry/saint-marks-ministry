@@ -12,7 +12,7 @@ describe('Sunday School roster CSV parsing', () => {
     ].join('\n'))
 
     expect(result.errors).toEqual([])
-    expect(result.rows).toEqual([{
+    expect(result.rows).toMatchObject([{
       rowNumber: 2,
       firstName: 'Jane',
       lastName: 'Doe',
@@ -54,6 +54,33 @@ describe('Sunday School roster CSV parsing', () => {
     expect(result.errors.map(error => error.message)).toContain(
       'Gender must be Male, Female, Boy, or Girl'
     )
+  })
+
+  it('imports child and household details using readable column headings', () => {
+    const result = parseSundaySchoolRosterCsv([
+      'Student Name,Child Phone,Father of Confession,Home Address,Mother Name,Mother Phone,Mother Email,Father Name,Father Phone,Father Email',
+      'Jane Doe,555-1111,Fr. Mark,123 Main St,Mary Doe,555-2222,MOM@EXAMPLE.COM,John Doe,555-3333,DAD@EXAMPLE.COM',
+    ].join('\n'))
+    expect(result.errors).toEqual([])
+    expect(result.ignoredColumns).toEqual([])
+    expect(result.rows[0]).toMatchObject({
+      firstName: 'Jane', lastName: 'Doe', cellPhone: '555-1111',
+      fatherOfConfession: 'Fr. Mark', homeAddress: '123 Main St',
+      motherName: 'Mary Doe', motherPhone: '555-2222', motherEmail: 'mom@example.com',
+      fatherName: 'John Doe', fatherPhone: '555-3333', fatherEmail: 'dad@example.com',
+    })
+  })
+
+  it('makes unrecognized columns visible rather than silently losing them', () => {
+    const result = parseSundaySchoolRosterCsv('full_name,Emergency contact\nJane Doe,555-1234')
+    expect(result.ignoredColumns).toEqual(['Emergency contact'])
+  })
+
+  it('validates parent emails and phone lengths before import', () => {
+    const result = parseSundaySchoolRosterCsv(`full_name,mother_email,child_phone\nJane Doe,invalid,${'1'.repeat(51)}`)
+    expect(result.errors.map(error => error.message)).toEqual([
+      "Child's phone must be 50 characters or fewer", 'Mother email is invalid',
+    ])
   })
 
   it('provides a template that round-trips through the parser', () => {

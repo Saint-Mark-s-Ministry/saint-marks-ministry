@@ -171,7 +171,7 @@ export function SundaySchoolRosterImport({
       setResult(body as ImportResult)
       await Promise.all([onSuccess(), loadHistory()])
       toast.success('Roster imported', {
-        description: `${body.createdRows} added · ${body.matchedRows} already on file`,
+        description: `${body.createdRows} added · ${body.matchedRows} matched and updated`,
       })
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to import the roster')
@@ -222,7 +222,7 @@ export function SundaySchoolRosterImport({
           <DialogHeader>
             <DialogTitle>Upload class roster</DialogTitle>
             <DialogDescription>
-              Add children to {className} from a CSV. Existing children are matched instead of duplicated.
+              Add children to {className} from a CSV. Existing children are matched and updated instead of duplicated. Blank values keep existing details.
             </DialogDescription>
           </DialogHeader>
 
@@ -232,7 +232,7 @@ export function SundaySchoolRosterImport({
                 <div>
                   <p className="font-medium">CSV format</p>
                   <p className="mt-1 text-gray-600 dark:text-gray-400">
-                    First and last name are required. Gender, birth date, guardian contact, and notes are optional.
+                    First and last name are required. Gender, birth date, child’s phone, father of confession, guardian contact, parent details, home address, and notes are optional.
                     Birth dates help safely match an existing child.
                   </p>
                 </div>
@@ -271,6 +271,12 @@ export function SundaySchoolRosterImport({
                   <Button type="button" variant="ghost" size="sm" onClick={reset}>Choose another</Button>
                 </div>
 
+                {Boolean(parsed.ignoredColumns?.length) && (
+                  <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    These columns will not be imported: {parsed.ignoredColumns!.join(', ')}.
+                    Rename them using the template if they contain student details you want to save.
+                  </div>
+                )}
                 {parsed.errors.length > 0 ? (
                   <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
                     <div className="mb-2 flex items-center gap-2 font-medium">

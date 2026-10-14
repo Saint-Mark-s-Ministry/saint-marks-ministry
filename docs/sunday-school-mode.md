@@ -230,6 +230,15 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
+Roster CSV imports add new children and update matched children using supplied
+nonblank values. Supported details include gender, birth date, child phone,
+father of confession, guardian contact, notes, household name/address, and
+mother/father names, phones, and emails. Existing household links are preserved;
+imports do not infer sibling links from matching contact details. The preview
+lists unrecognized columns so they are not silently discarded. Source files are
+not synced: upload a new CSV to apply later changes. Students missing from an
+upload remain on the roster.
+
 The app shell shows a **mode switcher** between Servants Prep and Sunday School
 for anyone with access to both. A Sunday School servant without an active
 Servants Prep Servant tag opens Sunday School by default, including when their
