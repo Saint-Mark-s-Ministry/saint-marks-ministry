@@ -95,6 +95,37 @@ async function createNotification({
   return notification
 }
 
+/** A stable ID makes cron retries and overlapping runs safe. Await push in cron jobs. */
+export async function notifySundaySchoolLessonReminder({
+  lessonId, userId, lessonDate, className, lessonTitle,
+}: {
+  lessonId: string
+  userId: string
+  lessonDate: string
+  className: string
+  lessonTitle: string | null
+}): Promise<boolean> {
+  const id = `ss-lesson-reminder:${lessonId}:${userId}`
+  const title = 'Sunday School teaching reminder'
+  const body = `You are teaching ${className} on ${lessonDate}${lessonTitle ? `: "${lessonTitle}"` : ''}. Please review your lesson and resources.`
+  const url = '/dashboard/servants/lessons'
+  const result = await prisma.notification.createMany({
+    data: [{
+      id, userId, type: NotificationType.ANNOUNCEMENT, title, body, url,
+      metadata: { kind: 'sunday-school-lesson-reminder', lessonId, lessonDate },
+    }],
+    skipDuplicates: true,
+  })
+  if (result.count === 0) return false
+
+  await sendPushToUser(userId, {
+    title, body, url, tag: id, notificationId: id,
+  }).catch(() => {
+    // The in-app reminder remains available if push delivery fails.
+  })
+  return true
+}
+
 /**
  * Create notifications for multiple users
  */
