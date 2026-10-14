@@ -213,3 +213,12 @@ foreground and every minute while active. Server expiry restores the original
 account. Identity changes clear resource caches, remount portal state, and
 invalidate pending responses. Mobile also blocks unsafe data requests while
 viewing; the existing server read-only barrier remains authoritative.
+
+## Remote push temporarily disabled
+
+`extra.remotePushEnabled` is currently `false` in `app.json`. The app skips
+remote push permission/token registration, and the config plugin removes
+the iOS `aps-environment` entitlement so the existing signing profile can build
+the app. The in-app notification list and optional local proctor alert sounds
+remain available. To restore remote push later, set the flag to `true`, refresh
+the APNs-enabled signing profile, and rebuild the native app.

@@ -134,6 +134,7 @@
       "predictiveBackGestureEnabled": true
     },
     "plugins": [
+      "./plugins/withOptionalRemotePush.js",
       "expo-router",
       "expo-font",
       "expo-system-ui",
@@ -188,7 +189,8 @@
       "router": {},
       "eas": {
         "projectId": "cfcab609-094a-48dd-b957-3f7e0442ca10"
-      }
+      },
+      "remotePushEnabled": false
     },
     "owner": "joshuakaisar"
   }
