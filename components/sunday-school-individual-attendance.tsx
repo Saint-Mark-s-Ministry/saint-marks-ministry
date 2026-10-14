@@ -35,13 +35,13 @@ export function SundaySchoolIndividualAttendance({ classId, savedAt }: { classId
             <thead><tr className="border-y border-line">
               <th scope="col" className="sticky left-0 z-10 bg-surface p-3 text-left">Child</th>
               <th scope="col" className="p-3">Rate</th>
-              {['Present', 'Late', 'Absent', 'Excused'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
+              {['Present', 'Late', 'Absent'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
               {history.dates.map(date => <th key={date} scope="col" className="p-3">{formatDateUTC(date, { month: 'short', day: 'numeric', year: 'numeric' })}</th>)}
             </tr></thead>
             <tbody>{children.map(child => <tr key={child.id} className="border-b border-line">
               <th scope="row" className="sticky left-0 bg-surface p-3 text-left font-medium">{child.firstName} {child.lastName}{!child.onRoster && <span className="block text-xs font-normal text-ink-3">Former roster member</span>}</th>
               <td className="p-3 text-center">{child.rate === null ? '—' : `${Math.round(child.rate)}%`}</td>
-              {[child.counts.present, child.counts.late, child.counts.absent, child.counts.excused].map((count, index) => <td key={index} className="p-3 text-center">{count}</td>)}
+              {[child.counts.present, child.counts.late, child.counts.absent].map((count, index) => <td key={index} className="p-3 text-center">{count}</td>)}
               {history.dates.map(date => {
                 const mark = child.attendance[date] ? MARKS[child.attendance[date]] : null
                 return <td key={date} className="p-3 text-center"><span aria-label={mark?.label ?? 'Unrecorded'} title={mark?.label ?? 'Unrecorded'} className={`inline-block min-w-7 rounded px-2 py-1 ${mark?.tone ?? 'text-ink-3'}`}>{mark?.short ?? '—'}</span></td>
