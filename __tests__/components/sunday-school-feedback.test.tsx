@@ -287,7 +287,7 @@ describe('Sunday School feedback page', () => {
     const user = userEvent.setup()
     render(<SundaySchoolFeedbackPage />)
 
-    await user.click(screen.getByRole('button', { name: /Problems/ }))
+    await user.selectOptions(screen.getByLabelText('Filter feedback type'), 'PROBLEM')
     await user.selectOptions(screen.getByLabelText('Filter feedback status'), 'PLANNED')
     await user.type(screen.getByLabelText('Search feedback'), ' CALENDAR ')
     expect(screen.queryByRole('button', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
