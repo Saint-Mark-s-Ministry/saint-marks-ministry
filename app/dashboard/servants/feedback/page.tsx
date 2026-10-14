@@ -488,7 +488,7 @@ export default function SundaySchoolFeedbackPage() {
             )}
           </div>
         </div>
-        {idea.description && <p className={cn("text-[13px] leading-relaxed whitespace-pre-wrap break-words text-ink-2", !detail && "line-clamp-2")}>{idea.description}</p>}
+        {idea.description && <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words text-ink-2">{idea.description}</p>}
         <p className="text-xs break-words text-ink-3">
           {idea.submitter?.name ?? 'Former user'} · {formatSubmittedDate(idea.createdAt)}
           {!idea.canVote && idea.submitter && idea.canEdit && ' · Your idea'}
@@ -506,7 +506,7 @@ export default function SundaySchoolFeedbackPage() {
                 </span>
               )}
             </p>
-            <p className={cn("mt-1 text-[13px] leading-relaxed whitespace-pre-wrap break-words text-ink-2", !detail && "line-clamp-2")}>{idea.teamResponse}</p>
+            <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-wrap break-words text-ink-2">{idea.teamResponse}</p>
           </div>
         )}
       </div>
