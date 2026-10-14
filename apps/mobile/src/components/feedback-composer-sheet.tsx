@@ -98,7 +98,7 @@ export function FeedbackComposerSheet({
             accessibilityLabel="Cancel"
             disabled={action.busy}
             onPress={requestClose}
-            style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}
+            style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.hover }}
           >
             <Icon ios="xmark" android="close" size={18} />
           </Pressable>
@@ -108,12 +108,16 @@ export function FeedbackComposerSheet({
             accessibilityLabel={isEdit ? "Save feedback" : "Post feedback"}
             disabled={action.busy || !draft.title.trim()}
             onPress={submit}
-            style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary, opacity: !draft.title.trim() ? 0.4 : 1 }}
+            style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.text, opacity: action.busy || !draft.title.trim() ? 0.4 : 1 }}
           >
-            <Icon ios="checkmark" android="check" size={18} color="#FFFFFF" />
+            <Icon ios="checkmark" android="check" size={18} color={colors.surface} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 0, gap: 14 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ padding: 20, paddingTop: 0, paddingBottom: 32, gap: 18 }}>
+          <View style={{ padding: 18, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, gap: 6 }}>
+            <Copy kind="heading" style={{ fontSize: 22 }}>{isEdit ? "Refine your feedback" : "What’s on your mind?"}</Copy>
+            <Copy kind="caption">Share an improvement or tell us what went wrong. Every submission is reviewed by the team.</Copy>
+          </View>
           <SegmentedControl
             values={["Idea", "Problem"]}
             selectedIndex={TYPES.indexOf(draft.type)}
@@ -136,7 +140,6 @@ export function FeedbackComposerSheet({
             multiline
             disabled={action.busy}
           />
-          <Copy kind="caption">Every submission is reviewed by the team.</Copy>
         </ScrollView>
       </View>
     </Modal>

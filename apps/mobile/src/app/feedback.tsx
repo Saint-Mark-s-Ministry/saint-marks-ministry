@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
-import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackResponse } from "@stmark/contracts";
-import { Copy, Icon, ListSurface, Screen, StatusPill } from "@/components/ui";
-import { ResourceState } from "@/components/forms";
+import { Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
+import { ResourceState, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import {
   applyFeedbackView,
+  DEVELOPMENT_TEAM_LABEL,
   filterByCategory,
   matchesSearch,
   responsePreview,
@@ -19,7 +19,9 @@ import {
   type FeedbackView,
 } from "@/data/sunday-school-feedback";
 import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
-import { MinistryTintProvider, useAppTheme, type ThemeColors } from "@/theme";
+import { FeedbackStatus } from "@/components/feedback-status";
+import { feedback } from "@/data/haptics";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
 const VIEWS: FeedbackView[] = ["top", "newest", "mine"];
@@ -35,12 +37,6 @@ export default function Feedback() {
       <FeedbackScreen />
     </MinistryTintProvider>
   );
-}
-
-function typeTone(colors: ThemeColors, type: "IDEA" | "PROBLEM") {
-  return type === "PROBLEM"
-    ? { color: colors.danger, soft: colors.dangerSoft }
-    : { color: colors.info, soft: colors.infoSoft };
 }
 
 function FeedbackScreen() {
@@ -87,22 +83,56 @@ function FeedbackScreen() {
         onCancelButtonPress={() => setSearch("")}
       />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
-        <View style={{ paddingHorizontal: 4, gap: 4 }}>
-          <Copy kind="caption">Vote on what matters most</Copy>
+        <ListSurface style={{ padding: 20, borderRadius: 18, gap: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ padding: 7, borderRadius: 10, backgroundColor: colors.primarySoft }}>
+              <Icon ios="bubble.left.and.bubble.right" android="forum" size={18} />
+            </View>
+            <Copy kind="caption" style={{ flex: 1, fontWeight: "500" }}>St. Mark Ministry · Feedback board</Copy>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Copy kind="heading" style={{ fontSize: 24, lineHeight: 30 }}>Help shape what’s next</Copy>
+            <Copy color={colors.text2} style={{ fontSize: 14, lineHeight: 21 }}>
+              Share ideas, report problems, and vote on what matters to you.
+            </Copy>
+          </View>
+          {resource.data?.viewer.canSubmit && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Post feedback"
+              onPress={() => { feedback("action"); setComposerOpen(true); }}
+              style={({ pressed }) => ({
+                minHeight: 46, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12,
+                flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                backgroundColor: colors.text, opacity: pressed ? 0.75 : 1,
+              })}
+            >
+              <Icon ios="plus" android="add" size={17} color={colors.surface} />
+              <Copy color={colors.surface} style={{ fontSize: 14, fontWeight: "600" }}>Post feedback</Copy>
+            </Pressable>
+          )}
+        </ListSurface>
+
+        <View style={{ gap: 12 }}>
+          <View accessibilityRole="tablist" style={{ flexDirection: "row", borderBottomWidth: 1, borderColor: colors.border }}>
+            {["Top", "Newest", "Mine"].map((label, index) => (
+              <Pressable
+                key={label}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: viewIndex === index }}
+                onPress={() => { feedback("selection"); setViewIndex(index); }}
+                style={{ flex: 1, minHeight: 46, justifyContent: "center", alignItems: "center", paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: viewIndex === index ? colors.text : "transparent" }}
+              >
+                <Copy style={{ fontSize: 14, fontWeight: viewIndex === index ? "600" : "400" }} color={viewIndex === index ? colors.text : colors.muted}>{label}</Copy>
+              </Pressable>
+            ))}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {CATEGORIES.map((c) => (
+              <FilterChip key={c.value} label={c.label} active={category === c.value} onPress={() => { feedback("selection"); setCategory(c.value); }} />
+            ))}
+          </ScrollView>
         </View>
-
-        <SegmentedControl
-          values={["Top", "Newest", "Mine"]}
-          selectedIndex={viewIndex}
-          onChange={({ nativeEvent }) => setViewIndex(nativeEvent.selectedSegmentIndex)}
-          style={{ width: "100%", minHeight: 36 }}
-        />
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {CATEGORIES.map((c) => (
-            <FilterChip key={c.value} label={c.label} active={category === c.value} onPress={() => setCategory(c.value)} />
-          ))}
-        </ScrollView>
 
         {offline && resource.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
@@ -115,20 +145,18 @@ function FeedbackScreen() {
         )}
 
         {resource.data && !rows.length && (
-          <ListSurface style={{ padding: 16 }}>
-            <Copy>{resource.data.ideas.length ? "Nothing matches this filter." : "No feedback yet. Be the first to share an idea."}</Copy>
+          <ListSurface style={{ padding: 24, gap: 8, alignItems: "center" }}>
+            <Icon ios="bubble.left" android="chat_bubble_outline" size={28} color={colors.muted} />
+            <Copy style={{ fontWeight: "600", textAlign: "center" }}>{resource.data.ideas.length ? "No matching feedback" : "Start the conversation"}</Copy>
+            <Copy kind="caption" style={{ textAlign: "center" }}>{resource.data.ideas.length ? "Try another search or category." : "Be the first to share an idea or report a problem."}</Copy>
           </ListSurface>
         )}
 
         {!!rows.length && (
-          <ListSurface>
-            {rows.map((idea, index) => (
-              <View key={idea.id}>
-                <FeedbackRow idea={idea} refresh={resource.refresh} />
-                {index < rows.length - 1 && <View style={{ height: 0.5, marginLeft: 16, backgroundColor: colors.border }} />}
-              </View>
-            ))}
-          </ListSurface>
+          <View style={{ gap: 12 }}>
+            <Copy kind="caption" accessibilityLabel={`${rows.length} feedback posts`}>{rows.length} {rows.length === 1 ? "post" : "posts"}</Copy>
+            {rows.map((idea) => <FeedbackRow key={idea.id} idea={idea} refresh={resource.refresh} />)}
+          </View>
         )}
       </Screen>
 
@@ -148,65 +176,77 @@ function FeedbackScreen() {
 
 function FeedbackRow({ idea, refresh }: { idea: SundaySchoolFeedbackIdea; refresh: () => Promise<void> }) {
   const { colors } = useAppTheme();
-  const [voting, setVoting] = useState(false);
+  const voteAction = useAction();
   const preview = responsePreview(idea);
-  const tone = typeTone(colors, idea.type);
+  const upvoted = idea.viewerVote === "UP";
 
   const toggleUpvote = async () => {
-    if (!idea.canVote || voting) return;
-    setVoting(true);
-    try {
+    if (!idea.canVote || voteAction.busy) return;
+    feedback("selection");
+    await voteAction.run(async () => {
       await request(`${endpoint("feedback", idea.id)}/vote`, "PUT", { vote: idea.viewerVote === "UP" ? null : "UP" });
       await refresh();
-    } catch {
-      /* ResourceState/refresh already surfaces a retry; a toast-free best-effort here matches the row's compact design. */
-    } finally {
-      setVoting(false);
-    }
+    });
   };
 
   return (
-    <View style={{ flexDirection: "row", gap: 12, padding: 14 }}>
-      <View style={{ alignItems: "center", gap: 2 }}>
+    <ListSurface style={{ padding: 16, borderRadius: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={idea.viewerVote === "UP" ? "Remove your upvote" : "Upvote"}
-          accessibilityState={{ disabled: !idea.canVote, selected: idea.viewerVote === "UP" }}
-          disabled={!idea.canVote || voting}
+          accessibilityLabel={`${upvoted ? "Remove your upvote for" : "Upvote"} ${idea.title}, ${idea.score} net votes`}
+          accessibilityState={{ disabled: !idea.canVote || voteAction.busy, selected: upvoted, busy: voteAction.busy }}
+          disabled={!idea.canVote || voteAction.busy}
           onPress={() => void toggleUpvote()}
-          style={{
-            width: 44,
-            height: 36,
-            borderRadius: 12,
+          style={({ pressed }) => ({
+            width: 50,
+            minHeight: 66,
+            paddingVertical: 8,
+            gap: 3,
+            borderWidth: 1,
+            borderColor: upvoted ? colors.primary : colors.border,
+            borderRadius: 10,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: idea.viewerVote === "UP" ? colors.primarySoft : colors.hover,
-            opacity: idea.canVote ? 1 : 0.4,
-          }}
+            backgroundColor: upvoted ? colors.primarySoft : pressed ? colors.hover : colors.surface,
+            opacity: !idea.canVote || voteAction.busy ? 0.5 : 1,
+          })}
         >
-          <Icon ios="chevron.up" android="arrow_upward" size={18} color={idea.viewerVote === "UP" ? colors.primary : colors.text2} />
+          <Icon ios="chevron.up" android="keyboard_arrow_up" size={16} color={upvoted ? colors.primary : colors.muted} />
+          <Copy style={{ fontWeight: "600", fontSize: 15 }} color={upvoted ? colors.primary : colors.text}>{idea.score}</Copy>
         </Pressable>
-        <Copy style={{ fontWeight: "600", fontSize: 15 }}>{idea.score}</Copy>
-      </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={idea.title}
+        accessibilityLabel={`${idea.title}. ${typeLabel(idea.type)}, ${statusLabel(idea.status)}. ${submittedLabel(idea)}`}
+        accessibilityHint="Opens feedback details and voting options"
         onPress={() => router.push({ pathname: "/feedback/[id]", params: { id: idea.id } })}
-        style={{ flex: 1, gap: 4 }}
+        style={({ pressed }) => ({ flex: 1, minWidth: 0, gap: 10, opacity: pressed ? 0.7 : 1 })}
       >
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          <StatusPill label={typeLabel(idea.type)} color={tone.color} soft={tone.soft} />
-          <StatusPill label={statusLabel(idea.status)} color={colors.text2} soft={colors.hover} />
+        <Copy style={{ fontWeight: "600", fontSize: 16, lineHeight: 22 }}>{idea.title}</Copy>
+        {idea.description && <Copy color={colors.text2} style={{ fontSize: 14, lineHeight: 20 }} numberOfLines={2}>{idea.description}</Copy>}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Icon ios={idea.type === "PROBLEM" ? "ladybug" : "lightbulb"} android={idea.type === "PROBLEM" ? "bug_report" : "lightbulb_outline"} size={13} color={colors.muted} />
+            <Copy kind="caption">{typeLabel(idea.type)}</Copy>
+          </View>
+          <FeedbackStatus status={idea.status} />
         </View>
-        <Copy style={{ fontWeight: "500", fontSize: 17 }}>{idea.title}</Copy>
-        <Copy kind="caption">{submittedLabel(idea)}</Copy>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <InitialsAvatar name={idea.submitter?.name} size={22} variant="neutral" />
+          <Copy kind="caption" style={{ flex: 1, fontSize: 12 }}>{submittedLabel(idea)}</Copy>
+        </View>
         {preview && (
-          <Copy kind="caption" color={colors.primary} numberOfLines={1}>
-            Development Team: {preview}
-          </Copy>
+          <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 10, gap: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <Icon ios="bubble.left" android="chat_bubble_outline" size={12} color={colors.primary} />
+              <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600", fontSize: 12 }}>{DEVELOPMENT_TEAM_LABEL}</Copy>
+            </View>
+            <Copy kind="caption" color={colors.text2} numberOfLines={2}>{preview}</Copy>
+          </View>
         )}
       </Pressable>
-    </View>
+      </View>
+    </ListSurface>
   );
 }
 
@@ -221,13 +261,13 @@ function FilterChip({ label, active, onPress }: { label: string; active: boolean
         minHeight: 44,
         paddingHorizontal: 14,
         justifyContent: "center",
-        borderRadius: 22,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: active ? colors.primary : colors.border,
-        backgroundColor: active ? colors.primarySoft : colors.surface,
+        borderColor: active ? colors.borderStrong : colors.border,
+        backgroundColor: active ? colors.hover : colors.surface,
       }}
     >
-      <Copy style={{ fontWeight: active ? "600" : "400", color: active ? colors.primary : colors.text }}>{label}</Copy>
+      <Copy style={{ fontSize: 13, fontWeight: active ? "600" : "400", color: active ? colors.text : colors.muted }}>{label}</Copy>
     </Pressable>
   );
 }
