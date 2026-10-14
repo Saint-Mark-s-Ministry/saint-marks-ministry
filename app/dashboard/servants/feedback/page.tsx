@@ -12,7 +12,6 @@ import {
   Bug,
   CheckCircle2,
   ChevronRight,
-  Layers3,
   Lightbulb,
   Map,
   MessageSquare,
@@ -540,137 +539,90 @@ export default function SundaySchoolFeedbackPage() {
         <p className="text-xs text-ink-3">Your feedback helps improve the ministry app.</p>
       </div>
 
-      <div className={cn('grid min-w-0 gap-5', view === 'board' && 'lg:grid-cols-[220px_minmax(0,1fr)]')}>
-        {view === 'board' && (
-          <aside className="flex flex-col gap-4" aria-label="About the feedback board">
-            <Panel bodyClassName="p-4">
-              <div className="mb-3 flex size-9 items-center justify-center rounded-lg bg-accent-tint text-accent-ink">
-                <Lightbulb aria-hidden className="size-4" />
-              </div>
-              <h2 className="text-sm font-semibold text-ink">Make this app better</h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
-                Have an idea or found a problem? Search the board first, then vote on a request or share your own.
-              </p>
-              <p className="mt-3 text-xs leading-relaxed text-ink-3">
-                Follow the roadmap and Development Team replies for updates.
-              </p>
-            </Panel>
-            <Panel bodyClassName="p-2">
-              <h2 className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">Browse feedback</h2>
-              <div role="group" aria-label="Feedback categories" className="flex flex-col gap-1">
-                {([
-                  { value: 'ALL', label: 'All feedback', icon: Layers3 },
-                  { value: SundaySchoolFeedbackType.IDEA, label: 'Ideas', icon: Lightbulb },
-                  { value: SundaySchoolFeedbackType.PROBLEM, label: 'Problems', icon: Bug },
-                ] as const).map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={typeFilter === option.value}
-                    onClick={() => setTypeFilter(option.value)}
-                    className={cn(
-                      'flex min-h-10 items-center gap-2 rounded-md px-3 text-left text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-accent-ink',
-                      typeFilter === option.value ? 'bg-accent-tint font-medium text-accent-ink' : 'text-ink-2 hover:bg-hover'
-                    )}
-                  >
-                    <option.icon aria-hidden className="size-4" />
-                    {option.label}
-                    <span className="ml-auto text-xs tabular-nums text-ink-3">
-                      {option.value === 'ALL' ? allIdeas.length : allIdeas.filter(idea => idea.type === option.value).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </Panel>
-          </aside>
-        )}
-
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-0 flex-1 basis-full sm:basis-48">
-              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
-              <Input
-                aria-label="Search feedback"
-                placeholder="Search feedback…"
-                value={search}
-                onChange={event => setSearch(event.target.value)}
-                className="pl-9"
-              />
-            </div>
-            {view === 'roadmap' ? (
-              <select aria-label="Filter feedback type" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
-                <option value="ALL">All feedback</option>
-                <option value="IDEA">Ideas</option>
-                <option value="PROBLEM">Problems</option>
-              </select>
-            ) : (
-              <select aria-label="Filter feedback status" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
-                <option value="ALL">All statuses</option>
-                {Object.values(SundaySchoolFeedbackStatus).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
-              </select>
-            )}
-            <select aria-label="Sort feedback" value={sort} onChange={event => setSort(event.target.value as FeedbackSort)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
-              <option value="TOP">Top voted</option>
-              <option value="NEWEST">Newest</option>
-            </select>
-            {hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 basis-full sm:basis-48">
+            <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
+            <Input
+              aria-label="Search feedback"
+              placeholder="Search feedback…"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              className="pl-9"
+            />
           </div>
-
-          {error ? (
-            <Panel>
-              <EmptyState title="Couldn’t load feedback" message="Something went wrong on our side. Try again in a moment." action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>} />
-            </Panel>
-          ) : view === 'board' ? (
-            <Panel
-              title="Community feedback"
-              actions={<span aria-live="polite" className="text-xs tabular-nums text-ink-3">{ideas.length} {ideas.length === 1 ? 'post' : 'posts'}</span>}
-            >
-              {ideas.length === 0 ? (
-                <EmptyState
-                  icon={<MessageSquare />}
-                  title={allIdeas.length ? 'No matching feedback' : 'Start the conversation'}
-                  message={allIdeas.length ? 'Try another search or clear your filters.' : 'Share an idea or report a problem to help improve the app.'}
-                  action={hasFilters ? <Button variant="outline" onClick={clearFilters}>Clear filters</Button> : response?.viewer.canSubmit ? <Button onClick={openCreateDialog}>Post the first feedback</Button> : undefined}
-                />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {ideas.map(idea => <li key={idea.id} className="transition-colors hover:bg-hover/40">{renderEntry(idea)}</li>)}
-                </ul>
-              )}
-            </Panel>
-          ) : (
-            <>
-              <p className="text-[13px] text-ink-3">See what’s planned, what’s being worked on, and what’s ready to use.</p>
-              <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-                {ROADMAP_STATUSES.map(status => {
-                  const columnIdeas = ideas.filter(idea => idea.status === status)
-                  return (
-                    <section key={status} aria-label={`${STATUS_LABELS[status]} feedback`} className="min-w-0 rounded-lg border border-line bg-raised/50 p-3">
-                      <header className="mb-3 flex items-center justify-between gap-2 px-1">
-                        <div>
-                          <h2><StatusBadge tone={STATUS_TONE[status]}>{STATUS_LABELS[status]}</StatusBadge></h2>
-                          <p className="mt-1.5 text-xs text-ink-3">{ROADMAP_DESCRIPTIONS[status]}</p>
-                        </div>
-                        <span aria-label={`${columnIdeas.length} posts`} className="rounded-md border border-line bg-surface px-2 py-1 text-xs tabular-nums text-ink-3">{columnIdeas.length}</span>
-                      </header>
-                      {columnIdeas.length ? (
-                        <ul className="space-y-3">
-                          {columnIdeas.map(idea => <li key={idea.id} className="overflow-hidden rounded-lg border border-line bg-surface">{renderEntry(idea)}</li>)}
-                        </ul>
-                      ) : (
-                        <EmptyState
-                          icon={status === 'COMPLETED' ? <CheckCircle2 /> : <Map />}
-                          message={hasFilters ? 'No matching feedback in this stage.' : `No ${STATUS_LABELS[status].toLowerCase()} feedback yet.`}
-                          className="rounded-lg border border-dashed border-line py-8"
-                        />
-                      )}
-                    </section>
-                  )
-                })}
-              </div>
-            </>
+          <select aria-label="Filter feedback type" value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
+            <option value="ALL">All feedback</option>
+            <option value="IDEA">Ideas</option>
+            <option value="PROBLEM">Problems</option>
+          </select>
+          {view === 'board' && (
+            <select aria-label="Filter feedback status" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
+              <option value="ALL">All statuses</option>
+              {Object.values(SundaySchoolFeedbackStatus).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+            </select>
           )}
+          <select aria-label="Sort feedback" value={sort} onChange={event => setSort(event.target.value as FeedbackSort)} className="h-9 max-w-full rounded-md border border-line-strong bg-surface px-3 text-[13px] text-ink">
+            <option value="TOP">Top voted</option>
+            <option value="NEWEST">Newest</option>
+          </select>
+          {hasFilters && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}
         </div>
+
+        {error ? (
+          <Panel>
+            <EmptyState title="Couldn’t load feedback" message="Something went wrong on our side. Try again in a moment." action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>} />
+          </Panel>
+        ) : view === 'board' ? (
+          <Panel
+            title="Community feedback"
+            actions={<span aria-live="polite" className="text-xs tabular-nums text-ink-3">{ideas.length} {ideas.length === 1 ? 'post' : 'posts'}</span>}
+          >
+            {ideas.length === 0 ? (
+              <EmptyState
+                icon={<MessageSquare />}
+                title={allIdeas.length ? 'No matching feedback' : 'Start the conversation'}
+                message={allIdeas.length ? 'Try another search or clear your filters.' : 'Share an idea or report a problem to help improve the app.'}
+                action={hasFilters ? <Button variant="outline" onClick={clearFilters}>Clear filters</Button> : response?.viewer.canSubmit ? <Button onClick={openCreateDialog}>Post the first feedback</Button> : undefined}
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {ideas.map(idea => <li key={idea.id} className="transition-colors hover:bg-hover/40">{renderEntry(idea)}</li>)}
+              </ul>
+            )}
+          </Panel>
+        ) : (
+          <>
+            <p className="text-[13px] text-ink-3">See what’s planned, what’s being worked on, and what’s ready to use.</p>
+            <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+              {ROADMAP_STATUSES.map(status => {
+                const columnIdeas = ideas.filter(idea => idea.status === status)
+                return (
+                  <section key={status} aria-label={`${STATUS_LABELS[status]} feedback`} className="min-w-0 rounded-lg border border-line bg-raised/50 p-3">
+                    <header className="mb-3 flex items-center justify-between gap-2 px-1">
+                      <div>
+                        <h2><StatusBadge tone={STATUS_TONE[status]}>{STATUS_LABELS[status]}</StatusBadge></h2>
+                        <p className="mt-1.5 text-xs text-ink-3">{ROADMAP_DESCRIPTIONS[status]}</p>
+                      </div>
+                      <span aria-label={`${columnIdeas.length} posts`} className="rounded-md border border-line bg-surface px-2 py-1 text-xs tabular-nums text-ink-3">{columnIdeas.length}</span>
+                    </header>
+                    {columnIdeas.length ? (
+                      <ul className="space-y-3">
+                        {columnIdeas.map(idea => <li key={idea.id} className="overflow-hidden rounded-lg border border-line bg-surface">{renderEntry(idea)}</li>)}
+                      </ul>
+                    ) : (
+                      <EmptyState
+                        icon={status === 'COMPLETED' ? <CheckCircle2 /> : <Map />}
+                        message={hasFilters ? 'No matching feedback in this stage.' : `No ${STATUS_LABELS[status].toLowerCase()} feedback yet.`}
+                        className="rounded-lg border border-dashed border-line py-8"
+                      />
+                    )}
+                  </section>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       <Dialog open={Boolean(selectedIdea)} onOpenChange={open => !open && setSelectedIdeaId(null)}>
