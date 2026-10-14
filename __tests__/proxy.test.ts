@@ -64,3 +64,31 @@ describe('proxy View as write barrier', () => {
     expect(response.headers.get('x-middleware-next')).toBe('1')
   })
 })
+
+describe('public help during required password changes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetToken.mockResolvedValue({ id: 'user-1', mustChangePassword: true } as never)
+  })
+
+  it.each(['/app', '/support', '/privacy', '/terms'])('keeps %s accessible', async (path) => {
+    const response = await proxy(makeRequest(path))
+
+    expect(response.headers.get('x-middleware-next')).toBe('1')
+    expect(response.headers.get('location')).toBeNull()
+  })
+
+  it.each(['/application', '/supporting', '/dashboard'])('still gates %s', async (path) => {
+    const response = await proxy(makeRequest(path))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('https://example.test/change-password')
+  })
+
+  it('continues blocking protected API requests', async () => {
+    const response = await proxy(makeRequest('/api/users'))
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({ error: 'PasswordChangeRequired' })
+  })
+})

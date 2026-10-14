@@ -52,6 +52,12 @@ export function PublicFrame({
 export function PublicFooter() {
   return (
     <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12.5px] text-ink-3">
+      <Link href="/app" className="text-ink-3 no-underline hover:text-ink">
+        About the app
+      </Link>
+      <Link href="/support" className="text-ink-3 no-underline hover:text-ink">
+        Support
+      </Link>
       <Link href="/privacy" className="text-ink-3 no-underline hover:text-ink">
         Privacy
       </Link>
