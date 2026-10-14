@@ -8,6 +8,7 @@ function fixture() {
   let attempt: ExamAttemptView = { id: "attempt", state: "ACTIVE", answers: Array<string>(50).fill(""), revision: 1,
     startedAt: "2026-10-14T12:00:00Z", lastSeenAt: "2026-10-14T12:00:00Z", pausedAt: null, submittedAt: null, attemptNumber: 1 };
   let examState = "OPEN";
+  let hasAttempt = false;
   let draft: string | null = null;
   let serial = 1;
   const view = (): DigitalExamView => ({
@@ -17,9 +18,16 @@ function fixture() {
   });
   const getView = vi.fn(async () => {
     if (examState !== "OPEN") throw new ApiError("Not found", 404);
-    return view();
+    return { ...view(), attempt: hasAttempt ? structuredClone(attempt) : null };
   });
   const server = async (body: Record<string, unknown>): Promise<AttemptResponse> => {
+    if (attempt.state === "SUBMITTED") {
+      if (["start", "submit", "heartbeat"].includes(String(body.action))) return { attempt: structuredClone(attempt), examState };
+      throw new ApiError("Your exam has already been submitted.", 409);
+    }
+    if (examState !== "OPEN") throw new ApiError("The exam is not open.", 409);
+    if (attempt.retakeReady && body.action !== "start") throw new ApiError("Start the approved retake first.", 409);
+    if (body.action === "start") hasAttempt = true;
     if (body.action === "start" && attempt.retakeReady) attempt = { ...attempt, retakeReady: false, state: "ACTIVE", revision: attempt.revision + 1 };
     if (body.action === "events") {
       const events = body.events as { kind: string }[];
@@ -44,7 +52,7 @@ function fixture() {
   const control = create();
   return { control, create, post, getView, save, server, view, get draft() { return draft; },
     setDraft: (value: string) => { draft = value; },
-    setAttempt: (value: Partial<ExamAttemptView>) => { attempt = { ...attempt, ...value }; },
+    setAttempt: (value: Partial<ExamAttemptView>) => { attempt = { ...attempt, ...value }; hasAttempt = true; },
     close: () => { examState = "CLOSED"; attempt = { ...attempt, state: "SUBMITTED", revision: attempt.revision + 1, submittedAt: "2026-10-14T13:00:00Z" }; },
   };
 }
@@ -85,6 +93,7 @@ describe("native live exam answering", () => {
     const restored = f.create(); await restored.refresh(); await restored.start();
     expect(restored.snapshot().starredQuestions).toEqual([9]);
     expect(f.post.mock.calls.some(([body]) => "starredQuestions" in body)).toBe(false);
+    f.setAttempt({ state: "ACTIVE", revision: 20 }); await restored.refresh();
     await restored.submit();
     expect(restored.snapshot().starredQuestions).toEqual([]);
   });
@@ -142,6 +151,35 @@ describe("native live exam answering", () => {
     expect(f.control.snapshot().paused).toBe(true);
     expect(f.control.snapshot().attempt?.state).toBe("PAUSED");
     expect(f.post.mock.calls.some(([body]) => body.action === "events" && body.visible === false)).toBe(true);
+  });
+  it("reports a brief interruption even if the student returns before Start finishes", async () => {
+    const f = fixture(); await f.control.refresh();
+    let finish!: () => void;
+    const delay = new Promise<void>(resolve => { finish = resolve; });
+    f.post.mockImplementation(async body => { if (body.action === "start") await delay; return f.server(body); });
+    const opening = f.control.start();
+    await vi.waitFor(() => expect(f.post).toHaveBeenCalled());
+    f.control.visibility(false, true); f.control.visibility(true);
+    finish(); await opening;
+    expect(f.control.snapshot().paused).toBe(true);
+    expect(f.control.snapshot().attempt?.state).toBe("PAUSED");
+  });
+  it("requires clearance when resuming even if the old session left no queued reports", async () => {
+    const f = await started();
+    const restored = f.create(); await restored.refresh(); await restored.start();
+    expect(restored.snapshot().paused).toBe(true);
+    expect(restored.snapshot().attempt?.state).toBe("PAUSED");
+    restored.choose(0, "A"); expect(saves(f)).toHaveLength(0);
+  });
+  it("preserves the session token before an ambiguous Start response", async () => {
+    const f = fixture(); await f.control.refresh();
+    f.post.mockImplementationOnce(async body => { await f.server(body); throw new Error("Response lost"); });
+    await f.control.start();
+    const token = f.post.mock.calls[0][0].sessionToken;
+    expect(JSON.parse(f.draft!).token).toBe(token);
+    const restored = f.create(); await restored.refresh(); await restored.start();
+    expect(f.post.mock.calls.filter(([body]) => body.action === "start").at(-1)?.[0].sessionToken).toBe(token);
+    expect(restored.snapshot().paused).toBe(true);
   });
   it("retains offline choices and requires unlock before retrying them", async () => {
     const f = await started();
@@ -234,6 +272,85 @@ describe("native live exam answering", () => {
     expect(f.control.snapshot().examState).toBe("CLOSED");
     expect(f.control.snapshot().error).toBeUndefined();
     f.control.choose(0, "A"); expect(saves(f)).toHaveLength(0);
+  });
+  it("observes closure even when offline answers and activity reports are still queued", async () => {
+    const f = await started();
+    f.post.mockRejectedValueOnce(new Error("Offline")); f.control.choose(1, "B");
+    await vi.waitFor(() => expect(f.control.snapshot().offline).toBe(true));
+    f.close(); await f.control.refresh();
+    expect(f.control.snapshot().attempt?.state).toBe("SUBMITTED");
+    expect(f.control.snapshot().examState).toBe("CLOSED");
+    expect(f.control.snapshot().answers[1]).toBe("");
+    expect(f.control.snapshot().pendingCount).toBe(0);
+    expect(f.control.snapshot().pendingEvents).toBe(0);
+  });
+  it("recovers a submission whose response was lost without replaying offline activity forever", async () => {
+    const f = await started();
+    f.post.mockImplementationOnce(async body => { await f.server(body); throw new Error("Response lost"); });
+    await f.control.submit();
+    expect(f.control.snapshot().offline).toBe(true);
+    await f.control.refresh();
+    expect(f.control.snapshot().attempt?.state).toBe("SUBMITTED");
+    expect(f.control.snapshot().pendingEvents).toBe(0);
+    await vi.waitFor(() => expect(f.draft).toBeNull());
+  });
+  it("learns about a retake even when the old session has queued activity", async () => {
+    const f = await started();
+    f.post.mockRejectedValueOnce(new Error("Offline")); f.control.choose(1, "B");
+    await vi.waitFor(() => expect(f.control.snapshot().offline).toBe(true));
+    f.setAttempt({ attemptNumber: 2, retakeReady: true, state: "PAUSED", revision: 20 });
+    await f.control.refresh();
+    expect(f.control.snapshot().started).toBe(false);
+    expect(f.control.snapshot().attempt?.retakeReady).toBe(true);
+    expect(f.control.snapshot().pendingCount).toBe(0);
+    expect(f.control.snapshot().pendingEvents).toBe(0);
+    await f.control.start();
+    expect(f.control.snapshot().started).toBe(true);
+    expect(f.control.snapshot().attempt?.retakeReady).toBe(false);
+    expect(f.control.snapshot().paused).toBe(false);
+  });
+  it("stops accepting local choices when another session takes ownership", async () => {
+    const f = await started();
+    f.post.mockRejectedValue(new ApiError("Another answering session owns this attempt.", 409));
+    await f.control.refresh();
+    expect(f.control.snapshot().started).toBe(false);
+    expect(f.control.snapshot().paused).toBe(true);
+    f.control.choose(0, "A"); expect(saves(f)).toHaveLength(0);
+  });
+  it("verifies ownership after a failed save even before the next heartbeat is due", async () => {
+    const f = await started(); await f.control.refresh();
+    f.post.mockRejectedValue(new ApiError("Another answering session owns this attempt.", 409));
+    f.control.choose(0, "A");
+    await vi.waitFor(() => expect(f.control.snapshot().paused).toBe(true));
+    await f.control.refresh();
+    expect(f.control.snapshot().started).toBe(false);
+    expect(f.control.snapshot().paused).toBe(true);
+    f.control.choose(1, "B"); expect(f.control.snapshot().answers[1]).toBe("");
+  });
+  it("keeps answering blocked until ownership verification finishes", async () => {
+    const f = await started(); await f.control.refresh();
+    let finish!: () => void;
+    const delay = new Promise<void>(resolve => { finish = resolve; });
+    f.setAttempt({ revision: 20 });
+    f.post.mockImplementation(async body => { if (body.action === "heartbeat") await delay; return f.server(body); });
+    f.control.choose(0, "A");
+    await vi.waitFor(() => expect(f.control.snapshot().paused).toBe(true));
+    const refresh = f.control.refresh();
+    await vi.waitFor(() => expect(f.post.mock.calls.filter(([body]) => body.action === "heartbeat")).toHaveLength(2));
+    expect(f.control.snapshot().paused).toBe(true);
+    f.control.choose(1, "B"); expect(f.control.snapshot().answers[1]).toBe("");
+    finish(); await refresh;
+    expect(f.control.snapshot().paused).toBe(false);
+    expect(f.control.snapshot().pendingCount).toBe(0);
+  });
+  it("pauses on server errors and requires clearance after recovery", async () => {
+    const f = await started();
+    f.post.mockRejectedValueOnce(new ApiError("Service unavailable", 503));
+    f.control.choose(0, "A");
+    await vi.waitFor(() => expect(f.control.snapshot().offline).toBe(true));
+    await f.control.refresh();
+    expect(f.control.snapshot().paused).toBe(true);
+    expect(f.control.snapshot().pendingCount).toBe(1);
   });
   it("waits for answers, submits once, clears encrypted drafts, and locks final answers", async () => {
     const f = await started();

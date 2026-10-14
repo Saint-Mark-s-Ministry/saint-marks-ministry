@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AppState, Platform } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { uuid } from "expo-modules-core";
@@ -14,35 +14,50 @@ import { digitalExamPath } from "./live-exams";
 export function useLiveResource<T>(path: string | null) {
   const [state, setState] = useState<{ path: string | null; data?: T; error?: string }>({ path });
   const [refreshing, setRefreshing] = useState(false);
-  const refresh = useCallback(async (signal?: AbortSignal, manual = false) => {
-    if (!path) return;
+  const lifecycle = useRef<{ active: boolean; generation: number; flight?: { controller: AbortController; promise: Promise<void> } }>({ active: false, generation: 0 });
+  const refresh = useCallback((manual = false): Promise<void> => {
+    const current = lifecycle.current;
+    if (!path || !current.active || AppState.currentState !== "active") return Promise.resolve();
     if (manual) setRefreshing(true);
-    try {
-      const data = await request<T>(path, "GET", undefined, { signal, cache: "no-store" });
-      if (!signal?.aborted) setState({ path, data });
-    } catch (error) {
-      if (!signal?.aborted) setState({ path, error: error instanceof Error ? error.message : "Unable to refresh the live exam." });
-    } finally { if (manual && !signal?.aborted) setRefreshing(false); }
+    if (current.flight) return current.flight.promise;
+    const controller = new AbortController();
+    const generation = current.generation;
+    const valid = () => current.active && current.generation === generation && !controller.signal.aborted && AppState.currentState === "active";
+    const promise = request<T>(path, "GET", undefined, { signal: controller.signal, cache: "no-store" }).then(data => {
+      if (valid()) setState({ path, data });
+    }).catch(error => {
+      if (valid()) setState({ path, error: error instanceof Error ? error.message : "Unable to refresh the live exam." });
+    }).finally(() => {
+      if (current.flight?.controller === controller) current.flight = undefined;
+      if (valid()) setRefreshing(false);
+    });
+    current.flight = { controller, promise };
+    return promise;
   }, [path]);
   useFocusEffect(useCallback(() => {
-    const controller = new AbortController();
-    let inFlight = false;
-    const poll = async () => {
-      if (AppState.currentState !== "active" || inFlight) return;
-      inFlight = true;
-      try { await refresh(controller.signal); } finally { inFlight = false; }
+    const current = lifecycle.current;
+    const pause = () => {
+      current.active = false; current.generation++;
+      current.flight?.controller.abort(); current.flight = undefined;
+      setRefreshing(false);
+      setState({ path, error: "Monitoring is paused while this screen is in the background." });
     };
-    void poll();
-    const interval = setInterval(() => void poll(), 2000);
+    const resume = () => {
+      current.active = true; current.generation++;
+      setState({ path });
+      void refresh();
+    };
+    if (AppState.currentState === "active") resume(); else pause();
+    const interval = setInterval(() => void refresh(), 2000);
     const subscription = AppState.addEventListener("change", value => {
-      if (value === "active") void poll();
-      else setState({ path, error: "Monitoring is paused while this screen is in the background." });
+      if (value === "active") { if (!current.active) resume(); }
+      else pause();
     });
-    return () => { controller.abort(); clearInterval(interval); subscription.remove(); };
+    return () => { pause(); clearInterval(interval); subscription.remove(); };
   }, [refresh, path]));
   const current = state.path === path ? state : { path };
   return { ...current, loading: !!path && !current.data && !current.error, refreshing,
-    refresh: () => refresh(undefined, true) };
+    refresh: () => refresh(true) };
 }
 
 // Chunk encrypted drafts so Keychain/Keystore item-size limits do not lose a

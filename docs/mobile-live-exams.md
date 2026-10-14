@@ -54,7 +54,12 @@ encrypted, device-only Keychain/Keystore items scoped to the API origin,
 account and exam. Large drafts use chunks with an atomic manifest. Saved
 server answers, answer keys and grades are not persisted in this store.
 Submission deletes the pending draft; a new attempt version discards the
-previous version's pending choices. The server remains authoritative across
+previous version's pending choices. The token is preserved before Start is
+sent, so a lost response can recover the same session. Resuming an existing
+attempt requires clearance even if the previous process stopped before it
+could queue an interruption report. Brief interruptions during Start are also
+reported, including when the student returns before the request finishes.
+The server remains authoritative across
 web and native sessions. Switching to a different answering session follows
 the existing 30-second recovery and proctor-unlock rules.
 
@@ -92,6 +97,16 @@ The full jsdom suite requires a compatible Node runtime (validated with Node
 tests. Native controller tests cover slow save acknowledgments, focus loss
 during saving, offline recovery, blocked saves, revision conflicts, durable
 draft restoration, versioned retakes, closure, final submission, and denial.
-Database integration tests still require an explicitly isolated test database
-as described in `digital-exams.md`. Rehearse on physical devices before a real
+Queued writes cannot block reading a proctor-finalized submission or a new
+retake version. A rejected ownership check blocks answering until the student
+explicitly resumes. Monitoring cancels background reads and ignores late
+responses; manual refresh shares the current read instead of racing it.
+Hook tests cover monitoring freshness and native keep-awake cleanup.
+
+The database suite also runs the native controller through the actual API for
+save/clear, interruption/unlock, grading secrecy, offline closure, lost
+submission responses, retakes and competing sessions. It was validated against
+an isolated local PostgreSQL database. Database integration tests require an
+explicitly isolated test database as described in `digital-exams.md`.
+Rehearse on physical devices before a real
 exam, especially interruption delivery, sounds, and Focus behavior.

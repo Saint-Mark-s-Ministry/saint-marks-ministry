@@ -39,6 +39,8 @@ export class ExamAttemptController {
   private stopped = false;
   private syncing: Promise<void> | null = null;
   private lastHeartbeat = 0;
+  private visibilityRevision = 0;
+  private verifyOwnership = false;
   private now: () => number;
 
   constructor(private dependencies: Dependencies) {
@@ -84,7 +86,7 @@ export class ExamAttemptController {
       void this.persist();
     }
     this.update({ ...(attempt.retakeReady ? { started: false } : {}), paused: attempt.state === "PAUSED" || (this.state.paused
-      && !(attempt.state === "ACTIVE" && !this.draft.events.length && !this.state.offline && this.state.visible)) });
+      && !(attempt.state === "ACTIVE" && !this.verifyOwnership && !this.draft.events.length && !this.state.offline && this.state.visible)) });
   }
   private event(kind: EventKind) {
     if (!this.owned || this.state.attempt?.state === "SUBMITTED") return;
@@ -101,9 +103,13 @@ export class ExamAttemptController {
         this.update({ view: undefined, started: false, paused: true, error: message, message });
         return;
       }
-    } else if (!this.state.offline) {
-      this.update({ offline: true, paused: true });
-      this.event("OFFLINE");
+      if (error.status === 409) { this.verifyOwnership = true; this.update({ paused: true }); }
+    }
+    if (!(error instanceof ApiError) || error.status >= 500 || error.status === 408) {
+      if (!this.state.offline) {
+        this.update({ offline: true, paused: true });
+        this.event("OFFLINE");
+      }
     }
     this.update({ message });
   }
@@ -115,6 +121,7 @@ export class ExamAttemptController {
   }
   private async post(body: Record<string, unknown>) {
     const result = await this.dependencies.post({ ...body, sessionToken: this.draft.token, visible: this.state.visible });
+    if (body.action === "heartbeat" || body.action === "start") this.verifyOwnership = false;
     this.reconnected();
     this.update({ examState: result.examState });
     this.apply(result.attempt);
@@ -131,7 +138,7 @@ export class ExamAttemptController {
     }
   }
   private canAnswer() {
-    return this.owned && this.state.started && !this.state.busy && !this.state.paused
+    return this.owned && !this.verifyOwnership && this.state.started && !this.state.busy && !this.state.paused
       && !this.state.offline && this.state.visible && !this.draft.events.length
       && this.state.attempt?.state === "ACTIVE" && this.state.examState === "OPEN";
   }
@@ -139,17 +146,7 @@ export class ExamAttemptController {
     while (this.canAnswer() && Object.keys(this.draft.answers).length) {
       const question = Object.keys(this.draft.answers)[0];
       const answer = this.draft.answers[question];
-      let result: AttemptResponse;
-      try {
-        result = await this.post({ action: "save", question: Number(question), answer, revision: this.state.attempt!.revision });
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 409) {
-          const view = await this.dependencies.getView();
-          this.update({ view, examState: view.sheet?.state ?? "" });
-          if (view.attempt) this.apply(view.attempt);
-        }
-        throw error;
-      }
+      const result = await this.post({ action: "save", question: Number(question), answer, revision: this.state.attempt!.revision });
       if (result.blocked || result.attempt.state !== "ACTIVE") break;
       if (this.draft.answers[question] === answer) delete this.draft.answers[question];
       await this.persist();
@@ -161,13 +158,21 @@ export class ExamAttemptController {
     this.syncing = this.serial(async () => {
       try {
         if (this.owned) {
-          await this.flushEvents();
-          if (this.state.visible && this.now() - this.lastHeartbeat >= 10000) {
-            await this.post({ action: "heartbeat" }); this.lastHeartbeat = this.now();
+          try {
             await this.flushEvents();
+            if (this.state.visible && this.now() - this.lastHeartbeat >= 10000) {
+              await this.post({ action: "heartbeat" }); this.lastHeartbeat = this.now(); this.verifyOwnership = false;
+              await this.flushEvents();
+            }
+            await this.flushAnswers();
+          } catch (error) {
+            this.failure(error);
+            if (error instanceof ApiError && [401, 403].includes(error.status)) return;
           }
-          await this.flushAnswers();
         }
+        // Writes may be rejected because a proctor closed the exam, replaced
+        // this attempt, or another session took ownership. Always read current
+        // state instead of letting an obsolete retry queue starve recovery.
         if (!this.state.visible) return;
         try {
           const view = await this.dependencies.getView();
@@ -175,7 +180,18 @@ export class ExamAttemptController {
           this.reconnected();
           this.update({ view, examState: view.sheet?.state ?? "", error: undefined });
           if (view.attempt) this.apply(view.attempt);
-          if (this.owned) await this.flushEvents();
+          if (this.owned && this.verifyOwnership && this.state.attempt?.state !== "SUBMITTED") {
+            try { await this.post({ action: "heartbeat" }); this.lastHeartbeat = this.now(); this.verifyOwnership = false; }
+            catch (error) {
+              if (error instanceof ApiError && error.status === 409) {
+                this.owned = false;
+                this.update({ started: false, paused: true, message: error.message });
+                return;
+              }
+              throw error;
+            }
+          }
+          if (this.owned) { await this.flushEvents(); await this.flushAnswers(); }
         } catch (error) {
           // Closing hides the student's GET, but heartbeat returns the finalized
           // submission. Do not leave the last open sheet looking answerable.
@@ -184,7 +200,7 @@ export class ExamAttemptController {
             this.update({ examState: "CLOSED", error: this.state.attempt?.state === "SUBMITTED" ? undefined : "This live exam is no longer open." });
           } else throw error;
         }
-        if (!this.state.offline) this.update({ message: "" });
+        if (!this.state.offline && (this.owned || this.state.attempt?.state === "SUBMITTED")) this.update({ message: "" });
       } catch (error) { this.failure(error); }
       finally { this.update({ loading: false }); }
     }).finally(() => { this.syncing = null; });
@@ -192,6 +208,8 @@ export class ExamAttemptController {
   };
   start = () => this.serial(async () => {
     if (this.stopped || this.owned || !this.state.visible || this.state.examState !== "OPEN") return;
+    const visibilityRevision = this.visibilityRevision;
+    const resuming = !!this.state.attempt && !this.state.attempt.retakeReady && this.state.attempt.state !== "SUBMITTED";
     this.update({ busy: true, message: "" });
     try {
       const raw = await this.dependencies.store.load();
@@ -201,11 +219,20 @@ export class ExamAttemptController {
         if (validDraft(value)) this.draft = { ...value, starredQuestions: value.starredQuestions ?? [] };
       }
       this.draftLoaded = true;
+      // Save the token before sending Start: a lost response may still have
+      // created the session, and recovery must use that same token.
+      await this.persist();
       const result = await this.post({ action: "start" });
+      this.verifyOwnership = false;
       this.owned = result.attempt.state !== "SUBMITTED";
       this.update({ started: true });
-      if (this.draft.events.length || Object.keys(this.draft.answers).length) {
+      if (resuming || this.draft.events.length || Object.keys(this.draft.answers).length) {
         this.event("RECONNECTED"); if (this.state.visible) this.event("RETURNED");
+        await this.flushEvents();
+      }
+      // Capture even an interruption that ended before Start's reply arrived.
+      if (this.visibilityRevision !== visibilityRevision) {
+        this.event("BLUR"); this.event(this.state.visible ? "RETURNED" : "HIDDEN");
         await this.flushEvents();
       }
       if (!this.state.visible) { this.event("HIDDEN"); await this.flushEvents(); }
@@ -235,6 +262,7 @@ export class ExamAttemptController {
     const changed = visible !== this.state.visible;
     this.update({ visible });
     if (!changed && !focusLoss) return;
+    this.visibilityRevision++;
     this.event(visible ? "RETURNED" : focusLoss ? "BLUR" : "HIDDEN");
     // Both signals matter: BLUR pauses and HIDDEN prevents premature unlock.
     if (!visible && focusLoss) this.event("HIDDEN");

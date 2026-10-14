@@ -46,7 +46,7 @@ function Monitor({ id }: { id: string }) {
     .sort((a, b) => b.event.createdAt.localeCompare(a.event.createdAt)).slice(0, 8);
   return <>
     <Stack.Screen options={{ title: view?.exam.examSection.displayName ?? "Exam Monitoring", headerLargeTitle: false }} />
-    <Screen onRefresh={() => void resource.refresh()} refreshing={resource.loading}>
+    <Screen onRefresh={() => void resource.refresh()} refreshing={resource.refreshing}>
       <ResourceState loading={resource.loading} error={resource.error} retry={() => void resource.refresh()} />
       {resource.error && <Copy>Monitoring is unavailable. Student status is out of date; saved answers and pauses remain on the server.</Copy>}
       {view && <>
