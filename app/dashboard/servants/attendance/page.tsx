@@ -242,7 +242,7 @@ function SundaySchoolAttendanceContent() {
                                 type="button"
                                 aria-label={`View attendance history for ${getChildFullName(entry)}`}
                                 aria-haspopup="dialog"
-                                className="min-h-11 truncate rounded-sm text-left text-[14px] font-medium text-accent-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent-ink md:min-h-0"
+                                className="min-h-11 truncate rounded-sm text-left text-[14px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent-ink md:min-h-0"
                                 onClick={event => {
                                   historyTrigger.current = event.currentTarget
                                   setHistoryChild({ id: entry.id, name: getChildFullName(entry), classId: selectedClassId })
