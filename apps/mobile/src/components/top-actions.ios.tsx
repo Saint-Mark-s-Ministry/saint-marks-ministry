@@ -1,7 +1,6 @@
 import { Pressable } from "react-native";
 import { router, Stack, type Href } from "expo-router";
-import { InitialsAvatar } from "./ui";
-import { useAuth } from "@/data/auth-provider";
+import { AccountAvatar } from "./account-avatar";
 
 /**
  * This file is the actual iOS implementation of TopActions (Metro resolves
@@ -15,7 +14,6 @@ export function TopActions({
   unread?: number;
   notifications?: boolean;
 }) {
-  const { user } = useAuth();
   return (
     <Stack.Toolbar placement="right">
       {notifications && (
@@ -31,7 +29,7 @@ export function TopActions({
           )}
         </Stack.Toolbar.Button>
       )}
-      {/* A person's monogram isn't one of the toolbar's fixed native
+      {/* A person's avatar isn't one of the toolbar's fixed native
           primitives (icon/label/badge), so this is the one arbitrary-content
           slot (Stack.Toolbar.View) instead of Stack.Toolbar.Button. */}
       <Stack.Toolbar.View separateBackground>
@@ -42,7 +40,7 @@ export function TopActions({
           onPress={() => router.push("/account" as Href)}
           style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center" }}
         >
-          <InitialsAvatar name={user?.name} size={30} filled={false} />
+          <AccountAvatar size={32} />
         </Pressable>
       </Stack.Toolbar.View>
     </Stack.Toolbar>

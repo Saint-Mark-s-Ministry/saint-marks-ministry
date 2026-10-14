@@ -21,6 +21,7 @@ type Tool = { id: string; title: string; subtitle: string; href: Href };
 const TOOLS: Tool[] = [
   { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance" },
   { id: "exams", title: "Exams", subtitle: "Scores and averages", href: "/prep-exams" },
+  { id: "exam-monitoring", title: "Exam Monitoring", subtitle: "Live progress and proctor controls", href: "/prep-exam-monitoring" },
   { id: "curriculum", title: "Curriculum", subtitle: "Lessons by year", href: "/prep-curriculum" },
   { id: "confession", title: "Confession", subtitle: "Periods and slips", href: "/prep-confession" },
   { id: "roster", title: "Roster & async students", subtitle: "Enrollment and eligibility", href: "/prep-roster" },
@@ -34,9 +35,10 @@ export default function PrepSearch() {
   const { colors } = useAppTheme();
   const [query, setQuery] = useState("");
   const trimmed = query.trim().toLowerCase();
-  const tools = trimmed
-    ? TOOLS.filter((tool) => tool.title.toLowerCase().includes(trimmed))
-    : TOOLS;
+  const available = isAdminLike(user?.role) ? TOOLS : user?.role === "STUDENT"
+    ? [{ id: "live-exams", title: "Live Exam", subtitle: "Your proctored original exam", href: "/prep-live-exams" as Href }, ...TOOLS.filter(tool => tool.id === "files")]
+    : TOOLS.filter(tool => tool.id === "files");
+  const tools = trimmed ? available.filter(tool => `${tool.title} ${tool.subtitle}`.toLowerCase().includes(trimmed)) : available;
 
   // Students search (SMM-34): the only feature area with search wired up so
   // far — exams and lessons still fall back to "jump straight to a tool"

@@ -6,12 +6,12 @@ import {
   ConnectionBadge,
   Copy,
   Icon,
-  InitialsAvatar,
   RowLink,
   Screen,
   SectionTitle,
   StatusPill,
 } from "@/components/ui";
+import { AccountAvatar } from "@/components/account-avatar";
 import { apiOrigin, dataLabel, useAuth } from "@/data/auth-provider";
 import { usePortal } from "@/data/portal-provider";
 import { useResource } from "@/data/resources";
@@ -55,7 +55,7 @@ export function AccountScreen() {
       )}
       <Screen>
         <View style={{ alignItems: "center", gap: 8, paddingTop: 8 }}>
-          <InitialsAvatar name={user?.name} size={76} />
+          <AccountAvatar size={76} filled />
           <Copy style={{ fontFamily: serifDisplay, fontSize: 26, lineHeight: 30, fontWeight: "500" }}>
             {user?.name ?? "Ministry account"}
           </Copy>

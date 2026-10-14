@@ -22,6 +22,7 @@ type MinistryLink = { id: string; title: string; subtitle: string; href: Href; i
 const ADMIN_LINKS: MinistryLink[] = [
   { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance", icon: { ios: "checkmark.circle", android: "check_circle" } },
   { id: "exams", title: "Exams", subtitle: "Scores and averages", href: "/prep-exams", icon: { ios: "doc.text", android: "description" } },
+  { id: "exam-monitoring", title: "Exam Monitoring", subtitle: "Live progress, pauses, and exam controls", href: "/prep-exam-monitoring", icon: { ios: "waveform.path.ecg", android: "monitoring" } },
   { id: "curriculum", title: "Curriculum", subtitle: "Lessons by year", href: "/prep-curriculum", icon: { ios: "book.closed", android: "menu_book" } },
   { id: "confession", title: "Confession", subtitle: "Periods and slips", href: "/prep-confession", icon: { ios: "cross", android: "church" } },
   { id: "roster", title: "Roster & async students", subtitle: "Enrollment and eligibility", href: "/prep-roster", icon: { ios: "person.3", android: "groups" } },
@@ -43,6 +44,11 @@ const SHARED_LINKS: MinistryLink[] = [
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files", icon: { ios: "folder", android: "folder" } },
 ];
 
+const STUDENT_LINKS: MinistryLink[] = [
+  { id: "live-exams", title: "Live Exam", subtitle: "Your proctored original exam", href: "/prep-live-exams", icon: { ios: "checklist", android: "fact_check" } },
+  ...SHARED_LINKS,
+];
+
 /** The mentor's own reduced destination set — matches the design source's 3-tab Dashboard/Mentees/Files bar, reached here rather than a role-conditional native tab bar (a bigger structural change out of this ticket's scope). */
 const MENTOR_LINKS: MinistryLink[] = [
   { id: "mentor-dashboard", title: "Dashboard", subtitle: "Your mentees at a glance", href: "/prep-mentor-dashboard", icon: { ios: "house", android: "home" } },
@@ -54,7 +60,7 @@ export default function PrepMinistry() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const isAdminLike = !user || ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"].includes(user.role);
-  const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
+  const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : user?.role === "STUDENT" ? STUDENT_LINKS : SHARED_LINKS;
   // Menu visibility only; the screen and API re-check access themselves.
   const links = canSeeContactBook(user) ? [...baseLinks, CONTACT_BOOK_LINK] : baseLinks;
   return (

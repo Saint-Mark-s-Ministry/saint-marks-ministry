@@ -31,6 +31,10 @@ describe("notification -> native route", () => {
   });
 
   it("opens the specific record when the link carries an id", () => {
+    expect(resolveNotificationRoute({ url: "/dashboard/admin/exams/exam1/monitor" })).toBe("/prep-exam-monitor/exam1");
+    expect(resolveNotificationRoute({ url: "/dashboard/admin/exam-monitoring" })).toBe("/prep-exam-monitoring");
+    expect(resolveNotificationRoute({ url: "/dashboard/student/exams" })).toBe("/prep-live-exams");
+    expect(resolveNotificationRoute({ url: "/dashboard/student/exams/exam1" })).toBe("/prep-live-exam/exam1");
     expect(resolveNotificationRoute({ url: "/dashboard/admin/registrations/r42" })).toBe("/prep-registration/r42");
     expect(resolveNotificationRoute({ url: "/dashboard/servants/lessons/l7" })).toBe("/lesson/l7");
     expect(resolveNotificationRoute({ url: "/dashboard/servants/classes/c1" })).toBe("/class/c1");

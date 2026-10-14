@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { router, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Icon, InitialsAvatar } from "./ui";
+import { Icon } from "./ui";
+import { AccountAvatar } from "./account-avatar";
 import { useAppTheme } from "@/theme";
-import { useAuth } from "@/data/auth-provider";
 
 function HeaderButton({
   label,
@@ -48,7 +48,6 @@ export function TopActions({
   notifications?: boolean;
 }) {
   const { colors } = useAppTheme();
-  const { user } = useAuth();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       {notifications && (
@@ -76,7 +75,7 @@ export function TopActions({
         label="Account"
         onPress={() => router.push("/account" as Href)}
       >
-        <InitialsAvatar name={user?.name} size={32} filled={false} />
+        <AccountAvatar size={32} />
       </HeaderButton>
     </View>
   );

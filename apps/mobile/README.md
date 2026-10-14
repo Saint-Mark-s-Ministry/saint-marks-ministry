@@ -17,6 +17,11 @@ Android development and JavaScript bundle export are also configured.
   lessons, mentor/mentee views, enrollment and registration review, async student
   review, and annual mentor confirmation through Application. Async students
   without a cohort year are shown as “No cohort year”.
+- **Live exams:** native Exam Monitoring for Prep servants (read-only for
+  priests), original answer-sheet configuration, opening/closing, unlocking,
+  result release, retakes, and activity history; student Live Exam with
+  autosaving, encrypted pending drafts, interruption pauses, and final submission.
+  See [`../../docs/mobile-live-exams.md`](../../docs/mobile-live-exams.md).
 - **Shared:** sign-in and password changes, Contact Book with individually
   granted access and ministry roles, notifications, Super Admin main-class
   pinning, read-only View As, and password-confirmed account deletion.
@@ -78,8 +83,9 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
 - Uses `expo/fetch` with an explicit cookie jar, separate from Expo Go's shared
   cookie store. Requests stay on the configured origin and do not follow redirects.
 - Session cookies are stored with Expo SecureStore, scoped to the API origin.
-  Passwords and ministry records are not persisted on the device. Sign-out clears
-  local credentials even when the server cannot be reached.
+  Passwords are not persisted. Ministry records load from the server; pending
+  live-exam choices use the separate encrypted draft store described below.
+  Sign-out clears local credentials even when the server cannot be reached.
 - The existing API revalidates accounts and derives class permissions on the
   server. Priests can read attendance but cannot save it. Forced and voluntary
   password changes are completed in the native app.
@@ -97,8 +103,10 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   hidden during View As.
 - Privacy Policy and Terms are reachable on Sign in and public sign-up screens;
   Forgot password opens the existing web reset flow.
-- Draft attendance is memory-only and clears on sign-out/reload. There is no
-  offline write queue. A lost connection shows an error and retry action.
+- Draft attendance is memory-only and clears on sign-out/reload. Attendance has
+  no offline write queue. Live exams preserve pending answers and activity in
+  device-only encrypted storage; resuming after connection loss requires
+  proctor clearance before those answers can retry.
 - Glass is limited to navigation and selected controls. Content uses opaque
   surfaces; custom glass respects Reduce Transparency and falls back on Android.
 
