@@ -7,6 +7,7 @@ import {
   LockKeyhole,
   MessageSquareText,
   Phone,
+  Star,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -61,13 +62,14 @@ export default function SundaySchoolVisitationsPage() {
 
   const [selectedClassId, setSelectedClassId] = useState('')
   const [search, setSearch] = useState('')
-  const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done'>('all')
+  const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done' | 'priority'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [visitationStatus, setVisitationStatus] = useState<SundaySchoolVisitationStatus>(
     SundaySchoolVisitationStatus.DONE
   )
   const [visitedAt, setVisitedAt] = useState(TODAY)
   const [notes, setNotes] = useState('')
+  const [savingPriority, setSavingPriority] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [calledAt, setCalledAt] = useState(TODAY)
   const [callOutcome, setCallOutcome] = useState<SundaySchoolPhoneCallOutcome>(
@@ -144,6 +146,25 @@ export default function SundaySchoolVisitationsPage() {
     void loadPriestNotes(selectedChildId)
   }, [isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
 
+  const togglePriority = async (child: SundaySchoolVisitationChild) => {
+    setSavingPriority(child.id)
+    try {
+      const res = await fetch('/api/sunday-school/visitations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId: child.id, priority: !child.visitationPriority }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Failed to save priority')
+      await mutate()
+      toast.success(child.visitationPriority ? 'Removed from priority visits' : 'Added to priority visits')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save priority')
+    } finally {
+      setSavingPriority(null)
+    }
+  }
+
   const handleSave = async () => {
     if (!selectedChild) return
 
@@ -218,7 +239,7 @@ export default function SundaySchoolVisitationsPage() {
   }
 
   const isDoneChild = (child: (typeof visibleChildren)[number]) => child.visitations[0]?.status === SundaySchoolVisitationStatus.DONE
-  const listed = visibleChildren.filter((child) => (visitView === 'all' ? true : visitView === 'done' ? isDoneChild(child) : !isDoneChild(child)))
+  const listed = visibleChildren.filter((child) => (visitView === 'all' ? true : visitView === 'priority' ? child.visitationPriority : visitView === 'done' ? isDoneChild(child) : !isDoneChild(child)))
 
   return (
     <div className="content-reveal flex min-w-0 flex-col">
@@ -261,6 +282,7 @@ export default function SundaySchoolVisitationsPage() {
                       { value: 'all', label: 'All', count: selectedClass?.children.length ?? 0 },
                       { value: 'not-done', label: 'Not done', count: notDoneCount },
                       { value: 'done', label: 'Done', count: completedCount },
+                      { value: 'priority', label: 'Priority visits', count: (selectedClass?.children ?? []).filter(child => child.visitationPriority).length },
                     ]}
                   />
                   <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
@@ -289,6 +311,7 @@ export default function SundaySchoolVisitationsPage() {
                     return (
                       <li key={child.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_100px_130px_auto]">
                         <span className="flex min-w-0 items-center gap-2.5">
+                          {selectedClass?.canEdit ? <Button variant="ghost" size="icon" disabled={savingPriority !== null} aria-pressed={child.visitationPriority} aria-label={`${child.visitationPriority ? 'Remove' : 'Add'} ${name} ${child.visitationPriority ? 'from' : 'to'} priority visits`} onClick={() => void togglePriority(child)}><Star className={child.visitationPriority ? 'fill-warn text-warn' : 'text-ink-3'} /></Button> : child.visitationPriority ? <Star aria-label="Priority visit" className="h-4 w-4 fill-warn text-warn" /> : null}
                           <Initials name={name} />
                           <span className="flex min-w-0 flex-col leading-tight">
                             <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>

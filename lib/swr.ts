@@ -403,3 +403,9 @@ export function useSundaySchoolRotationForms() {
 export function usePrepRotationAssignments() {
   return useSWR<import('@/types/rotation-forms').PrepRotationAssignment[]>('/api/sunday-school/assignments', fetcher, { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 15000 })
 }
+export function useSundaySchoolIndividualAttendance(classId?: string, options?: SWRConfiguration) {
+  return useSWR(classId ? `/api/sunday-school/attendance/history?classId=${encodeURIComponent(classId)}` : null, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}

@@ -243,6 +243,7 @@ export interface SundaySchoolPriestNote {
 }
 
 export interface SundaySchoolVisitationChild {
+  visitationPriority: boolean
   id: string
   firstName: string
   lastName: string
