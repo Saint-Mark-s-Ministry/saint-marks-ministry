@@ -1089,6 +1089,7 @@ model SundaySchoolChild {
   notes              String?                  @db.Text
   status             SundaySchoolRecordStatus @default(ACTIVE)
   isActive           Boolean                  @default(true)
+  visitationPriority Boolean                  @default(false)
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 

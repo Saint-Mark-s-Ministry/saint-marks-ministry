@@ -503,3 +503,32 @@ keep it open until the church save is confirmed. Reloading a roster in the same
 open editor preserves its in-memory pending marks even when storage fails.
 No database migration or service worker is needed. Draft recovery after a full
 page reload requires a connection to validate permission and the current roster.
+
+
+## Individual attendance history and priority visits
+
+**Attendance → Individual history** shows one row per child and one column per
+past scheduled meeting or saved session in the selected active class. It includes
+former roster members with saved marks in that class. Blank cells are unrecorded,
+not absences. Totals and rate use saved marks only; late counts half and excused
+is excluded. Names can be searched and the table scrolls horizontally on phones.
+History refreshes after attendance saves and is read-only for every viewer.
+
+`GET /api/sunday-school/attendance/history?classId=…` resolves the principal and
+class visibility from current database state. It uses the compatibility class
+resolver, matching the existing attendance editor while year backfills are being
+reconciled. It returns names and class-scoped attendance marks without contact,
+attendance notes, or pastoral notes.
+
+On **Visitations**, servants can star a child and use **Priority visits** to see
+that class's shared follow-up list. Stars persist across devices for the whole
+class team, separately from visit and phone-call histories. Recording a visit
+never clears a star automatically. Priests can view priorities but cannot change
+them. `PATCH /api/sunday-school/visitations` accepts `{ childId, priority }` and
+requires current class-serving authority; an atomic update rejects concurrent
+class transfers. The child flag follows the child if the roster is transferred.
+
+Migration: `20261014120000_add_visitation_priority` adds a non-null boolean with
+`false` as its default. Apply the committed migration with the direct connection
+using `bun db:deploy` before deploying the code, following the migration runbook.
+Production-derived branches must remain private.

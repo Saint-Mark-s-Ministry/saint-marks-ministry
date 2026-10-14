@@ -56,6 +56,7 @@ export async function GET(request: Request) {
             id: true,
             firstName: true,
             lastName: true,
+            visitationPriority: true,
             visitations: {
               ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
               orderBy: [{ createdAt: "desc" }],
@@ -227,6 +228,43 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(result.visitation, { status: 201 })
+  } catch (error: unknown) {
+    return handleApiError(error)
+  }
+}
+
+// PATCH: shared priority flag, independent of visitation completion/history.
+export async function PATCH(request: Request) {
+  try {
+    const user = await requireAuth()
+    const authorization = await getAuthorizationContext(user.id)
+    if (authorization.disabled || authorization.readOnly) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    const body = await request.json()
+    if (!body || typeof body.childId !== "string" || !body.childId || typeof body.priority !== "boolean") {
+      return NextResponse.json({ error: "Child and a boolean priority are required" }, { status: 400 })
+    }
+    const principal = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, role: true } })
+    if (!principal) throw new Error("Unauthorized")
+    const access = await getSundaySchoolAccess(principal)
+    const child = await prisma.sundaySchoolChild.findUnique({
+      where: { id: body.childId },
+      select: { id: true, classId: true, isActive: true },
+    })
+    if (!child) return NextResponse.json({ error: "Child not found" }, { status: 404 })
+    if (!child.isActive || !child.classId || !canServeClass(access, child.classId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    // Guard against a concurrent class transfer after authorization.
+    const result = await prisma.sundaySchoolChild.updateMany({
+      where: { id: child.id, classId: child.classId, isActive: true, class: { isActive: true, academicYear: { isActive: true } } },
+      data: { visitationPriority: body.priority },
+    })
+    if (result.count !== 1) {
+      return NextResponse.json({ error: "The roster changed. Refresh and try again." }, { status: 409 })
+    }
+    return NextResponse.json({ id: child.id, visitationPriority: body.priority })
   } catch (error: unknown) {
     return handleApiError(error)
   }
