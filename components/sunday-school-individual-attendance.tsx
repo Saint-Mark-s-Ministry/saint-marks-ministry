@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { organizeAttendanceRoster, type AttendanceRosterNameOrder } from '@/lib/attendance-roster'
 import { useSundaySchoolIndividualAttendance } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import type { IndividualAttendanceHistory } from '@/lib/sunday-school-individual-attendance'
@@ -20,10 +22,26 @@ export function SundaySchoolIndividualAttendance({ classId, savedAt }: { classId
   const { data, error, isLoading, mutate } = useSundaySchoolIndividualAttendance(classId)
   const history = data as IndividualAttendanceHistory | undefined
   const [search, setSearch] = useState('')
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   useEffect(() => { if (savedAt) void mutate() }, [mutate, savedAt])
-  const children = history?.children.filter(child => `${child.firstName} ${child.lastName}`.toLowerCase().includes(search.trim().toLowerCase())) ?? []
+  const filtered = history?.children.filter(child => `${child.firstName} ${child.lastName}`.toLowerCase().includes(search.trim().toLowerCase())) ?? []
+  const children = organizeAttendanceRoster(filtered, { nameOrder, groupByGender: false })[0].entries
   return (
-    <Panel toolbar={<><h2 className="font-medium">Individual weekly attendance</h2><SearchField value={search} onChange={setSearch} placeholder="Find a child" /></>}>
+    <Panel toolbar={
+      <>
+        <h2 className="font-medium">Individual weekly attendance</h2>
+        <FilterSelect
+          aria-label="Alphabetize individual history by"
+          value={nameOrder}
+          onChange={value => setNameOrder(value as AttendanceRosterNameOrder)}
+          options={[
+            { value: 'last', label: 'Sort by last name' },
+            { value: 'first', label: 'Sort by first name' },
+          ]}
+        />
+        <SearchField value={search} onChange={setSearch} placeholder="Find a child" />
+      </>
+    }>
       <p className="px-4 py-3 text-sm text-ink-3">P = Present · L = Late · A = Absent · E = Excused · — = Unrecorded. Rate uses saved marks only; late counts half and excused is excluded.</p>
       {error ? <p role="alert" className="p-4">Couldn’t load attendance history. <Button variant="outline" onClick={() => void mutate()}>Retry</Button></p>
         : isLoading ? <p role="status" className="p-4">Loading attendance history…</p>
