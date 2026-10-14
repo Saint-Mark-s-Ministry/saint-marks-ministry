@@ -80,6 +80,10 @@ This change set includes server code, so ship it before the app:
 
 ## Day-to-day commands
 
+EAS profiles pin Bun 1.4.3 to support the checked-in version-2 lockfile. Bun
+1.3.14 cannot parse that format and fails the frozen dependency install before
+native compilation. Use the pinned version when checking a clean install.
+
 ```bash
 bun run mobile:typecheck
 bun run mobile:export          # iOS + Android bundles, not signed binaries
