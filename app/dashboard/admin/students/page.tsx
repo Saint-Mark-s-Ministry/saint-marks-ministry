@@ -51,6 +51,12 @@ interface Student {
     notes?: string
     isAsyncStudent?: boolean
     mentorContact?: MentorContact | null
+    fatherOfConfession?: {
+      id: string
+      name: string
+      phone: string | null
+      church: string | null
+    } | null
     mentor?: {
       id: string
       name: string
@@ -571,6 +577,8 @@ function StudentsManagementContent() {
   const withdrawnCount = students.filter((s) => s.enrollments?.[0]?.status === 'WITHDRAWN').length
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
   const preview = previewId ? students.find((s) => s.id === previewId) : undefined
+  const previewMentor = preview?.enrollments?.[0]?.mentorContact
+  const previewFather = preview?.enrollments?.[0]?.fatherOfConfession
   const previewAnalytics = preview ? analytics.find((a) => a.studentId === preview.id) : undefined
   const selectedIds = Array.from(selectedStudents)
 
@@ -716,6 +724,8 @@ function StudentsManagementContent() {
                       </th>
                       <SortableTableHeader column="name" label="Student" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
                       {!preview && <SortableTableHeader column="year" label="Year" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-24" />}
+                      {!preview && <th scope="col" className="px-3 py-2.5 text-left font-medium">Mentor</th>}
+                      {!preview && <th scope="col" className="px-3 py-2.5 text-left font-medium">Father of confession</th>}
                       {!preview && <SortableTableHeader column="year1Attendance" label="Y1 attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />}
                        <SortableTableHeader column="year2Attendance" label={preview ? 'Attendance' : 'Y2 attendance'} activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />
                       <SortableTableHeader column="examAverage" label="Exam avg" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-40" />
@@ -754,6 +764,12 @@ function StudentsManagementContent() {
                             <td className="px-3">
                               <YearCell enrollment={enrollment} />
                             </td>
+                          )}
+                          {!preview && (
+                            <>
+                              <td className="px-3">{enrollment?.mentorContact?.name ?? <span className="text-ink-3">Not provided</span>}</td>
+                              <td className="px-3">{enrollment?.fatherOfConfession?.name ?? <span className="text-ink-3">Not provided</span>}</td>
+                            </>
                           )}
                           {!preview && (
                             <td className="px-3">
@@ -803,6 +819,8 @@ function StudentsManagementContent() {
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
                             {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
                           </span>
+                          <span className="truncate text-xs text-ink-3">Mentor: {enrollment?.mentorContact?.name ?? 'Not provided'}</span>
+                          <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
                       </button>
                       <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
@@ -869,7 +887,26 @@ function StudentsManagementContent() {
                 items={[
                   { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
                   { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
-                  { label: 'Mentor', value: preview.enrollments?.[0]?.mentorContact?.name ?? <span className="text-ink-3">Not provided</span> },
+                  {
+                    label: 'Mentor',
+                    value: previewMentor ? (
+                      <span className="flex flex-col gap-1">
+                        <span>{previewMentor.name}</span>
+                        {previewMentor.email && <ContactLink kind="email" value={previewMentor.email} name={previewMentor.name} label="mentor's email" className="w-fit text-xs" />}
+                        {previewMentor.phone && <ContactLink kind="phone" value={previewMentor.phone} name={previewMentor.name} label="mentor's phone number" className="w-fit text-xs" />}
+                      </span>
+                    ) : <span className="text-ink-3">Not provided</span>,
+                  },
+                  {
+                    label: 'Father of confession',
+                    value: previewFather ? (
+                      <span className="flex flex-col gap-1">
+                        <span>{previewFather.name}</span>
+                        {previewFather.church && <span className="text-xs text-ink-3">{previewFather.church}</span>}
+                        {previewFather.phone && <ContactLink kind="phone" value={previewFather.phone} name={previewFather.name} label="father of confession's phone number" className="w-fit text-xs" />}
+                      </span>
+                    ) : <span className="text-ink-3">Not provided</span>,
+                  },
                   { label: 'Program', value: preview.enrollments?.[0]?.isAsyncStudent ? 'Async' : 'In person' },
                   ...(previewAnalytics && previewAnalytics.conductDismissalCount > 0
                     ? [{ label: 'Removals', value: <span className="inline-flex items-center gap-1 text-bad"><UserX className="size-3.5" />{previewAnalytics.conductDismissalCount} from lessons</span> }]

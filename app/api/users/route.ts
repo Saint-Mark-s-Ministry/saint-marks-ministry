@@ -119,6 +119,14 @@ export async function GET(request: Request) {
                 email: true,
                 phone: true,
               }
+            },
+            fatherOfConfession: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                church: true,
+              }
             }
           }
         },
