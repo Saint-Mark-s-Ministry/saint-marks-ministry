@@ -144,7 +144,10 @@ function prepAdminNav(role: UserRole): NavGroup[] {
   if (canViewRegistrations(role)) people.push({ href: '/dashboard/admin/registrations', label: 'Registrations', icon: Inbox })
   if (canManageAllUsers(role)) people.push({ href: '/dashboard/admin/users', label: 'Users', icon: UserCog })
 
-  const workspace: NavItem[] = [{ href: '/dashboard/files', label: 'Files', icon: Folder }]
+  const workspace: NavItem[] = [
+    { href: '/dashboard/files', label: 'Files', icon: Folder },
+    { href: '/dashboard/admin/feedback', label: 'Feedback', icon: MessageSquare },
+  ]
   if (canManageAllUsers(role)) workspace.push({ href: '/dashboard/admin/activity', label: 'Activity', icon: Activity })
   workspace.push({ href: '/dashboard/admin/settings', label: 'Settings', icon: Settings })
 

@@ -3,7 +3,7 @@ import { SundaySchoolFeedbackStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
-import { getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import { getFeedbackAccess } from '@/lib/feedback-access'
 import {
   ACTIVE_FEEDBACK_STATUSES,
   canModerateFeedback,
@@ -18,14 +18,14 @@ import {
   serializeFeedbackIdeas,
 } from '@/lib/sunday-school-feedback-server'
 
-// Sunday School mode: product ideas shared across the ministry. Unlike class
-// operations, feedback participation is deliberately available to PRIEST.
+// Shared product feedback for Sunday School participants and Servants Prep staff.
+// Unlike ministry record writes, feedback participation is available to PRIEST.
 
 // GET /api/sunday-school/feedback?status=ACTIVE|ALL|<status>&sort=TOP|NEWEST
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
-    const access = await getSundaySchoolAccess(user)
+    const access = await getFeedbackAccess(user)
     if (!canParticipateInFeedback(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
-    const access = await getSundaySchoolAccess(user)
+    const access = await getFeedbackAccess(user)
     if (!canParticipateInFeedback(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

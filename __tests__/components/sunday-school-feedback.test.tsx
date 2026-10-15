@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAdminGuard', () => ({
+  useAdminGuard: () => ({ status: 'authenticated', session: { user: { id: 'prep-servant', role: 'SERVANT_PREP', sundaySchool: { hasAccess: false } } } }),
+}))
+
 vi.mock('@/hooks/useSundaySchoolGuard', () => ({
   useSundaySchoolGuard: () => ({ status: 'authenticated', session: { user: { id: 'viewer-1' } } }),
 }))
@@ -26,6 +30,7 @@ vi.mock('sonner', () => ({
 }))
 
 import SundaySchoolFeedbackPage from '@/app/dashboard/servants/feedback/page'
+import PrepFeedbackPage from '@/app/dashboard/admin/feedback/page'
 
 function makeResponse(
   overrides: Partial<SundaySchoolFeedbackResponse> = {}
@@ -74,6 +79,13 @@ describe('Sunday School feedback page', () => {
       isLoading: false,
       mutate: mocks.mutate,
     }))
+  })
+
+  it('renders the same board from the Servants Prep entry point without Sunday School standing', () => {
+    render(<PrepFeedbackPage />)
+    expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()
+    expect(screen.getByText('Add lesson reminders')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeInTheDocument()
   })
 
   it('renders attributed feedback with a Reddit-style score and bug-report guidance', () => {

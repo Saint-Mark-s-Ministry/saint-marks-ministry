@@ -292,15 +292,20 @@ It lives outside `app/api/sunday-school/` on purpose. If you add another public
 route, put it under `app/api/public/` too — the absence of a session should be
 visible in the path, not just in a comment.
 
-### Feedback exception for priests
+### Shared product feedback
 
-The Sunday School feedback board is a product forum, not a write to ministry
-records. Anyone with `access.canRead` may submit ideas and vote, including
-`PRIEST`. This is the sole deliberate exception to the normal priest read-only
-rule. Priests may edit or delete only their own open ideas and never receive
-moderation authority; changing idea statuses or deleting another person's idea
-remains `SUPER_ADMIN`-only. All feedback routes still call
-`getSundaySchoolAccess` and refuse users who cannot enter Sunday School.
+The feedback board is shared by Sunday School and Servants Prep. It is a product
+forum, not a write to ministry records. Sunday School participants and prep staff
+(`SUPER_ADMIN`, `SERVANT_PREP`, `PRIEST`) may submit ideas and vote. Prep staff
+use `/dashboard/admin/feedback`; Sunday School uses `/dashboard/servants/feedback`.
+A prep role grants feedback participation only, never Sunday School class access.
+`getFeedbackAccess` reloads the current account role and disabled state from the
+database and combines prep staff eligibility with `getSundaySchoolAccess`.
+Disabled accounts are denied. Feedback participation is the sole deliberate
+exception to the normal priest read-only rule. Priests may edit or delete only
+their own open ideas and never receive moderation authority; changing idea statuses or deleting another person's idea
+remains `SUPER_ADMIN`-only. All feedback routes call `getFeedbackAccess`;
+prep students and mentors without Sunday School access remain denied.
 Only `SUPER_ADMIN` may publish, edit, or remove the single official response
 on an idea. Everyone who can view feedback sees it attributed to the
 “Development Team”; the responding admin's ID is retained in the database

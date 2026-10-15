@@ -19,6 +19,7 @@ const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
   ['/dashboard/servants', 'Sunday School'],
   ['/dashboard/admin/servant-applications', 'Servant Applications'],
   ['/dashboard/admin/async-students', 'Async Students'],
+  ['/dashboard/admin/feedback', 'Feedback'],
   ['/dashboard/admin/registrations', 'Registrations'],
   ['/dashboard/admin/attendance', 'Attendance'],
   ['/dashboard/admin/curriculum', 'Curriculum'],

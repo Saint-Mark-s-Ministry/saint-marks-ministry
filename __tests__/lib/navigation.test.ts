@@ -62,6 +62,19 @@ describe('navigationFor', () => {
     }
   })
 
+  it('shows Feedback in prep staff navigation without switching to Sunday School', () => {
+    for (const role of ['SUPER_ADMIN', 'SERVANT_PREP', 'PRIEST'] as UserRole[]) {
+      const groups = navigationFor({ role, ...noSS }, 'prep')
+      expect(groups.find(group => group.label === 'Workspace')?.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({ href: '/dashboard/admin/feedback', label: 'Feedback' }),
+      ]))
+      expect(currentNavLabel(groups, '/dashboard/admin/feedback')).toBe('Feedback')
+      expect(resolveMinistry({ role, ...servesSS }, '/dashboard/admin/feedback')).toBe('prep')
+    }
+    expect(hrefs('STUDENT', 'prep', noSS)).not.toContain('/dashboard/admin/feedback')
+    expect(hrefs('MENTOR', 'prep', noSS)).not.toContain('/dashboard/admin/feedback')
+  })
+
   it('gives a servant Feedback without an Admin heading', () => {
     const groups = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
     expect(groups.map((g) => g.label)).not.toContain('Admin')
