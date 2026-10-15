@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
-import { getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import { getFeedbackAccess } from '@/lib/feedback-access'
 import {
   canParticipateInFeedback,
   canVoteOnFeedbackIdea,
@@ -19,7 +19,7 @@ export async function PUT(
 ) {
   try {
     const user = await requireAuth()
-    const access = await getSundaySchoolAccess(user)
+    const access = await getFeedbackAccess(user)
     if (!canParticipateInFeedback(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

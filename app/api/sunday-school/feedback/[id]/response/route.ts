@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
-import { getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import { getFeedbackAccess } from '@/lib/feedback-access'
 import {
   canModerateFeedback,
   validateFeedbackTeamResponse,
@@ -22,7 +22,7 @@ interface RouteContext {
 export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const user = await requireAuth()
-    const access = await getSundaySchoolAccess(user)
+    const access = await getFeedbackAccess(user)
     if (!canModerateFeedback(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -55,7 +55,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const user = await requireAuth()
-    const access = await getSundaySchoolAccess(user)
+    const access = await getFeedbackAccess(user)
     if (!canModerateFeedback(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
