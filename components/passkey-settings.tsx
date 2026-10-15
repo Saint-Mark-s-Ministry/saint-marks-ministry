@@ -14,7 +14,7 @@ import { passkeyRequest, passkeyClientError } from '@/lib/passkey-client'
 
 export function PasskeySettings() {
   const { data: session } = useSession()
-  const { data: availability } = usePasskeyAvailability()
+  const { data: availability, error: availabilityError, mutate: refreshAvailability } = usePasskeyAvailability()
   const { data, error, isLoading, mutate } = usePasskeys(availability?.enabled === true && !session?.impersonating)
   const [supported, setSupported] = useState(false)
   const [name, setName] = useState('')
@@ -22,7 +22,28 @@ export function PasskeySettings() {
   const [removeId, setRemoveId] = useState<string | null>(null)
   useEffect(() => { setSupported(browserSupportsWebAuthn()) }, [])
 
-  if (!availability?.enabled || session?.impersonating) return null
+  if (session?.impersonating) return null
+
+  if (!availability?.enabled) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Passkeys</CardTitle>
+          <CardDescription>Sign in with your fingerprint, face, device PIN, or security key.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!availability && !availabilityError ? (
+            <p role="status" className="text-sm">Checking passkey availability…</p>
+          ) : (
+            <>
+              <p role={availabilityError ? 'alert' : 'status'} className="text-sm text-muted-foreground">Passkey setup is currently unavailable. You can still sign in with your password or Google account.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => void refreshAvailability()}>Check again</Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   async function addPasskey(e: React.FormEvent) {
     e.preventDefault()
