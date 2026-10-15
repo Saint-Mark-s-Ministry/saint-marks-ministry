@@ -46,6 +46,17 @@ Tags grant participation, not record scope. A `SUNDAY_SCHOOL_SERVANT` tag alone
 cannot reveal a class, and a `MENTOR` tag alone cannot reveal a student. Active
 assignments or guardian relationships grant that scope.
 
+Mentor candidate selection uses `lib/mentor-eligibility.ts`, rather than the
+legacy `canBeMentor(role)` helper alone. Enabled accounts with an active
+`SUPER_ADMIN`, `PRIEST`, `SERVANTS_PREP_SERVANT`, or `SUNDAY_SCHOOL_SERVANT` tag
+may be selected. Accounts with no role-tag history retain the legacy mentor
+eligibility fallback during migration; revoked tags never trigger that fallback.
+Being eligible grants no Prep access by itself. Admin enrollment creation and
+mentor updates synchronize the compatibility dashboard role from current tags
+and active mentor assignments in the same transaction, including the previous
+mentor on reassignment or removal. A tagged Sunday School servant therefore
+receives limited mentor access when assigned, without becoming a Prep leader.
+
 Creating a Sunday School servant assignment automatically grants the active
 `SUNDAY_SCHOOL_SERVANT` tag in the same transaction when it is missing. This
 keeps mode access and assignment scope consistent without making the tag itself

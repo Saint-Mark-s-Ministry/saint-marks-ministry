@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
-import { canAssignMentors, MENTOR_ELIGIBLE_ROLES } from '@/lib/roles'
+import { canAssignMentors } from '@/lib/roles'
+import { MENTOR_CANDIDATE_WHERE } from '@/lib/mentor-eligibility'
 
 // Minimal directory used only by mentor-assignment controls. This lets
 // Servants Prep servants assign priests without exposing priest accounts in
@@ -14,10 +15,7 @@ export async function GET() {
     }
 
     const mentors = await prisma.user.findMany({
-      where: {
-        role: { in: MENTOR_ELIGIBLE_ROLES },
-        isDisabled: false,
-      },
+      where: MENTOR_CANDIDATE_WHERE,
       select: {
         id: true,
         name: true,
