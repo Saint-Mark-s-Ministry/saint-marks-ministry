@@ -24,7 +24,7 @@ export async function GET() {
         title: true,
         scheduledDate: true,
         lessonNumber: true,
-        attendanceRecords: { select: { status: true } },
+        attendanceRecords: { where: { student: { enrollments: { none: { isAsyncStudent: true } } } }, select: { status: true } },
       },
       take: 60,
     })

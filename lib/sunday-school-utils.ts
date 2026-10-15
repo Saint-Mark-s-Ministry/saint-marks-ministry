@@ -190,3 +190,21 @@ const LEVEL_TO_ROTATION_GRADE: Partial<Record<SundaySchoolLevel, SundaySchoolGra
 export function rotationGradeForClassLevel(level: SundaySchoolLevel): SundaySchoolGrade {
   return LEVEL_TO_ROTATION_GRADE[level] ?? 'GRADE_6_PLUS'
 }
+
+/** Attendance across elapsed rotation weeks; rotation completion is a separate requirement. */
+export function rotationAttendanceSummary(
+  rotations: Array<{ attendance: { present: number; absent: number; excused: number; effectiveTotal: number } | null }>,
+) {
+  const counts = rotations.reduce((total, rotation) => {
+    const attendance = rotation.attendance
+    if (attendance) {
+      total.present += attendance.present
+      total.absent += attendance.absent
+      total.excused += attendance.excused
+      total.effectiveTotal += attendance.effectiveTotal
+    }
+    return total
+  }, { present: 0, absent: 0, excused: 0, effectiveTotal: 0 })
+  const percentage = counts.effectiveTotal > 0 ? counts.present / counts.effectiveTotal * 100 : null
+  return { ...counts, percentage, met: percentage === null || percentage >= 75 }
+}
