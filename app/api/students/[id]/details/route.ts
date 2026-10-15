@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 import { LessonStatus } from "@prisma/client"
-import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
+import { excludeAsyncLessonRecords } from "@/lib/attendance-utils"
 import { withUserMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/students/[id]/details - Get detailed student data for editing
@@ -117,12 +117,12 @@ export async function GET(
 
     // Get all attendance records with lesson details
     // Include isExamDay field so frontend can filter/display appropriately
-    // Async-period lessons without a slip aren't counted, so they aren't listed either
+    // Current async students have rotation attendance, not lesson attendance.
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
         lesson: lessonFilter,
-        ...excludeAsyncPeriodRecords(student.enrollments.map((e) => ({ ...e, studentId }))),
+        ...excludeAsyncLessonRecords(student.enrollments.map((e) => ({ ...e, studentId }))),
       },
       include: {
         lesson: {

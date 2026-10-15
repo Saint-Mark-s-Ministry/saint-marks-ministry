@@ -1029,6 +1029,13 @@ export function StudentDetailsModal({
             </TabsContent>
 
             <TabsContent value="attendance" className="space-y-4">
+              {isAsyncStudent ? (
+                <div className="py-8 text-center text-gray-500">
+                  Attendance is based solely on rotation weeks. Normal lessons do not count.
+                  View rotation progress under Async students.
+                </div>
+              ) : (
+                <>
               {scopedEnrollment && (
                 <AttendanceSlipsPanel enrollment={scopedEnrollment} canEdit={canEditData} onChange={onRefresh} />
               )}
@@ -1375,6 +1382,8 @@ export function StudentDetailsModal({
                     </div>
                   ))}
                 </div>
+              )}
+                </>
               )}
             </TabsContent>
             <TabsContent value="confession" className="space-y-4">

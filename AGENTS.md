@@ -250,9 +250,12 @@ database; keep new logic in that shape where you can.
 
 **Graduation** requires all four:
 
-1. Attendance ≥ 75%, computed as `(present + lates/2) / (total_lessons - excused)`.
+1. In-person attendance ≥ 75%, computed as `(present + lates/2) / (total_lessons - excused)`.
    Two lates equal one absence; `EXCUSED` is excluded from both sides; lessons
-   flagged `isExamDay` are excluded entirely.
+   flagged `isExamDay` are excluded entirely. Current async students are exempt
+   from every prep lesson, regardless of approval date or historical slips; their
+   attendance comes solely from elapsed rotation weeks. Never backfill lesson
+   absences or show lesson absence badges for an async enrollment.
 2. Overall exam average ≥ 75% across all sections.
 3. At least 60% in every individual exam section.
 4. Both curriculum years completed. Async students have no cohort year; their serving requirement is ten approved four-week grade rotations. See `docs/async-serving-rotations.md`. See `docs/async-student-year-migration.md` for the database invariant and release workflow.

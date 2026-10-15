@@ -85,7 +85,8 @@ export async function GET(request: Request) {
           select: {
             attendanceRecords: {
               where: {
-                status: { in: ['PRESENT', 'LATE'] }
+                status: { in: ['PRESENT', 'LATE'] },
+                student: { enrollments: { none: { isAsyncStudent: true } } }
               }
             }
           }
@@ -206,7 +207,8 @@ export async function POST(request: Request) {
             select: {
               attendanceRecords: {
                 where: {
-                  status: { in: ['PRESENT', 'LATE'] }
+                  status: { in: ['PRESENT', 'LATE'] },
+                  student: { enrollments: { none: { isAsyncStudent: true } } }
                 }
               }
             }

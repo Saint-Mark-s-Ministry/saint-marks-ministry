@@ -6,6 +6,22 @@ one grade at a time, and wrap from eighth grade to Pre-K. For example, a student
 starting in second grade visits 2, 3, 4, 5, 6, 7, 8, Pre-K, Kindergarten, and 1.
 Different classes within one grade do not add rotations.
 
+## Lesson attendance exemption
+
+A current async enrollment is exempt from all Servants Prep lesson attendance,
+including lessons before `asyncApprovedAt`, enrollments without an approval date,
+and old lesson slips. Stored lesson records remain as historical audit evidence,
+but must not appear as absences, enter lesson attendance totals, or be backfilled
+for async students. Attendance comes solely from elapsed rotation weeks; the ten
+approved rotations are a separate completion requirement.
+
+The read-only `scripts/audit-async-lesson-attendance.sql` checks a reported student's
+October 2 and October 9, 2026 lessons and counts affected records across all async
+enrollments. Run it against the database used by the affected deployment. It
+reports historical stored statuses separately from the expected exempt display;
+it does not change records. Supply the name with `psql -v student_name='Student Name'`
+when running the script.
+
 ## Student and servant workflow
 
 A Servants Prep servant assigns the initial class and start date. The student
