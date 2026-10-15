@@ -409,3 +409,13 @@ export function useSundaySchoolIndividualAttendance(classId?: string, options?: 
     ...options,
   })
 }
+
+export function usePasskeyAvailability() {
+  return useSWR<{ enabled: boolean }>('/api/public/passkeys', fetcher, { ...staticDataConfig, shouldRetryOnError: false })
+}
+
+export function usePasskeys(enabled: boolean) {
+  return useSWR<{ passkeys: { id: string; name: string; createdAt: string; lastUsedAt: string | null }[] }>(
+    enabled ? '/api/passkeys' : null, fetcher, defaultSWRConfig,
+  )
+}

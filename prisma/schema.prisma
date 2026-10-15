@@ -307,6 +307,8 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   // Relations
+  passkeys             Passkey[]
+  passkeyChallenges    PasskeyChallenge[]
   enrollments          StudentEnrollment[] @relation("StudentEnrollments")
   mentoredStudents     StudentEnrollment[] @relation("MentorServant")
   attendanceRecords    AttendanceRecord[]
@@ -2081,4 +2083,36 @@ model SundaySchoolMeetingAttendance {
   @@unique([meetingId, servantId])
   @@index([servantId])
   @@index([recordedBy])
+}
+
+// WebAuthn public credentials only; private keys stay with the authenticator.
+model Passkey {
+  id           String   @id @default(cuid())
+  userId       String
+  rpID         String
+  name         String
+  credentialId String   @unique
+  publicKey    String   @db.Text
+  counter      BigInt   @default(0)
+  transports   String[]
+  deviceType   String
+  backedUp     Boolean
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, rpID])
+}
+
+model PasskeyChallenge {
+  tokenHash   String   @id
+  challenge   String
+  purpose     String
+  userId      String?
+  authVersion Int?
+  expiresAt   DateTime
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId])
 }

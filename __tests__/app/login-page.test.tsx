@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   signIn: vi.fn(),
   signOut: vi.fn(),
+  passkeysEnabled: false,
+  startAuthentication: vi.fn(),
+  request: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -26,6 +29,12 @@ vi.mock('next-auth/react', () => ({
   useSession: () => mocks.authState,
   signIn: mocks.signIn,
   signOut: mocks.signOut,
+}))
+
+vi.mock('@/lib/swr', () => ({ usePasskeyAvailability: () => ({ data: { enabled: mocks.passkeysEnabled } }) }))
+vi.mock('@simplewebauthn/browser', () => ({ browserSupportsWebAuthn: () => true, startAuthentication: mocks.startAuthentication }))
+vi.mock('@/lib/passkey-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/passkey-client')>()), passkeyRequest: mocks.request,
 }))
 
 vi.mock('next/image', () => ({
@@ -45,6 +54,9 @@ describe('LoginPage', () => {
     mocks.replace.mockReset()
     mocks.refresh.mockReset()
     mocks.signIn.mockReset()
+    mocks.passkeysEnabled = false
+    mocks.startAuthentication.mockReset()
+    mocks.request.mockReset()
     mocks.signOut.mockReset()
     mocks.signOut.mockImplementation(async () => {
       mocks.authState.data = null
@@ -80,5 +92,38 @@ describe('LoginPage', () => {
       'href',
       '/signup/servant'
     )
+  })
+
+  it('signs in with a passkey without requiring email or password', async () => {
+    mocks.authState.data = null
+    mocks.authState.status = 'unauthenticated'
+    mocks.passkeysEnabled = true
+    mocks.request.mockResolvedValue({ challenge: 'test' })
+    mocks.startAuthentication.mockResolvedValue({ id: 'credential' })
+    mocks.signIn.mockResolvedValue({ ok: true })
+    render(<LoginPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with a passkey' }))
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith('passkey', { response: '{"id":"credential"}', redirect: false }))
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/dashboard'))
+  })
+
+  it('lets users return to password login after cancelling a passkey prompt', async () => {
+    mocks.authState.data = null
+    mocks.authState.status = 'unauthenticated'
+    mocks.passkeysEnabled = true
+    mocks.request.mockResolvedValue({ challenge: 'test' })
+    mocks.startAuthentication.mockRejectedValue(new DOMException('Cancelled', 'NotAllowedError'))
+    render(<LoginPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with a passkey' }))
+    await screen.findByText(/Passkey request cancelled or timed out/)
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
+    expect(mocks.signIn).not.toHaveBeenCalled()
+  })
+
+  it('hides passkey login until the deployment enables it', () => {
+    mocks.authState.data = null
+    mocks.authState.status = 'unauthenticated'
+    render(<LoginPage />)
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument()
   })
 })

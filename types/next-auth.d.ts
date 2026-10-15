@@ -18,7 +18,9 @@ export interface MinistryMembership {
 
 declare module "next-auth" {
   interface Session {
+    authenticatedAt?: number
     user: {
+      authVersion?: number
       id: string
       role: UserRole
       canAccessContactBook: boolean
@@ -53,6 +55,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
+    authenticatedAt?: number
     role: UserRole
     canAccessContactBook?: boolean
     id: string

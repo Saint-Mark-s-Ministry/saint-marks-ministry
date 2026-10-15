@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { Camera, Trash2 } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageHeader } from '@/components/ds/page-header'
+import { PasskeySettings } from '@/components/passkey-settings'
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
@@ -323,6 +324,8 @@ export default function SettingsPage() {
         </Card>
 
         {/* Change Password */}
+        <PasskeySettings />
+
         <Card>
           <CardHeader>
             <CardTitle>Change password</CardTitle>

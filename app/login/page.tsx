@@ -7,6 +7,10 @@ import Link from 'next/link'
 import { PublicFrame, Field } from '@/components/ds/public-frame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser'
+import { KeyRound } from 'lucide-react'
+import { usePasskeyAvailability } from '@/lib/swr'
+import { passkeyRequest, passkeyClientError } from '@/lib/passkey-client'
 
 function GoogleIcon() {
   return (
@@ -38,6 +42,10 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeySupported, setPasskeySupported] = useState(false)
+  const { data: passkeyAvailability } = usePasskeyAvailability()
+  useEffect(() => { setPasskeySupported(browserSupportsWebAuthn()) }, [])
   const [clearingInvalidSession, setClearingInvalidSession] = useState(false)
 
   // Show error from URL params (e.g., Google sign-in rejection)
@@ -100,6 +108,20 @@ function LoginForm() {
     }
   }
 
+  const handlePasskeySignIn = async () => {
+    setError('')
+    setPasskeyLoading(true)
+    try {
+      const options = await passkeyRequest('/api/public/passkeys/options', {})
+      const response = await startAuthentication({ optionsJSON: options })
+      const result = await signIn('passkey', { response: JSON.stringify(response), redirect: false })
+      if (!result || result.error) throw new Error('Unable to sign in with this passkey. Try again or use your password or Google account.')
+      router.push('/dashboard')
+      router.refresh()
+    } catch (error) { setError(passkeyClientError(error)) }
+    finally { setPasskeyLoading(false) }
+  }
+
   const handleGoogleSignIn = () => {
     setError('')
     setGoogleLoading(true)
@@ -141,7 +163,7 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || passkeyLoading}
           />
         </Field>
         <Field label="Password" htmlFor="password">
@@ -152,7 +174,7 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || passkeyLoading}
           />
         </Field>
         <Link href="/forgot-password" className="-mt-2.5 self-end text-[13px] font-medium text-accent-ink no-underline hover:underline">
@@ -163,7 +185,7 @@ function LoginForm() {
             {error}
           </p>
         )}
-        <Button type="submit" size="lg" className="w-full" disabled={loading || googleLoading}>
+        <Button type="submit" size="lg" className="w-full" disabled={loading || googleLoading || passkeyLoading}>
           {loading ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>
@@ -174,10 +196,17 @@ function LoginForm() {
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleGoogleSignIn} disabled={loading || googleLoading}>
+      <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleGoogleSignIn} disabled={loading || googleLoading || passkeyLoading}>
         <GoogleIcon />
         {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
       </Button>
+
+      {passkeyAvailability?.enabled && passkeySupported && (
+        <Button type="button" variant="outline" size="lg" className="w-full" onClick={handlePasskeySignIn} disabled={loading || googleLoading || passkeyLoading}>
+          <KeyRound className="size-4" />
+          {passkeyLoading ? 'Waiting for your passkey…' : 'Sign in with a passkey'}
+        </Button>
+      )}
 
       <div className="flex flex-col items-center gap-1.5 pt-1 text-[13.5px]">
         <span className="text-ink-3">New here?</span>
