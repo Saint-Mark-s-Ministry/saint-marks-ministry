@@ -6,7 +6,8 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
 import { notifyMentorAssigned } from "@/lib/notifications"
 import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
-import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
+import { isEligibleMentorAccount, MENTOR_CANDIDATE_SELECT } from "@/lib/mentor-eligibility"
+import { syncMentorCompatibilityRoles } from "@/lib/mentor-assignments"
 import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // PATCH /api/enrollments/[id] - Update an enrollment
@@ -40,7 +41,7 @@ export async function PATCH(
       if (mentorId) {
         const mentor = await prisma.user.findUnique({
           where: { id: mentorId },
-          select: { role: true, isDisabled: true },
+          select: MENTOR_CANDIDATE_SELECT,
         })
         if (!isEligibleMentorAccount(mentor)) {
           return NextResponse.json(
@@ -170,6 +171,13 @@ export async function PATCH(
             },
           })
         }
+      }
+
+      if (mentorAssignmentRequested) {
+        const affectedMentorIds: string[] = []
+        if (currentEnrollment?.mentorId) affectedMentorIds.push(currentEnrollment.mentorId)
+        if (nextMentorId) affectedMentorIds.push(nextMentorId)
+        await syncMentorCompatibilityRoles(tx, affectedMentorIds)
       }
 
       // Reconcile late-start attendance atomically when the start date changed

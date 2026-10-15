@@ -5,7 +5,8 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import { isAdmin, canManageEnrollments } from "@/lib/roles"
 import { backfillAttendanceForStudent } from "@/lib/api-utils"
-import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
+import { isEligibleMentorAccount, MENTOR_CANDIDATE_SELECT } from "@/lib/mentor-eligibility"
+import { syncMentorCompatibilityRoles } from "@/lib/mentor-assignments"
 import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/enrollments - List enrollments
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     if (mentorId) {
       const mentor = await prisma.user.findUnique({
         where: { id: mentorId },
-        select: { role: true, isDisabled: true },
+        select: MENTOR_CANDIDATE_SELECT,
       })
       if (!isEligibleMentorAccount(mentor)) {
         return NextResponse.json(
@@ -246,6 +247,7 @@ export async function POST(request: Request) {
             assignedById: user.id,
           },
         })
+        await syncMentorCompatibilityRoles(tx, [mentorId])
       }
 
       // Backfill attendance records for all past lessons in this academic year
