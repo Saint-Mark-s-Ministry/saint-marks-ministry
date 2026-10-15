@@ -30,6 +30,24 @@ lessons without granting ministry staffing, roster, or editing authority.
 | [`docs/async-student-year-migration.md`](docs/async-student-year-migration.md) | Yearless async enrollments and their migration requirements |
 | [`docs/makeup-exams.md`](docs/makeup-exams.md) | Student makeup bookings and score entry |
 | [`docs/digital-exams.md`](docs/digital-exams.md) | Digital exams, answer sheets, and proctor monitoring |
+| [`docs/app-store-website-plan.md`](docs/app-store-website-plan.md) | Public app overview, support, and App Store submission preparation |
+
+### Public app information
+
+The public overview is at `/app`, with app help and the support email at
+`/support`. Both are available without an account, including when a signed-in
+user must change their password. The root URL keeps its existing sign-in and
+dashboard behavior.
+
+After deployment, use `https://www.stmarkministry.app/support` as the App Store
+Connect Support URL, `https://www.stmarkministry.app/privacy` as the Privacy Policy
+URL, and `https://www.stmarkministry.app/app` as the optional Marketing URL.
+The iOS download link can be added once the App Store listing is available.
+
+Before submission, verify the release build's in-app privacy link, account
+deletion flow if it supports account creation, and data disclosures against the
+actual enabled mobile services. Public help pages alone do not implement account
+deletion in the mobile app.
 
 ## Features
 

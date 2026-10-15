@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { LegalPage } from '@/components/legal-page'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | St. Mark Church Ministry Portal',
-  description: 'Terms governing use of the St. Mark Church Ministry Portal.',
+  title: "Terms of Service | Saint Mark's Ministry",
+  description: "Terms governing use of Saint Mark's Ministry web portal and associated mobile app.",
 }
 
 export function TermsPageContent() {
@@ -12,16 +12,17 @@ export function TermsPageContent() {
     <LegalPage
       eyebrow="Terms"
       title="Terms of Service"
-      description="These terms set expectations for appropriate, secure use of the ministry portal and the records available through it."
-      lastUpdated="September 19, 2026"
+      description="These terms set expectations for appropriate, secure use of the ministry web portal, associated mobile app, and the records available through them."
+      lastUpdated="October 14, 2026"
       sections={[
         {
           title: 'Agreement and authority',
           content: (
             <p>
               These terms are an agreement between you and the Coptic Orthodox Church of Saint Mark in Jersey
-              City, New Jersey. By creating an account, submitting an application or registration, or using the
-              portal, you agree to these terms and the{' '}
+              City, New Jersey. They cover Saint Mark&apos;s Ministry, also called the St. Mark Church Ministry
+              Portal, and its associated mobile app. By creating an account, submitting an application or
+              registration, or using these services, you agree to these terms and the{' '}
               <Link href="/privacy" className="font-medium text-maroon-700 underline underline-offset-2 dark:text-maroon-300">
                 Privacy Policy
               </Link>
