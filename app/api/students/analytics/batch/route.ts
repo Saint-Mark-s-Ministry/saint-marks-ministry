@@ -8,10 +8,10 @@ import {
   calculateAttendancePercentage,
   meetsAttendanceRequirement,
   isGraduationEligible,
-  excludeAsyncPeriodRecords,
+  excludeAsyncLessonRecords,
   type AttendanceCounts
 } from "@/lib/attendance-utils"
-import { rotationAttendanceToDate, rotationRequirementMet, rotationAttendancePercentage } from "@/lib/sunday-school-utils"
+import { rotationAttendanceToDate, rotationRequirementMet, rotationAttendanceSummary } from "@/lib/sunday-school-utils"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -92,8 +92,8 @@ export async function GET(request: Request) {
     })
 
     const studentIds = enrollments.map(e => e.studentId)
-    // Async students: lessons from the day they went async count only if a slip covered them
-    const asyncExclusion = excludeAsyncPeriodRecords(enrollments)
+    // Async students are assessed solely on rotation attendance.
+    const asyncExclusion = excludeAsyncLessonRecords(enrollments)
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
     // Only count lessons that have attendance records (i.e., attendance was taken)
@@ -374,7 +374,7 @@ export async function GET(request: Request) {
 
       // Graduation requirements using shared utility
       // If no data yet, treat as "met" (not penalized) until data exists
-      const attendanceMet = overallAttendancePercentage === null ? true : meetsAttendanceRequirement(overallAttendancePercentage)
+
       // If no exam scores, return null for average (don't penalize for exams not taken yet)
       const examAverage = exams.count > 0 ? exams.avg : null
       const examAverageMet = examAverage === null ? true : examAverage >= 75
@@ -384,7 +384,7 @@ export async function GET(request: Request) {
       // (same rules as /api/students/[id]/analytics: weeks still ahead don't count,
       // and the current year needs a rotation)
       let sundaySchoolMet = true
-      let rotationPercentage: number | null = null
+      let rotation = rotationAttendanceSummary([])
       if (enrollment.isAsyncStudent) {
         const rotations = (ssAssignmentsByStudent.get(studentId) || []).map((ssa) => ({
           yearLevel: ssa.yearLevel,
@@ -394,12 +394,14 @@ export async function GET(request: Request) {
           attendance: rotationAttendanceToDate(ssa),
         }))
         sundaySchoolMet = rotationRequirementMet(rotations, enrollment.yearLevel).met
-        rotationPercentage = rotationAttendancePercentage(rotations)
+        rotation = rotationAttendanceSummary(rotations)
       }
 
+      const attendancePercentage = enrollment.isAsyncStudent ? rotation.percentage : overallAttendancePercentage
+      const attendanceMet = attendancePercentage === null || meetsAttendanceRequirement(attendancePercentage)
       const graduationEligible = isGraduationEligible({
         // An async student's rotation is their attendance evidence
-        attendancePercentage: overallAttendancePercentage ?? rotationPercentage,
+        attendancePercentage,
         examAverage,
         requirementsMet: [attendanceMet, examAverageMet, allSectionsMet, sundaySchoolMet],
       })
@@ -409,12 +411,12 @@ export async function GET(request: Request) {
         studentName: enrollment.student.name,
         yearLevel: enrollment.yearLevel,
         // Attendance - null if no lessons yet
-        attendancePercentage: overallAttendancePercentage !== null
-          ? Math.round(overallAttendancePercentage * 10) / 10
+        attendancePercentage: attendancePercentage !== null
+          ? Math.round(attendancePercentage * 10) / 10
           : null,
         attendanceMet,
         totalLessons: effectiveTotalLessons, // Total minus excused for this student
-        allLessons: lessonsWithAttendanceCount, // All lessons with attendance
+        allLessons: enrollment.isAsyncStudent ? 0 : lessonsWithAttendanceCount, // All lessons with attendance
         presentCount,
         lateCount,
         absentCount,
@@ -449,7 +451,16 @@ export async function GET(request: Request) {
         conductDismissalCount: conductRemovalByStudent.get(studentId) || 0,
         // Async student fields
         isAsyncStudent: enrollment.isAsyncStudent,
-        ...(enrollment.isAsyncStudent ? { sundaySchoolMet } : {})
+        ...(enrollment.isAsyncStudent ? {
+          sundaySchoolMet,
+          totalLessons: rotation.effectiveTotal,
+          allLessons: rotation.effectiveTotal + rotation.excused,
+          attendedLessons: rotation.present,
+          presentCount: rotation.present,
+          absentCount: rotation.absent,
+          excusedCount: rotation.excused,
+          lateCount: 0,
+        } : {})
       }
     })
 

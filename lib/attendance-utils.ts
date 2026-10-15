@@ -216,3 +216,11 @@ export function excludeAsyncPeriodRecords(
   })
   return rules.length > 0 ? { NOT: { OR: rules } } : {}
 }
+
+/** Current async students are assessed solely on rotations, including legacy records and slips. */
+export function excludeAsyncLessonRecords(
+  enrollments: Array<{ studentId: string; isAsyncStudent?: boolean | null }>,
+) {
+  const studentIds = enrollments.filter(e => e.isAsyncStudent).map(e => e.studentId)
+  return studentIds.length ? { NOT: { studentId: { in: studentIds } } } : {}
+}

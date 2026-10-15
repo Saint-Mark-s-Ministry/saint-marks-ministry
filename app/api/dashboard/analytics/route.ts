@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 import { AttendanceStatus, YearLevel, ExamYearLevel } from "@prisma/client"
-import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
+import { excludeAsyncLessonRecords } from "@/lib/attendance-utils"
+
+import { rotationAttendanceToDate, rotationAttendanceSummary } from "@/lib/sunday-school-utils"
 
 // GET /api/dashboard/analytics - Get detailed analytics for the dashboard
 export async function GET() {
@@ -65,17 +67,26 @@ export async function GET() {
             name: true
           }
         },
-        yearLevel: true
+        yearLevel: true,
+        isAsyncStudent: true
       }
     })
 
-    // Async students: lessons from the day they went async count only if a slip
-    // covered them (their attendance is their Sunday School rotation)
+    // Async students are assessed solely on rotation attendance.
     const asyncEnrollments = await prisma.studentEnrollment.findMany({
       where: { isAsyncStudent: true },
       select: { studentId: true, isAsyncStudent: true, asyncApprovedAt: true },
     })
-    const asyncExclusion = excludeAsyncPeriodRecords(asyncEnrollments)
+    const asyncExclusion = excludeAsyncLessonRecords(asyncEnrollments)
+    const rotations = asyncEnrollments.length ? await prisma.sundaySchoolAssignment.findMany({
+      where: { studentId: { in: asyncEnrollments.map(e => e.studentId) } },
+      include: { logs: true },
+    }) : []
+    const rotationRates = new Map(asyncEnrollments.map(enrollment => [
+      enrollment.studentId,
+      rotationAttendanceSummary(rotations.filter(r => r.studentId === enrollment.studentId)
+        .map(r => ({ attendance: rotationAttendanceToDate(r) }))).percentage,
+    ]))
 
     // Get attendance records with lesson info (exclude exam day lessons)
     const attendanceRecords = await prisma.attendanceRecord.findMany({
@@ -219,7 +230,17 @@ export async function GET() {
       let hasGoodAttendance = false
       let hasGoodExams = false
 
-      if (attendance && attendance.total > 0) {
+      if (enrollment.isAsyncStudent) {
+        attendanceRate = rotationRates.get(studentId) ?? null
+        hasGoodAttendance = attendanceRate === null || attendanceRate >= 75
+        if (attendanceRate !== null) {
+          if (hasGoodAttendance) studentsWithGoodAttendance++
+          else {
+            studentsWithLowAttendance++
+            issues.push(`Low rotation attendance: ${attendanceRate.toFixed(2)}%`)
+          }
+        }
+      } else if (attendance && attendance.total > 0) {
         const countableLessons = attendance.total - attendance.excused
         if (countableLessons > 0) {
           attendanceRate = ((attendance.present + (attendance.late / 2)) / countableLessons) * 100

@@ -761,7 +761,7 @@ function StudentsManagementContent() {
                             </td>
                           )}
                           <td className="px-3">
-                            <Metric value={enrollment?.isAsyncStudent ? a?.attendancePercentage : preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={!preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
+                            <Metric value={enrollment?.isAsyncStudent ? a?.attendancePercentage : preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={enrollment?.isAsyncStudent ? (a ? `${a.attendedLessons}/${a.totalLessons} rotation weeks` : undefined) : !preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
                           </td>
                           <td className="px-3">
                             <Metric value={a?.avgExamScore} detail={!preview && a && a.avgExamScore !== null ? `${a.examCount} exam${a.examCount !== 1 ? 's' : ''}` : undefined} width={48} />
@@ -852,7 +852,7 @@ function StudentsManagementContent() {
               <div className="grid gap-3">
                 {[
                   ...(preview.enrollments?.[0]?.isAsyncStudent ? [
-                    { label: 'Attendance', value: previewAnalytics?.attendancePercentage, detail: previewAnalytics ? `${previewAnalytics.attendedLessons} of ${previewAnalytics.totalLessons} lessons` : undefined },
+                    { label: 'Rotation attendance', value: previewAnalytics?.attendancePercentage, detail: previewAnalytics ? `${previewAnalytics.attendedLessons} of ${previewAnalytics.totalLessons} rotation weeks` : undefined },
                   ] : [
                     { label: 'Year 1 attendance', value: previewAnalytics?.year1AttendancePercentage, detail: previewAnalytics ? `${previewAnalytics.year1AttendedLessons} of ${previewAnalytics.year1TotalLessons} lessons` : undefined },
                     { label: 'Year 2 attendance', value: previewAnalytics?.year2AttendancePercentage, detail: previewAnalytics?.year2TotalLessons ? `${previewAnalytics.year2AttendedLessons} of ${previewAnalytics.year2TotalLessons} lessons` : undefined },
