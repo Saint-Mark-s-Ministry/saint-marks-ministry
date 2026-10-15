@@ -104,7 +104,3 @@ conflicts, and rate limits. Chromium's CDP virtual authenticator can exercise
 resident credential enrollment and real signature verification without hardware.
 Physical device prompts and cross-device syncing still need a production-domain
 smoke test.
-
-For a missing website icon in a password manager, see
-[`website-icons.md`](website-icons.md). 1Password's rich-icon catalog is
-independent of passkey enrollment and the site's browser favicon declarations.
