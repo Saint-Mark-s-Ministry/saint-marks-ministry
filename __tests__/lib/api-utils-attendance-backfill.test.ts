@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/auth-helpers', () => ({ requireAuth: vi.fn() }))
+
 vi.mock('@/lib/prisma', () => ({ prisma: {} }))
 
 import { backfillAttendanceForStudents } from '@/lib/api-utils'
@@ -75,17 +77,19 @@ describe('attendance backfill for promoted students', () => {
     expect(tx.attendanceRecord.createMany).not.toHaveBeenCalled()
   })
 
-  it('gives async students no default absence for lessons from the day they went async', async () => {
+  it('never backfills async students, including lessons before approval and undated legacy enrollments', async () => {
     const tx = {
       lesson: {
         findMany: vi.fn().mockResolvedValue([
           { id: 'before', scheduledDate: new Date('2026-09-25T00:00:00Z') },
           { id: 'same-day', scheduledDate: new Date('2026-10-02T00:00:00Z') },
+          { id: 'reported-date', scheduledDate: new Date('2026-10-09T00:00:00Z') },
         ]),
       },
       studentEnrollment: {
         findMany: vi.fn().mockResolvedValue([
-          { studentId: 'async-1', isAsyncStudent: true, asyncApprovedAt: new Date('2026-10-02T18:59:00Z') },
+          { studentId: 'async-1', isAsyncStudent: true, asyncApprovedAt: new Date('2026-10-15T18:59:00Z') },
+          { studentId: 'async-legacy', isAsyncStudent: true, asyncApprovedAt: null },
         ]),
       },
       attendanceRecord: {
@@ -94,10 +98,10 @@ describe('attendance backfill for promoted students', () => {
       },
     }
 
-    await backfillAttendanceForStudents(['async-1'], 'active-year', tx as never)
+    await backfillAttendanceForStudents(['async-1', 'async-legacy', 'in-person'], 'active-year', tx as never)
 
     expect(tx.attendanceRecord.createMany).toHaveBeenCalledWith({
-      data: [{ lessonId: 'before', studentId: 'async-1', status: 'ABSENT', recordedBy: null }],
+      data: ['before', 'same-day', 'reported-date'].map(lessonId => ({ lessonId, studentId: 'in-person', status: 'ABSENT', recordedBy: null })),
       skipDuplicates: true,
     })
   })

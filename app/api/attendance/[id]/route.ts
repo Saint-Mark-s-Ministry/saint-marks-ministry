@@ -39,6 +39,13 @@ export async function PATCH(
       )
     }
 
+    const enrollment = await prisma.studentEnrollment.findUnique({
+      where: { studentId: record.studentId }, select: { isAsyncStudent: true },
+    })
+    if (enrollment?.isAsyncStudent) {
+      return NextResponse.json({ error: "Async students have rotation attendance; prep lesson attendance does not apply" }, { status: 400 })
+    }
+
     // Validate conduct removal requires a note
     if (conductRemoval === true && (!conductNote || !conductNote.trim())) {
       return NextResponse.json(

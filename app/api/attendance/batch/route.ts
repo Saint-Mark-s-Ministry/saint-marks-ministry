@@ -6,7 +6,6 @@ import { canManageData } from "@/lib/roles"
 import { AttendanceStatus } from "@prisma/client"
 import { parseTimeString, handleApiError } from "@/lib/api-utils"
 import { notifyAttendanceRecorded, notifyConductRemoval } from "@/lib/notifications"
-import { asyncPeriodStart, isAsyncPeriodLesson } from "@/lib/attendance-utils"
 
 interface AttendanceRecord {
   studentId: string
@@ -87,15 +86,14 @@ export async function POST(request: Request) {
     const lessonDateValue = new Date(lesson.scheduledDate)
     const enrollmentsForStudents = await prisma.studentEnrollment.findMany({
       where: { studentId: { in: studentIdSet } },
-      select: { studentId: true, attendanceStartDate: true, isAsyncStudent: true, asyncApprovedAt: true },
+      select: { studentId: true, attendanceStartDate: true, isAsyncStudent: true },
     })
 
-    // Async students aren't on the roll call for lessons from the day they went
-    // async (their attendance is their Sunday School rotation); ignore any record
-    // sent for them so a stale page can't mark them absent. Slips still apply.
+    // Current async students never belong on prep lesson roll call, including
+    // backdated saves from a stale page.
     const asyncForLesson = new Set(
       enrollmentsForStudents
-        .filter(e => isAsyncPeriodLesson(lesson.scheduledDate, asyncPeriodStart(e)))
+        .filter(e => e.isAsyncStudent)
         .map(e => e.studentId)
     )
     records = records.filter(r => !asyncForLesson.has(r.studentId))

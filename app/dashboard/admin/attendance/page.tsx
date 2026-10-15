@@ -27,7 +27,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { AcademicYear } from '@/lib/types'
-import { asyncPeriodStart, isAsyncPeriodLesson } from '@/lib/attendance-utils'
 
 interface Lesson {
   id: string
@@ -360,11 +359,10 @@ export default function AttendancePage() {
     }
   }
 
-  // Async students aren't on the roll call for lessons from the day they went
-  // async: their attendance is their Sunday School rotation (slips still count).
+  // Current async students are exempt from all prep lesson roll calls.
   const isAsyncForLesson = (student: Student) =>
     !!selectedLesson &&
-    student.enrollments.some((e) => isAsyncPeriodLesson(selectedLesson.scheduledDate, asyncPeriodStart(e)))
+    student.enrollments.some((e) => e.isAsyncStudent)
   const asyncOffRollCall = students.filter(isAsyncForLesson)
 
   const filteredStudents = students.filter(student => {
@@ -604,7 +602,7 @@ export default function AttendancePage() {
               {asyncOffRollCall.length > 0 && (
                 <p className="mt-1.5 text-xs text-ink-3">
                   Not on this roll call (async): {asyncOffRollCall.map((s) => s.name).join(', ')}. Their attendance comes from
-                  their Sunday School rotation; an uploaded slip still marks a lesson Present.
+                  their Sunday School rotation. Normal lessons do not count.
                 </p>
               )}
             </div>
