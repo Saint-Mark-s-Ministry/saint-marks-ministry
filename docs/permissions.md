@@ -336,6 +336,13 @@ moving Grade 6 from Elementary to Middle, is data entry.
 
 ## Session and client-side guards
 
+Passkey management (`/api/passkeys`) is self-service account security for all
+active roles, including priests, and grants no ministry-record authority.
+Every request reloads the current user, verifies the session auth version, and
+rejects disabled accounts, forced password changes, and View as mode. Adding or
+removing a passkey also requires a sign-in within ten minutes. See
+[`passkeys.md`](passkeys.md) for verification, domain configuration, and rollout.
+
 The JWT carries a coarse standing so synchronous renders (the navbar switcher,
 page guards) do not need a fetch:
 

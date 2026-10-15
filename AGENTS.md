@@ -88,6 +88,10 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="<openssl rand -base64 32>"
 ```
 
+Optional passkey login requires `PASSKEY_RP_ID` and `PASSKEY_ORIGIN`. Read
+[`docs/passkeys.md`](docs/passkeys.md) before configuring or changing them;
+the RP ID determines whether existing passkeys survive a domain change.
+
 Never commit a `.env`. Never log or echo these values.
 
 Optional: `COPTIC_IO_API_URL` overrides the church-calendar API (default

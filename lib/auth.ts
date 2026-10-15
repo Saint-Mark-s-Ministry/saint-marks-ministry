@@ -11,6 +11,8 @@ import { seesAllSundaySchoolClasses } from "./roles"
 import { recordAuditEvent } from "./audit"
 import { normalizeEmail } from "./email"
 import { classBelongsToElementaryBand } from "./sunday-school-homework"
+import { authenticatePasskey, passkeyTokenFromHeader } from "./passkeys"
+import { assertPasskeyOrigin } from "./passkey-config"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   const [enrollment, roleAssignments] = await Promise.all([
@@ -227,6 +229,27 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: false,
     }),
     CredentialsProvider({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { response: { label: "Passkey response", type: "text" } },
+      async authorize(credentials, req) {
+        try {
+          assertPasskeyOrigin(req.headers?.origin)
+          if (!credentials?.response) return null
+          const user = await authenticatePasskey(passkeyTokenFromHeader(req.headers?.cookie, 'authenticate'), credentials.response)
+          const sessionData = await getUserSessionData(user)
+          await recordAuditEvent({
+            actorUserId: user.id, action: 'AUTH_LOGIN', entityType: 'User', entityId: user.id,
+            result: AuditEventResult.SUCCESS, metadata: { provider: 'passkey' },
+          })
+          return { ...user, ...sessionData }
+        } catch {
+          // Never expose credential IDs, account existence, or verifier errors.
+          return null
+        }
+      },
+    }),
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -356,8 +379,11 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, account, trigger, session }) {
+      // Set only on a real sign-in, never from client session updates or token
+      // refreshes. Older sessions must sign in again to manage passkeys.
+      if (user && account) token.authenticatedAt = Date.now()
       // Credentials sign-in: user object has all our custom fields
-      if (user && account?.provider === "credentials") {
+      if (user && (account?.provider === "credentials" || account?.provider === "passkey")) {
         token.canAccessContactBook = user.canAccessContactBook ?? false
         token.role = user.role
         token.id = user.id
@@ -539,6 +565,8 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (session.user) {
+        session.authenticatedAt = token.authenticatedAt
+        session.user.authVersion = token.authVersion
         session.user.canAccessContactBook = token.canAccessContactBook ?? false
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
