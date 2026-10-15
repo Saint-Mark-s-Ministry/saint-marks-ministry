@@ -11,7 +11,6 @@ import {
   ArrowBigUp,
   Bug,
   CheckCircle2,
-  ChevronRight,
   Lightbulb,
   Map,
   MessageSquare,
@@ -243,7 +242,6 @@ export default function SundaySchoolFeedbackPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | SundaySchoolFeedbackStatus>('ALL')
   const [sort, setSort] = useState<FeedbackSort>('TOP')
   const [search, setSearch] = useState('')
-  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null)
 
   const openCreateDialog = () => {
     setEditingIdea(null)
@@ -424,14 +422,13 @@ export default function SundaySchoolFeedbackPage() {
     ),
     sort
   )
-  const selectedIdea = allIdeas.find(idea => idea.id === selectedIdeaId)
   const hasFilters = Boolean(query) || typeFilter !== 'ALL' || (view === 'board' && statusFilter !== 'ALL')
   const clearFilters = () => {
     setSearch('')
     setTypeFilter('ALL')
     setStatusFilter('ALL')
   }
-  const renderEntry = (idea: SundaySchoolFeedbackIdea, detail = false) => (
+  const renderEntry = (idea: SundaySchoolFeedbackIdea) => (
     <div className="flex items-start gap-3 p-4 sm:gap-4 sm:p-5">
       <FeedbackVoteRail idea={idea} disabled={!idea.canVote || Boolean(votingIdeaId)} onVote={(vote) => handleVote(idea, vote)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -441,18 +438,7 @@ export default function SundaySchoolFeedbackPage() {
               <StatusBadge tone={TYPE_TONE[idea.type]} dot={false}>{TYPE_LABELS[idea.type]}</StatusBadge>
               <StatusBadge tone={STATUS_TONE[idea.status]}>{STATUS_LABELS[idea.status]}</StatusBadge>
             </div>
-            {!detail && (
-              <h2>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIdeaId(idea.id)}
-                  className="group flex items-start gap-2 text-left text-[15px] font-semibold break-words text-ink transition-colors hover:text-accent-ink focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-accent-ink"
-                >
-                  {idea.title}
-                  <ChevronRight aria-hidden className="mt-1 size-3.5 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5" />
-                </button>
-              </h2>
-            )}
+            <h2 className="text-[15px] font-semibold break-words text-ink">{idea.title}</h2>
           </div>
           <div className="flex max-w-full flex-wrap items-center gap-1">
             {response?.viewer.canModerate && (
@@ -624,16 +610,6 @@ export default function SundaySchoolFeedbackPage() {
           </>
         )}
       </div>
-
-      <Dialog open={Boolean(selectedIdea)} onOpenChange={open => !open && setSelectedIdeaId(null)}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="pr-5 break-words">{selectedIdea?.title}</DialogTitle>
-            <DialogDescription>Feedback details and the latest team response.</DialogDescription>
-          </DialogHeader>
-          {selectedIdea && renderEntry(selectedIdea, true)}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
