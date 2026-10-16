@@ -6,7 +6,7 @@ import { handleApiError, assertSafeHttpUrl } from "@/lib/api-utils"
 import { notifyLessonCancelled } from "@/lib/notifications"
 
 
-// PATCH /api/lessons/[id] - Update a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// PATCH /api/lessons/[id] - Update a lesson (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage curriculum
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage curriculum
     if (!canManageCurriculum(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
@@ -101,7 +101,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/lessons/[id] - Delete a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// DELETE /api/lessons/[id] - Delete a lesson (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -109,7 +109,7 @@ export async function DELETE(
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage curriculum
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage curriculum
     if (!canManageCurriculum(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

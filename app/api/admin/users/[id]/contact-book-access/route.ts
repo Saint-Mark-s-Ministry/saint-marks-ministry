@@ -15,7 +15,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'ViewAsReadOnly' }, { status: 403 })
     }
     const context = await getAuthorizationContext(actor.id)
-    if (context.disabled || context.readOnly || !context.roleTags.has(RoleTag.SUPER_ADMIN)) {
+    if (context.disabled || context.readOnly || context.roleTags.has(RoleTag.PRIEST) || !context.roleTags.has(RoleTag.SUPER_ADMIN)) {
       return NextResponse.json({ error: 'Only active Super Admins can change contact book access' }, { status: 403 })
     }
 

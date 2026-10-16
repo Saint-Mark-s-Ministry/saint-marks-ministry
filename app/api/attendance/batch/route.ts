@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage attendance
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage attendance
     if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

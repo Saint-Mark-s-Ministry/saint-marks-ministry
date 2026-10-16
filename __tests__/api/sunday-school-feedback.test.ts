@@ -280,6 +280,7 @@ describe('Sunday School feedback API permissions', () => {
   it('lets only SUPER_ADMIN remove a team response', async () => {
     const request = new Request('http://localhost/idea-1/response', { method: 'DELETE' })
     expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(403)
+    mocks.requireAuth.mockResolvedValue({ id: 'admin-1', role: 'SUPER_ADMIN' })
     mocks.getSundaySchoolAccess.mockResolvedValue(adminAccess)
     expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(200)
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({

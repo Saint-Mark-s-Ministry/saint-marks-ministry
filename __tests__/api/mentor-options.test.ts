@@ -38,12 +38,12 @@ describe('GET /api/mentor-options', () => {
     }))
   })
 
-  it('does not expose mentor candidates to read-only priests', async () => {
+  it('allows priests to select mentor candidates', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: UserRole.PRIEST })
 
     const response = await GET()
 
-    expect(response.status).toBe(403)
-    expect(mocks.findMany).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(mocks.findMany).toHaveBeenCalled()
   })
 })

@@ -66,39 +66,39 @@ export const canManageAllUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN
 }
 
-// Can access admin dashboard (view-only for PRIEST)
+// Can access admin dashboard
 export const canAccessAdmin = (role: UserRole) => {
   return isAdmin(role)
 }
 
-// Can take attendance and enter scores (PRIEST is read-only)
+// Can take attendance and enter scores
 export const canManageData = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
-// Can create/edit curriculum and lessons (PRIEST is read-only)
+// Can create/edit curriculum and lessons
 export const canManageCurriculum = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
-// Can create/edit exams and scores (PRIEST is read-only)
+// Can create/edit exams and scores
 export const canManageExams = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
-// Can create/edit enrollments (PRIEST is read-only)
+// Can create/edit enrollments
 export const canManageEnrollments = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
-// Has read-only admin access (PRIEST)
+// Compatibility helper: no admin role is read-only.
 export const isReadOnlyAdmin = (role: UserRole) => {
-  return role === UserRole.PRIEST
+  return canAccessAdmin(role) && !canManageData(role)
 }
 
-// Can assign mentors to students (PRIEST is read-only)
+// Can assign mentors to students
 export const canAssignMentors = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can self-assign mentees (mentors)
@@ -106,8 +106,7 @@ export const canSelfAssignMentees = (role: UserRole) => {
   return role === UserRole.MENTOR
 }
 
-// Can be assigned as a mentor (have mentees). Priests remain read-only in the
-// application; this only allows an enrollment to name them as its mentor.
+// Can be assigned as a mentor (have mentees).
 export const MENTOR_ELIGIBLE_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.PRIEST,
@@ -126,27 +125,27 @@ export const canViewStudents = (role: UserRole) => {
 
 // Can generate/manage Sunday School codes and manage assignments
 export const canManageSundaySchool = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can excuse/manually approve/reject Sunday School attendance
 export const canManageSundaySchoolAttendance = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can set async student status on enrollments
 export const canSetAsyncStatus = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can manage invite codes (generate, edit, revoke)
 export const canManageInviteCodes = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can review registration submissions (approve/reject)
 export const canReviewRegistrations = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+  return isAdmin(role)
 }
 
 // Can view registration submissions (read-only access)
@@ -174,19 +173,19 @@ export const canReviewServantApplications = (role: UserRole) => {
 // Only the handful of things below are genuinely role-derived.
 // ============================================
 
-// Full authority over every class, plus age groups and servant accounts
+// Full ministry authority over every class and age group; account management is separate.
 export const canAdministerSundaySchool = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN
+  return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST
 }
 
-// Sees every class without needing an assignment (PRIEST is read-only)
+// Sees every class without needing an assignment
 export const seesAllSundaySchoolClasses = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST
 }
 
-// Has Sunday School visibility but every write is refused
+// Compatibility helper: no Sunday School role is read-only.
 export const isSundaySchoolReadOnly = (role: UserRole) => {
-  return role === UserRole.PRIEST
+  return seesAllSundaySchoolClasses(role) && !canAdministerSundaySchool(role)
 }
 
 // The legacy roles that may be given a Sunday School assignment without an
@@ -207,7 +206,7 @@ export const canBeAssignedToSundaySchool = (
 
   // A super admin may also personally serve in a class, but only when their
   // multi-role identity explicitly includes Sunday School service. Priests
-  // remain read-only even if they carry the participation tag.
+  // oversee every class without needing a personal servant assignment.
   return role === UserRole.SUPER_ADMIN &&
     new Set(roleTags).has(RoleTag.SUNDAY_SCHOOL_SERVANT)
 }

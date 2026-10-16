@@ -1,3 +1,6 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
 import { AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { getAuthorizationContext } from "@/lib/authorization"
@@ -22,6 +25,8 @@ export async function GET(request: Request) {
     const user = await requireAuth()
     const access = await getSundaySchoolAccess(user)
     const authorization = await getAuthorizationContext(user.id)
+    const session = await getServerSession(authOptions)
+    const canReadPrivateNotes = canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating))
 
     if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -98,7 +103,8 @@ export async function GET(request: Request) {
       standing: {
         readOnly: access.readOnly,
         isAdmin: access.isAdmin,
-        isPriest: authorization.roleTags.has(RoleTag.PRIEST),
+        isPriest: canReadPrivateNotes && authorization.roleTags.has(RoleTag.PRIEST),
+        canReadPrivateNotes,
       },
     })
   } catch (error: unknown) {

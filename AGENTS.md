@@ -184,7 +184,8 @@ Rules that are not negotiable:
 - **Never grant Sunday School power to a prep role.** A `SERVANT_PREP` who also
   serves Sunday School gets in by being *assigned*, as an individual. This is
   what lets one person wear both hats, given `User.role` holds a single value.
-- **`PRIEST` is read-only everywhere**, in both modes.
+- **`PRIEST` may edit ministry records in both modes.** Account administration,
+  access tags, MCP tokens, and feedback moderation remain separately restricted.
 - **Guardian contact for children is sensitive.** It is returned only by
   `/api/sunday-school/children*`, only to people who serve that child's class
   and to admins. Keep it out of summary endpoints and the command palette.

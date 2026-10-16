@@ -55,6 +55,7 @@ describe('priest-note notifications', () => {
         isDisabled: false,
         roleAssignments: {
           some: { tag: RoleTag.PRIEST, revokedAt: null },
+          none: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
         },
       },
       select: { id: true },

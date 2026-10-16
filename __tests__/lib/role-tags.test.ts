@@ -27,7 +27,7 @@ describe('role tag compatibility mapping', () => {
     ], UserRole.SERVANT)).toBe(UserRole.SUPER_ADMIN)
   })
 
-  it('makes Priest read-only override all other compatibility roles', () => {
+  it('preserves the Priest compatibility identity alongside other tags', () => {
     expect(legacyRoleForTags([
       RoleTag.SUPER_ADMIN,
       RoleTag.PRIEST,

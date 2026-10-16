@@ -37,6 +37,12 @@ describe('shared feedback access', () => {
     expect(mocks.sundaySchool).toHaveBeenCalledWith({ id: 'user', role: 'STUDENT', isDisabled: false })
   })
 
+  it('keeps priest ministry administration separate from feedback moderation', async () => {
+    mocks.account.mockResolvedValue({ id: 'priest', role: 'PRIEST', isDisabled: false })
+    mocks.sundaySchool.mockResolvedValue({ ...noSundaySchool, isAdmin: true, canRead: true })
+    expect(await getFeedbackAccess({ id: 'priest' })).toMatchObject({ canRead: true, isAdmin: false })
+  })
+
   it('preserves existing Sunday School feedback participation', async () => {
     mocks.account.mockResolvedValue({ id: 'user', role: 'SERVANT', isDisabled: false })
     mocks.sundaySchool.mockResolvedValue({ ...noSundaySchool, canRead: true })

@@ -95,6 +95,12 @@ describe('admin mentor assignments with access tags', () => {
         expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'sarah' }, data: { role: UserRole.MENTOR } })
       })
 
+      it('allows a priest to assign a mentor', async () => {
+        mocks.requireAuth.mockResolvedValue({ id: 'priest', role: UserRole.PRIEST })
+        expect((await run('sarah')).status).toBe(operation === 'create' ? 201 : 200)
+        expect(mocks.transaction).toHaveBeenCalled()
+      })
+
       it.each([
         { role: UserRole.SERVANT, isDisabled: true, roleAssignments: [staffTag] },
         { role: UserRole.MENTOR, isDisabled: false, roleAssignments: [{ ...staffTag, revokedAt: new Date() }] },
@@ -107,7 +113,7 @@ describe('admin mentor assignments with access tags', () => {
         expect(mocks.transaction).not.toHaveBeenCalled()
       })
 
-      it.each([UserRole.SERVANT, UserRole.STUDENT, UserRole.MENTOR, UserRole.PRIEST])(
+      it.each([UserRole.SERVANT, UserRole.STUDENT, UserRole.MENTOR])(
         'does not let a %s assign mentors', async role => {
           mocks.requireAuth.mockResolvedValue({ id: 'actor-1', role })
           expect((await run('sarah')).status).toBe(403)

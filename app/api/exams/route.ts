@@ -47,12 +47,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/exams - Create a new exam (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/exams - Create a new exam (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exams
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage exams
     if (!canManageExams(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

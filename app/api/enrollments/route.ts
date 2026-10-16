@@ -140,12 +140,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/enrollments - Create a new enrollment (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/enrollments - Create a new enrollment (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
     if (!canManageEnrollments(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

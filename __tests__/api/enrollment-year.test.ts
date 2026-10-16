@@ -69,10 +69,10 @@ describe('enrollment year API', () => {
     expect((await patch({ notes: 'Updated note' })).status).toBe(200)
     expect(mocks.update.mock.calls[0][0].data).toEqual({ notes: 'Updated note' })
   })
-  it('keeps priests read-only', async () => {
+  it('allows priests to create and update async enrollments', async () => {
     mocks.auth.mockResolvedValue({ id: 'priest', role: 'PRIEST' })
-    expect((await POST(request({ studentId: 'student', isAsyncStudent: true }))).status).toBe(403)
-    expect((await patch({ isAsyncStudent: true })).status).toBe(403)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect((await POST(request({ studentId: 'student', isAsyncStudent: true }))).status).toBe(201)
+    expect((await patch({ isAsyncStudent: true })).status).toBe(200)
+    expect(mocks.transaction).toHaveBeenCalled()
   })
 })

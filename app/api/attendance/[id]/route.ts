@@ -14,7 +14,7 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage attendance
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage attendance
     if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

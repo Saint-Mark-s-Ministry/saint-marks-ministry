@@ -127,12 +127,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/lessons - Create a new lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/lessons - Create a new lesson (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage curriculum
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage curriculum
     if (!canManageCurriculum(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

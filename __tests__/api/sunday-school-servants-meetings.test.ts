@@ -101,7 +101,7 @@ describe('on-demand Elementary servants meetings', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('keeps priests read-only even when they also have coordinator authority', async () => {
+  it('denies an explicitly read-only context even with coordinator authority', async () => {
     mocks.context.mockResolvedValue({ disabled: false, readOnly: true })
     expect((await put()).status).toBe(403)
     expect(mocks.save).not.toHaveBeenCalled()

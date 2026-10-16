@@ -18,6 +18,6 @@ export async function requireExamScoreWriter() {
   const user = await requireAuth()
   const context = await getAuthorizationContext(user.id)
   assertCanWriteBusinessData(context)
-  if (!context.roleTags.has(RoleTag.SUPER_ADMIN) && !context.roleTags.has(RoleTag.SERVANTS_PREP_SERVANT)) throw new Error('Forbidden')
+  if (!context.roleTags.has(RoleTag.SUPER_ADMIN) && !context.roleTags.has(RoleTag.SERVANTS_PREP_SERVANT) && !context.roleTags.has(RoleTag.PRIEST)) throw new Error('Forbidden')
   return user
 }

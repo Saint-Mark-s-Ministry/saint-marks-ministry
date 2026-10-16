@@ -214,7 +214,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(attempt.state).toBe('SUBMITTED'); expect(attempt.correctCount).toBe(attempt.answers[0] === 'E' ? 1 : 0)
     await expect(act('save', { question: 0, answer: 'A', revision: attempt.revision })).rejects.toThrow('already been submitted')
   }, 30000)
-  it('protects configuration, eligibility, read-only priests, and other attempts', async () => {
+  it('protects configuration, eligibility, denied managers, and other attempts', async () => {
     await expect(admin('configure', { choiceCounts: Array(50).fill(4), answerKey: Array(50).fill('A') })).rejects.toThrow('locked after opening')
     await expect(mutateExam(fixture.examId, { action: 'close' }, { ...staff, manage: false })).rejects.toThrow('Forbidden')
     await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { yearLevel: 'YEAR_2' } })

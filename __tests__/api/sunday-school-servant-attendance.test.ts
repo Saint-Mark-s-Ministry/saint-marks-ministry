@@ -60,8 +60,8 @@ const coordinatorAccess = {
   coordinatorClassIds: new Set(['class-1']),
 }
 const priestAccess = {
-  isAdmin: false,
-  readOnly: true,
+  isAdmin: true,
+  readOnly: false,
   servantClassIds: new Set<string>(),
   coordinatorClassIds: new Set<string>(),
 }
@@ -154,7 +154,7 @@ describe('Sunday School servant attendance API', () => {
     expect(response.status).toBe(200)
   })
 
-  it('allows a priest to load the roster in read-only mode', async () => {
+  it('allows a priest to load an editable roster', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
     mocks.getSundaySchoolAccess.mockResolvedValue(priestAccess)
 
@@ -164,7 +164,7 @@ describe('Sunday School servant attendance API', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.canEdit).toBe(false)
+    expect(body.canEdit).toBe(true)
     expect(body.roster).toHaveLength(1)
   })
 
@@ -194,7 +194,7 @@ describe('Sunday School servant attendance API', () => {
     expect(mocks.assignmentFindMany).not.toHaveBeenCalled()
   })
 
-  it('keeps priest access read-only at the write endpoint', async () => {
+  it('allows priests to record servant attendance', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
     mocks.getSundaySchoolAccess.mockResolvedValue(priestAccess)
 
@@ -202,8 +202,8 @@ describe('Sunday School servant attendance API', () => {
       { servantId: 'servant-1', status: SundaySchoolServantAttendanceStatus.PRESENT },
     ]))
 
-    expect(response.status).toBe(403)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(mocks.transaction).toHaveBeenCalled()
   })
 
   it('rejects future dates and duplicate servants', async () => {

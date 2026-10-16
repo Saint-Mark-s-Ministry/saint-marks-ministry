@@ -124,10 +124,10 @@ describe('API Authorization Patterns', () => {
   })
 
   describe('Mentor Assignment Authorization', () => {
-    it('SUPER_ADMIN and SERVANT_PREP can assign mentors (PRIEST is read-only)', () => {
+    it('SUPER_ADMIN and SERVANT_PREP can assign mentors', () => {
       expect(canAssignMentors(UserRole.SUPER_ADMIN)).toBe(true)
       expect(canAssignMentors(UserRole.SERVANT_PREP)).toBe(true)
-      expect(canAssignMentors(UserRole.PRIEST)).toBe(false)
+      expect(canAssignMentors(UserRole.PRIEST)).toBe(true)
       expect(canAssignMentors(UserRole.MENTOR)).toBe(false)
       expect(canAssignMentors(UserRole.STUDENT)).toBe(false)
     })
@@ -198,19 +198,19 @@ describe('API Authorization Patterns', () => {
     })
 
     describe('/api/sunday-school/age-groups write access', () => {
-      it('is SUPER_ADMIN only — redrawing bands changes who coordinates what', () => {
+      it('allows SUPER_ADMIN and PRIEST to manage bands', () => {
         expect(canAdministerSundaySchool(UserRole.SUPER_ADMIN)).toBe(true)
         expect(canAdministerSundaySchool(UserRole.SERVANT_PREP)).toBe(false)
-        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(false)
+        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(true)
         expect(canAdministerSundaySchool(UserRole.SERVANT)).toBe(false)
       })
     })
 
-    describe('PRIEST stays read-only here as everywhere', () => {
-      it('sees Sunday School but is refused every write', () => {
+    describe('PRIEST can manage Sunday School ministry records', () => {
+      it('can see and administer all Sunday School classes', () => {
         expect(seesAllSundaySchoolClasses(UserRole.PRIEST)).toBe(true)
-        expect(isSundaySchoolReadOnly(UserRole.PRIEST)).toBe(true)
-        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(false)
+        expect(isSundaySchoolReadOnly(UserRole.PRIEST)).toBe(false)
+        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(true)
       })
     })
 

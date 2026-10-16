@@ -139,7 +139,7 @@ describe('AppShell', () => {
     expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
   })
 
-  it('offers priests the read-only servant attendance page in Sunday School mode', () => {
+  it('offers priests servant attendance in Sunday School mode', () => {
     render(<AppShell>page</AppShell>)
     expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toHaveAttribute(
       'href',

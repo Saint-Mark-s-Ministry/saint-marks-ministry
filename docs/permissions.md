@@ -64,8 +64,8 @@ grant access to any roster.
 
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
-| `SUPER_ADMIN` | Full | Full, every class | All users |
-| `PRIEST` | Full, read-only | Reads every class, writes nothing | None |
+| `SUPER_ADMIN` | Full | Every class; confidential notes to priests excluded | All users |
+| `PRIEST` | View and edit | View and edit every class and age group | None |
 | `SERVANT_PREP` | Full | **Only if personally assigned** | `STUDENT`, `MENTOR` |
 | `MENTOR` | Own mentees, read-only | None | None |
 | `STUDENT` | Own data, read-only | None | None |
@@ -90,13 +90,14 @@ Only prep administrators and priests can read the full booking list; mentors
 and Sunday School-only participants have no access to it.
 
 Original grade writes and `/api/exams/[id]/makeup-scores` resolve current
-role tags from the database. Only `SUPER_ADMIN` and
+role tags from the database. `SUPER_ADMIN`, `PRIEST`, and
 `SERVANTS_PREP_SERVANT` may record or correct grades. Priests may read makeup
 history; students, mentors, and Sunday School-only servants cannot reach the
 makeup grading endpoint. Disabled accounts cannot grade.
 
-`PRIEST` is read-only **everywhere**. When adding a write path, confirm it is
-excluded.
+`PRIEST` can edit ministry records across both modes. Account management,
+access-tag administration, contact-book grants, MCP token access, and feedback
+moderation remain separately restricted to their existing account permissions.
 
 ---
 
@@ -122,23 +123,23 @@ client, and used identically on both sides.
 | Helper | True for | Governs |
 |---|---|---|
 | `canAccessAdmin` | admin roles | Viewing the admin dashboard |
-| `canManageData` | `SUPER_ADMIN`, `SERVANT_PREP` | Attendance, exams, curriculum writes |
-| `canManageCurriculum` | `SUPER_ADMIN`, `SERVANT_PREP` | Lessons |
-| `canManageExams` | `SUPER_ADMIN`, `SERVANT_PREP` | Exams and scores |
-| `canManageEnrollments` | `SUPER_ADMIN`, `SERVANT_PREP` | Enrollment records |
-| `canAssignMentors` | `SUPER_ADMIN`, `SERVANT_PREP` | Mentor assignment |
+| `canManageData` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Attendance, exams, curriculum writes |
+| `canManageCurriculum` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Lessons |
+| `canManageExams` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Exams and scores |
+| `canManageEnrollments` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Enrollment records |
+| `canAssignMentors` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Mentor assignment |
 | `canSelfAssignMentees` | `MENTOR` | A mentor claiming mentees |
 | `canBeMentor` | `SUPER_ADMIN`, `SERVANT_PREP`, `MENTOR` | Eligibility to hold mentees |
 | `canViewStudents` | admin roles + `MENTOR` | Student lists (mentors filtered to their own) |
-| `isReadOnlyAdmin` | `PRIEST` | Rendering read-only affordances |
-| `canReviewAsyncNotes` | `SUPER_ADMIN`, `SERVANT_PREP` | Approving async note submissions |
-| `canSetAsyncStatus` | `SUPER_ADMIN`, `SERVANT_PREP` | Marking a student async |
+| `isReadOnlyAdmin` | None | Compatibility helper; admin roles may edit |
+| `canReviewAsyncNotes` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Approving async note submissions |
+| `canSetAsyncStatus` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Marking a student async |
 | `canSubmitAsyncContent` | `STUDENT` | Submitting notes (must also *be* async) |
-| `canManageInviteCodes` | `SUPER_ADMIN`, `SERVANT_PREP` | Registration invite codes |
-| `canReviewRegistrations` | `SUPER_ADMIN`, `SERVANT_PREP` | Approving registrations |
+| `canManageInviteCodes` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Registration invite codes |
+| `canReviewRegistrations` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | Approving registrations |
 | `canViewRegistrations` | admin roles | Reading registration submissions |
 | `canReviewServantApplications` | `SUPER_ADMIN` | Reviewing Sunday School servant sign-ups |
-| `canManageSundaySchool` | `SUPER_ADMIN`, `SERVANT_PREP` | **Prep-side only** — the async serving-verification flow (codes, logs). Not Sunday School mode. |
+| `canManageSundaySchool` | `SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP` | **Prep-side only** — the async serving-verification flow (codes, logs). Not Sunday School mode. |
 
 ### User management
 
@@ -180,7 +181,7 @@ classes with no migration.
 | Who | Scope | Powers |
 |---|---|---|
 | `SUPER_ADMIN` | Everything | All of the below, everywhere, plus age groups and servant accounts |
-| `PRIEST` | Everything | Read only |
+| `PRIEST` | Everything | All class and age-group ministry operations; no account administration |
 | Age-group coordinator | Every class in their band | Everything a class coordinator can, **plus create and delete classes** in that band. Sees only their own band. |
 | Class coordinator | One class | Edit the class, staff it, manage its children, and record child and servant attendance. **No** create/delete. |
 | Servant of a class | One class | That class's children and weekly child attendance; no servant-attendance entry or reporting |
@@ -189,7 +190,7 @@ classes with no migration.
 `SERVANT`, `MENTOR`, and `SERVANT_PREP` accounts may be assigned directly. A
 `SUPER_ADMIN` may also be assigned when they have an active
 `SUNDAY_SCHOOL_SERVANT` tag, allowing an administrator to personally serve a
-class without weakening the read-only rule for priests.
+class. Priests oversee every class without a personal servant assignment.
 
 ### The role helpers that remain
 
@@ -197,9 +198,9 @@ Only these four things about Sunday School are genuinely role-derived:
 
 | Helper | True for | Meaning |
 |---|---|---|
-| `canAdministerSundaySchool` | `SUPER_ADMIN` | Age groups, servant accounts, any class |
+| `canAdministerSundaySchool` | `SUPER_ADMIN`, `PRIEST` | Age groups and any class; account management uses separate helpers |
 | `seesAllSundaySchoolClasses` | `SUPER_ADMIN`, `PRIEST` | Visibility without an assignment |
-| `isSundaySchoolReadOnly` | `PRIEST` | Sees, never writes |
+| `isSundaySchoolReadOnly` | None | Compatibility helper; no role is read-only |
 | `canBeAssignedToSundaySchool` | `SERVANT`, `MENTOR`, `SERVANT_PREP`; tagged `SUPER_ADMIN` | May receive an assignment |
 
 Everything else goes through the resolver.
@@ -238,8 +239,8 @@ if (!canServeClass(access, classId)) {
 
 | Field | Meaning |
 |---|---|
-| `isAdmin` | `SUPER_ADMIN` — passes every check |
-| `readOnly` | `PRIEST` — fails every write check |
+| `isAdmin` | `SUPER_ADMIN` or `PRIEST` — passes ministry scope checks |
+| `readOnly` | Reserved for explicitly read-only contexts; false for current roles |
 | `canRead` | Has any way into the mode at all |
 | `servantClassIds` | Classes they serve |
 | `coordinatorClassIds` | Classes they coordinate — direct assignments **plus** every class expanded from their bands |
@@ -301,8 +302,8 @@ use `/dashboard/admin/feedback`; Sunday School uses `/dashboard/servants/feedbac
 A prep role grants feedback participation only, never Sunday School class access.
 `getFeedbackAccess` reloads the current account role and disabled state from the
 database and combines prep staff eligibility with `getSundaySchoolAccess`.
-Disabled accounts are denied. Feedback participation is the sole deliberate
-exception to the normal priest read-only rule. Priests may edit or delete only
+Disabled accounts are denied. Feedback moderation remains separate from ministry
+editing. Priests may edit or delete only
 their own open ideas and never receive moderation authority; changing idea statuses or deleting another person's idea
 remains `SUPER_ADMIN`-only. All feedback routes call `getFeedbackAccess`;
 prep students and mentors without Sunday School access remain denied.
@@ -392,7 +393,7 @@ re-deriving anything: list and detail responses carry `canServe`,
 | File | Covers |
 |---|---|
 | `__tests__/lib/roles.test.ts` | Every prep helper; `SERVANT` denied across all of them; `SERVANT_PREP` cannot manage a `SERVANT` |
-| `__tests__/lib/sunday-school-access.test.ts` | The predicates: band coordinator reaches their band and nothing outside it; class coordinator cannot create or delete; unassigned `SERVANT_PREP` gets nothing; `PRIEST` reads but never writes; level-ownership rules |
+| `__tests__/lib/sunday-school-access.test.ts` | The predicates: band coordinator reaches their band and nothing outside it; class coordinator cannot create or delete; unassigned `SERVANT_PREP` gets nothing; `PRIEST` reads and edits across classes; level-ownership rules |
 | `__tests__/api/api-authorization.test.ts` | Route-level expectations across both models |
 | `__tests__/api/sunday-school-servant-attendance.test.ts` | Servant-attendance authorization, validation, roster scope, and idempotent saves |
 
@@ -403,7 +404,7 @@ the happy path does not protect anything.
 
 `/api/digital-exams` resolves the current database authorization context. Prep
 servants and super admins configure, open, close, unlock, and release results.
-Priests may read monitoring but never write. Active prep students access only
+Priests may monitor and manage exams. Active prep students access only
 their own eligible original-exam attempts; mentor and Sunday School-only tags
 grant no exam-monitoring access. Paper makeup workflows remain separate.
 
@@ -439,3 +440,14 @@ Super Admins do not need this checkbox.
 Deploy the additive `20261010120000_add_contact_book_access` migration explicitly
 before deploying this code; builds never apply it. This follow-up changes no
 database schema or stored permission grants.
+
+## Confidential notes to priests
+
+Confidential visitation notes remain separate from shared visitation records.
+Active priests can read the confidential history; other authors can read only
+their own submissions. Super Admin accounts cannot read these notes, including
+notes they authored, accounts also carrying a Priest tag, and View as sessions.
+The API checks current tags and impersonation before querying any note or child.
+The visitation response exposes this restriction to hide the confidential history
+and suppress its fetch. Super Admin accounts are excluded from new priest-note
+notifications. Ordinary ministry editing permissions do not grant note access.

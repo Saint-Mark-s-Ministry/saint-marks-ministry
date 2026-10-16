@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { RoleTag } from "@prisma/client"
 import {
+  getAuthorizationContext,
   ALL_SCOPE,
   NO_SCOPE,
   assertCanWriteBusinessData,
@@ -54,7 +56,7 @@ describe("write denial", () => {
     expect(canWriteBusinessData(context())).toBe(true)
   })
 
-  it("denies a priest even when other roles could allow the action", () => {
+  it("denies an explicitly read-only context", () => {
     const priest = context({ readOnly: true })
     expect(canWriteBusinessData(priest)).toBe(false)
     expect(() => assertCanWriteBusinessData(priest)).toThrow("Forbidden")
@@ -64,5 +66,52 @@ describe("write denial", () => {
     const disabled = context({ disabled: true })
     expect(canWriteBusinessData(disabled)).toBe(false)
     expect(() => assertCanWriteBusinessData(disabled)).toThrow("Forbidden")
+  })
+})
+
+const database = vi.hoisted(() => ({ user: vi.fn(), year: vi.fn() }))
+vi.mock("@/lib/prisma", () => ({ prisma: {
+  user: { findUnique: database.user },
+  sundaySchoolYear: { findFirst: database.year },
+} }))
+
+describe("current priest authorization", () => {
+  beforeEach(() => {
+    database.year.mockResolvedValue(null)
+    database.user.mockResolvedValue({
+      id: "priest", isDisabled: false, canAccessContactBook: false,
+      roleAssignments: [{ tag: RoleTag.PRIEST }], mentorAssignments: [],
+      guardianOfChildren: [], linkedSundaySchoolChild: null,
+    })
+  })
+
+  it("grants editing and all ministry scopes from the active priest tag without assignments", async () => {
+    const access = await getAuthorizationContext("priest")
+    expect(access.readOnly).toBe(false)
+    expect(access.prepStudentScope).toBe(ALL_SCOPE)
+    expect(access.sundaySchoolClassScope).toBe(ALL_SCOPE)
+    expect(canWriteBusinessData(access)).toBe(true)
+    expect(database.user).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({
+      roleAssignments: { where: { revokedAt: null }, select: { tag: true } },
+    }) }))
+  })
+
+  it("removes global scope when the priest tag is revoked", async () => {
+    database.user.mockResolvedValue({
+      id: "former-priest", isDisabled: false, canAccessContactBook: false,
+      roleAssignments: [], mentorAssignments: [], guardianOfChildren: [], linkedSundaySchoolChild: null,
+    })
+    const access = await getAuthorizationContext("former-priest")
+    expect(access.prepStudentScope).toBe(NO_SCOPE)
+    expect(access.sundaySchoolClassScope).toBe(NO_SCOPE)
+  })
+
+  it("denies writing for a disabled priest", async () => {
+    database.user.mockResolvedValue({
+      id: "priest", isDisabled: true, canAccessContactBook: false,
+      roleAssignments: [{ tag: RoleTag.PRIEST }], mentorAssignments: [],
+      guardianOfChildren: [], linkedSundaySchoolChild: null,
+    })
+    expect(canWriteBusinessData(await getAuthorizationContext("priest"))).toBe(false)
   })
 })

@@ -26,10 +26,10 @@ describe('Exam Monitoring', () => {
     await user.clear(screen.getByRole('searchbox')); await user.type(screen.getByRole('searchbox'), 'Dogma')
     expect(screen.getByText('No exams match your filters.')).toBeInTheDocument()
   })
-  it('gives priests viewing instructions and excludes students', () => {
+  it('gives priests exam setup controls and excludes students', () => {
     mocks.role = 'PRIEST'; const { rerender } = render(<ExamMonitoringPage />)
-    expect(screen.getByText('View proctoring')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Set up/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Start proctoring')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Set up/ })).toBeInTheDocument()
     mocks.role = 'STUDENT'; rerender(<ExamMonitoringPage />)
     expect(screen.queryByText('Exam Monitoring')).not.toBeInTheDocument()
   })

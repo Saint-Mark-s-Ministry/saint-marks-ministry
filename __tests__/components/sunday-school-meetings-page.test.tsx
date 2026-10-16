@@ -50,7 +50,7 @@ describe('dedicated servants meeting page', () => {
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:list')
   })
 
-  it('keeps the page available for priests with read-only dashboard scope', () => {
+  it('keeps the page available for an explicitly read-only dashboard scope', () => {
     mocks.dashboard.classes = []
     mocks.dashboard.standing = { isAdmin: false, readOnly: true }
     render(<MeetingsPage />)

@@ -244,7 +244,7 @@ changes a database. Run schema updates as an explicit deployment step.
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
 | Super Admin | Full | Full, every class | All users |
-| Priest | Full, read-only | Reads every class | None |
+| Priest | View and edit | View and edit every class and age group | None |
 | Servants Prep Servant | Full | Only if personally assigned | Students, Mentors |
 | Mentor | Own mentees, read-only | Only if personally assigned | None |
 | Student | Own progress, lessons, forms, and permitted self-service | Scoped class lessons; no ministry management | None |
