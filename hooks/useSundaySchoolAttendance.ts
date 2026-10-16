@@ -2,6 +2,8 @@
 
 import type { AttendanceSaveInfo } from '@/lib/attendance-save-info'
 
+import { mutate } from 'swr'
+import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AttendanceStatus } from '@prisma/client'
 import { getChildPhotoUrl } from '@/lib/sunday-school-class'
@@ -162,6 +164,7 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
       })
       if (abort.signal.aborted) return false
       if (response.success !== true) throw new Error('The server did not confirm attendance was saved')
+      void mutate([SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL, userId])
       const latest = current.current
       const remaining = { ...latest.pending }
       // A newer tap during an autosave still needs its own acknowledgment.

@@ -1,3 +1,4 @@
+import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
 import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
@@ -417,5 +418,14 @@ export function usePasskeyAvailability() {
 export function usePasskeys(enabled: boolean) {
   return useSWR<{ passkeys: { id: string; name: string; createdAt: string; lastUsedAt: string | null }[] }>(
     enabled ? '/api/passkeys' : null, fetcher, defaultSWRConfig,
+  )
+}
+
+/** User-specific cache prevents a prior account's reminders from appearing after switching. */
+export function useSundaySchoolAttendanceReminders(userId?: string) {
+  return useSWR<{ reminders: import('@/types/sunday-school-attendance-reminders').SundaySchoolAttendanceReminder[] }>(
+    userId ? [SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL, userId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 30000 }
   )
 }

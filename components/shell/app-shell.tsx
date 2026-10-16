@@ -16,6 +16,7 @@ import { clearContactBookFilters } from '@/hooks/useContactBookFilters'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
 import { MobileAppBar, MobileTabBar } from './mobile-nav'
+import { SundaySchoolAttendanceReminderBanner } from '@/components/sunday-school-attendance-reminder-banner'
 import { AnnualMentorReminderBanner } from '@/components/annual-mentor-reminder-banner'
 import { ProfilePhotoReminder } from '@/components/profile-photo-reminder'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -139,6 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Reminders live inside the content area: anything above the shell makes
               the page taller than the screen and shifts the phone layout. */}
           <AnnualMentorReminderBanner />
+          <SundaySchoolAttendanceReminderBanner />
           <ProfilePhotoReminder />
           {children}
         </main>

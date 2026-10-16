@@ -29,6 +29,10 @@ vi.mock('@/components/notifications/notification-bell', () => ({
   NotificationBell: () => <button type="button">Notifications</button>,
 }))
 
+vi.mock('@/components/sunday-school-attendance-reminder-banner', () => ({
+  SundaySchoolAttendanceReminderBanner: () => null,
+}))
+
 vi.mock('@/components/annual-mentor-reminder-banner', () => ({
   AnnualMentorReminderBanner: () => null,
 }))

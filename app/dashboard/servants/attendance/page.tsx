@@ -45,6 +45,8 @@ import { Users } from 'lucide-react'
 function SundaySchoolAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
+  const requestedClassId = searchParams.get('classId')
+  const requestedDate = searchParams.get('date')
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
@@ -54,6 +56,7 @@ function SundaySchoolAttendanceContent() {
   ), [ageGroupsData, classesData])
 
   const [selectedClassId, setSelectedClassId] = useState<string>('')
+  const appliedQueryClassId = useRef<string | null>(null)
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
@@ -80,16 +83,24 @@ function SundaySchoolAttendanceContent() {
 
   // Preselect the class from the dashboard link, else the first one available
   useEffect(() => {
-    if (selectedClassId || classes.length === 0) return
-    const fromQuery = searchParams.get('classId')
-    const match = fromQuery && classes.some(c => c.id === fromQuery) ? fromQuery : classes[0].id
-    setSelectedClassId(match)
-  }, [classes, searchParams, selectedClassId])
+    if (classes.length === 0) return
+    if (requestedClassId && requestedClassId !== appliedQueryClassId.current && classes.some(c => c.id === requestedClassId)) {
+      appliedQueryClassId.current = requestedClassId
+      setSelectedClassId(requestedClassId)
+      return
+    }
+    if (!requestedClassId) appliedQueryClassId.current = null
+    setSelectedClassId(current => current || classes[0].id)
+  }, [classes, requestedClassId])
 
   useEffect(() => {
     if (!selectedClassLevel) return
-    setSessionDate(toDateInputValue(getMostRecentClassMeetingDate(selectedClassLevel)))
-  }, [selectedClassId, selectedClassLevel])
+    const validRequestedDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+      !Number.isNaN(Date.parse(requestedDate)) && new Date(requestedDate).toISOString().slice(0, 10) === requestedDate
+    setSessionDate(selectedClassId === requestedClassId && validRequestedDate
+      ? requestedDate
+      : toDateInputValue(getMostRecentClassMeetingDate(selectedClassLevel)))
+  }, [selectedClassId, selectedClassLevel, requestedClassId, requestedDate])
 
   const editor = useSundaySchoolAttendance(status === 'authenticated' ? session?.user?.id ?? '' : '', selectedClassId, sessionDate, canEdit)
   const { attendance, marks, loading: loadingSession, error: loadError, saving, lastSaved } = editor
