@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { latestAttendanceSave, type AttendanceSaveInfo } from '@/lib/attendance-save-info'
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
@@ -637,7 +635,7 @@ export default function AttendancePage() {
                             <div className="flex items-center gap-2.5">
                               <Initials name={student.name} imageUrl={student.profileImageUrl} />
                               <div className="flex min-w-0 flex-col leading-[1.3]">
-                                <span className="truncate font-medium text-ink"><StudentName id={student.id} name={student.name} /></span>
+                                <span className="truncate font-medium text-ink">{student.name}</span>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
                                   {!enrollment?.isAsyncStudent && (enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2')}
                                   {enrollment?.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
@@ -702,18 +700,15 @@ export default function AttendancePage() {
                       <li key={student.id} className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} />
-                          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                            <StudentName id={student.id} name={student.name} className="truncate text-[15px]" />
-                            <button
-                              type="button"
-                              className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover"
-                              aria-label={`${isExpanded ? 'Hide' : 'Show'} attendance details for ${student.name}`}
-                              aria-expanded={isExpanded}
-                              onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                            >
-                              {isExpanded ? <ChevronDown className="size-4 shrink-0 text-ink-3" /> : <ChevronRight className="size-4 shrink-0 text-ink-3" />}
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left"
+                            aria-expanded={isExpanded}
+                            onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
+                          >
+                            <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                            {isExpanded ? <ChevronDown className="size-4 shrink-0 text-ink-3" /> : <ChevronRight className="size-4 shrink-0 text-ink-3" />}
+                          </button>
                         </div>
                         <div className="mt-2 flex items-center gap-1">
                           <AttendanceStatusButtons

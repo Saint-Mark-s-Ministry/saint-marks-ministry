@@ -1,7 +1,7 @@
 import type { AttendanceStatus, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import type { AttendanceCounts } from '@/lib/attendance-utils'
 
-export type StudentHistoryProgram = 'prep' | 'sunday-school'
+export type StudentHistoryProgram = 'sunday-school'
 export interface StudentHistoryTarget {
   id: string
   name: string
@@ -20,7 +20,7 @@ export interface StudentHistory {
   photoUrl?: string | null
   canReadPrivateNotes?: boolean
   attendance: {
-    kind: 'lessons' | 'rotations' | 'meetings'
+    kind: 'meetings'
     counts: AttendanceCounts
     rate: number | null
     records: Array<{
@@ -29,8 +29,6 @@ export interface StudentHistory {
       title: string
       status: AttendanceStatus
       notes: string | null
-      notApplicable: boolean
-      excluded: boolean
     }>
   }
   notes: {
@@ -44,7 +42,7 @@ export interface StudentHistory {
     createdAt: string
     notes: string | null
     recorder: { name: string } | null
-  }> | null
+  }>
   phoneCalls: Array<{
     id: string
     calledAt: string

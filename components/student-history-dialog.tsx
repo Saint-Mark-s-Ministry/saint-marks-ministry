@@ -41,11 +41,11 @@ function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
       {/* eslint-disable-next-line @next/next/no-img-element -- scoped user-uploaded photo */}
       {photoUrl && <img src={photoUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full object-cover" />}
       <DialogTitle className="min-w-0 break-words">{target.name}</DialogTitle>
-      {target.program === 'sunday-school' && isServantsPrepStudent && (
+      {isServantsPrepStudent && (
         <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
       )}
     </div>
-    <DialogDescription>{target.program === 'prep' ? 'Servants Prep' : 'Sunday School'} student history</DialogDescription>
+    <DialogDescription>Sunday School student history</DialogDescription>
   </DialogHeader>
 }
 
@@ -79,10 +79,9 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
           <p className="mb-2 text-xs text-ink-3">{note.author.name} · {formatDateUTC(note.createdAt)}</p>
           <p className="whitespace-pre-wrap break-words text-sm">{note.content}</p>
         </li>)}</ul>
-        {target.program === 'sunday-school' && data.canReadPrivateNotes && <PrivateNotes childId={target.id} viewerId={viewerId} />}
+        {data.canReadPrivateNotes && <PrivateNotes childId={target.id} viewerId={viewerId} />}
       </TabsContent>
       <TabsContent value="visitations" className="space-y-4">
-        {data.visitations === null ? <Empty>Visitations are recorded for Sunday School children. Servants Prep has no visitation records.</Empty> : <>
           <h3 className="text-sm font-semibold">Visitation history</h3>
           {data.visitations.length === 0 && <Empty>No visitations recorded yet.</Empty>}
           <ul className="space-y-3">{data.visitations.map(visit => <li key={visit.id} className="rounded-lg border border-line p-4 text-sm">
@@ -97,7 +96,6 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
             <p className="mt-1 text-xs text-ink-3">{call.callerName}</p>
             <p className="mt-2 whitespace-pre-wrap break-words">{call.note}</p>
           </li>)}</ul>
-        </>}
       </TabsContent>
     </Tabs>
     </div>
@@ -112,14 +110,11 @@ function AttendanceHistory({ attendance }: { attendance: StudentHistory['attenda
         <dt className="text-xs capitalize text-ink-3">{stat.label}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{stat.value}</dd>
       </div>)}
     </dl>
-    <p className="text-sm text-ink-3">{attendance.kind === 'rotations'
-      ? 'Attendance comes from elapsed serving rotation weeks. Future weeks do not count; an elapsed week without a verified or excused log counts absent.'
-      : attendance.kind === 'meetings' ? 'Saved marks in classes you can access. Late counts half; excused and unrecorded meetings are excluded.'
-        : 'Late counts half. Excused, N/A, exam-day, and cancelled lessons are excluded from the rate.'}</p>
+    <p className="text-sm text-ink-3">Saved marks in classes you can access. Late counts half; excused and unrecorded meetings are excluded.</p>
     {attendance.records.length === 0 ? <Empty>No attendance recorded yet.</Empty> : <ul className="divide-y divide-line">
       {attendance.records.map(record => <li key={record.id} className="py-3 text-sm">
         <div className="flex items-start justify-between gap-3"><div><p className="font-medium">{formatDateUTC(record.date)}</p><p className="text-xs text-ink-3">{record.title}</p></div>
-          <span className="shrink-0">{record.notApplicable ? 'N/A' : getAttendanceStatusLabel(record.status)}{record.excluded && <span className="block text-right text-xs text-ink-3">Exam day · excluded</span>}</span>
+          <span className="shrink-0">{getAttendanceStatusLabel(record.status)}</span>
         </div>
         {record.notes && <p className="mt-2 whitespace-pre-wrap break-words text-ink-2">{record.notes}</p>}
       </li>)}

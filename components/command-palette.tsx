@@ -26,7 +26,6 @@ import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations 
 import type { UserRole } from '@prisma/client'
 import { useDigitalExams } from '@/lib/swr'
 import { useShortcutModifier } from '@/hooks/useShortcutModifier'
-import { useStudentHistoryOpener } from '@/components/student-history-provider'
 
 interface SearchUser {
   id: string
@@ -139,7 +138,6 @@ function getNavItemsForRole(
 }
 
 export function CommandPalette() {
-  const openHistory = useStudentHistoryOpener()
   const shortcutModifier = useShortcutModifier()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -331,14 +329,7 @@ export function CommandPalette() {
                     <Command.Item
                       key={`student-${s.id}`}
                       value={`student ${s.name} ${s.email}`}
-                      onSelect={() => {
-                        if (!openHistory) return go(studentHref(s.id))
-                        setOpen(false)
-                        requestAnimationFrame(() => {
-                          const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : document.body
-                          openHistory({ id: s.id, name: s.name, program: 'prep' }, trigger)
-                        })
-                      }}
+                      onSelect={() => go(studentHref(s.id))}
                       className="flex items-center gap-3 rounded-md px-2 py-2.5 sm:py-2 text-sm cursor-pointer aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800"
                     >
                       <Users className="h-4 w-4 text-gray-500" />

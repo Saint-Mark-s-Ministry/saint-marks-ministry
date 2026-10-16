@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -167,7 +165,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
             <tr key={e.studentId} className="border-b border-line last:border-0">
               {!enrollment && (
                 <th scope="row" className="sticky left-0 z-10 max-w-56 border-r border-line bg-surface px-3 py-2 text-left font-normal">
-                  <div className="truncate font-medium"><StudentName id={e.student.id} name={e.student.name} /></div>
+                  <div className="truncate font-medium">{e.student.name}</div>
                   <div className="truncate text-xs text-ink-3">{e.fatherOfConfession?.name ?? 'No father of confession'}</div>
                   {missing > 0 && <div className="text-xs text-bad">{missing} missed</div>}
                 </th>

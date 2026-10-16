@@ -1,6 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -228,7 +227,7 @@ export function YearEndReviewPanel({
               <div className="mt-2 bg-white rounded-lg border border-amber-100 divide-y divide-amber-50">
                 {needsReview.map(student => (
                   <div key={student.studentId} className="p-2 text-sm">
-                    <div className="font-medium"><StudentName id={student.studentId} name={student.studentName} /></div>
+                    <div className="font-medium">{student.studentName}</div>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {!student.attendanceMet && (
                         <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">

@@ -344,7 +344,7 @@ export default function AdminDashboard() {
                     return (
                       <TableRow key={student.id}>
                         <TableCell>
-                          <PersonCell studentId={student.id} name={student.name} />
+                          <PersonCell name={student.name} href={`/dashboard/admin/students?student=${student.id}`} />
                         </TableCell>
                         <TableCell className="text-ink-2">{student.yearLevel ? `Year ${student.yearLevel === 'YEAR_1' ? '1' : '2'}` : 'Async'}</TableCell>
                         <TableCell>
@@ -366,12 +366,15 @@ export default function AdminDashboard() {
             <ul className="divide-y divide-line md:hidden">
               {atRisk.slice(0, 5).map((student) => (
                 <li key={student.id}>
-                  <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-ink">
+                  <Link
+                    href={`/dashboard/admin/students?student=${student.id}`}
+                    className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-ink no-underline"
+                  >
                     <PersonCell
-                      studentId={student.id} name={student.name}
+                      name={student.name}
                       meta={`Att ${student.attendanceRate?.toFixed(0) ?? '—'}% · Exam ${student.examAverage?.toFixed(0) ?? '—'}%`}
                     />
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>

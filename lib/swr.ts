@@ -27,9 +27,7 @@ export const defaultSWRConfig: SWRConfiguration = {
 }
 
 export function useStudentHistory(target: StudentHistoryTarget, viewerId?: string) {
-  const url = target.program === 'prep'
-    ? `/api/students/${encodeURIComponent(target.id)}/history`
-    : `/api/sunday-school/children/${encodeURIComponent(target.id)}/history`
+  const url = `/api/sunday-school/children/${encodeURIComponent(target.id)}/history`
   return useSWR<StudentHistory>(viewerId ? [url, viewerId] : null, ([endpoint]: [string, string]) => fetcher(endpoint), {
     ...defaultSWRConfig,
     revalidateOnFocus: true,
