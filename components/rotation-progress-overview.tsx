@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { usePrepRotationAssignments } from '@/lib/swr'
 import { completedRotationLevels, ROTATION_LEVELS } from '@/lib/rotation-forms'
 import { Panel } from '@/components/ds/panel'
@@ -18,7 +20,7 @@ export function RotationProgressOverview() {
         const current = history.find(assignment => assignment.isActive)
         const completed = completedRotationLevels(history).size
         return <li key={studentId} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm">
-          <span className="font-medium">{history[0].student.name}</span>
+          <span className="font-medium"><StudentName id={studentId} name={history[0].student.name} /></span>
           <span>{current?.class?.name ?? (completed === ROTATION_LEVELS.length ? 'All rotations complete' : 'No active rotation')}</span>
           <span>{completed} of {ROTATION_LEVELS.length} grades approved</span>
         </li>

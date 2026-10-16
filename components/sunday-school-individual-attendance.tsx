@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useEffect, useState } from 'react'
 import { Panel } from '@/components/ds/panel'
 import { SearchField } from '@/components/ds/search-field'
@@ -57,7 +59,7 @@ export function SundaySchoolIndividualAttendance({ classId, savedAt }: { classId
               {history.dates.map(date => <th key={date} scope="col" className="p-3">{formatDateUTC(date, { month: 'short', day: 'numeric', year: 'numeric' })}</th>)}
             </tr></thead>
             <tbody>{children.map(child => <tr key={child.id} className="border-b border-line">
-              <th scope="row" className="sticky left-0 bg-surface p-3 text-left font-medium">{child.firstName} {child.lastName}{!child.onRoster && <span className="block text-xs font-normal text-ink-3">Former roster member</span>}</th>
+              <th scope="row" aria-label={`${child.firstName} ${child.lastName}`} className="sticky left-0 bg-surface p-3 text-left font-medium"><StudentName id={child.id} name={`${child.firstName} ${child.lastName}`} program="sunday-school" />{!child.onRoster && <span className="block text-xs font-normal text-ink-3">Former roster member</span>}</th>
               <td className="p-3 text-center">{child.rate === null ? '—' : `${Math.round(child.rate)}%`}</td>
               {[child.counts.present, child.counts.late, child.counts.absent].map((count, index) => <td key={index} className="p-3 text-center">{count}</td>)}
               {history.dates.map(date => {

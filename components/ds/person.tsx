@@ -5,6 +5,8 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { getPersonInitials } from '@/lib/person-name'
 import { cn } from '@/lib/utils'
+import { StudentName } from '@/components/student-history-provider'
+import type { StudentHistoryProgram } from '@/lib/student-history'
 
 /**
  * Initials disc; photos when we have one. Accent tint, so it follows the ministry.
@@ -95,6 +97,8 @@ export function PersonCell({
   onClick,
   imageUrl,
   className,
+  studentId,
+  program,
 }: {
   name: string
   meta?: React.ReactNode
@@ -102,8 +106,10 @@ export function PersonCell({
   onClick?: () => void
   imageUrl?: string | null
   className?: string
+  studentId?: string
+  program?: StudentHistoryProgram
 }) {
-  const nameNode = href ? (
+  const nameNode = studentId ? <StudentName id={studentId} name={name} program={program} className="truncate" /> : href ? (
     <Link href={href} className="truncate font-medium text-ink no-underline hover:underline">
       {name}
     </Link>

@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
@@ -316,7 +318,7 @@ export default function SundaySchoolVisitationsPage() {
                           <Initials name={name} />
                           <span className="flex min-w-0 flex-col leading-tight">
                             <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>
+                              <span className="truncate text-[13.5px] font-medium text-ink"><StudentName id={child.id} name={name} program="sunday-school" /></span>
                               {child.visitationPriority && <StatusBadge tone="warn">Priority visit</StatusBadge>}
                             </span>
                             <span className="truncate text-xs text-ink-3">

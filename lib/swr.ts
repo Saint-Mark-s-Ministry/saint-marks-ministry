@@ -1,5 +1,6 @@
 import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
+import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
 import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
 
@@ -23,6 +24,32 @@ export const defaultSWRConfig: SWRConfiguration = {
   revalidateOnReconnect: true, // Refetch when network reconnects
   dedupingInterval: 5000, // Dedupe requests within 5 seconds
   errorRetryCount: 3, // Retry failed requests 3 times
+}
+
+export function useStudentHistory(target: StudentHistoryTarget, viewerId?: string) {
+  const url = target.program === 'prep'
+    ? `/api/students/${encodeURIComponent(target.id)}/history`
+    : `/api/sunday-school/children/${encodeURIComponent(target.id)}/history`
+  return useSWR<StudentHistory>(viewerId ? [url, viewerId] : null, ([endpoint]: [string, string]) => fetcher(endpoint), {
+    ...defaultSWRConfig,
+    revalidateOnFocus: true,
+    // A reopened panel must check the current permissions before showing cached history.
+    revalidateOnMount: true,
+    dedupingInterval: 0,
+    shouldRetryOnError: false,
+  })
+}
+
+export interface StudentHistoryPrivateNotes {
+  notes: Array<{ id: string; content: string; createdAt: string; author: { id: string; name: string } }>
+}
+
+export function useStudentHistoryPrivateNotes(childId: string | null, viewerId?: string) {
+  return useSWR<StudentHistoryPrivateNotes>(
+    childId && viewerId ? [`/api/sunday-school/priest-notes?childId=${encodeURIComponent(childId)}`, viewerId] : null,
+    ([endpoint]: [string, string]) => fetcher(endpoint),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true, shouldRetryOnError: false },
+  )
 }
 
 // Aggressive caching for static/rarely-changing data

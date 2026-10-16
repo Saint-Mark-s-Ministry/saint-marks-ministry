@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useMemo, useState } from 'react'
 import { SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
@@ -162,7 +164,7 @@ export default function SundaySchoolBirthdaysPage() {
                           />
                           <div className="flex min-w-0 flex-col leading-tight">
                             <span className="truncate text-sm font-medium text-ink">
-                              {getChildFullName(child)}
+                              <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" />
                             </span>
                             <span className="text-xs text-ink-3">
                               {child.class?.name ?? getLevelDisplayName(child.level)}

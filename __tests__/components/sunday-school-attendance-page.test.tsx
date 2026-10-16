@@ -9,7 +9,14 @@ const mocks = vi.hoisted(() => ({
   refreshTrend: vi.fn(),
   history: vi.fn(),
   query: '',
+  profile: vi.fn(),
 }))
+
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { id: 'servant-1' } } }) }))
+vi.mock('next/dynamic', async () => {
+  const { default: Dialog } = await import('@/components/student-history-dialog')
+  return { default: () => Dialog }
+})
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mocks.query),
@@ -24,6 +31,8 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useStudentHistory: mocks.profile,
+  useStudentHistoryPrivateNotes: () => ({ data: { notes: [] } }),
   useSundaySchoolIndividualAttendance: mocks.history,
   useSundaySchoolAgeGroups: () => ({ data: [] }),
   useSundaySchoolClasses: () => ({
@@ -53,6 +62,8 @@ vi.mock('@/components/sunday-school-recent-attendance-chart', () => ({
   SundaySchoolRecentAttendanceChart: () => null,
 }))
 
+import { StudentHistoryProvider } from '@/components/student-history-provider'
+
 import SundaySchoolAttendancePage from '@/app/dashboard/servants/attendance/page'
 
 describe('Sunday School attendance page', () => {
@@ -66,6 +77,13 @@ describe('Sunday School attendance page', () => {
     vi.clearAllMocks()
     mocks.query = ''
     vi.stubGlobal('fetch', mocks.fetch)
+    mocks.profile.mockImplementation(target => ({ data: {
+      id: target.id, name: target.name, program: 'sunday-school', subtitle: 'Grade 5',
+      attendance: { kind: 'meetings', rate: target.id === 'child-1' ? 100 : 0,
+        counts: { present: target.id === 'child-1' ? 1 : 0, absent: target.id === 'child-2' ? 1 : 0, late: 0, excused: 0 },
+        records: [{ id: 'mark', date: '2026-10-04', title: 'Grade 5', status: target.id === 'child-1' ? 'PRESENT' : 'ABSENT', notes: null, notApplicable: false, excluded: false }],
+      }, notes: { general: null, entries: [] }, visitations: [], phoneCalls: [],
+    }, mutate: vi.fn() }))
     mocks.history.mockReturnValue({ data: { dates: ['2026-10-04', '2026-10-11'], children: [
       { id: 'child-1', firstName: 'Mina', lastName: 'Mark', rate: 100, counts: { present: 1, late: 0, absent: 0, excused: 0 }, attendance: { '2026-10-04': 'PRESENT' } },
       { id: 'child-2', firstName: 'Abanoub', lastName: 'Saad', rate: 0, counts: { present: 0, late: 0, absent: 1, excused: 0 }, attendance: { '2026-10-04': 'ABSENT' } },
@@ -98,24 +116,23 @@ describe('Sunday School attendance page', () => {
 
   it('opens only the selected child’s history and restores focus without changing marks', async () => {
     const user = userEvent.setup()
-    render(<SundaySchoolAttendancePage />)
-    const mina = await screen.findByRole('button', { name: 'View attendance history for Mina Mark' })
+    render(<StudentHistoryProvider><SundaySchoolAttendancePage /></StudentHistoryProvider>)
+    const mina = await screen.findByRole('button', { name: 'View history for Mina Mark' })
     const present = within(mina.closest('li')!).getByRole('button', { name: 'Present' })
     await user.click(present)
     await user.click(mina)
-    const dialog = screen.getByRole('dialog', { name: 'Mina Mark — Attendance history' })
+    const dialog = screen.getByRole('dialog', { name: 'Mina Mark' })
     expect(within(dialog).getByText('100%')).toBeInTheDocument()
-    expect(within(dialog).getByText('Unrecorded')).toBeInTheDocument()
     expect(within(dialog).queryByText(/Abanoub/)).not.toBeInTheDocument()
-    const rows = within(dialog).getAllByRole('row')
-    expect(rows[1]).toHaveTextContent('Oct 11, 2026')
-    expect(rows[2]).toHaveTextContent('Oct 4, 2026')
+    expect(within(dialog).getByText(/Oct 4, 2026/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('tab', { name: 'Notes' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('tab', { name: 'Visitations' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(mina).toHaveFocus()
     expect(present).toHaveAttribute('aria-pressed', 'true')
-    await user.click(screen.getByRole('button', { name: 'View attendance history for Abanoub Saad' }))
-    const other = screen.getByRole('dialog', { name: 'Abanoub Saad — Attendance history' })
+    await user.click(screen.getByRole('button', { name: 'View history for Abanoub Saad' }))
+    const other = screen.getByRole('dialog', { name: 'Abanoub Saad' })
     expect(within(other).getByText('0%')).toBeInTheDocument()
     expect(within(other).queryByText(/Mina/)).not.toBeInTheDocument()
   })
@@ -123,14 +140,14 @@ describe('Sunday School attendance page', () => {
   it('loads history only after opening it and lets a failed request be retried', async () => {
     const user = userEvent.setup()
     const retry = vi.fn()
-    mocks.history.mockReturnValue({ error: new Error('Offline'), mutate: retry })
-    render(<SundaySchoolAttendancePage />)
-    const child = await screen.findByRole('button', { name: 'View attendance history for Mina Mark' })
-    expect(mocks.history).not.toHaveBeenCalled()
+    mocks.profile.mockReturnValue({ error: new Error('Offline'), mutate: retry })
+    render(<StudentHistoryProvider><SundaySchoolAttendancePage /></StudentHistoryProvider>)
+    const child = await screen.findByRole('button', { name: 'View history for Mina Mark' })
+    expect(mocks.profile).not.toHaveBeenCalled()
     await user.click(child)
-    expect(mocks.history).toHaveBeenCalledWith('class-1')
+    expect(mocks.profile).toHaveBeenCalledWith({ id: 'child-1', name: 'Mina Mark', program: 'sunday-school' }, 'servant-1')
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Couldn’t load attendance history')
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Couldn’t load student history')
     await user.click(within(dialog).getByRole('button', { name: 'Retry' }))
     expect(retry).toHaveBeenCalledOnce()
   })

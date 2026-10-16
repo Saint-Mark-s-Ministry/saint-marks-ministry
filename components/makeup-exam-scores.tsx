@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Panel } from '@/components/ds/panel'
@@ -63,7 +65,7 @@ export function MakeupExamScores({ examId, canEdit, originalUnsaved, onSaved }: 
     </form>}
     {data && <div className="space-y-3">
       {data.students.filter(student => student.attempts.length).map(student => <div key={student.id} className="rounded-md border border-line p-3">
-        <p className="font-medium">{student.name}</p><p className="text-sm text-ink-3">Original: {student.originalPercentage === null ? 'Not taken' : `${student.originalPercentage.toFixed(1)}%`} · Counts toward progress: {student.effectivePercentage?.toFixed(1)}%</p>
+        <p className="font-medium"><StudentName id={student.id} name={student.name} /></p><p className="text-sm text-ink-3">Original: {student.originalPercentage === null ? 'Not taken' : `${student.originalPercentage.toFixed(1)}%`} · Counts toward progress: {student.effectivePercentage?.toFixed(1)}%</p>
         <ul className="mt-2 divide-y divide-line">{student.attempts.map(attempt => <li key={attempt.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div>Version {attempt.version} · {attempt.score}/{attempt.totalPoints} ({attempt.percentage.toFixed(1)}%) · {formatDateUTC(attempt.takenDate)}{attempt.notes && <p className="text-ink-3">{attempt.notes}</p>}</div>{canEdit && <Button type="button" variant="outline" size="sm" disabled={saving || originalUnsaved} onClick={() => edit(student, attempt)}>Edit</Button>}</li>)}</ul>
       </div>)}
       {!data.students.some(student => student.attempts.length) && <p className="text-sm text-ink-3">No makeup exam scores recorded yet.</p>}
