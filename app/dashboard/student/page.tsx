@@ -22,6 +22,7 @@ import { BookOpen, Check, ClipboardCheck, Printer, X } from 'lucide-react'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface Analytics {
+  mentorUpdateRequired?: boolean
   enrollment: {
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2' | null
@@ -283,19 +284,23 @@ export default function StudentDashboard() {
         <div className="flex min-w-0 flex-col gap-5">
           <TodayInChurch />
           <Panel title="Your people">
+            {analytics.mentorUpdateRequired && <div className="flex items-center gap-2 px-4 pt-3">
+              <StatusBadge tone="warn">Update Required</StatusBadge>
+              <Link href="/dashboard/student/application" className="text-xs underline">Update mentor information</Link>
+            </div>}
             <div className="px-4 py-1">
               <KeyValueList
                 items={[
                   {
-                    label: 'Mentor',
-                    value: enrollment.mentorContact ? (
+                    label: 'Assigned mentor',
+                    value: enrollment.mentor ? (
                       <span className="flex flex-col">
-                        {enrollment.mentorContact.name}
-                        {enrollment.mentorContact.email && <ContactLink kind="email" value={enrollment.mentorContact.email} name={enrollment.mentorContact.name} label="mentor's email" className="w-fit text-xs" />}
-                        {enrollment.mentorContact.phone && <ContactLink kind="phone" value={enrollment.mentorContact.phone} name={enrollment.mentorContact.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                        {enrollment.mentor.name}
+                        {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
+                        {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
                       </span>
                     ) : (
-                      <span className="text-ink-3">Not assigned yet</span>
+                      <span className="text-ink-3">Not assigned</span>
                     ),
                   },
                   {

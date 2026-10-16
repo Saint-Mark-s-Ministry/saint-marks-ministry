@@ -103,6 +103,11 @@ export async function GET(request: Request) {
         canUseViewAs: true,
         createdAt: true,
         updatedAt: true,
+        annualMentorInformation: {
+          where: { academicYear: { isActive: true } },
+          select: { reviewedAt: true },
+          take: 1,
+        },
         enrollments: {
           select: {
             id: true,

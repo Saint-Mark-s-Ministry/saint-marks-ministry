@@ -32,6 +32,7 @@ export default function CompleteApplicationPage() {
   const { session, status } = useAdminGuard(isStudent)
   const [details, setDetails] = useState<ApplicationDetails | null>(null)
   const [complete, setComplete] = useState(false)
+  const [mentorReviewStatus, setMentorReviewStatus] = useState<string | null>(null)
   const [showChurchInformation, setShowChurchInformation] = useState(true)
   const [showApprovalForm, setShowApprovalForm] = useState(true)
   const [annualMentorRequired, setAnnualMentorRequired] = useState(false)
@@ -50,6 +51,7 @@ export default function CompleteApplicationPage() {
         if (!response.ok) throw new Error(data.error || 'Unable to load application')
         setDetails(data.application)
         setComplete(data.complete)
+        if (data.mentorReviewStatus) setMentorReviewStatus(data.mentorReviewStatus)
         setShowChurchInformation(data.showChurchInformation)
         setShowApprovalForm(data.showApprovalForm)
         setAnnualMentorRequired(data.annualMentorRequired)
@@ -85,6 +87,7 @@ export default function CompleteApplicationPage() {
         approvalFormFilename: data.filename,
       }))
       setComplete(data.complete)
+      if (data.mentorReviewStatus) setMentorReviewStatus(data.mentorReviewStatus)
       if (data.complete) void mutate('/api/notifications?limit=15')
       toast.success('Approval form uploaded')
     } catch (error) {
@@ -115,6 +118,7 @@ export default function CompleteApplicationPage() {
 
       setDetails(data.application)
       setComplete(data.complete)
+      if (data.mentorReviewStatus) setMentorReviewStatus(data.mentorReviewStatus)
       setShowChurchInformation(data.showChurchInformation)
       setShowApprovalForm(data.showApprovalForm)
       setAnnualMentorRequired(data.annualMentorRequired)
@@ -125,7 +129,7 @@ export default function CompleteApplicationPage() {
       }
       toast.success(
         annualMentorRequired
-          ? 'Mentor information confirmed'
+          ? 'Mentor information submitted for admin review'
           : data.complete ? 'Application completed' : 'Application details saved'
       )
     } catch (error) {
@@ -209,6 +213,7 @@ export default function CompleteApplicationPage() {
           <Card>
             <CardHeader>
               <CardTitle>Mentor Servant Information</CardTitle>
+              {annualMentorRequired && mentorReviewStatus !== "REVIEWED" && <p className="text-sm font-semibold text-amber-700">Update Required{mentorReviewStatus === "PENDING_REVIEW" ? " · Awaiting admin review" : ""}</p>}
               <CardDescription>
                 {annualMentorRequired
                   ? `Confirm or update these details for ${academicYear?.name ?? 'the current academic year'}.`

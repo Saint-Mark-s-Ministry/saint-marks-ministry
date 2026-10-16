@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-const mocks = vi.hoisted(() => ({ isAsync: true }))
+const mocks = vi.hoisted(() => ({ isAsync: true, assigned: false, updateRequired: true }))
 vi.mock('@/hooks/useAdminGuard', () => ({ useAdminGuard: () => ({
   status: 'authenticated', session: { user: { id: 'student', name: 'Test Student' } },
 }) }))
@@ -13,7 +13,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
     ok: true,
     json: async () => url === '/api/academic-years' ? [] : {
-      enrollment: { isAsyncStudent: mocks.isAsync, yearLevel: mocks.isAsync ? null : 'YEAR_2', student: { name: 'Test Student' } },
+      mentorUpdateRequired: mocks.updateRequired,
+      enrollment: { mentor: mocks.assigned ? { id: 'assigned', name: 'Assigned Mentor', email: 'assigned@example.invalid', phone: null } : null, mentorContact: { name: 'Submitted Mentor', email: 'submitted@example.invalid', phone: '555' }, isAsyncStudent: mocks.isAsync, yearLevel: mocks.isAsync ? null : 'YEAR_2', student: { name: 'Test Student' } },
       attendance: { percentage: 75, met: true, effectivePresent: 3, totalLessons: 4, allLessons: 4, required: 75, presentCount: 3, lateCount: 0, absentCount: 1, excusedCount: 0 },
       exams: { overallAverage: null, examsTaken: 0, totalApplicableExams: 0, requiredAverage: 75, sectionAverages: [], missingExams: [], overallAverageMet: true },
       graduation: { eligible: false, attendanceMet: true, overallAverageMet: true, allSectionsPassing: true, sundaySchoolMet: false },
@@ -39,4 +40,22 @@ describe('Prep student dashboard attendance labels', () => {
     expect(await screen.findByText('3.0 of 4 lessons')).toBeInTheDocument()
     expect(screen.queryByText('Your attendance is based solely on rotation weeks.')).not.toBeInTheDocument()
   })
+  it('shows Not assigned even when mentor contact details were submitted', async () => {
+    mocks.assigned = false
+    mocks.updateRequired = true
+    render(<StudentDashboard />)
+    expect(await screen.findByText('Not assigned')).toBeInTheDocument()
+    expect(screen.queryByText('Submitted Mentor')).not.toBeInTheDocument()
+    expect(screen.getByText('Update Required')).toBeInTheDocument()
+  })
+
+  it('shows only the assigned account and removes the badge after review', async () => {
+    mocks.assigned = true
+    mocks.updateRequired = false
+    render(<StudentDashboard />)
+    expect(await screen.findByText('Assigned Mentor')).toBeInTheDocument()
+    expect(screen.queryByText('Submitted Mentor')).not.toBeInTheDocument()
+    expect(screen.queryByText('Update Required')).not.toBeInTheDocument()
+  })
+
 })

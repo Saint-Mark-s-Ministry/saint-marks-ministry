@@ -21,6 +21,8 @@ export async function getAnnualMentorRequirement(userId: string) {
         yearLevel: true,
         mentorName: true,
         mentorPhone: true,
+        approvalFormUrl: true,
+        approvalFormFilename: true,
       },
     }),
   ])
@@ -47,7 +49,7 @@ export async function getAnnualMentorRequirement(userId: string) {
 
 export async function ensureAnnualMentorReminder(userId: string) {
   const requirement = await getAnnualMentorRequirement(userId)
-  if (!requirement || requirement.information) return
+  if (!requirement || requirement.information?.reviewedAt) return
 
   const existingReminder = await prisma.notification.findFirst({
     where: {

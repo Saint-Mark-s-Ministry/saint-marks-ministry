@@ -179,9 +179,9 @@ describe('post-approval application', () => {
     expect(getBody).toMatchObject({
       annualMentorRequired: true,
       showChurchInformation: false,
-      showApprovalForm: false,
+      showApprovalForm: true,
       complete: false,
-      missingDetails: ['mentorInformation'],
+      missingDetails: ['approvalForm', 'mentorInformation'],
       application: {
         mentorName: 'Previous Mentor',
         mentorPhone: '555-0100',
@@ -196,7 +196,9 @@ describe('post-approval application', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.complete).toBe(true)
+    expect(body.complete).toBe(false)
+    expect(body.mentorReviewStatus).toBe("PENDING_REVIEW")
+    expect(mocks.deleteNotifications).not.toHaveBeenCalled()
     expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith({
       where: {
         studentId_academicYearId: {
@@ -216,6 +218,8 @@ describe('post-approval application', () => {
         mentorPhone: '555-0111',
         mentorEmail: 'current@example.com',
         submittedAt: expect.any(Date),
+        reviewedAt: null,
+        reviewedBy: null,
       },
     })
   })
@@ -262,7 +266,8 @@ describe('post-approval application', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body.complete).toBe(true)
+    expect(body.complete).toBe(false)
+    expect(body.mentorReviewStatus).toBe("PENDING_REVIEW")
 
     // The admission record now carries this year's mentor.
     expect(mocks.updateApplication).toHaveBeenCalledWith({
