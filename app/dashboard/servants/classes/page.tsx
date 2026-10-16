@@ -45,9 +45,11 @@ export default function SundaySchoolClassesPage() {
   const [saving, setSaving] = useState(false)
   const [editingClass, setEditingClass] = useState<SundaySchoolClass | null>(null)
   const [editName, setEditName] = useState('')
-  const [renaming, setRenaming] = useState(false)
-  const [form, setForm] = useState<{ name: string; level: SundaySchoolLevel | '' }>({
+  const [editClassroom, setEditClassroom] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const [form, setForm] = useState<{ name: string; classroom: string; level: SundaySchoolLevel | '' }>({
     name: '',
+    classroom: '',
     level: '',
   })
 
@@ -75,7 +77,7 @@ export default function SundaySchoolClassesPage() {
 
       toast.success('Class created', { description: new Date().toLocaleString() })
       setDialogOpen(false)
-      setForm({ name: '', level: '' })
+      setForm({ name: '', classroom: '', level: '' })
       mutate()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to create the class')
@@ -84,34 +86,35 @@ export default function SundaySchoolClassesPage() {
     }
   }
 
-  const openRenameDialog = (classItem: SundaySchoolClass) => {
+  const openEditDialog = (classItem: SundaySchoolClass) => {
     setEditingClass(classItem)
     setEditName(classItem.name)
+    setEditClassroom(classItem.classroom ?? '')
   }
 
-  const handleRename = async () => {
+  const handleUpdate = async () => {
     if (!editingClass) return
 
-    setRenaming(true)
+    setUpdating(true)
     try {
       const res = await fetch(`/api/sunday-school/classes/${editingClass.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({ name: editName.trim(), classroom: editClassroom.trim() || null }),
       })
       const body = await res.json()
       if (!res.ok) {
-        throw new Error(body.error || 'Failed to rename the class')
+        throw new Error(body.error || 'Failed to update the class')
       }
 
-      toast.success('Class name updated', { description: new Date().toLocaleString() })
+      toast.success('Class updated', { description: new Date().toLocaleString() })
       setEditingClass(null)
       setEditName('')
       mutate()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Failed to rename the class')
+      toast.error(error instanceof Error ? error.message : 'Failed to update the class')
     } finally {
-      setRenaming(false)
+      setUpdating(false)
     }
   }
 
@@ -178,6 +181,7 @@ export default function SundaySchoolClassesPage() {
                         </Link>
                         {!cls.isActive && <StatusBadge tone="neutral">Inactive</StatusBadge>}
                       </span>
+                      <span className="break-words text-xs text-ink-3">Classroom: {cls.classroom || 'Not set'}</span>
                       <span className="text-xs text-ink-3 md:hidden">
                         {getLevelDisplayName(cls.level)} · {cls._count?.children ?? 0} children · {cls.assignments.length} servants
                       </span>
@@ -187,7 +191,7 @@ export default function SundaySchoolClassesPage() {
                     <span className="tabular hidden text-[13px] text-ink-2 md:block">{cls.assignments.length} servants</span>
                     <span className="flex items-center gap-1">
                       {cls.canCoordinate && (
-                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${cls.name} name`} onClick={() => openRenameDialog(cls)}>
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${cls.name}`} onClick={() => openEditDialog(cls)}>
                           <Pencil />
                         </Button>
                       )}
@@ -225,6 +229,11 @@ export default function SundaySchoolClassesPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="classroom">Classroom / location (optional)</Label>
+              <Input id="classroom" value={form.classroom} maxLength={200} placeholder="e.g. Room 203, upstairs"
+                onChange={event => setForm(prev => ({ ...prev, classroom: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="level">Grade level</Label>
               <select
                 id="level"
@@ -255,7 +264,7 @@ export default function SundaySchoolClassesPage() {
       <Dialog
         open={editingClass !== null}
         onOpenChange={open => {
-          if (!open && !renaming) {
+          if (!open && !updating) {
             setEditingClass(null)
             setEditName('')
           }
@@ -263,16 +272,16 @@ export default function SundaySchoolClassesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit class name</DialogTitle>
+            <DialogTitle>Edit class</DialogTitle>
             <DialogDescription>
-              Update the name shown throughout Sunday School for this class.
+              Update the class name and where it meets. Servants and rotating students can see the classroom.
             </DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"
             onSubmit={event => {
               event.preventDefault()
-              void handleRename()
+              void handleUpdate()
             }}
           >
             <div className="space-y-2">
@@ -284,11 +293,16 @@ export default function SundaySchoolClassesPage() {
                 onChange={event => setEditName(event.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-classroom">Classroom / location (optional)</Label>
+              <Input id="edit-classroom" value={editClassroom} maxLength={200} placeholder="e.g. Room 203, upstairs"
+                onChange={event => setEditClassroom(event.target.value)} />
+            </div>
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                disabled={renaming}
+                disabled={updating}
                 onClick={() => {
                   setEditingClass(null)
                   setEditName('')
@@ -299,12 +313,13 @@ export default function SundaySchoolClassesPage() {
               <Button
                 type="submit"
                 disabled={
-                  renaming ||
+                  updating ||
                   !editName.trim() ||
-                  editName.trim() === editingClass?.name
+                  (editName.trim() === editingClass?.name &&
+                    editClassroom.trim() === (editingClass?.classroom ?? ''))
                 }
               >
-                {renaming ? 'Saving…' : 'Save name'}
+                {updating ? 'Saving…' : 'Save changes'}
               </Button>
             </DialogFooter>
           </form>

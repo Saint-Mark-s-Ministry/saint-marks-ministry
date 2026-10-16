@@ -948,6 +948,7 @@ model SundaySchoolYear {
 model SundaySchoolClass {
   id                 String                  @id @default(cuid())
   name               String // e.g. "Grade 3 Boys"
+  classroom          String?                 @db.VarChar(200)
   level              SundaySchoolLevel
   // Required: authority over a class is scoped to its academic year, so a
   // class with no year would be a class nobody can be assigned to.

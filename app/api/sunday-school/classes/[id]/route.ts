@@ -89,7 +89,7 @@ export async function GET(
 
 // PATCH /api/sunday-school/classes/[id] - Update a class
 // The class's coordinator, its band coordinator, or SUPER_ADMIN.
-// Body: { name?, level?, isActive? }
+// Body: { name?, level?, classroom?, isActive? }
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -122,6 +122,13 @@ export async function PATCH(
     const { name, level, isActive } = body
 
     const updateData: Record<string, unknown> = {}
+
+    if (body.classroom !== undefined) {
+      if (body.classroom !== null && (typeof body.classroom !== "string" || body.classroom.trim().length > 200)) {
+        return NextResponse.json({ error: "Classroom must be text with at most 200 characters" }, { status: 400 })
+      }
+      updateData.classroom = body.classroom?.trim() || null
+    }
 
     if (name !== undefined) {
       if (!String(name).trim()) {

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       }
       const classes = await prisma.sundaySchoolClass.findMany({
         where: { isActive: true, status: "ACTIVE", level: { in: [...ROTATION_LEVELS] }, sundaySchoolYear: { status: "OPEN" } },
-        select: { id: true, name: true, level: true },
+        select: { id: true, name: true, classroom: true, level: true },
         orderBy: [{ level: "asc" }, { name: "asc" }],
       })
       return NextResponse.json(classes)
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
             name: true,
           },
         },
-        class: { select: { id: true, name: true, level: true } },
+        class: { select: { id: true, name: true, classroom: true, level: true } },
         assigner: {
           select: {
             id: true,

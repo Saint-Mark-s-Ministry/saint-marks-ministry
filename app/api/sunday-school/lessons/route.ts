@@ -95,7 +95,7 @@ export async function GET(request: Request) {
                   ],
                 },
               },
-              select: { class: { select: { id: true, name: true, level: true } } },
+              select: { class: { select: { id: true, name: true, classroom: true, level: true } } },
             })
           : []
         studentClasses = Array.from(new Map(
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
       } else {
         const child = await prisma.sundaySchoolChild.findUnique({
           where: { userId: user.id },
-          select: { classId: true, isActive: true, class: { select: { id: true, name: true, level: true } } },
+          select: { classId: true, isActive: true, class: { select: { id: true, name: true, classroom: true, level: true } } },
         })
         allowedClassIds = child?.isActive && child.classId ? [child.classId] : []
         studentClasses = child?.isActive && child.class ? [child.class] : []
@@ -156,6 +156,7 @@ export async function GET(request: Request) {
           select: {
             id: true,
             name: true,
+            classroom: true,
             level: true,
             academicYearId: true,
             assignments: {
@@ -202,6 +203,7 @@ export async function GET(request: Request) {
           class: {
             id: lesson.class.id,
             name: lesson.class.name,
+            classroom: lesson.class.classroom,
             level: lesson.class.level,
           },
           owner: lesson.owner,

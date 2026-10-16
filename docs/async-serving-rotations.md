@@ -26,7 +26,10 @@ when running the script.
 
 A Servants Prep servant assigns the initial class and start date. The student
 sees that class on **Sunday School** and its upcoming resources on **Class
-lessons**. The printable form is available through **Attendance slip → Print**;
+lessons**. Both pages show the assigned class’s current classroom/location, set by
+a Sunday School coordinator; an unset location prompts the student to ask their
+coordinator. This adds no ministry access. The printable form is available through
+**Attendance slip → Print**;
 the browser print dialog also supports saving it as PDF.
 
 The student fully attends four weeks, gets each week signed, and uploads one

@@ -316,6 +316,7 @@ export default function SundaySchoolDashboardPage() {
                           <Link href={`/dashboard/servants/classes/${cls.id}`} className="font-medium text-ink no-underline hover:underline">
                             {cls.name}
                           </Link>
+                          <span className="block break-words text-xs text-ink-3">Classroom: {cls.classroom || 'Not set'}</span>
                           {cls.canCoordinate && !standing?.isAdmin && <StatusBadge tone="gold" dot={false} className="ml-2">Coordinator</StatusBadge>}
                         </td>
                         <td className="hidden px-3 text-ink-2 md:table-cell">{getLevelDisplayName(cls.level)}</td>

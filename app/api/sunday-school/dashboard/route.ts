@@ -243,6 +243,7 @@ export async function GET(request: Request) {
       return {
         id: cls.id,
         name: cls.name,
+        classroom: cls.classroom,
         level: cls.level,
         ageGroup: band ? { id: band.id, name: band.name } : null,
         childCount: cls._count.children,

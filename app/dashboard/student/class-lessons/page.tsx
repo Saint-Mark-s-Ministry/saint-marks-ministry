@@ -32,7 +32,14 @@ export default function StudentClassLessonsPage() {
       {!error && classes.length > 0 && (
         <Panel title={isAsync ? 'Your serving class' : 'Your class'}>
           <ul className="flex flex-wrap gap-2 px-4 py-3">
-            {classes.map(cls => <li key={cls.id} className="text-sm font-medium text-ink">{cls.name}</li>)}
+            {classes.map(cls => (
+              <li key={cls.id} className="text-sm font-medium text-ink">
+                <span>{cls.name}</span>
+                <span className="block break-words text-sm font-normal text-ink-2">
+                  Classroom: {cls.classroom || 'Not set — ask your class coordinator for the location.'}
+                </span>
+              </li>
+            ))}
           </ul>
         </Panel>
       )}

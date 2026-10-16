@@ -27,7 +27,7 @@ const GRADE_DISPLAY: Record<string, string> = {
 
 interface SSAssignment {
   assignmentId: string
-  class: { id: string; name: string } | null
+  class: { id: string; name: string; classroom: string | null } | null
   grade: string
   yearLevel: string | null
   academicYear: { id: string; name: string }
@@ -118,6 +118,11 @@ export default function SundaySchoolPage() {
               Four-week rotation: {formatUTC(assignment.startDate, { month: 'short', day: 'numeric', year: 'numeric' })}
               {' – '}{formatUTC(rotationWeekDate(assignment.startDate, assignment.totalWeeks), { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
+            {assignment.isActive && (
+              <p className="px-4 pb-3 text-sm text-ink-2">
+                Classroom: {assignment.class?.classroom || 'Not set — ask your class coordinator for the location.'}
+              </p>
+            )}
             <RotationFormUpload assignment={assignment} onUploaded={() => void fetchData()} />
           </Panel>
         ))

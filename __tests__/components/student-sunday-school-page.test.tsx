@@ -26,7 +26,7 @@ vi.mock('@/lib/prisma', () => ({
 import { GET } from '@/app/api/sunday-school/progress/route'
 import SundaySchoolPage from '@/app/dashboard/student/sunday-school/page'
 
-function assignment(isActive = true, linkedClass: { id: string; name: string; level?: 'GRADE_3' } | null = { id: 'class-1', name: 'Third Grade Girls', level: 'GRADE_3' }) {
+function assignment(isActive = true, linkedClass: { id: string; name: string; level?: 'GRADE_3'; classroom?: string | null } | null = { id: 'class-1', name: 'Third Grade Girls', classroom: 'Room 203', level: 'GRADE_3' }) {
   return {
     id: 'assignment-1', grade: 'GRADE_3', yearLevel: null,
     class: linkedClass, academicYear: { id: 'year-1', name: '2026-2027' },
@@ -49,14 +49,21 @@ describe('Async student Sunday School page', () => {
     expect(await screen.findByText('Third Grade Girls · 2026-2027')).toBeInTheDocument()
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
     expect(screen.getAllByText('Not submitted')).toHaveLength(1)
+    expect(screen.getByText('Classroom: Room 203')).toBeInTheDocument()
     expect(screen.getByText('Four-week rotation: Sep 6, 2026 – Sep 27, 2026')).toBeInTheDocument()
     expect(screen.getByLabelText('Completed four-week form')).toHaveAttribute('id', 'rotation-form-assignment-1')
     expect(screen.queryByLabelText('Submit attendance code')).not.toBeInTheDocument()
     expect(mocks.assignments).toHaveBeenCalledWith(expect.objectContaining({
       where: { studentId: 'student-1' },
-      include: expect.objectContaining({ class: { select: { id: true, name: true, level: true } } }),
+      include: expect.objectContaining({ class: { select: { id: true, name: true, classroom: true, level: true } } }),
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
     }))
+  })
+
+  it('explains when the current classroom has not been set', async () => {
+    mocks.assignments.mockResolvedValue([assignment(true, { id: 'class-1', name: 'Third Grade Girls', classroom: null })])
+    render(<SundaySchoolPage />)
+    expect(await screen.findByText(/Classroom: Not set/)).toBeInTheDocument()
   })
 
   it('keeps grade-only, finished rotations visible without a code form', async () => {
