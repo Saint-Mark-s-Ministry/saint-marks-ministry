@@ -119,6 +119,21 @@ push is awaited before the cron response. No database migration is required.
 Deploy the code and Vercel cron configuration to activate the schedule; device
 push requires configured VAPID keys and a teacher's browser subscription.
 
+Absence follow-up runs daily at 15:00 UTC through the `CRON_SECRET`-protected
+`GET /api/cron/sunday-school-absence-notifications`. Three consecutive explicit
+weekly `ABSENT` marks notify the active direct class servants (including class
+coordinators); five escalate to the active age-group coordinators and that
+band's assigned active priest overseer. Messages name the student and class and
+ask recipients to follow up, linking to Visitations. Present, late, excused,
+and unrecorded meetings break a streak; today's meeting is excluded until the
+following day. Saturday and Sunday schedules are supported. Only active children
+and classes in the open ministry year (or active legacy academic year) qualify;
+durable-year history begins at the current active placement. Each recipient
+gets one in-app alert and best-effort push per threshold and streak, using stable
+IDs to suppress cron retries while the notification exists. Resuming attendance
+starts a new streak. Missing overseers do not trigger a broadcast to all priests.
+No schema migration is needed; deploy the code and cron configuration to activate.
+
 **A class's band is derived, not stored.** There is no `ageGroupId` on
 `SundaySchoolClass`. During compatibility the enum array remains; the durable
 mapping is `SundaySchoolAgeGroupLevel`, unique per year and level. Whichever
