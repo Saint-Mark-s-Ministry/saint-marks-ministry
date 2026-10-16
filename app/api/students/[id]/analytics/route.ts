@@ -1,3 +1,4 @@
+import { getAnnualMentorRequirement } from "@/lib/annual-mentor-information"
 import { getStudentMentorContact } from "@/lib/student-mentor-contact"
 import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
@@ -344,7 +345,10 @@ export async function GET(
       requirementsMet: [attendanceMet, overallAverageMet, allSectionsPassing, sundaySchoolMet],
     })
 
+    const mentorRequirement = await getAnnualMentorRequirement(studentId)
+
     return NextResponse.json({
+      mentorUpdateRequired: Boolean(mentorRequirement && !mentorRequirement.information?.reviewedAt),
       enrollment: {
         ...enrollment,
         mentorContact: await getStudentMentorContact(studentId, enrollment),

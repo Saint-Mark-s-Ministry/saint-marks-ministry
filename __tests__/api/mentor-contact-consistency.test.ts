@@ -1,3 +1,4 @@
+vi.mock('@/lib/annual-mentor-information', () => ({ getAnnualMentorRequirement: async () => null }))
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({

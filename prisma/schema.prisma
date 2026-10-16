@@ -504,6 +504,8 @@ model StudentEnrollment {
   mentorId                String?
   mentorName              String?
   mentorPhone             String?
+  approvalFormUrl         String? // For students without a registration submission
+  approvalFormFilename    String?
   fatherOfConfessionId    String? // Reference to FatherOfConfession (not a User)
   isActive                Boolean          @default(true)
   status                  EnrollmentStatus @default(ACTIVE)
@@ -1581,6 +1583,8 @@ model AnnualMentorInformation {
   mentorName     String
   mentorPhone    String
   mentorEmail    String
+  reviewedAt     DateTime?
+  reviewedBy     String?
   submittedAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

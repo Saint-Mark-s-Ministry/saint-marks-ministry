@@ -41,6 +41,11 @@ export interface EditableStudent {
     isAsyncStudent: boolean
     asyncReason: string | null
   }>
+  annualMentorRequirement?: {
+    activeYear: { id: string; name: string }
+    enrollment: { approvalFormUrl: string | null }
+    information: { mentorName: string; mentorPhone: string; mentorEmail: string; updatedAt: string; reviewedAt: string | null } | null
+  } | null
   createdFromRegistration?: Array<{
     id: string
     status: RegistrationStatus
@@ -109,6 +114,7 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
   const isSuperAdmin = !!myRole && canManageAllUsers(myRole)
   const enrollment = student.enrollments?.[0]
   const registration = student.createdFromRegistration?.[0]
+  const renewal = student.annualMentorRequirement
 
   const { data: mentors = [] } = useSWR<Option[]>(
     canEdit ? '/api/mentor-options' : null,
@@ -247,8 +253,8 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                 options={toOptions(years)}
                 onChange={(academicYearId) => saveEnrollment({ academicYearId }, 'Academic year updated')}
               />
-              <Field id="student-mentor-contact" label="Mentor contact">
-                <div id="student-mentor-contact" role="group" aria-label="Mentor contact" className="flex flex-col gap-1 text-sm">
+              <Field id="student-mentor-contact" label="Submitted mentor contact">
+                <div id="student-mentor-contact" role="group" aria-label="Submitted mentor contact" className="flex flex-col gap-1 text-sm">
                   {enrollment.mentorContact ? <>
                     <span>{enrollment.mentorContact.name}</span>
                     {enrollment.mentorContact.email && <ContactLink kind="email" value={enrollment.mentorContact.email} name={enrollment.mentorContact.name} />}
@@ -336,6 +342,26 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
         </CardContent>
       </Card>
 
+      {renewal && <Card>
+        <CardContent className="pt-6 space-y-3">
+          <h3 className="font-semibold">Mentor Information · {renewal.activeYear.name}</h3>
+          {!renewal.information?.reviewedAt && <Badge variant="outline">Update Required</Badge>}
+          <p className="text-sm">{renewal.information?.reviewedAt ? 'Reviewed' : renewal.information ? 'Submitted · Awaiting admin review' : 'Awaiting student submission'}</p>
+          {renewal.information && <>
+            <p className="text-sm">{[renewal.information.mentorName, renewal.information.mentorPhone, renewal.information.mentorEmail].join(' · ')}</p>
+            {!renewal.information.reviewedAt && canEdit && myRole !== UserRole.PRIEST && <Button disabled={saving} onClick={() => save(
+              `/api/students/${student.id}/mentor-information/review`,
+              { updatedAt: renewal.information!.updatedAt },
+              'Mentor information reviewed',
+              'POST'
+            )}>Mark mentor information reviewed</Button>}
+          </>}
+          <p className="text-sm">Approval Form: {(registration?.approvalFormUrl ?? renewal.enrollment.approvalFormUrl)
+            ? <a className="text-maroon-700 hover:underline" target="_blank" rel="noopener noreferrer" href={(registration?.approvalFormUrl ?? renewal.enrollment.approvalFormUrl)!}>View signed approval form</a>
+            : 'Not provided'}</p>
+        </CardContent>
+      </Card>}
+
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -355,7 +381,7 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
               </p>
               <p><span className="text-gray-600">Father of confession listed:</span> {registration.fatherOfConfessionName || 'Not provided'}</p>
               <p>
-                <span className="text-gray-600">Mentor listed:</span>{' '}
+                <span className="text-gray-600">Mentor submitted by student:</span>{' '}
                 {[registration.mentorName, registration.mentorPhone, registration.mentorEmail].filter(Boolean).join(' · ') || 'Not provided'}
               </p>
               {registration.reviewNote && <p><span className="text-gray-600">Review note:</span> {registration.reviewNote}</p>}

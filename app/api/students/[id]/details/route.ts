@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
+import { getAnnualMentorRequirement } from "@/lib/annual-mentor-information"
 import { LessonStatus } from "@prisma/client"
 import { excludeAsyncLessonRecords } from "@/lib/attendance-utils"
 import { withUserMentorContacts } from '@/lib/student-mentor-contact'
@@ -191,7 +192,7 @@ export async function GET(
     })
 
     return NextResponse.json({
-      student: (await withUserMentorContacts([student]))[0],
+      student: { ...(await withUserMentorContacts([student]))[0], annualMentorRequirement: await getAnnualMentorRequirement(studentId) },
       examScores,
       attendanceRecords,
       allExams,

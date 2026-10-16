@@ -45,6 +45,7 @@ interface Student {
   email: string
   phone?: string
   profileImageUrl?: string | null
+  annualMentorInformation?: Array<{ reviewedAt: string | null }>
   enrollments?: Array<{
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2' | null
@@ -60,10 +61,17 @@ interface Student {
       church: string | null
     } | null
     mentor?: {
+      email?: string | null
+      phone?: string | null
       id: string
       name: string
     }
   }>
+}
+
+function needsMentorReview(student: Student) {
+  const enrollment = student.enrollments?.[0]
+  return Boolean(enrollment?.isActive && (enrollment.isAsyncStudent || enrollment.yearLevel === 'YEAR_2') && !student.annualMentorInformation?.[0]?.reviewedAt)
 }
 
 interface StudentAnalytics {
@@ -579,7 +587,7 @@ function StudentsManagementContent() {
   const withdrawnCount = students.filter((s) => s.enrollments?.[0]?.status === 'WITHDRAWN').length
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
   const preview = previewId ? students.find((s) => s.id === previewId) : undefined
-  const previewMentor = preview?.enrollments?.[0]?.mentorContact
+  const previewMentor = preview?.enrollments?.[0]?.mentor
   const previewFather = preview?.enrollments?.[0]?.fatherOfConfession
   const previewAnalytics = preview ? analytics.find((a) => a.studentId === preview.id) : undefined
   const selectedIds = Array.from(selectedStudents)
@@ -768,7 +776,10 @@ function StudentsManagementContent() {
                           )}
                           {!preview && (
                             <>
-                              <td className="px-3">{enrollment?.mentorContact?.name ?? <span className="text-ink-3">Not provided</span>}</td>
+                              <td className="px-3">
+                                {enrollment?.mentor?.name ?? <span className="text-ink-3">Not assigned</span>}
+                                {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                              </td>
                               <td className="px-3">{enrollment?.fatherOfConfession?.name ?? <span className="text-ink-3">Not provided</span>}</td>
                             </>
                           )}
@@ -823,7 +834,8 @@ function StudentsManagementContent() {
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
                             {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
                           </span>
-                          <span className="truncate text-xs text-ink-3">Mentor: {enrollment?.mentorContact?.name ?? 'Not provided'}</span>
+                          <span className="truncate text-xs text-ink-3">Assigned mentor: {enrollment?.mentor?.name ?? 'Not assigned'}</span>
+                          {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
                           <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
                       </div>
@@ -892,7 +904,7 @@ function StudentsManagementContent() {
                   { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
                   { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
                   {
-                    label: 'Mentor',
+                    label: 'Assigned mentor',
                     value: previewMentor ? (
                       <span className="flex flex-col gap-1">
                         <span>{previewMentor.name}</span>

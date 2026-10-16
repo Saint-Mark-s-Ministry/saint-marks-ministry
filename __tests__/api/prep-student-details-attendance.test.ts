@@ -1,3 +1,4 @@
+vi.mock('@/lib/annual-mentor-information', () => ({ getAnnualMentorRequirement: async () => null }))
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ student: vi.fn(), attendance: vi.fn() }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: async () => ({ id: 'admin', role: 'SUPER_ADMIN' }) }))
