@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(), authorization: vi.fn(), access: vi.fn(), principal: vi.fn(), unenrolled: vi.fn(), session: vi.fn(),
   enrollment: vi.fn(), notes: vi.fn(), attendance: vi.fn(), rotations: vi.fn(), child: vi.fn(),
   childAccount: vi.fn(),
+  childPhoto: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('next-auth', () => ({ getServerSession: mocks.session }))
@@ -44,6 +45,7 @@ beforeEach(() => {
   mocks.attendance.mockResolvedValue([])
   mocks.unenrolled.mockResolvedValue(null)
   mocks.childAccount.mockReturnValue(null)
+  mocks.childPhoto.mockReturnValue(null)
   mocks.principal.mockResolvedValue({ id: 'staff-1', role: 'SERVANT', isDisabled: false })
   mocks.access.mockResolvedValue({
     canRead: true, isAdmin: false, readOnly: false,
@@ -52,6 +54,7 @@ beforeEach(() => {
   mocks.child.mockImplementation(async ({ select }: { select: { firstName?: boolean } }) => select.firstName ? {
     id: 'student-1', firstName: 'Mina', lastName: 'Mark', notes: 'Roster note', class: { name: 'Grade 5' },
     user: mocks.childAccount(),
+    photoUrl: mocks.childPhoto(),
     attendance: [{ id: 'mark-1', status: 'PRESENT', notes: 'On time', session: { date: new Date('2026-01-04'), topic: 'Faith', class: { name: 'Grade 5' } } }],
     visitations: [{ id: 'visit-1', status: 'DONE', visitedAt: new Date('2026-01-05'), createdAt: new Date('2026-01-06'), notes: 'Visited', recorder: { name: 'Servant' } }],
     phoneCalls: [{ id: 'call-1', calledAt: new Date('2026-01-07'), outcome: 'CONNECTED', note: 'Spoke', callerName: 'Servant' }],
@@ -147,8 +150,23 @@ describe('Sunday School child history', () => {
     expect(JSON.stringify(data)).not.toContain('prep-enrollment')
     expect(mocks.child.mock.calls[1][0].select.user).toEqual({ select: {
       isDisabled: true,
+      profileImageUrl: true,
       enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
     } })
+  })
+
+  it.each([
+    ['https://example.test/child.jpg', 'https://example.test/prep.jpg', 'https://example.test/child.jpg'],
+    [null, 'https://example.test/prep.jpg', 'https://example.test/prep.jpg'],
+    [null, null, null],
+  ])('resolves the history photo with Sunday School taking priority: %s / %s', async (childPhoto, accountPhoto, expected) => {
+    mocks.childPhoto.mockReturnValue(childPhoto)
+    mocks.childAccount.mockReturnValue({ isDisabled: false, enrollments: [], profileImageUrl: accountPhoto })
+    const response = await childHistory(request, params)
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data.photoUrl).toBe(expected)
+    expect(data).not.toHaveProperty('user')
   })
 
   it('scopes every historical relation to visible classes and omits confidential and contact fields', async () => {

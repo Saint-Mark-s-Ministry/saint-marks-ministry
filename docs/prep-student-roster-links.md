@@ -16,6 +16,13 @@ The label follows enrollment status,
 including after grade 12. It is display information and must never be used as an
 authorization check.
 
+Photos also follow the existing account link. A Sunday School photo takes
+priority; otherwise the roster, class page, and child history use the linked
+account's current profile photo. Account photos are read when loading the
+records, so changing a Prep photo carries through without copying image URLs
+into the child record. Removing a Sunday School photo restores the account
+photo fallback.
+
 When staff confirm a spelling variant belongs to the same person, use the
 Servants Prep account's spelling on the linked Sunday School child record.
 Keep the existing child ID and history; a name correction does not require a

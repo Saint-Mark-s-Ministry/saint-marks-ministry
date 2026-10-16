@@ -40,7 +40,7 @@ export async function GET(
           orderBy: { createdAt: "asc" },
         },
         children: {
-          include: { user: { select: servantsPrepStudentStatusSelect } },
+          include: { user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true } } },
           orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
         },
         sessions: {
@@ -73,6 +73,7 @@ export async function GET(
       ...sundaySchoolClass,
       children: sundaySchoolClass.children.map(({ user, ...child }) => ({
         ...child,
+        accountPhotoUrl: user?.profileImageUrl ?? null,
         isServantsPrepStudent: isServantsPrepStudent(user),
       })),
       canCoordinate: canCoordinateClass(access, id),

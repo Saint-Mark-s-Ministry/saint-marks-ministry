@@ -105,11 +105,12 @@ describe('Sunday School class staffing', () => {
   it('identifies Prep students in the class roster and keeps their names clickable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }))
     mocks.children.mockReturnValue([
-      { id: 'prep-child', firstName: 'Mina', lastName: 'Mark', isActive: true, isServantsPrepStudent: true },
+      { id: 'prep-child', firstName: 'Mina', lastName: 'Mark', isActive: true, isServantsPrepStudent: true, accountPhotoUrl: 'https://example.test/prep.jpg' },
       { id: 'other-child', firstName: 'Mary', lastName: 'Mark', isActive: true, isServantsPrepStudent: false },
     ])
     render(<SundaySchoolClassDetailPage />)
     expect(screen.getAllByText('SP Student')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: "View Mina Mark's photo" }).querySelector('img')).toHaveAttribute('src', 'https://example.test/prep.jpg')
     expect(screen.getByRole('button', { name: 'View history for Mina Mark' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View history for Mary Mark' })).toBeInTheDocument()
   })

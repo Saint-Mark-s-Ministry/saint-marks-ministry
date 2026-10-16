@@ -31,12 +31,15 @@ export default function StudentHistoryDialog({ target, onClose, onRestoreFocus }
   </Dialog>
 }
 
-function HistoryHeader({ target, isServantsPrepStudent = false }: {
+function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
   target: StudentHistoryTarget
   isServantsPrepStudent?: boolean
+  photoUrl?: string | null
 }) {
   return <DialogHeader>
     <div className="flex min-w-0 items-center gap-2 pr-6">
+      {/* eslint-disable-next-line @next/next/no-img-element -- scoped user-uploaded photo */}
+      {photoUrl && <img src={photoUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full object-cover" />}
       <DialogTitle className="min-w-0 break-words">{target.name}</DialogTitle>
       {target.program === 'sunday-school' && isServantsPrepStudent && (
         <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
@@ -59,7 +62,7 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
   }
   if (isLoading || isValidating || !data) return <><HistoryHeader target={target} /><p role="status" className="py-4 text-sm text-ink-3">Loading student history…</p></>
   return <>
-    <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} />
+    <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} photoUrl={data.photoUrl} />
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
     <Tabs value={tab} onValueChange={setTab}>
