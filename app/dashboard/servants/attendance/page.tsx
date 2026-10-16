@@ -14,8 +14,7 @@ import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { SundaySchoolChildAttendanceHistory } from '@/components/sunday-school-child-attendance-history'
+import { StudentName } from '@/components/student-history-provider'
 import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
@@ -60,8 +59,6 @@ function SundaySchoolAttendanceContent() {
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
-  const [historyChild, setHistoryChild] = useState<{ id: string; name: string; classId: string } | null>(null)
-  const historyTrigger = useRef<HTMLButtonElement | null>(null)
   const [showPhotos, setShowPhotos] = useState(true)
   const [groupByGender, setGroupByGender] = useState(false)
 
@@ -153,18 +150,6 @@ function SundaySchoolAttendanceContent() {
         }
       />
 
-      <Dialog open={historyChild !== null} onOpenChange={open => { if (!open) setHistoryChild(null) }}>
-        <DialogContent
-          className="max-h-[85dvh] overflow-y-auto sm:max-w-xl"
-          onCloseAutoFocus={event => { event.preventDefault(); historyTrigger.current?.focus() }}
-        >
-          <DialogHeader>
-            <DialogTitle>{historyChild?.name} — Attendance history</DialogTitle>
-            <DialogDescription>Saved weekly attendance for this child in the selected class.</DialogDescription>
-          </DialogHeader>
-          {historyChild && <SundaySchoolChildAttendanceHistory key={`${historyChild.classId}:${historyChild.id}`} classId={historyChild.classId} childId={historyChild.id} savedAt={lastSaved} />}
-        </DialogContent>
-      </Dialog>
 
       {classes.length === 0 ? (
         <Panel>
@@ -249,18 +234,7 @@ function SundaySchoolAttendanceContent() {
                           <span className="flex min-w-0 items-center gap-2.5">
                             {showPhotos && <Initials name={getChildFullName(entry)} imageUrl={entry.profileImageUrl} size={32} />}
                             <span className="flex min-w-0 flex-col leading-tight">
-                              <button
-                                type="button"
-                                aria-label={`View attendance history for ${getChildFullName(entry)}`}
-                                aria-haspopup="dialog"
-                                className="min-h-11 truncate rounded-sm text-left text-[14px] font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent-ink md:min-h-0"
-                                onClick={event => {
-                                  historyTrigger.current = event.currentTarget
-                                  setHistoryChild({ id: entry.id, name: getChildFullName(entry), classId: selectedClassId })
-                                }}
-                              >
-                                {getChildFullName(entry)}
-                              </button>
+                              <StudentName id={entry.id} name={getChildFullName(entry)} program="sunday-school" className="truncate text-[14px]" />
                               <span className="text-xs text-ink-3">{getLevelDisplayName(entry.level)}</span>
                             </span>
                           </span>

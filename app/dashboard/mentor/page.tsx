@@ -202,7 +202,7 @@ export default function MentorDashboard() {
             <ul className="divide-y divide-line">
               {mentees.map((m) => (
                 <li key={m.studentId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_120px_120px_88px]">
-                  <PersonCell name={m.studentName} href="/dashboard/mentor/my-mentees" />
+                  <PersonCell studentId={m.studentId} name={m.studentName} />
                   <span className="order-3 md:order-none">
                     <Metric value={m.attendancePercentage} width={40} />
                   </span>

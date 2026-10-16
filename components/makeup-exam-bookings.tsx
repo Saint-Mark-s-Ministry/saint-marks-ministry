@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useMakeupExams } from '@/lib/swr'
@@ -9,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
 type Exam = { id: string; examDate: string; yearLevel: string; examSection: { displayName: string }; academicYear: { name: string } }
-type Booking = { id: string; scheduledDate: string; exam: Exam; student?: { name: string; email: string } }
+type Booking = { id: string; studentId: string; scheduledDate: string; exam: Exam; student?: { name: string; email: string } }
 type EligibleExam = Exam & { reason: 'FAILED' | 'MISSED'; currentPercentage: number | null; examSection: { displayName: string; passingScore: number } }
 type Data = { exams: EligibleExam[]; bookings: Booking[]; fridays: string[] }
 const examLabel = (exam: Exam) => `${exam.examSection.displayName} — ${exam.yearLevel === 'BOTH' ? 'Both years' : exam.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} — ${exam.academicYear.name} (${formatDateUTC(exam.examDate)})`
@@ -70,7 +72,7 @@ export function MakeupExamBookings({ staff = false, enabled = true }: { staff?: 
           <div className="space-y-1">
             <p className="font-medium">Friday, {formatDateUTC(booking.scheduledDate)}</p>
             <p className="text-sm">{examLabel(booking.exam)}</p>
-            {staff && booking.student && <p className="text-sm text-ink-3">{booking.student.name} · {booking.student.email}</p>}
+            {staff && booking.student && <p className="text-sm text-ink-3"><StudentName id={booking.studentId} name={booking.student.name} /> · {booking.student.email}</p>}
           </div>
           {!staff && data.fridays.includes(booking.scheduledDate.slice(0, 10)) && <Button variant="outline" disabled={saving} onClick={() => submit('DELETE', { id: booking.id })}>Cancel booking</Button>}
         </div>)}

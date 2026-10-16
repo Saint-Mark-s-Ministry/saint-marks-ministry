@@ -54,7 +54,7 @@ describe('My mentees', () => {
       e: analytics(false, 92, 56),
     })
     render(<MyMenteesPage />)
-    const links = await screen.findAllByRole('link', { name: /Shehata|Matta/ })
+    const links = await screen.findAllByRole('button', { name: /View history for.*(Shehata|Matta)/ })
     expect(links.map((l) => l.textContent)).toEqual(['Elaria Matta', 'Andrew Shehata'])
     expect(fetchMock).toHaveBeenCalledWith('/api/enrollments?mentorId=mentor-1')
     const card = links[0].closest('section') as HTMLElement

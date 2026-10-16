@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -377,7 +379,7 @@ function SundaySchoolChildrenContent() {
                       <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                       <div className="flex min-w-0 flex-col leading-tight">
                         <span className={`truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
-                          {getChildFullName(child)}
+                          <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" />
                         </span>
                         <span className="text-xs text-ink-3">
                           {getLevelDisplayName(child.level)}
@@ -924,7 +926,7 @@ function SundaySchoolChildrenContent() {
                         className="flex flex-wrap items-center justify-between gap-2 py-3"
                       >
                         <p className="font-medium">
-                          {child.firstName} {child.lastName}
+                          <StudentName id={child.id} name={`${child.firstName} ${child.lastName}`} program="sunday-school" />
                         </p>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{getLevelDisplayName(child.level)}</Badge>

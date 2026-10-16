@@ -480,13 +480,12 @@ export default function EnrollmentsPage() {
                       <tr key={enrollment.id} className="h-[52px] border-b border-line last:border-0 hover:bg-hover/60">
                         <td className="px-3">
                           <PersonCell
-                            name={enrollment.student.name}
+                            studentId={enrollment.student.id} name={enrollment.student.name}
                             meta={
                               enrollment.status === 'GRADUATED' && enrollment.graduatedAcademicYear
                                 ? `Graduated ${enrollment.graduatedAcademicYear.name}`
                                 : enrollment.academicYear?.name ?? enrollment.student.email
                             }
-                            href={`/dashboard/admin/students?student=${enrollment.student.id}`}
                           />
                         </td>
                         <td className="px-3 text-ink-2">{enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</td>
@@ -516,9 +515,8 @@ export default function EnrollmentsPage() {
                   <li key={enrollment.id} className="flex flex-col gap-3 px-4 py-3">
                     <div className="flex items-start justify-between gap-2">
                       <PersonCell
-                        name={enrollment.student.name}
+                        studentId={enrollment.student.id} name={enrollment.student.name}
                         meta={`${enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${enrollment.academicYear?.name ?? '—'}`}
-                        href={`/dashboard/admin/students?student=${enrollment.student.id}`}
                       />
                       <div className="flex shrink-0 gap-1.5">
                         {enrollment.isAsyncStudent && <AsyncBadge />}

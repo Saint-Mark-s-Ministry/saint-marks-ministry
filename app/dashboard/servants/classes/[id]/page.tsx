@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -499,7 +501,7 @@ export default function SundaySchoolClassDetailPage() {
                   <li key={child.id} className="flex items-center gap-2.5 border-b border-line py-2">
                     <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                     <span className={`truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
-                      {getChildFullName(child)}
+                      <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" />
                     </span>
                   </li>
                 ))}
