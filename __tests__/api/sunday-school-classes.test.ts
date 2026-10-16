@@ -144,6 +144,44 @@ describe('Sunday School class detail API', () => {
     })
   })
 
+  it('creates a class with a trimmed classroom location', async () => {
+    const response = await POST(new Request('http://localhost/api/sunday-school/classes', {
+      method: 'POST', body: JSON.stringify({ name: 'Third Grade Girls', level: 'GRADE_3', classroom: '  Room 203  ' }),
+    }))
+    expect(response.status).toBe(201)
+    expect(mocks.createClass).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ classroom: 'Room 203' }) }))
+  })
+
+  it.each(['  Upstairs room 2  ', '', null])('updates or clears the classroom (%s)', async classroom => {
+    const response = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.updateClass).toHaveBeenCalledWith(expect.objectContaining({ data: { classroom: classroom?.trim() || null } }))
+  })
+
+  it.each([123, {}, 'x'.repeat(201)])('rejects invalid classroom values on create and update', async classroom => {
+    const response = await POST(new Request('http://localhost/api/sunday-school/classes', {
+      method: 'POST', body: JSON.stringify({ name: 'Third Grade Girls', level: 'GRADE_3', classroom }),
+    }))
+    const updated = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(400)
+    expect(updated.status).toBe(400)
+    expect(mocks.createClass).not.toHaveBeenCalled()
+    expect(mocks.updateClass).not.toHaveBeenCalled()
+  })
+
+  it('does not let a non-coordinator change the classroom', async () => {
+    mocks.canCoordinateClass.mockReturnValue(false)
+    const response = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom: 'Room 203' }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(403)
+    expect(mocks.updateClass).not.toHaveBeenCalled()
+  })
+
   it('returns only active servant assignments after one is removed', async () => {
     const response = await GET(
       new Request('http://localhost/api/sunday-school/classes/class-1'),

@@ -71,26 +71,39 @@ describe('Sunday School classes', () => {
 
     render(<SundaySchoolClassesPage />)
 
-    await user.click(screen.getByRole('button', { name: 'Edit Middle School name' }))
+    await user.click(screen.getByRole('button', { name: 'Edit Middle School' }))
     const nameInput = screen.getByRole('textbox', { name: 'Class name' })
     await user.clear(nameInput)
     await user.type(nameInput, '  Middle School Boys  ')
-    await user.click(screen.getByRole('button', { name: 'Save name' }))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/sunday-school/classes/class-1',
         expect.objectContaining({
           method: 'PATCH',
-          body: JSON.stringify({ name: 'Middle School Boys' }),
+          body: JSON.stringify({ name: 'Middle School Boys', classroom: null }),
         })
       )
     })
     expect(mocks.mutate).toHaveBeenCalled()
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
-      'Class name updated',
+      'Class updated',
       expect.objectContaining({ description: expect.any(String) })
     )
+  })
+
+  it('saves a classroom change without renaming the class', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<SundaySchoolClassesPage />)
+    await user.click(screen.getByRole('button', { name: 'Edit Middle School' }))
+    await user.type(screen.getByRole('textbox', { name: 'Classroom / location (optional)' }), 'Room 203')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/sunday-school/classes/class-1', expect.objectContaining({
+      method: 'PATCH', body: JSON.stringify({ name: 'Middle School', classroom: 'Room 203' }),
+    })))
   })
 
   it('offers one combined College & Grad level when creating a class', async () => {

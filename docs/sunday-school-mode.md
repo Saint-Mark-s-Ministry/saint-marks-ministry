@@ -60,7 +60,7 @@ account access through a dated relationship.
 | `SundaySchoolClassPlacement` | Dated enrollment-to-class history. At most one placement is active for an enrollment. |
 | `SundaySchoolAgeGroupLevel` | Year-bound ownership of levels by age groups; replaces relying on an unenforced enum array. |
 | `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`, and an explicit `isElementary` marker. At most one band per year is Elementary. |
-| `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. |
+| `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. Optional `classroom` (up to 200 characters) identifies the room/location. Coordinators can edit it from Classes; servants see it on their dashboard, class list, and class detail. |
 | `SundaySchoolServantAssignment` | Year-bound authority with exactly one class or age-group scope and dated end history. |
 | `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, optional child cell number and father-of-confession name, legacy guardian contact, `notes`, `isActive`. |
 | `SundaySchoolGuardianProfile` | Guardian identity/contact independent of whether the guardian has a login. |

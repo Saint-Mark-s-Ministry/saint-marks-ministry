@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const assignments = await prisma.sundaySchoolAssignment.findMany({
       where: { studentId },
       include: {
-        class: { select: { id: true, name: true, level: true } },
+        class: { select: { id: true, name: true, classroom: true, level: true } },
         rotationForm: true,
         academicYear: {
           select: {

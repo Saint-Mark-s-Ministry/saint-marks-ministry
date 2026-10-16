@@ -244,7 +244,7 @@ export default function SundaySchoolClassDetailPage() {
         <PageHeader
           back={{ href: '/dashboard/servants/classes', label: 'All classes' }}
           title={detail.name}
-          meta={[getLevelDisplayName(detail.level), `${detail.children.length} children`]}
+          meta={[getLevelDisplayName(detail.level), `Classroom: ${detail.classroom || 'Not set'}`, `${detail.children.length} children`]}
           actions={
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline">

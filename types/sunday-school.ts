@@ -51,6 +51,7 @@ export interface SundaySchoolAgeGroup {
 export interface SundaySchoolClassRef {
   id: string
   name: string
+  classroom?: string | null
   level: SundaySchoolLevel
 }
 
@@ -366,6 +367,7 @@ export type SundaySchoolAttendanceAudience = 'children' | 'servants'
 export interface SundaySchoolClassSummary {
   id: string
   name: string
+  classroom?: string | null
   level: SundaySchoolLevel
   ageGroup: { id: string; name: string } | null
   childCount: number

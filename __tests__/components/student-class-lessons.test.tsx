@@ -18,7 +18,7 @@ vi.mock('@/lib/swr', () => ({
 }))
 import ClassLessonsPage from '@/app/dashboard/student/class-lessons/page'
 
-const cls = { id: 'kindergarten-2', name: 'Kindergarten - 2', level: 'KINDERGARTEN' }
+const cls = { id: 'kindergarten-2', name: 'Kindergarten - 2', classroom: 'Room 203, upstairs', level: 'KINDERGARTEN' }
 
 describe('Async student class lessons', () => {
   beforeEach(() => {
@@ -31,8 +31,15 @@ describe('Async student class lessons', () => {
     render(<ClassLessonsPage />)
     expect(screen.getByText('Your serving class')).toBeInTheDocument()
     expect(screen.getByText('Kindergarten - 2')).toBeInTheDocument()
+    expect(screen.getByText('Classroom: Room 203, upstairs')).toBeInTheDocument()
     expect(screen.getByText('No upcoming class lessons')).toBeInTheDocument()
     expect(screen.queryByText(/child record/i)).not.toBeInTheDocument()
+  })
+
+  it('explains when the assigned classroom has not been set', () => {
+    mocks.data.classes = [{ ...cls, classroom: null }]
+    render(<ClassLessonsPage />)
+    expect(screen.getByText(/Classroom: Not set/)).toBeInTheDocument()
   })
 
   it('shows the serving class lesson and its resources', () => {
