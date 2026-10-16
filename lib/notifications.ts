@@ -126,6 +126,37 @@ export async function notifySundaySchoolLessonReminder({
   return true
 }
 
+/** One notification per recipient, threshold and absence episode, including cron retries. */
+export async function notifySundaySchoolAbsence({
+  childId, childName, classId, className, userId, firstAbsenceDate, weeks, threshold,
+}: {
+  childId: string
+  childName: string
+  classId: string
+  className: string
+  userId: string
+  firstAbsenceDate: string
+  weeks: number
+  threshold: 2 | 4
+}): Promise<boolean> {
+  const id = `ss-absence:${classId}:${childId}:${firstAbsenceDate}:${threshold}:${userId}`
+  const title = threshold === 4 ? 'Sunday School absence escalation' : 'Sunday School follow-up needed'
+  const body = `${childName} in ${className} has been absent for ${weeks} consecutive weeks (${threshold === 4 ? '4 or more weeks' : 'more than 2 weeks'}). Please follow up with this student.`
+  const url = '/dashboard/servants/visitations'
+  const result = await prisma.notification.createMany({
+    data: [{
+      id, userId, type: NotificationType.ANNOUNCEMENT, title, body, url,
+      metadata: { kind: 'sunday-school-absence', childId, classId, firstAbsenceDate, weeks, threshold },
+    }],
+    skipDuplicates: true,
+  })
+  if (result.count === 0) return false
+  await sendPushToUser(userId, { title, body, url, tag: id, notificationId: id }).catch(() => {
+    // The in-app follow-up remains available if push delivery fails.
+  })
+  return true
+}
+
 /** One in-app/push reminder per servant, class, meeting date, and scheduled day. */
 export async function notifySundaySchoolAttendanceReminder({
   userId, classId, className, sessionDate, reminderDate, url,
