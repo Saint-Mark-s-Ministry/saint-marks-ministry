@@ -251,6 +251,14 @@ lists unrecognized columns so they are not silently discarded. Source files are
 not synced: upload a new CSV to apply later changes. Students missing from an
 upload remain on the roster.
 
+Each editable roster row has a **Take photo** camera shortcut. The child editor
+also offers **Take photo** and **Upload photo**. Camera capture stays in the app:
+allow camera access, capture, review or retake, then crop and save. The rear
+camera is preferred on phones; **Switch camera** selects the front or rear camera.
+The camera stops on capture or dismissal. Denied permission, missing cameras,
+and unsupported browsers leave file upload available. Saving uses the existing
+child-photo endpoint and class-serving permission; no database migration is needed.
+
 The app shell shows a **mode switcher** between Servants Prep and Sunday School
 for anyone with access to both. A Sunday School servant without an active
 Servants Prep Servant tag opens Sunday School by default, including when their

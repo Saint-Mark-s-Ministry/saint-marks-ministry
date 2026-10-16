@@ -465,6 +465,14 @@ function SundaySchoolChildrenContent() {
 
                     {canManage ? (
                       <div className="flex shrink-0 items-center gap-1">
+                        <ChildPhotoField
+                          compact
+                          childId={child.id}
+                          name={getChildFullName(child)}
+                          photoUrl={child.photoUrl ?? null}
+                          accountPhotoUrl={child.user?.profileImageUrl ?? null}
+                          onChange={() => { mutate() }}
+                        />
                         <Button variant="ghost" size="icon-sm" aria-label={`Edit ${getChildFullName(child)}`} onClick={() => openEdit(child)}>
                           <Pencil />
                         </Button>
