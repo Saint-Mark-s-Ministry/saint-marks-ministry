@@ -1,3 +1,4 @@
+import { deleteUserWithRelations, UserDeletionConflictError } from '@/lib/user-deletion'
 import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
 import { NextRequest, NextResponse } from 'next/server'
@@ -7,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { canReviewRegistrations } from '@/lib/roles'
 import {
   NotificationType,
+  Prisma,
   RegistrationStatus,
   RoleGrantSource,
   RoleTag,
@@ -42,13 +44,17 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { action, note, yearLevel, academicYearId, isAsyncStudent } = body
+    const { action, note, yearLevel, academicYearId, isAsyncStudent, replaceUserId } = body
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json(
         { error: 'Invalid action. Must be "approve" or "reject"' },
         { status: 400 }
       )
+    }
+
+    if (replaceUserId !== undefined && (typeof replaceUserId !== 'string' || !replaceUserId || action !== 'approve')) {
+      return NextResponse.json({ error: 'Replacement requires approval and an old account ID' }, { status: 400 })
     }
 
     if (action === 'approve') {
@@ -78,11 +84,37 @@ export async function POST(
           throw new Error('Only pending submissions can be reviewed')
         }
 
+        if (replaceUserId) {
+          // Re-read the actor and target inside the transaction; never trust the
+          // warning or a stale JWT to authorize destructive account replacement.
+          const actor = await tx.user.findUnique({ where: { id: session.user.id } })
+          if (!actor || actor.isDisabled || ![UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === actor.role)) {
+            throw new UserDeletionConflictError('You no longer have permission to replace accounts')
+          }
+          const target = await tx.user.findUnique({ where: { id: replaceUserId } })
+          const isExactDuplicate = !submission.createdUserId && target?.name === submission.fullName && target?.role === UserRole.STUDENT
+          if (replaceUserId === actor.id || !isExactDuplicate) {
+            throw new UserDeletionConflictError('The selected account is no longer an exact-name duplicate student account. Refresh and review again.')
+          }
+          // Prep reviewers must not remove an account with additional ministry roles.
+          if (actor.role !== UserRole.SUPER_ADMIN) {
+            const otherRoles = await tx.userRoleAssignment.count({
+              where: { userId: replaceUserId, revokedAt: null, tag: { not: 'SERVANTS_PREP_STUDENT' } },
+            })
+            if (otherRoles > 0) throw new UserDeletionConflictError('Only a super admin can replace an account with additional ministry roles')
+          }
+          await deleteUserWithRelations(tx, replaceUserId)
+        }
+
         // Returning applicants are linked to their account at submission.
         // Fall back to the email in case the account was created afterwards.
         const existingUser = submission.createdUserId
           ? await tx.user.findUnique({ where: { id: submission.createdUserId } })
           : await tx.user.findUnique({ where: { email: submission.email } })
+
+        if (replaceUserId && existingUser) {
+          throw new UserDeletionConflictError('This registration already has an account. Review it without deleting another account.')
+        }
 
         // Get or create active academic year if not specified
         let targetAcademicYearId = academicYearId
@@ -295,9 +327,10 @@ export async function POST(
           submission: updatedSubmission,
           tempPassword,
           linkedExistingUser: Boolean(existingUser),
+          replacedUserId: replaceUserId || null,
           newAccount,
         }
-      })
+      }, replaceUserId ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined)
 
       const recipient = { email: result.submission.email, name: result.submission.fullName }
       emailRegistrationApproved(
@@ -318,6 +351,7 @@ export async function POST(
         submission: result.submission,
         tempPassword: result.tempPassword,
         linkedExistingUser: result.linkedExistingUser,
+        replacedUserId: result.replacedUserId,
         message: result.linkedExistingUser
           ? 'Registration approved and linked to the existing account'
           : 'Registration approved successfully',
@@ -389,6 +423,10 @@ export async function POST(
       })
     }
   } catch (error: unknown) {
+    if (error instanceof UserDeletionConflictError ||
+        (error instanceof Prisma.PrismaClientKnownRequestError && ['P2003', 'P2034'].includes(error.code))) {
+      return NextResponse.json({ error: error instanceof UserDeletionConflictError ? error.message : 'The accounts changed or have protected records. Refresh and review again.' }, { status: 409 })
+    }
     console.error('Error reviewing registration submission:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
     const status = error instanceof EnrollmentYearError
