@@ -156,6 +156,13 @@ function SundaySchoolChildrenContent() {
     setSelectedClassId(match)
   }, [classes, searchParams, selectedClassId])
 
+  const selectClass = (classId: string) => {
+    setSelectedClassId(classId)
+    const url = new URL(window.location.href)
+    url.searchParams.set('classId', classId)
+    window.history.replaceState(window.history.state, '', url)
+  }
+
   const openCreate = () => {
     setEditingId(null)
     const cls = classes.find(c => c.id === selectedClassId)
@@ -330,7 +337,7 @@ function SundaySchoolChildrenContent() {
                   <FilterSelect
                     aria-label="Class"
                     value={selectedClassId}
-                    onChange={setSelectedClassId}
+                    onChange={selectClass}
                     options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
                   />
                 </label>
