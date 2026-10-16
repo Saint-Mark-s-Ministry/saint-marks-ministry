@@ -1,4 +1,5 @@
 import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
+import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -41,7 +42,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { action, note, yearLevel, academicYearId } = body
+    const { action, note, yearLevel, academicYearId, isAsyncStudent } = body
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json(
@@ -51,6 +52,17 @@ export async function POST(
     }
 
     if (action === 'approve') {
+      const startingYearLevel = resolveEnrollmentYear(
+        { isAsyncStudent: false, yearLevel: YearLevel.YEAR_1 },
+        { yearLevel, isAsyncStudent },
+      )
+      const startingIsAsync = isAsyncStudent === true
+      const startingProgram = {
+        yearLevel: startingYearLevel,
+        isAsyncStudent: startingIsAsync,
+        asyncApprovedAt: startingIsAsync ? new Date() : null,
+        asyncApprovedBy: startingIsAsync ? session.user.id : null,
+      }
       // Approval logic - create User and Enrollment
       const result = await prisma.$transaction(async (tx) => {
         // Fetch submission
@@ -93,7 +105,7 @@ export async function POST(
         let userId: string
         let tempPassword: string | null = null
         let newAccount: { id: string; authVersion: number } | null = null
-        let shouldBackfillAttendance = true
+        let shouldBackfillAttendance = !startingIsAsync
 
         if (existingUser) {
           // Preserve compatibility with a pending legacy submission that was
@@ -130,7 +142,7 @@ export async function POST(
 
           const enrollment = await tx.studentEnrollment.findUnique({
             where: { studentId: existingUser.id },
-            select: { id: true, isActive: true },
+            select: { id: true, isActive: true, isAsyncStudent: true },
           })
 
           if (enrollment) {
@@ -143,12 +155,12 @@ export async function POST(
                 ...(submission.mentorPhone ? { mentorPhone: submission.mentorPhone } : {}),
               },
             })
-            shouldBackfillAttendance = enrollment.isActive
+            shouldBackfillAttendance = enrollment.isActive && !enrollment.isAsyncStudent
           } else if (existingUser.role === UserRole.STUDENT) {
             await tx.studentEnrollment.create({
               data: {
                 studentId: existingUser.id,
-                yearLevel: (yearLevel as YearLevel) || YearLevel.YEAR_1,
+                ...startingProgram,
                 academicYearId: targetAcademicYearId || null,
                 fatherOfConfessionId,
                 mentorName: submission.mentorName,
@@ -202,7 +214,7 @@ export async function POST(
           await tx.studentEnrollment.create({
             data: {
               studentId: newUser.id,
-              yearLevel: (yearLevel as YearLevel) || YearLevel.YEAR_1,
+              ...startingProgram,
               academicYearId: targetAcademicYearId || null,
               fatherOfConfessionId,
               mentorName: submission.mentorName,
@@ -240,7 +252,7 @@ export async function POST(
           })
         }
 
-        // Backfill attendance records for all past lessons in this academic year
+        // Async enrollments use rotation attendance and must not gain lesson absences.
         if (shouldBackfillAttendance) {
           await backfillAttendanceForStudent(userId, targetAcademicYearId || null, tx)
         }
@@ -379,7 +391,9 @@ export async function POST(
   } catch (error: unknown) {
     console.error('Error reviewing registration submission:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
-    const status = message.includes('not found')
+    const status = error instanceof EnrollmentYearError
+      ? 400
+      : message.includes('not found')
       ? 404
       : message.includes('pending') || message.includes('already exists')
       ? 400

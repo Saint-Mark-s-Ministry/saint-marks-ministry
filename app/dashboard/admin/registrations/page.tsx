@@ -259,7 +259,7 @@ function SubmissionDetail({
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [reviewNote, setReviewNote] = useState('')
-  const [yearLevel, setYearLevel] = useState<YearLevel>(YearLevel.YEAR_1)
+  const [startingClass, setStartingClass] = useState<YearLevel | 'ASYNC'>(YearLevel.YEAR_1)
 
   const handleApprove = async () => {
     setIsApproving(true)
@@ -270,7 +270,8 @@ function SubmissionDetail({
         body: JSON.stringify({
           action: 'approve',
           note: reviewNote,
-          yearLevel,
+          yearLevel: startingClass === 'ASYNC' ? null : startingClass,
+          isAsyncStudent: startingClass === 'ASYNC',
         }),
       })
 
@@ -417,14 +418,15 @@ function SubmissionDetail({
           <div className="flex flex-col gap-3 border-t border-line pt-3">
             {!isReturningApplicant && (
               <div className="grid gap-1.5">
-                <Label htmlFor="yearLevel">Starting year level</Label>
-                <Select value={yearLevel} onValueChange={(value) => setYearLevel(value as YearLevel)}>
-                  <SelectTrigger id="yearLevel" className="w-full">
+                <Label htmlFor="startingClass">Starting class</Label>
+                <Select value={startingClass} onValueChange={(value) => setStartingClass(value as YearLevel | 'ASYNC')}>
+                  <SelectTrigger id="startingClass" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={YearLevel.YEAR_1}>Year 1</SelectItem>
                     <SelectItem value={YearLevel.YEAR_2}>Year 2</SelectItem>
+                    <SelectItem value="ASYNC">Async</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

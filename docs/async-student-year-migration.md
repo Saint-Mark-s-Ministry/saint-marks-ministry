@@ -5,6 +5,11 @@ In-person students require `YEAR_1` or `YEAR_2`. A database check constraint
 enforces both rules. Switching to async clears the year atomically; switching
 back requires selecting a year in the same request.
 
+Registration reviewers can choose Year 1, Year 2, or Async as the starting
+class. Choosing Async creates an enrollment with `isAsyncStudent = true` and
+`yearLevel = null`, records the approval actor and date, and skips lesson
+attendance backfill. Returning applicants keep their existing enrollment mode.
+
 Async students can access both curriculum years' exams and makeup exams.
 Lesson access and graduation analytics span academic years, and serving
 requirements use signed four-week rotations across ten grades rather than a current cohort year. See [Async serving rotations](async-serving-rotations.md). Academic

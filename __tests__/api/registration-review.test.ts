@@ -157,6 +157,68 @@ describe('registration approval follow-up', () => {
     })
   })
 
+  it.each([false, true])('starts an async registration without a cohort year or lesson absences (existing account: %s)', async existingAccount => {
+    if (existingAccount) {
+      mocks.findUser.mockResolvedValue({ id: 'student-1', role: UserRole.STUDENT })
+      mocks.findEnrollment.mockResolvedValue(null)
+    }
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: null, isAsyncStudent: true }),
+    })
+    const response = await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })
+
+    expect(response.status).toBe(200)
+    expect(mocks.createEnrollment).toHaveBeenCalledWith({ data: expect.objectContaining({
+      studentId: 'student-1', yearLevel: null, isAsyncStudent: true,
+      asyncApprovedAt: expect.any(Date), asyncApprovedBy: 'admin-1',
+    }) })
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, 'YEAR_1', 'YEAR_2'])('preserves in-person approval and attendance backfill for %s', async yearLevel => {
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(200)
+    expect(mocks.createEnrollment).toHaveBeenCalledWith({ data: expect.objectContaining({
+      yearLevel: yearLevel ?? 'YEAR_1', isAsyncStudent: false,
+      asyncApprovedAt: null, asyncApprovedBy: null,
+    }) })
+    expect(mocks.backfillAttendance).toHaveBeenCalledWith('student-1', 'year-1', expect.anything())
+  })
+
+  it.each([
+    { isAsyncStudent: 'true' },
+    { yearLevel: 'ASYNC' },
+    { isAsyncStudent: true, yearLevel: 'YEAR_1' },
+    { isAsyncStudent: false, yearLevel: null },
+  ])('rejects an invalid starting class before creating any records: %o', async startingProgram => {
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', ...startingProgram }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(mocks.emailApproved).not.toHaveBeenCalled()
+  })
+
+  it('preserves the program of a returning async student and skips lesson backfill', async () => {
+    mocks.findUser.mockResolvedValue({ id: 'student-1', role: UserRole.STUDENT })
+    mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', isActive: true, isAsyncStudent: true })
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: 'YEAR_1', isAsyncStudent: false }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(200)
+    expect(mocks.createEnrollment).not.toHaveBeenCalled()
+    expect(mocks.updateEnrollment.mock.calls[0][0].data).not.toHaveProperty('yearLevel')
+    expect(mocks.updateEnrollment.mock.calls[0][0].data).not.toHaveProperty('isAsyncStudent')
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+  })
+
   it('approves a returning applicant by updating their existing account', async () => {
     mocks.findSubmission.mockResolvedValue({
       id: 'registration-2',
