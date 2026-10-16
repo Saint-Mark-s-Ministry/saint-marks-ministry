@@ -31,7 +31,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       where: { id },
       select: {
         id: true, firstName: true, lastName: true, notes: true, photoUrl: true,
-        user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true } },
+        level: true, birthDate: true, gender: true, isActive: true,
+        cellPhone: true, fatherOfConfession: true,
+        guardianName: true, guardianPhone: true, guardianEmail: true,
+        user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true, phone: true, email: true } },
+        family: { select: {
+          name: true, homeAddress: true,
+          motherName: true, motherPhone: true, motherEmail: true,
+          fatherName: true, fatherPhone: true, fatherEmail: true,
+        } },
         class: { select: { name: true } },
         attendance: {
           where: { session: classScope },
@@ -57,6 +65,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       photoUrl: getChildPhotoUrl(child),
       subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
       canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
+      // Contacts belong only to this authorized child-detail response, never summaries.
+      profile: {
+        className: child.class?.name ?? null,
+        level: child.level,
+        birthDate: child.birthDate?.toISOString() ?? null,
+        gender: child.gender,
+        isActive: child.isActive,
+        fatherOfConfession: child.fatherOfConfession,
+        phone: child.cellPhone || child.user?.phone || null,
+        email: child.user?.email ?? null,
+        guardian: { name: child.guardianName, phone: child.guardianPhone, email: child.guardianEmail },
+        family: child.family,
+      },
       attendance: {
         kind: 'meetings', counts: countAttendanceStatuses(child.attendance), rate: calculateAttendanceFromRecords(child.attendance),
         records: child.attendance.map(record => ({

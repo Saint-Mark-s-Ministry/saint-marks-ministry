@@ -1,5 +1,6 @@
-import type { AttendanceStatus, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
+import type { AttendanceStatus, SundaySchoolChildGender, SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import type { AttendanceCounts } from '@/lib/attendance-utils'
+import type { SundaySchoolFamilyDetails } from '@/lib/sunday-school-family'
 
 export type StudentHistoryProgram = 'sunday-school'
 export interface StudentHistoryTarget {
@@ -8,7 +9,7 @@ export interface StudentHistoryTarget {
   program: StudentHistoryProgram
 }
 
-/** Deliberate read-only projection; no account credentials or guardian contacts. */
+/** Read-only child details, available only after the Sunday School class check. */
 export interface StudentHistory {
   id: string
   name: string
@@ -19,6 +20,18 @@ export interface StudentHistory {
   /** Display photo resolved from the child's photo, then their linked account. */
   photoUrl?: string | null
   canReadPrivateNotes?: boolean
+  profile: {
+    className: string | null
+    level: SundaySchoolLevel
+    birthDate: string | null
+    gender: SundaySchoolChildGender | null
+    isActive: boolean
+    fatherOfConfession: string | null
+    phone: string | null
+    email: string | null
+    guardian: { name: string | null; phone: string | null; email: string | null }
+    family: SundaySchoolFamilyDetails | null
+  }
   attendance: {
     kind: 'meetings'
     counts: AttendanceCounts

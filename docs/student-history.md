@@ -1,7 +1,10 @@
 # Sunday School student history from names
 
 Saved child names in Sunday School staff views open a read-only dialog with
-Attendance, Notes, and Visitations tabs. The current page stays mounted, so
+Profile, Attendance, Notes, and Visitations tabs. The Profile tab opens first
+and shows student details, student contact, family/guardian contacts, and the
+household address. Contact values open the existing call, message, email,
+copy, and directions actions. The current page stays mounted, so
 filters, scroll position, and unsaved attendance marks survive. Closing the
 history restores focus to the name that opened it.
 
@@ -27,7 +30,13 @@ These display details do not grant access to Prep records.
   disabled state, resolves Sunday School assignments, and checks the child's
   current class. Each historical attendance, visitation, and phone-call query
   also filters by the viewer's visible classes. A child moving classes does
-  not expose records from unrelated classes. Guardian contacts are omitted.
+  not expose records from unrelated classes. Profile contacts are returned only
+  inside this authorized
+  `/children/[id]/history` response, with an explicit selection of contact
+  fields. Family relations do not include siblings or unrelated records. The
+  child’s phone takes priority over the linked account’s phone; the linked
+  account also supplies the student email. Summary endpoints and the command
+  palette do not return these contacts.
 - Attendance rates use saved marks, with half credit for late marks. Excused
   and unrecorded meetings do not affect the denominator.
 - General notes use the existing roster text field. Confidential pastoral

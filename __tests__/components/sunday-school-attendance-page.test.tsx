@@ -79,6 +79,7 @@ describe('Sunday School attendance page', () => {
     vi.stubGlobal('fetch', mocks.fetch)
     mocks.profile.mockImplementation(target => ({ data: {
       id: target.id, name: target.name, program: 'sunday-school', subtitle: 'Grade 5',
+      profile: { className: 'Grade 5', level: 'GRADE_5', birthDate: null, gender: null, isActive: true, fatherOfConfession: null, phone: null, email: null, guardian: { name: null, phone: null, email: null }, family: null },
       attendance: { kind: 'meetings', rate: target.id === 'child-1' ? 100 : 0,
         counts: { present: target.id === 'child-1' ? 1 : 0, absent: target.id === 'child-2' ? 1 : 0, late: 0, excused: 0 },
         records: [{ id: 'mark', date: '2026-10-04', title: 'Grade 5', status: target.id === 'child-1' ? 'PRESENT' : 'ABSENT', notes: null }],
@@ -122,6 +123,7 @@ describe('Sunday School attendance page', () => {
     await user.click(present)
     await user.click(mina)
     const dialog = screen.getByRole('dialog', { name: 'Mina Mark' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Attendance' }))
     expect(within(dialog).getByText('100%')).toBeInTheDocument()
     expect(within(dialog).queryByText(/Abanoub/)).not.toBeInTheDocument()
     expect(within(dialog).getByText(/Oct 4, 2026/)).toBeInTheDocument()
@@ -133,6 +135,7 @@ describe('Sunday School attendance page', () => {
     expect(present).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'View history for Abanoub Saad' }))
     const other = screen.getByRole('dialog', { name: 'Abanoub Saad' })
+    await user.click(within(other).getByRole('tab', { name: 'Attendance' }))
     expect(within(other).getByText('0%')).toBeInTheDocument()
     expect(within(other).queryByText(/Mina/)).not.toBeInTheDocument()
   })
