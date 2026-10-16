@@ -1,14 +1,19 @@
-import { render, screen, within, waitFor } from '@testing-library/react'
+import { act, render, screen, within, waitFor } from '@testing-library/react'
+import { Suspense } from 'react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StudentHistory } from '@/lib/student-history'
 
-const mocks = vi.hoisted(() => ({ history: vi.fn(), privateNotes: vi.fn(), retry: vi.fn() }))
+const mocks = vi.hoisted(() => ({ history: vi.fn(), privateNotes: vi.fn(), retry: vi.fn(), chunk: null as Promise<void> | null }))
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { id: 'staff-1' } } }) }))
 vi.mock('@/lib/swr', () => ({ useStudentHistory: mocks.history, useStudentHistoryPrivateNotes: mocks.privateNotes }))
 vi.mock('next/dynamic', async () => {
-  const { default: Dialog } = await import('@/components/student-history-dialog')
-  return { default: () => Dialog }
+  const { lazy } = await import('react')
+  // Match App Router dynamic imports, including suspension before the first load.
+  return { default: (loader: () => Promise<typeof import('@/components/student-history-dialog')>) => lazy(async () => {
+    await mocks.chunk
+    return loader()
+  }) }
 })
 
 import { StudentName } from '@/components/student-history-provider'
@@ -47,6 +52,35 @@ beforeEach(() => {
 })
 
 describe('Sunday School student history', () => {
+  it('keeps the class page visible while the first click downloads the dialog', async () => {
+    const user = userEvent.setup()
+    let releaseChunk!: () => void
+    mocks.chunk = new Promise<void>(resolve => { releaseChunk = resolve })
+    render(<Suspense fallback={<p>Class page loading</p>}><Harness /></Suspense>)
+    const draft = screen.getByLabelText('Unsaved notes')
+    const opener = screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0]
+    await user.type(draft, ' with edits')
+    try {
+      await user.click(opener)
+      expect(screen.getByRole('status')).toHaveTextContent('Loading student profile')
+      expect(screen.queryByText('Class page loading')).not.toBeInTheDocument()
+      expect(draft).toBeVisible()
+      expect(opener).toBeVisible()
+      expect(mocks.history).not.toHaveBeenCalled()
+    } finally {
+      await act(async () => { releaseChunk() })
+      mocks.chunk = null
+    }
+    expect(await screen.findByRole('dialog', { name: 'Mina Mark' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(opener).toHaveFocus())
+    expect(screen.getByLabelText('Unsaved notes')).toBe(draft)
+    expect(draft).toHaveValue('Keep this draft with edits')
+    await user.click(opener)
+    expect(await screen.findByRole('dialog', { name: 'Mina Mark' })).toBeVisible()
+    expect(screen.queryByText('Class page loading')).not.toBeInTheDocument()
+  })
+
   it('opens the student profile first and provides actionable student and family contacts', async () => {
     const user = userEvent.setup()
     render(<Harness />)
