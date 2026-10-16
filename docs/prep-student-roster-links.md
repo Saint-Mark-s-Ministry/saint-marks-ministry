@@ -8,10 +8,11 @@ change role tags.
 
 The roster, class detail, and child history endpoints return
 `isServantsPrepStudent` when the linked account is enabled and has an active Prep
-enrollment (`isActive` and `ACTIVE` status). The roster renders **Servants Prep
-Student** next to the child's name.
+enrollment (`isActive` and `ACTIVE` status). The roster renders **SP Student**
+beside the child's name.
 The same badge appears in each class's roster and the student history dialog
-opened by selecting a child's name. The label follows enrollment status,
+opened by selecting a child's name, beside the name in the dialog header.
+The label follows enrollment status,
 including after grade 12. It is display information and must never be used as an
 authorization check.
 

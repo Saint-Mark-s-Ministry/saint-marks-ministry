@@ -24,13 +24,26 @@ export default function StudentHistoryDialog({ target, onClose, onRestoreFocus }
   const { data: session } = useSession()
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
     <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
-      <DialogHeader>
-        <DialogTitle>{target.name}</DialogTitle>
-        <DialogDescription>{target.program === 'prep' ? 'Servants Prep' : 'Sunday School'} student history</DialogDescription>
-      </DialogHeader>
-      {session?.user?.id && <HistoryContent key={session.user.id} target={target} viewerId={session.user.id} />}
+      {session?.user?.id
+        ? <HistoryContent key={session.user.id} target={target} viewerId={session.user.id} />
+        : <HistoryHeader target={target} />}
     </DialogContent>
   </Dialog>
+}
+
+function HistoryHeader({ target, isServantsPrepStudent = false }: {
+  target: StudentHistoryTarget
+  isServantsPrepStudent?: boolean
+}) {
+  return <DialogHeader>
+    <div className="flex min-w-0 items-center gap-2 pr-6">
+      <DialogTitle className="min-w-0 break-words">{target.name}</DialogTitle>
+      {target.program === 'sunday-school' && isServantsPrepStudent && (
+        <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
+      )}
+    </div>
+    <DialogDescription>{target.program === 'prep' ? 'Servants Prep' : 'Sunday School'} student history</DialogDescription>
+  </DialogHeader>
 }
 
 function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; viewerId: string }) {
@@ -39,19 +52,16 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
   // SWR may retain data after a denied revalidation. Never render it on error.
   if (error) {
     const status = (error as { status?: number }).status
-    return <div role="alert" className="space-y-3 py-4">
+    return <><HistoryHeader target={target} /><div role="alert" className="space-y-3 py-4">
       <p>{status === 403 ? 'You do not have access to this student’s history.' : status === 404 ? 'This student’s record is no longer available.' : 'Couldn’t load student history.'}</p>
       <Button variant="outline" onClick={() => void mutate()}>Retry</Button>
-    </div>
+    </div></>
   }
-  if (isLoading || isValidating || !data) return <p role="status" className="py-4 text-sm text-ink-3">Loading student history…</p>
-  return <div className="space-y-4">
-    <div className="flex flex-wrap items-center gap-2">
-      <p className="text-sm text-ink-3">{data.subtitle}</p>
-      {target.program === 'sunday-school' && data.isServantsPrepStudent && (
-        <StatusBadge tone="accent" dot={false}>Servants Prep Student</StatusBadge>
-      )}
-    </div>
+  if (isLoading || isValidating || !data) return <><HistoryHeader target={target} /><p role="status" className="py-4 text-sm text-ink-3">Loading student history…</p></>
+  return <>
+    <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} />
+    <div className="space-y-4">
+    <p className="text-sm text-ink-3">{data.subtitle}</p>
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="attendance">Attendance</TabsTrigger>
@@ -87,7 +97,8 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
         </>}
       </TabsContent>
     </Tabs>
-  </div>
+    </div>
+  </>
 }
 
 function AttendanceHistory({ attendance }: { attendance: StudentHistory['attendance'] }) {

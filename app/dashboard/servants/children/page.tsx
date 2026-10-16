@@ -377,19 +377,19 @@ function SundaySchoolChildrenContent() {
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
-                      <div className="flex min-w-0 flex-col leading-tight">
-                        <span className={`truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
-                          <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" />
-                        </span>
+                      <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className={`min-w-0 truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                            <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
+                          </span>
+                          {child.isServantsPrepStudent && (
+                            <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
+                          )}
+                        </div>
                         <span className="text-xs text-ink-3">
                           {getLevelDisplayName(child.level)}
                           {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
                         </span>
-                        {child.isServantsPrepStudent && (
-                          <StatusBadge tone="accent" dot={false} className="mt-1 self-start">
-                            Servants Prep Student
-                          </StatusBadge>
-                        )}
                       </div>
                     </div>
 

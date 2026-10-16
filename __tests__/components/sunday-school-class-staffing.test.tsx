@@ -109,7 +109,7 @@ describe('Sunday School class staffing', () => {
       { id: 'other-child', firstName: 'Mary', lastName: 'Mark', isActive: true, isServantsPrepStudent: false },
     ])
     render(<SundaySchoolClassDetailPage />)
-    expect(screen.getAllByText('Servants Prep Student')).toHaveLength(1)
+    expect(screen.getAllByText('SP Student')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'View history for Mina Mark' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View history for Mary Mark' })).toBeInTheDocument()
   })

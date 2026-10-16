@@ -46,7 +46,7 @@ describe('shared student history', () => {
     render(<Harness />)
     await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
     const dialog = await screen.findByRole('dialog', { name: 'Mina Mark' })
-    expect(within(dialog).getByText('Servants Prep Student')).toBeInTheDocument()
+    expect(within(dialog).getByText('SP Student')).toBeInTheDocument()
   })
 
   it('loads on demand, shows all three histories, and preserves the underlying draft and keyboard focus', async () => {
@@ -87,7 +87,7 @@ describe('shared student history', () => {
     await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access')
     expect(screen.queryByText('100%')).not.toBeInTheDocument()
-    expect(screen.queryByText('Servants Prep Student')).not.toBeInTheDocument()
+    expect(screen.queryByText('SP Student')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(mocks.retry).toHaveBeenCalledOnce()
   })
