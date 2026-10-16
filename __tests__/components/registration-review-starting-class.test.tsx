@@ -61,7 +61,11 @@ describe('SP registration starting class', () => {
     expect(mocks.mutate).toHaveBeenCalledOnce()
   })
 
-  it('confirms the selected old account before approving a duplicate registration', async () => {
+  it.each([
+    { choice: 'Year 1', yearLevel: 'YEAR_1', isAsyncStudent: false },
+    { choice: 'Year 2', yearLevel: 'YEAR_2', isAsyncStudent: false },
+    { choice: 'Async', yearLevel: null, isAsyncStudent: true },
+  ])('confirms the old account and $choice class before replacing a duplicate', async ({ choice, yearLevel, isAsyncStudent }) => {
     mocks.submissions[0].exactNameMatches = [{ id: 'old-student', name: 'Mina Mark', email: 'old@example.com', isDisabled: false }]
     const user = userEvent.setup()
     render(<RegistrationsPage />)
@@ -74,10 +78,17 @@ describe('SP registration starting class', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(mocks.fetch).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Approve this account and delete old account' }))
+    const confirmationClass = screen.getByRole('combobox', { name: 'Confirm starting class' })
+    expect(confirmationClass).toHaveTextContent('Year 1')
+    if (choice !== 'Year 1') {
+      await user.click(confirmationClass)
+      await user.click(screen.getByRole('option', { name: choice }))
+    }
+    expect(confirmationClass).toHaveTextContent(choice)
     await user.click(screen.getByRole('button', { name: 'Approve and delete old account' }))
     await waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce())
     expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({
-      action: 'approve', replaceUserId: 'old-student', yearLevel: 'YEAR_1', isAsyncStudent: false,
+      action: 'approve', replaceUserId: 'old-student', yearLevel, isAsyncStudent,
     })
   })
 
