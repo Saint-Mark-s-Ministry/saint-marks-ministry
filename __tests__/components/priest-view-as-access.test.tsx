@@ -11,7 +11,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 afterEach(() => { vi.unstubAllGlobals() })
-describe('priest View as controls', () => {
+describe('View as controls', () => {
   it('shows the read-only grant as a labeled checkbox', () => {
     const change = vi.fn()
     render(<ViewAsAccessSwitch checked={false} onChange={change} />)
@@ -26,10 +26,16 @@ describe('priest View as controls', () => {
     if (enabled) await waitFor(() => expect(screen.getByRole('dialog', { name: 'View as another user' })).toBeInTheDocument())
     else expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
-  it('never opens for another role even with a stale enabled flag', () => {
-    mocks.role = UserRole.SERVANT_PREP; mocks.allowed = true
+  it.each([UserRole.SERVANT_PREP, UserRole.MENTOR, UserRole.STUDENT, UserRole.SERVANT, UserRole.PARENT])('opens for an explicitly enabled %s', async role => {
+    mocks.role = role; mocks.allowed = true
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }))
     render(<ViewAsMode />)
     fireEvent.keyDown(window, { ctrlKey: true, key: 'q' })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'View as another user' })).toBeInTheDocument())
+  })
+  it('shows automatic Super Admin access without a redundant editable grant', () => {
+    render(<ViewAsAccessSwitch checked={false} onChange={vi.fn()} hasAutomaticAccess />)
+    expect(screen.getByRole('checkbox', { name: 'Allow View as' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Allow View as' })).toBeDisabled()
   })
 })

@@ -10,10 +10,11 @@ describe('View as access', () => {
     { ...priest, canUseViewAs: undefined },
     { ...priest, isDisabled: true },
     { ...priest, mustChangePassword: true },
-    { ...priest, roleAssignments: [] },
-    { ...priest, role: UserRole.MENTOR },
-    { ...priest, role: UserRole.SERVANT_PREP },
-  ])('denies missing, revoked, disabled, or ineligible principals: %j', actor => expect(hasViewAsAccess(actor)).toBe(false))
+  ])('denies missing, ungranted, disabled, or password-gated principals: %j', actor => expect(hasViewAsAccess(actor)).toBe(false))
+  it.each(Object.values(UserRole))('allows an explicit grant for %s without ministry tags', role => {
+    expect(hasViewAsAccess({ role, isDisabled: false, canUseViewAs: true, roleAssignments: [] })).toBe(true)
+    expect(hasViewAsAccess({ role, isDisabled: false, canUseViewAs: false, roleAssignments: [] })).toBe(false)
+  })
   it('preserves active Super Admin access without the optional flag', () => {
     expect(hasViewAsAccess({ role: UserRole.SUPER_ADMIN, isDisabled: false, roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }] })).toBe(true)
     expect(hasViewAsAccess({ role: UserRole.SUPER_ADMIN, isDisabled: false, roleAssignments: [] })).toBe(false)

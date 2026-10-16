@@ -27,10 +27,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const user = await prisma.$transaction(async tx => {
       const target = await tx.user.findUnique({
         where: { id },
-        select: { canUseViewAs: true, isDisabled: true, role: true, roleAssignments: { where: { revokedAt: null }, select: { tag: true } } },
+        select: { canUseViewAs: true, isDisabled: true },
       })
       if (!target) throw new Error('Not found')
-      if (enabled && (target.isDisabled || target.role !== UserRole.PRIEST || !target.roleAssignments.some(grant => grant.tag === RoleTag.PRIEST))) {
+      if (enabled && target.isDisabled) {
         return null
       }
       const updated = await tx.user.update({ where: { id }, data: { canUseViewAs: enabled }, select: { id: true, canUseViewAs: true } })
@@ -44,7 +44,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
       return updated
     })
-    if (!user) return NextResponse.json({ error: 'View as access can only be granted to active priests' }, { status: 400 })
+    if (!user) return NextResponse.json({ error: 'View as access can only be granted to active accounts' }, { status: 400 })
     return NextResponse.json(user)
   } catch (error: unknown) {
     return handleApiError(error)

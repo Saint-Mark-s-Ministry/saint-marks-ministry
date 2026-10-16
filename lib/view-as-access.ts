@@ -11,5 +11,5 @@ export function hasViewAsAccess(actor: {
   if (!actor || actor.isDisabled || actor.mustChangePassword) return false
   const tags = new Set(actor.roleAssignments.map(grant => grant.tag))
   return (actor.role === UserRole.SUPER_ADMIN && tags.has(RoleTag.SUPER_ADMIN)) ||
-    (actor.role === UserRole.PRIEST && tags.has(RoleTag.PRIEST) && actor.canUseViewAs === true)
+    actor.canUseViewAs === true
 }
