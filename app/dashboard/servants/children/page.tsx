@@ -383,6 +383,11 @@ function SundaySchoolChildrenContent() {
                           {getLevelDisplayName(child.level)}
                           {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
                         </span>
+                        {child.isServantsPrepStudent && (
+                          <StatusBadge tone="accent" dot={false} className="mt-1 self-start">
+                            Servants Prep Student
+                          </StatusBadge>
+                        )}
                       </div>
                     </div>
 

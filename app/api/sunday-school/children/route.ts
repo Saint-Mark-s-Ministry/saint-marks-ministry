@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sundaySchoolChildAccountSelect, withServantsPrepStudentStatus } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -80,12 +81,12 @@ export async function GET(request: Request) {
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+        user: { select: sundaySchoolChildAccountSelect },
       },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     })
 
-    return NextResponse.json(children)
+    return NextResponse.json(children.map(withServantsPrepStudentStatus))
   } catch (error: unknown) {
     return handleApiError(error)
   }
@@ -238,7 +239,7 @@ export async function POST(request: Request) {
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+          user: { select: sundaySchoolChildAccountSelect },
         },
       })
 
@@ -261,7 +262,7 @@ export async function POST(request: Request) {
       return created
     })
 
-    return NextResponse.json(child, { status: 201 })
+    return NextResponse.json(withServantsPrepStudentStatus(child), { status: 201 })
   } catch (error: unknown) {
     return handleApiError(error)
   }

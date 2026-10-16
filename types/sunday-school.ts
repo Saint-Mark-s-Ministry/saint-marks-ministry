@@ -92,6 +92,8 @@ export interface SundaySchoolFamily {
 }
 
 export interface SundaySchoolChild {
+  /** Current Prep enrollment of the linked account; display only, grants no access. */
+  isServantsPrepStudent?: boolean
   id: string
   familyId: string | null
   userId: string | null
