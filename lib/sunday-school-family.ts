@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { normalizeOptionalEmail } from './email'
+import { normalizeHomeAddress } from './address'
 
 export interface SundaySchoolFamilyDetails {
   name: string | null
@@ -46,7 +47,9 @@ export function normalizeSundaySchoolFamilyDetails(
   return Object.fromEntries(
     FAMILY_DETAIL_KEYS.map((key) => [
       key,
-      key === 'motherEmail' || key === 'fatherEmail'
+      key === 'homeAddress'
+        ? normalizeHomeAddress(input[key])
+        : key === 'motherEmail' || key === 'fatherEmail'
         ? normalizeOptionalEmail(input[key])
         : typeof input[key] === 'string'
           ? input[key].trim() || null
