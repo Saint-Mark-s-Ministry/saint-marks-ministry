@@ -1,3 +1,4 @@
+import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -85,26 +86,8 @@ export async function POST(
         // Find or create Father of Confession
         let fatherOfConfessionId: string | null = null
         if (submission.fatherOfConfessionName) {
-          const existingFoC = await tx.fatherOfConfession.findFirst({
-            where: {
-              name: {
-                equals: submission.fatherOfConfessionName,
-                mode: 'insensitive',
-              },
-            },
-          })
-
-          if (existingFoC) {
-            fatherOfConfessionId = existingFoC.id
-          } else {
-            const newFoC = await tx.fatherOfConfession.create({
-              data: {
-                name: submission.fatherOfConfessionName,
-                isActive: true,
-              },
-            })
-            fatherOfConfessionId = newFoC.id
-          }
+          const { father } = await findOrCreateFatherOfConfession(tx, { name: submission.fatherOfConfessionName })
+          fatherOfConfessionId = father.id
         }
 
         let userId: string

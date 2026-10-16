@@ -1,3 +1,4 @@
+import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
@@ -153,15 +154,7 @@ export async function PATCH(request: NextRequest) {
       let updatedApplication = state.application
 
       if (state.application) {
-        let fatherOfConfession = await tx.fatherOfConfession.findFirst({
-          where: { name: { equals: fatherOfConfessionName, mode: 'insensitive' } },
-          select: { id: true },
-        })
-
-        fatherOfConfession ??= await tx.fatherOfConfession.create({
-          data: { name: fatherOfConfessionName, isActive: true },
-          select: { id: true },
-        })
+        const { father: fatherOfConfession } = await findOrCreateFatherOfConfession(tx, { name: fatherOfConfessionName })
         fatherOfConfessionId = fatherOfConfession.id
 
         updatedApplication = await tx.registrationSubmission.update({

@@ -1,3 +1,4 @@
+import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -62,22 +63,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const father = await prisma.fatherOfConfession.create({
-      data: {
-        name: name.trim(),
-        phone: phone?.trim() || null,
-        church: church?.trim() || null,
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        church: true,
-        isActive: true,
-      }
+    const { father, created } = await findOrCreateFatherOfConfession(prisma, {
+      name, phone: phone?.trim() || null, church: church?.trim() || null,
     })
 
-    return NextResponse.json(father, { status: 201 })
+    return NextResponse.json(father, { status: created ? 201 : 200 })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create father of confession" },
