@@ -1,3 +1,5 @@
+import { normalizeHomeAddress } from './address'
+
 export const ROSTER_CSV_TEMPLATE_HEADERS = [
   'first_name',
   'last_name',
@@ -298,7 +300,7 @@ export function parseSundaySchoolRosterCsv(text: string): ParsedSundaySchoolRost
       cellPhone: nullable(fields.cellPhone),
       fatherOfConfession: nullable(fields.fatherOfConfession),
       familyName: nullable(fields.familyName),
-      homeAddress: nullable(fields.homeAddress),
+      homeAddress: normalizeHomeAddress(fields.homeAddress),
       motherName: nullable(fields.motherName),
       motherPhone: nullable(fields.motherPhone),
       motherEmail: nullable(fields.motherEmail)?.toLowerCase() ?? null,

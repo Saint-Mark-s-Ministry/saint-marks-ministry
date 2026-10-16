@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { normalizeHomeAddress } from '@/lib/address'
 import { NextResponse } from 'next/server'
 import { Prisma, SundaySchoolRosterImportRowOutcome } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
@@ -71,7 +72,7 @@ function normalizeRequestRows(value: unknown): SundaySchoolRosterCsvRow[] | null
       cellPhone: stringOrNull('cellPhone'),
       fatherOfConfession: stringOrNull('fatherOfConfession'),
       familyName: stringOrNull('familyName'),
-      homeAddress: stringOrNull('homeAddress'),
+      homeAddress: normalizeHomeAddress(input.homeAddress),
       motherName: stringOrNull('motherName'),
       motherPhone: stringOrNull('motherPhone'),
       motherEmail: stringOrNull('motherEmail')?.toLowerCase() ?? null,

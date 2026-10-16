@@ -209,7 +209,7 @@ describe('Sunday School roster CSV import API', () => {
     const response = await POST(request([{
       firstName: 'Jane', lastName: 'Doe', cellPhone: '555-1111', fatherOfConfession: 'Fr. Mark',
       motherName: 'Mary Doe', motherPhone: '555-2222', motherEmail: 'MOM@EXAMPLE.COM',
-      homeAddress: '123 Main St', fatherPhone: '', guardianPhone: '', notes: '',
+      homeAddress: ' 123 main street ', fatherPhone: '', guardianPhone: '', notes: '',
     }]))
     expect(response.status).toBe(201)
     expect(await response.json()).toMatchObject({ matchedRows: 1, createdRows: 0 })
