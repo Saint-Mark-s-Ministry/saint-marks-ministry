@@ -81,6 +81,7 @@ export default function SundaySchoolVisitationsPage() {
   const [confidentialNote, setConfidentialNote] = useState('')
   const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
   const isPriest = response?.standing.isPriest ?? false
+  const canReadPrivateNotes = response?.standing.canReadPrivateNotes ?? false
 
   useEffect(() => {
     if (!selectedClassId && classes.length > 0) {
@@ -139,12 +140,12 @@ export default function SundaySchoolVisitationsPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedChildId || (!isPriest && !selectedClass?.canEdit)) {
+    if (!selectedChildId || !canReadPrivateNotes || (!isPriest && !selectedClass?.canEdit)) {
       setPriestNotes([])
       return
     }
     void loadPriestNotes(selectedChildId)
-  }, [isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
+  }, [canReadPrivateNotes, isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
 
   const togglePriority = async (child: SundaySchoolVisitationChild) => {
     setSavingPriority(child.id)
@@ -189,7 +190,7 @@ export default function SundaySchoolVisitationsPage() {
 
       const savedPrivateNote = confidentialNote.trim().length > 0
       await mutate()
-      if (savedPrivateNote) {
+      if (savedPrivateNote && canReadPrivateNotes) {
         await loadPriestNotes(selectedChild.id)
       }
       setNotes('')
@@ -473,8 +474,8 @@ export default function SundaySchoolVisitationsPage() {
                           Private note to priests <span className="font-normal">(optional)</span>
                         </Label>
                         <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                          Attached to this visitation. Only you and users with an active Priest
-                          access tag can read it.
+                          Attached to this visitation. Priests and the author can read it.
+                          Super Admins cannot read confidential notes.
                         </p>
                       </div>
                     </div>
@@ -542,7 +543,7 @@ export default function SundaySchoolVisitationsPage() {
                 )}
               </div>
 
-              {(isPriest || selectedClass?.canEdit) && (
+              {canReadPrivateNotes && (isPriest || selectedClass?.canEdit) && (
                 <div className="space-y-4 rounded-lg border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
                   <div className="flex items-start gap-3">
                     <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
@@ -552,8 +553,8 @@ export default function SundaySchoolVisitationsPage() {
                       </h3>
                       <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
                         {isPriest
-                          ? 'Confidential. These notes are available only to users with an active Priest access tag and never appear in the shared visitation history.'
-                          : 'Private notes saved with your visitation entries are visible only to you and users with an active Priest access tag.'}
+                          ? 'Confidential. These notes are available to priests and their author. Super Admins cannot read them, including in View as mode.'
+                          : 'Private notes saved with your visitation entries are visible to you and priests. Super Admins cannot read them, including in View as mode.'}
                       </p>
                     </div>
                   </div>

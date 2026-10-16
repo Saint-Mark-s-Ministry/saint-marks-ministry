@@ -79,11 +79,16 @@ describe('priest overseer assignments', () => {
     expect((await PATCH(request(null), context)).status).toBe(200)
     expect(mocks.updateGroup).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ overseerId: null }) }))
   })
+  it('allows a priest to assign an overseer', async () => {
+    mocks.auth.mockResolvedValue({ id: 'priest', role: 'PRIEST' })
+    expect((await PATCH(request('priest'), context)).status).toBe(200)
+    expect((await POST(request('priest'))).status).toBe(201)
+  })
   it('supports assigning an overseer when creating an age group', async () => {
     expect((await POST(request('priest'))).status).toBe(201)
     expect(mocks.createGroup).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ overseerId: 'priest' }) }))
   })
-  it.each(['PRIEST', 'SERVANT', 'SERVANT_PREP'])('does not grant %s permission to assign overseers', async role => {
+  it.each(['SERVANT', 'SERVANT_PREP'])('does not grant %s permission to assign overseers', async role => {
     mocks.auth.mockResolvedValue({ id: 'viewer', role })
     expect((await PATCH(request('priest'), context)).status).toBe(403)
     expect((await POST(request('priest'))).status).toBe(403)

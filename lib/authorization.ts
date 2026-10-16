@@ -128,13 +128,14 @@ export async function getAuthorizationContext(
   if (!user) throw new AuthorizationError("Unauthorized")
 
   const roleTags = new Set(user.roleAssignments.map((assignment) => assignment.tag))
-  const readOnly = roleTags.has(RoleTag.PRIEST)
+  const isPriest = roleTags.has(RoleTag.PRIEST)
+  const readOnly = false
   const isSuperAdmin = roleTags.has(RoleTag.SUPER_ADMIN)
   const isPrepServant = roleTags.has(RoleTag.SERVANTS_PREP_SERVANT)
   const yearId = requestedYear?.id ?? null
 
   let sundaySchoolClassScope: ResourceScope = NO_SCOPE
-  if (isSuperAdmin || readOnly) {
+  if (isSuperAdmin || isPriest) {
     sundaySchoolClassScope = ALL_SCOPE
   } else if (roleTags.has(RoleTag.SUNDAY_SCHOOL_SERVANT) && yearId) {
     const assignments = await prisma.sundaySchoolServantAssignment.findMany({
@@ -185,7 +186,7 @@ export async function getAuthorizationContext(
     readOnly,
     sundaySchoolYearId: yearId,
     prepStudentScope:
-      isSuperAdmin || readOnly || isPrepServant
+      isSuperAdmin || isPriest || isPrepServant
         ? ALL_SCOPE
         : idScope(
             user.mentorAssignments.map(

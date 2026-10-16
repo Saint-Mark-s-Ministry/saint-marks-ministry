@@ -149,8 +149,8 @@ Servants Prep `AcademicYear`; the legacy academic-year key stays populated only
 for compatibility until routes have cut over.
 
 **Sessions are created on save, not on page load.** Browsing dates on the
-attendance page leaves no empty rows behind, and `PRIEST` can look without
-writing. The `POST /sessions` route is idempotent: it returns the existing
+attendance page leaves no empty rows behind. Priests can save attendance
+using the same ministry editing flow. The `POST /sessions` route is idempotent: it returns the existing
 session for a `(class, date)` rather than failing on the unique constraint.
 Child and servant marks share that weekly session but remain separate records;
 a week saved for one audience still appears as unrecorded for the other.
@@ -172,8 +172,8 @@ snapshot.** Every mark saved for that class meeting counts toward the roster cur
 marks stay as gaps so missing data is never presented as zero attendance. The
 reporting year begins on the first scheduled meeting strictly after September 11. Super
 admins and priests can filter the child trend to any class. The Servants chart
-is available only to super admins and coordinators and contains only the
-classes they coordinate; priests and ordinary servants cannot request it.
+is available to super admins, priests, and coordinators. Coordinators see only
+the classes they coordinate.
 
 ## API routes
 
@@ -196,7 +196,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
 | `lessons` | GET | Class-scoped servants/coordinators, linked parents/children, and active async students with an explicit serving class |
 | `lessons/[id]` | PATCH | Any active servant assigned to the class assigns an active class servant as owner and edits title and links |
-| `homework` | GET, POST | Scoped reads for Elementary servants, linked parents/children, and read-only priests; assigned Elementary servants publish |
+| `homework` | GET, POST | Scoped reads for Elementary servants, linked parents/children, and priests; assigned Elementary servants and priests publish |
 | `homework/[id]` | PATCH, DELETE | Assigned Elementary servants edit or soft-archive a package |
 | `homework/[id]/completions` | POST | Assigned Elementary servants batch upsert or clear child outcomes |
 | `sessions` | GET, POST | People who serve the class |
@@ -206,8 +206,8 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `servant-attendance` | GET | `SUPER_ADMIN`, direct class coordinator, or the class's age-group coordinator |
 | `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
 | `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
-| `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
-| `phone-calls` | POST | People who serve the child's active class may log a call; `PRIEST` remains read-only. Calls are returned in the scoped `visitations` GET response. |
+| `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; priests may edit every class |
+| `phone-calls` | POST | People who serve the child's active class may log a call; priests may edit every class. Calls are returned in the scoped `visitations` GET response. |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
@@ -378,7 +378,7 @@ Worth exercising when changing this area:
    and can create a class at their levels but not others.
 5. A **class coordinator** can staff their class but cannot create or delete one.
 6. Moving a grade between age groups re-parents its classes.
-7. `PRIEST` sees everything and is refused every write.
+7. `PRIEST` may view and edit all ministry records; account administration stays separate.
 
 
 ## Organization chart and priest overseers
@@ -392,15 +392,15 @@ The layout supports desktop and mobile, and missing assignments are explicit.
 Set the **Priest overseer** in **Age Groups → Edit** (or when creating a group).
 Each age group has one optional overseer; the same priest can oversee multiple
 groups, for example Middle School and High School. Only active PRIEST accounts
-can be selected, and only SUPER_ADMIN can save or clear the assignment.
+can be selected; Super Admins and priests may save or clear the assignment.
 
 `SundaySchoolAgeGroup.overseerId` is a nullable relation to User and persists
 with the age group across academic years. It describes the reporting structure
-and does not confer new permissions: priests retain their existing read-only
-visibility. Deleting the priest account clears the relation. Disabled priests
+and does not confer new permissions: priests already have ministry editing
+access. Deleting the priest account clears the relation. Disabled priests
 are omitted from the active chart until an active replacement is assigned.
 
-`GET /api/sunday-school/organization` is SUPER_ADMIN-only. It returns minimal
+`GET /api/sunday-school/organization` is available to Super Admins and priests. It returns minimal
 person references and active groups/classes, with servant/coordinator staffing
 limited to the active academic year. With no active year it returns an empty
 chart rather than historical staffing. Priests appear only on the groups
@@ -417,8 +417,8 @@ remain an explicit, separately reviewed deployment step.
 (`/dashboard/servants/servant-attendance/meetings`). The dashboard no longer
 contains the meeting section. Meetings are visible to every
 servant assigned to an Elementary class, the band coordinators, super admins,
-and priests. Other bands cannot view that roster. Only the band's coordinators
-and super admins can create sessions or save attendance; priests remain read-only.
+and priests. Other bands cannot view that roster. Only the band's coordinators,
+super admins, and priests can create sessions or save attendance.
 
 Sessions are created on demand with **Add meeting**, a date, and an optional
 title. They have no weekly recurrence and do not reuse weekly class sessions.
@@ -550,8 +550,7 @@ attendance notes, or pastoral notes.
 On **Visitations**, servants can star a child and use **Priority visits** to see
 that class's shared follow-up list. Stars persist across devices for the whole
 class team, separately from visit and phone-call histories. Recording a visit
-never clears a star automatically. Priests can view priorities but cannot change
-them. `PATCH /api/sunday-school/visitations` accepts `{ childId, priority }` and
+never clears a star automatically. Priests can view and change priorities across classes. `PATCH /api/sunday-school/visitations` accepts `{ childId, priority }` and
 requires current class-serving authority; an atomic update rejects concurrent
 class transfers. The child flag follows the child if the roster is transferred.
 

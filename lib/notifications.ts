@@ -778,6 +778,7 @@ export async function notifyPriestNoteCreated({
           tag: RoleTag.PRIEST,
           revokedAt: null,
         },
+        none: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
       },
     },
     select: { id: true },

@@ -264,6 +264,7 @@ export interface SundaySchoolVisitationsResponse {
     readOnly: boolean
     isAdmin: boolean
     isPriest: boolean
+    canReadPrivateNotes: boolean
   }
 }
 

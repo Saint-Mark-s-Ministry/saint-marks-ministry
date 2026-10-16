@@ -79,12 +79,12 @@ describe('makeup score API', () => {
     expect((await POST(request({ ...input, version: 3 }), params)).status).toBe(400)
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
-  it('allows priests to read but not write', async () => {
-    mocks.context.mockResolvedValue({ roleTags: new Set([RoleTag.PRIEST]), disabled: false, readOnly: true })
+  it('allows priests to read, record retakes, and correct original scores', async () => {
+    mocks.context.mockResolvedValue({ roleTags: new Set([RoleTag.PRIEST]), disabled: false, readOnly: false })
     expect((await GET(request({}), params)).status).toBe(200)
-    expect((await POST(request(input), params)).status).toBe(403)
-    expect((await PATCH(request({ ...input, attemptId: 'attempt' }), params)).status).toBe(403)
-    expect((await patchOriginal(request({ score: 50 }), params)).status).toBe(403)
+    expect((await POST(request(input), params)).status).toBe(201)
+    expect((await PATCH(request({ ...input, attemptId: 'attempt' }), params)).status).toBe(404)
+    expect((await patchOriginal(request({ score: 50 }), params)).status).toBe(200)
   })
   it.each([RoleTag.SERVANTS_PREP_STUDENT, RoleTag.SUNDAY_SCHOOL_SERVANT, RoleTag.PARENT])('denies non-staff role %s even if the JWT says admin', async tag => {
     mocks.context.mockResolvedValue({ roleTags: new Set([tag]), disabled: false, readOnly: false })

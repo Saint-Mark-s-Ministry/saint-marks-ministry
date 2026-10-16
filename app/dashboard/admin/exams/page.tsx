@@ -407,7 +407,7 @@ function ExamsPageContent() {
     return true
   })
 
-  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exams
+  // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage exams
   const canEdit = session?.user?.role && canManageExams(session.user.role)
 
   if (loading || status === 'loading') {

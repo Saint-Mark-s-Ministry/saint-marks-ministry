@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
 }))
 
+vi.mock('next-auth', () => ({ getServerSession: vi.fn().mockResolvedValue(null) }))
+vi.mock('@/lib/auth', () => ({ authOptions: {} }))
+
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: mocks.authorization }))
 vi.mock('@/lib/sunday-school-access', () => ({
@@ -97,15 +100,15 @@ describe('Sunday School phone calls', () => {
     }))
   })
 
-  it('denies a priest', async () => {
+  it('allows a priest to record a follow-up call', async () => {
     mocks.auth.mockResolvedValue({ id: 'priest-1', name: 'Priest One', role: 'PRIEST' })
-    mocks.access.mockResolvedValue({ canRead: true, readOnly: true })
-    mocks.canServeClass.mockReturnValue(false)
+    mocks.access.mockResolvedValue({ canRead: true, readOnly: false })
+    mocks.canServeClass.mockReturnValue(true)
 
     const response = await postCall(callDetails)
 
-    expect(response.status).toBe(403)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(response.status).toBe(201)
+    expect(mocks.transaction).toHaveBeenCalled()
   })
 
   it('denies an unassigned servant', async () => {

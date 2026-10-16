@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { isAdmin } from '@/lib/roles'
+import { isAdmin, isSuperAdmin } from '@/lib/roles'
 import { getSundaySchoolAccess } from '@/lib/sunday-school-access'
 
 /** Product feedback is shared across ministries; this grants no Sunday School class access. */
@@ -11,5 +11,5 @@ export async function getFeedbackAccess(user: { id: string }) {
   if (!account || account.isDisabled) throw new Error('Forbidden')
 
   const access = await getSundaySchoolAccess(account)
-  return { ...access, canRead: access.canRead || isAdmin(account.role) }
+  return { ...access, isAdmin: isSuperAdmin(account.role), canRead: access.canRead || isAdmin(account.role) }
 }

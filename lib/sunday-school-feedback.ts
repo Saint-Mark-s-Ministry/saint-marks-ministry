@@ -102,7 +102,7 @@ export function isFeedbackVote(value: unknown): value is SundaySchoolFeedbackVot
   )
 }
 
-// Feedback is a deliberate exception to the normal PRIEST read-only rule:
+// Feedback moderation remains restricted to Super Admins.
 // Sunday School participants and Servants Prep staff may use this product forum.
 export function canParticipateInFeedback(access: SundaySchoolAccess): boolean {
   return access.canRead

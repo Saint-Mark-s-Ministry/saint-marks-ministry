@@ -292,7 +292,7 @@ export default function EnrollmentsPage() {
     }
   }
 
-  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+  // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
   // A mentor's count covers every student they mentor, withdrawn and graduated

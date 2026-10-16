@@ -71,12 +71,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/attendance - Create attendance record (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/attendance - Create attendance record (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user can manage data (PRIEST is read-only)
+    // Check if user can manage data
     if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },

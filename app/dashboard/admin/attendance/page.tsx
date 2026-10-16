@@ -415,7 +415,7 @@ export default function AttendancePage() {
     .filter(l => (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
-  // Check if user can manage data (PRIEST is read-only)
+  // Check if user can manage data
   const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
 
   // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)

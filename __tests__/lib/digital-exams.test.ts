@@ -44,7 +44,7 @@ describe('digital exam rules', () => {
     expect(gradeAnswers(['A', '', 'C', 'D'], ['A', 'B', 'B', 'D'])).toBe(2)
   })
   it('allows priests to monitor but not write, and denies Sunday School-only users', () => {
-    expect(examPermissions(context([RoleTag.PRIEST], true))).toEqual({ staff: true, manage: false, student: false })
+    expect(examPermissions(context([RoleTag.PRIEST]))).toEqual({ staff: true, manage: true, student: false })
     expect(examPermissions(context([RoleTag.SUPER_ADMIN, RoleTag.PRIEST], true)).manage).toBe(false)
     expect(examPermissions(context([RoleTag.SERVANTS_PREP_SERVANT])).manage).toBe(true)
     expect(examPermissions(context([RoleTag.SUNDAY_SCHOOL_SERVANT]))).toEqual({ staff: false, manage: false, student: false })

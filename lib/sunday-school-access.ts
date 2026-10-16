@@ -24,9 +24,9 @@ import {
  */
 
 export interface SundaySchoolAccess {
-  /** SUPER_ADMIN: every class, every power, plus age groups */
+  /** SUPER_ADMIN and PRIEST: every class and age group */
   isAdmin: boolean
-  /** PRIEST: sees everything, every write refused */
+  /** Reserved for an explicitly read-only access context */
   readOnly: boolean
   /** true when this user has any way into Sunday School mode at all */
   canRead: boolean

@@ -1,3 +1,6 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
 import { RoleTag } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getAuthorizationContext } from '@/lib/authorization'
@@ -25,13 +28,14 @@ const priestNoteSelect = {
 } as const
 
 // This route is intentionally separate from the general visitation endpoint.
-// Priests can query every confidential note for a child. Every other user is
-// restricted at query time to notes where they are the author.
+// Priests can query every confidential note for a child. Super Admins and
+// View as sessions are denied. Other users may query only their own notes.
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
     const authorization = await getAuthorizationContext(user.id)
-    if (authorization.disabled) {
+    const session = await getServerSession(authOptions)
+    if (!canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

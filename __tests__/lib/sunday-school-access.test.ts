@@ -88,7 +88,7 @@ const highSchoolCoordinator = makeAccess({
 })
 
 const superAdmin = makeAccess({ isAdmin: true, visibleClassIds: 'all' })
-const priest = makeAccess({ readOnly: true, visibleClassIds: 'all' })
+const priest = makeAccess({ isAdmin: true, visibleClassIds: 'all' })
 
 // A SERVANT_PREP who has not been assigned anything: the bug this model fixes
 const unassignedPrepServant = makeAccess({ canRead: false })
@@ -101,6 +101,13 @@ describe('Sunday School access resolution', () => {
     prismaMocks.ageGroups.mockReset().mockResolvedValue([])
     prismaMocks.classes.mockReset().mockResolvedValue([])
     prismaMocks.admins.mockReset().mockResolvedValue([])
+  })
+
+  it('gives priests editing access to all classes without an assignment', async () => {
+    const access = await getSundaySchoolAccess({ id: 'priest', role: UserRole.PRIEST })
+    expect(access).toMatchObject({ isAdmin: true, readOnly: false, canRead: true, visibleClassIds: 'all' })
+    expect(canServeClass(access, CLASS_A)).toBe(true)
+    expect(canCoordinateAgeGroup(access, HIGH_SCHOOL)).toBe(true)
   })
 
   it('lets a tagged servant enter the mode without granting any class scope', async () => {
@@ -308,14 +315,14 @@ describe('Sunday School access predicates', () => {
       expect(canViewServantAttendanceReport(priest)).toBe(true)
     })
 
-    it('writes nothing', () => {
-      expect(canServeClass(priest, 'any-class')).toBe(false)
-      expect(canCoordinateClass(priest, 'any-class')).toBe(false)
-      expect(canTakeServantAttendance(priest, 'any-class')).toBe(false)
-      expect(canCreateClassAtLevel(priest, 'GRADE_3')).toBe(false)
-      expect(canDeleteClass(priest, 'GRADE_3')).toBe(false)
-      expect(canCoordinateAgeGroup(priest, HIGH_SCHOOL)).toBe(false)
-      expect(canEditWeeklyLesson(priest, 'any-class')).toBe(false)
+    it('edits every class and age group', () => {
+      expect(canServeClass(priest, 'any-class')).toBe(true)
+      expect(canCoordinateClass(priest, 'any-class')).toBe(true)
+      expect(canTakeServantAttendance(priest, 'any-class')).toBe(true)
+      expect(canCreateClassAtLevel(priest, 'GRADE_3')).toBe(true)
+      expect(canDeleteClass(priest, 'GRADE_3')).toBe(true)
+      expect(canCoordinateAgeGroup(priest, HIGH_SCHOOL)).toBe(true)
+      expect(canEditWeeklyLesson(priest, 'any-class')).toBe(true)
     })
   })
 
@@ -355,8 +362,8 @@ describe('Sunday School access predicates', () => {
       expect(canReviewChildRegistrationAtLevel(servantOfA, 'GRADE_2')).toBe(false)
     })
 
-    it('refuses PRIEST — read-only', () => {
-      expect(canReviewChildRegistrationAtLevel(priest, 'GRADE_3')).toBe(false)
+    it('allows priests to review placements', () => {
+      expect(canReviewChildRegistrationAtLevel(priest, 'GRADE_3')).toBe(true)
     })
   })
 })

@@ -184,7 +184,7 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   if (canReviewServantApplications(role)) {
     admin.push({ href: '/dashboard/servants/servant-applications', label: 'Servant applications', icon: HandHeart })
   }
-  if (ssAdmin) admin.push({ href: '/dashboard/servants/users', label: 'Users', icon: UserCog })
+  if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/users', label: 'Users', icon: UserCog })
   if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/activity', label: 'Activity', icon: Activity })
 
   const main: NavItem[] = [

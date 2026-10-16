@@ -22,7 +22,7 @@ import {
   NotebookPen,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
+import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 import { useDigitalExams } from '@/lib/swr'
 import { useShortcutModifier } from '@/hooks/useShortcutModifier'
@@ -67,7 +67,7 @@ function getNavItemsForRole(
       items.splice(2, 0, { label: 'Elementary Homework', href: '/dashboard/servants/homework', icon: NotebookPen })
     }
 
-    if (canAdministerSundaySchool(role)) {
+    if (canManageAllUsers(role)) {
       items.push({ label: 'Users', href: '/dashboard/servants/users', icon: Users })
     }
 
