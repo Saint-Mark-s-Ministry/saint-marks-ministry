@@ -111,6 +111,19 @@ describe('post-approval application', () => {
     expect(mocks.deleteNotifications).not.toHaveBeenCalled()
   })
 
+  it('links an old Markos name to the canonical priest while preserving the submitted name', async () => {
+    const submitted = { ...completedFields, fatherOfConfessionName: 'Fr.Markos Ayoub' }
+    mocks.updateApplication.mockResolvedValue({ id: 'registration-1', ...submitted, approvalFormUrl: null, approvalFormFilename: null })
+    const response = await PATCH(patchRequest(submitted))
+    expect(response.status).toBe(200)
+    expect(mocks.findFather).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      name: { equals: 'Very Rev. Fr. Markos Ayoub', mode: 'insensitive' }, isActive: true,
+    } }))
+    expect(mocks.updateApplication).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fatherOfConfessionName: 'Fr.Markos Ayoub' }) }))
+    expect(mocks.createFather).not.toHaveBeenCalled()
+    expect(mocks.updateEnrollment).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fatherOfConfessionId: 'father-1' }) }))
+  })
+
   it('clears the persistent reminder after all application fields are complete', async () => {
     mocks.updateApplication.mockResolvedValue({
       id: 'registration-1',
