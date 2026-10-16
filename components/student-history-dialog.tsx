@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ds/status-badge'
 import { useStudentHistory, useStudentHistoryPrivateNotes } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import { getAttendanceStatusLabel } from '@/lib/attendance-utils'
@@ -45,7 +46,12 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
   }
   if (isLoading || isValidating || !data) return <p role="status" className="py-4 text-sm text-ink-3">Loading student history…</p>
   return <div className="space-y-4">
-    <p className="text-sm text-ink-3">{data.subtitle}</p>
+    <div className="flex flex-wrap items-center gap-2">
+      <p className="text-sm text-ink-3">{data.subtitle}</p>
+      {target.program === 'sunday-school' && data.isServantsPrepStudent && (
+        <StatusBadge tone="accent" dot={false}>Servants Prep Student</StatusBadge>
+      )}
+    </div>
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="attendance">Attendance</TabsTrigger>

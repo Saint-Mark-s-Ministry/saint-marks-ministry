@@ -14,6 +14,8 @@ export interface StudentHistory {
   name: string
   program: StudentHistoryProgram
   subtitle: string
+  /** Display-only enrollment status for linked Sunday School accounts. */
+  isServantsPrepStudent?: boolean
   canReadPrivateNotes?: boolean
   attendance: {
     kind: 'lessons' | 'rotations' | 'meetings'
