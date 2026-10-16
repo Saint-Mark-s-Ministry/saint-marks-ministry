@@ -381,7 +381,7 @@ function SubmissionDetail({
                 {canReview && !isReturningApplicant && session?.user && [UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === session.user.role) && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="h-auto whitespace-normal py-2" disabled={isApproving || isRejecting}>Approve this account and delete old account</Button>
+                      <Button variant="destructive" className="h-auto min-h-11 w-full whitespace-normal border-bad bg-bad py-2 text-white hover:bg-bad/90 md:h-auto md:min-h-8" disabled={isApproving || isRejecting}>Approve this account and delete old account</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -391,9 +391,23 @@ function SubmissionDetail({
                           The old account’s enrollment, attendance, exam results, and other associated records will be deleted, not transferred. This cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor={`replacement-class-${account.id}`}>Confirm starting class</Label>
+                        <Select value={startingClass} onValueChange={(value) => setStartingClass(value as YearLevel | 'ASYNC')}>
+                          <SelectTrigger id={`replacement-class-${account.id}`} className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={YearLevel.YEAR_1}>Year 1</SelectItem>
+                            <SelectItem value={YearLevel.YEAR_2}>Year 2</SelectItem>
+                            <SelectItem value="ASYNC">Async</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-ink-2">Choose the new account’s class before confirming. Async students have no cohort year.</p>
+                      </div>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction disabled={isApproving || isRejecting} onClick={() => void handleApprove(account.id)}>Approve and delete old account</AlertDialogAction>
+                        <AlertDialogAction className="border-bad bg-bad text-white hover:border-bad hover:bg-bad/90" disabled={isApproving || isRejecting} onClick={() => void handleApprove(account.id)}>Approve and delete old account</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
