@@ -579,12 +579,13 @@ Links include the class and exact meeting date, including when opened from an
 older notification.
 
 `/api/cron/sunday-school-attendance-reminders` sends in-app and best-effort push
-notifications at noon Eastern on Saturday for Elementary classes and Sunday for
-other classes, with Tuesday and Thursday follow-ups for both, skipping classes
+notifications at 11 a.m. Eastern on Saturday for Elementary classes and noon
+Eastern on Sunday for other classes, with noon Eastern Tuesday and Thursday
+follow-ups for both, skipping classes
 whose active roster is fully marked. It requires `Authorization: Bearer
-<CRON_SECRET>`. Vercel invokes it at 16:00 and 17:00 UTC on Saturday, Sunday,
-Tuesday and Thursday; the handler uses church-local time to select the noon run
-across daylight saving changes.
+<CRON_SECRET>`. Vercel invokes it at 15:00, 16:00 and 17:00 UTC on Saturday, Sunday,
+Tuesday and Thursday; the handler uses church-local time to select the scheduled
+hour across daylight saving changes.
 Stable notification IDs suppress duplicate deliveries on retries and overlapping
 runs. Existing push configuration and user subscriptions apply. The cron becomes
 active when the updated Vercel configuration is deployed; no database migration

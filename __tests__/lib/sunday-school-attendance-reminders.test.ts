@@ -67,8 +67,8 @@ describe('weekly attendance reminders', () => {
     expect(attendanceReminderWeek(new Date('2026-10-24T03:59:00Z')).saturday).toEqual(new Date('2026-10-17'))
     expect(attendanceReminderWeek(new Date('2026-10-24T04:00:00Z')).saturday).toEqual(new Date('2026-10-24'))
   })
-  it.each(['2026-10-17T16:00:00Z', '2026-12-19T17:00:00Z'])(
-    'sends Saturday initial reminders only to Elementary: %s', async instant => {
+  it.each(['2026-10-17T15:00:00Z', '2026-12-19T16:00:00Z'])(
+    'sends Saturday initial reminders at 11am Eastern only to Elementary: %s', async instant => {
       mocks.assignments.mockResolvedValue([assignment('elementary', 'GRADE_3'), assignment('middle', 'GRADE_6')])
       expect(await sendSundaySchoolAttendanceReminders(new Date(instant))).toEqual({ pending: 1, sent: 1 })
       expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ userId: 'elementary', sessionDate: instant.slice(0, 10) }))
@@ -98,7 +98,7 @@ describe('weekly attendance reminders', () => {
       expect(await sendSundaySchoolAttendanceReminders(new Date(instant))).toEqual({ pending: 1, sent: 1 })
     }
   )
-  it.each(['2026-10-18T17:00:00Z', '2026-12-20T16:00:00Z', '2026-10-19T16:00:00Z', '2026-10-21T16:00:00Z'])(
+  it.each(['2026-10-18T17:00:00Z', '2026-12-20T16:00:00Z', '2026-10-19T16:00:00Z', '2026-10-21T16:00:00Z', '2026-10-17T16:00:00Z', '2026-12-19T17:00:00Z', '2026-10-18T15:00:00Z', '2026-10-20T15:00:00Z', '2026-10-22T15:00:00Z'])(
     'skips other hours and days: %s', async instant => {
       expect(await sendSundaySchoolAttendanceReminders(new Date(instant))).toEqual({ pending: 0, sent: 0 })
       expect(mocks.assignments).not.toHaveBeenCalled()

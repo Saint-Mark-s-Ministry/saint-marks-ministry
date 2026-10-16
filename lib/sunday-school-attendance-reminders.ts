@@ -73,14 +73,15 @@ export async function getPendingSundaySchoolAttendance(now = new Date(), userId?
   return [...pending.values()]
 }
 
-/** Vercel uses UTC: invoke at both possible noon offsets, then gate in church time. */
+/** Vercel uses UTC: invoke at possible reminder offsets, then gate in church time. */
 export async function sendSundaySchoolAttendanceReminders(now = new Date()) {
   const { today } = attendanceReminderWeek(now)
   const hour = new Intl.DateTimeFormat('en-US', {
     timeZone: SUNDAY_SCHOOL_TIME_ZONE, hour: 'numeric', hourCycle: 'h23',
   }).format(now)
   const weekday = today.getUTCDay()
-  if (![0, 2, 4, 6].includes(weekday) || hour !== '12') return { pending: 0, sent: 0 }
+  const reminderHour = weekday === 6 ? '11' : '12'
+  if (![0, 2, 4, 6].includes(weekday) || hour !== reminderHour) return { pending: 0, sent: 0 }
 
   const pending = (await getPendingSundaySchoolAttendance(now)).filter(reminder =>
     // Initial reminders go only to classes meeting today; follow-ups cover both.
