@@ -52,7 +52,7 @@ export function ViewAsMode() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const viewingAs = session?.impersonating ?? null
-  const canViewAs = session?.user?.role === 'SUPER_ADMIN' || (session?.user?.role === 'PRIEST' && session.user.canUseViewAs === true) || !!viewingAs
+  const canViewAs = session?.user?.role === 'SUPER_ADMIN' || session?.user?.canUseViewAs === true || !!viewingAs
 
   useEffect(() => {
     if (!canViewAs) return

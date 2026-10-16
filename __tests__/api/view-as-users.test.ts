@@ -97,6 +97,13 @@ describe('GET /api/admin/view-as/users', () => {
     expect((await GET(new Request('https://example.test/api/admin/view-as/users'))).status).toBe(enabled ? 200 : 403)
   })
 
+  it.each(Object.values(UserRole))('allows a granted %s to load the picker without ministry tags', async role => {
+    mockGetServerSession.mockResolvedValue({ user: { id: 'account' } } as never)
+    mockFindUnique.mockResolvedValue({ role, isDisabled: false, canUseViewAs: true, roleAssignments: [] } as never)
+    mockFindMany.mockResolvedValue([])
+    expect((await GET(new Request('https://example.test/api/admin/view-as/users'))).status).toBe(200)
+  })
+
   it('caps the number of returned candidates', async () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: 'admin-1', role: UserRole.SUPER_ADMIN },

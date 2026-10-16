@@ -260,7 +260,7 @@ export default function UsersPage() {
         if (editingUser.id === session?.user.id) await refreshSession({ refreshContactBook: true })
       }
 
-      if (isSuperAdmin && formData.roleTags.includes(RoleTag.PRIEST) && formData.canUseViewAs !== (editingUser.canUseViewAs ?? false)) {
+      if (isSuperAdmin && formData.canUseViewAs !== (editingUser.canUseViewAs ?? false)) {
         const accessResponse = await fetch(`/api/admin/users/${editingUser.id}/view-as-access`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -901,9 +901,12 @@ export default function UsersPage() {
                                             disabled={!!session?.impersonating}
                                           />
                                         )}
-                                        {formData.roleTags.includes(RoleTag.PRIEST) && (
-                                          <ViewAsAccessSwitch checked={formData.canUseViewAs} onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })} disabled={!!session?.impersonating} />
-                                        )}
+                                        <ViewAsAccessSwitch
+                                          checked={formData.canUseViewAs}
+                                          hasAutomaticAccess={editingUser.role === UserRole.SUPER_ADMIN}
+                                          onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })}
+                                          disabled={!!session?.impersonating}
+                                        />
                                       </UserRoleTagEditor>
                                       <div>
                                         <Label htmlFor="edit-role-note" className="text-xs">Audit note (optional)</Label>
@@ -1089,9 +1092,12 @@ export default function UsersPage() {
                                     disabled={!!session?.impersonating}
                                   />
                                 )}
-                                {formData.roleTags.includes(RoleTag.PRIEST) && (
-                                  <ViewAsAccessSwitch checked={formData.canUseViewAs} onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })} disabled={!!session?.impersonating} />
-                                )}
+                                <ViewAsAccessSwitch
+                                  checked={formData.canUseViewAs}
+                                  hasAutomaticAccess={editingUser.role === UserRole.SUPER_ADMIN}
+                                  onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })}
+                                  disabled={!!session?.impersonating}
+                                />
                               </UserRoleTagEditor>
                               <div>
                                 <Label className="text-xs">Audit note (optional)</Label>

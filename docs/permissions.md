@@ -452,18 +452,18 @@ The visitation response exposes this restriction to hide the confidential histor
 and suppress its fetch. Super Admin accounts are excluded from new priest-note
 notifications. Ordinary ministry editing permissions do not grant note access.
 
-## Optional View as access for priests
+## Optional View as access
 
-Super Admins can enable **Allow View as** in a priest's Users → Edit → Access tags
-section. `User.canUseViewAs` defaults to false. Priests need both their active
-Priest tag and this explicit grant; other non-admin roles cannot use the flag.
+Super Admins can enable **Allow View as** in any account's Users → Edit → Access
+tags section, regardless of role. `User.canUseViewAs` defaults to false.
+The explicit grant is independent of ministry tags and role changes.
 Existing Super Admin access still requires an active Super Admin tag.
 Only active Super Admins may grant or revoke the permission through
-`PUT /api/admin/users/[id]/view-as-access`; priests cannot delegate it.
+`PUT /api/admin/users/[id]/view-as-access`; permission recipients cannot delegate it.
 Grants and revocations are audited in the same transaction as the update.
-Removing the Priest tag also clears the saved grant.
+Role-tag changes preserve the grant; revoke it with the separate View as checkbox.
 
-Enabled priests use Ctrl Q to start the existing 30-minute read-only preview.
+Enabled accounts use Ctrl Q to start the existing 30-minute read-only preview.
 The picker and session callback reload the actor's current permissions. Active
 previews revalidate on every session request, so revocation or disabling the
 actor ends access immediately. The navigation flag refreshes within the normal
@@ -472,4 +472,5 @@ The proxy continues blocking writes, and confidential priest notes are denied
 in every View as session, including one started by a priest.
 
 Apply `20261016171000_add_priest_view_as_access` before deploying this code.
-No priest is enabled automatically; grants are made individually on Users.
+No account is enabled automatically; grants are made individually on Users.
+Allowing all roles reuses this existing field and needs no additional migration.

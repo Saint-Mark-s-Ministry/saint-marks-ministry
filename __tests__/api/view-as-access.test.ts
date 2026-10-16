@@ -19,7 +19,7 @@ beforeEach(() => {
   mocks.update.mockResolvedValue({ id: 'priest', canUseViewAs: true })
   mocks.transaction.mockImplementation(work => work({ user: { findUnique: mocks.target, update: mocks.update }, auditEvent: { create: mocks.audit } }))
 })
-describe('granting View as to priests', () => {
+describe('granting View as to accounts', () => {
   it.each([true, false])('saves %s and audits the change in the same transaction', async enabled => {
     mocks.target.mockResolvedValue({ canUseViewAs: !enabled, isDisabled: false, role: UserRole.PRIEST, roleAssignments: [{ tag: RoleTag.PRIEST }] })
     expect((await PUT(request({ canUseViewAs: enabled }), params)).status).toBe(200)
@@ -41,13 +41,20 @@ describe('granting View as to priests', () => {
     expect((await PUT(request(body), params)).status).toBe(400)
     expect(mocks.update).not.toHaveBeenCalled()
   })
-  it.each([
-    { role: UserRole.SERVANT_PREP, isDisabled: false, roleAssignments: [] },
-    { role: UserRole.PRIEST, isDisabled: false, roleAssignments: [] },
-    { role: UserRole.PRIEST, isDisabled: true, roleAssignments: [{ tag: RoleTag.PRIEST }] },
-  ])('requires an active priest target: %j', async target => {
-    mocks.target.mockResolvedValue(target)
+  it.each(Object.values(UserRole))('allows a Super Admin to grant access to role %s without ministry tags', async role => {
+    mocks.target.mockResolvedValue({ role, isDisabled: false, roleAssignments: [], canUseViewAs: false })
+    expect((await PUT(request({ canUseViewAs: true }), params)).status).toBe(200)
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: { canUseViewAs: true } }))
+  })
+  it('rejects grants to disabled accounts', async () => {
+    mocks.target.mockResolvedValue({ isDisabled: true, canUseViewAs: false })
     expect((await PUT(request({ canUseViewAs: true }), params)).status).toBe(400)
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+  it('does not let a permission recipient delegate it', async () => {
+    mocks.auth.mockResolvedValue({ id: 'student', role: UserRole.STUDENT, canUseViewAs: true })
+    mocks.context.mockResolvedValue({ disabled: false, roleTags: new Set([RoleTag.SERVANTS_PREP_STUDENT]) })
+    expect((await PUT(request({ canUseViewAs: true }), params)).status).toBe(403)
     expect(mocks.update).not.toHaveBeenCalled()
   })
   it('rejects permission injection through an ordinary profile update', async () => {

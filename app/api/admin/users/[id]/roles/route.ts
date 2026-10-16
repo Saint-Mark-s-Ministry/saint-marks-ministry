@@ -162,8 +162,8 @@ export async function PUT(
         })
       }
 
-      if (compatibilityRole !== target.role || removedTags.has(RoleTag.PRIEST)) {
-        await tx.user.update({ where: { id }, data: { role: compatibilityRole, ...(removedTags.has(RoleTag.PRIEST) ? { canUseViewAs: false } : {}) } })
+      if (compatibilityRole !== target.role) {
+        await tx.user.update({ where: { id }, data: { role: compatibilityRole } })
       }
 
       await tx.auditEvent.create({
