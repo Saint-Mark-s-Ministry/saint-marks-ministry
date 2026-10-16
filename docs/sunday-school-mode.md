@@ -561,7 +561,8 @@ Production-derived branches must remain private.
 
 ## Weekly class attendance reminders
 
-On Sunday, personally assigned class servants and class coordinators see a
+Starting on their class meeting day (Saturday for Elementary, Sunday for other
+classes), personally assigned class servants and class coordinators see a
 non-dismissible banner throughout Sunday School until all active children in
 their class have saved attendance marks. Any member of the class team can
 complete attendance for everyone. Session creation, servant attendance, partial
@@ -569,17 +570,22 @@ child attendance and local-only drafts do not count as completed child attendanc
 Classes with no active children do not need reminders. Band-wide coordinators
 and administrators are reminded only for classes they are personally assigned to.
 
-The reminder week starts Sunday in `America/New_York`. Elementary reminders
-refer to the preceding Saturday; other classes refer to Sunday. The banner stays
-visible during the week while attendance is incomplete, and the next Sunday
-starts a new reminder week. Links include the class and exact meeting date,
-including when opened from an older notification.
+Reminder weeks use `America/New_York`. Elementary reminders refer to the most
+recent Saturday, including today on Saturday; other classes refer to the most
+recent Sunday. The banner stays visible during the week while attendance is
+incomplete, and the next class meeting starts a new reminder week. Completing
+that new week clears the banner without requiring missed weeks to be backfilled.
+Links include the class and exact meeting date, including when opened from an
+older notification.
 
 `/api/cron/sunday-school-attendance-reminders` sends in-app and best-effort push
-notifications at noon Eastern on Sunday, Tuesday and Thursday, skipping classes
+notifications at 11 a.m. Eastern on Saturday for Elementary classes and noon
+Eastern on Sunday for other classes, with noon Eastern Tuesday and Thursday
+follow-ups for both, skipping classes
 whose active roster is fully marked. It requires `Authorization: Bearer
-<CRON_SECRET>`. Vercel invokes it at 16:00 and 17:00 UTC on those days; the handler
-uses church-local time to select the noon run across daylight saving changes.
+<CRON_SECRET>`. Vercel invokes it at 15:00, 16:00 and 17:00 UTC on Saturday, Sunday,
+Tuesday and Thursday; the handler uses church-local time to select the scheduled
+hour across daylight saving changes.
 Stable notification IDs suppress duplicate deliveries on retries and overlapping
 runs. Existing push configuration and user subscriptions apply. The cron becomes
 active when the updated Vercel configuration is deployed; no database migration
