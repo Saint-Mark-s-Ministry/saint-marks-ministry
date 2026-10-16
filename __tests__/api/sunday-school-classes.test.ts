@@ -181,10 +181,31 @@ describe('Sunday School class detail API', () => {
       include: expect.objectContaining({ children: expect.objectContaining({
         include: { user: { select: {
           isDisabled: true,
+          profileImageUrl: true,
           enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
         } } },
       }) }),
     }))
+  })
+
+  it('reads the current account photo without replacing the child photo or exposing account details', async () => {
+    const child = {
+      id: 'child-1', firstName: 'Mina', lastName: 'Mark', photoUrl: 'https://example.test/child.jpg',
+      user: { isDisabled: false, enrollments: [{ id: 'prep-enrollment' }], profileImageUrl: 'https://example.test/prep.jpg' },
+    }
+    mocks.findClass.mockImplementation(async () => ({ id: 'class-1', academicYearId: 'year-1', children: [child] }))
+    const load = async () => (await (await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })).json()).children[0]
+    const first = await load()
+    expect(first.photoUrl).toBe('https://example.test/child.jpg')
+    expect(first.accountPhotoUrl).toBe('https://example.test/prep.jpg')
+    expect(first).not.toHaveProperty('user')
+    child.user.profileImageUrl = 'https://example.test/new-prep.jpg'
+    const refreshed = await load()
+    expect(refreshed.photoUrl).toBe(first.photoUrl)
+    expect(refreshed.accountPhotoUrl).toBe('https://example.test/new-prep.jpg')
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('does not expose the class roster or Prep status outside the viewer scope', async () => {

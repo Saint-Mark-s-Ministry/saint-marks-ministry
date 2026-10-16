@@ -8,12 +8,20 @@ change role tags.
 
 The roster, class detail, and child history endpoints return
 `isServantsPrepStudent` when the linked account is enabled and has an active Prep
-enrollment (`isActive` and `ACTIVE` status). The roster renders **Servants Prep
-Student** next to the child's name.
+enrollment (`isActive` and `ACTIVE` status). The roster renders **SP Student**
+beside the child's name.
 The same badge appears in each class's roster and the student history dialog
-opened by selecting a child's name. The label follows enrollment status,
+opened by selecting a child's name, beside the name in the dialog header.
+The label follows enrollment status,
 including after grade 12. It is display information and must never be used as an
 authorization check.
+
+Photos also follow the existing account link. A Sunday School photo takes
+priority; otherwise the roster, class page, and child history use the linked
+account's current profile photo. Account photos are read when loading the
+records, so changing a Prep photo carries through without copying image URLs
+into the child record. Removing a Sunday School photo restores the account
+photo fallback.
 
 When staff confirm a spelling variant belongs to the same person, use the
 Servants Prep account's spelling on the linked Sunday School child record.

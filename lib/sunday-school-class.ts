@@ -172,8 +172,8 @@ export function getTodayDateInputValue(date: Date = new Date()): string {
 }
 
 /** A photo servants added, else the child's own account photo. */
-export function getChildPhotoUrl(child: { photoUrl?: string | null; user?: { profileImageUrl?: string | null } | null }): string | null {
-  return child.photoUrl ?? child.user?.profileImageUrl ?? null
+export function getChildPhotoUrl(child: { photoUrl?: string | null; accountPhotoUrl?: string | null; user?: { profileImageUrl?: string | null } | null }): string | null {
+  return child.photoUrl ?? child.accountPhotoUrl ?? child.user?.profileImageUrl ?? null
 }
 
 export function getChildFullName(child: { firstName: string; lastName: string }): string {

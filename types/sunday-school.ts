@@ -105,6 +105,8 @@ export interface SundaySchoolChild {
   gender: SundaySchoolChildGender | null
   /** Photo a servant added (most children have no account). */
   photoUrl?: string | null
+  /** Live photo from the linked account; used only when no child photo exists. */
+  accountPhotoUrl?: string | null
   guardianName: string | null
   guardianPhone: string | null
   guardianEmail: string | null

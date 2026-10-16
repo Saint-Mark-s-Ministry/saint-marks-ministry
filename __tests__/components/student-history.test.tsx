@@ -42,11 +42,12 @@ beforeEach(() => {
 describe('shared student history', () => {
   it('shows the Prep badge in a linked Sunday School student’s details', async () => {
     const user = userEvent.setup()
-    mocks.history.mockReturnValue({ data: { ...history(), isServantsPrepStudent: true } })
+    mocks.history.mockReturnValue({ data: { ...history(), isServantsPrepStudent: true, photoUrl: 'https://example.test/prep.jpg' } })
     render(<Harness />)
     await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
     const dialog = await screen.findByRole('dialog', { name: 'Mina Mark' })
-    expect(within(dialog).getByText('Servants Prep Student')).toBeInTheDocument()
+    expect(within(dialog).getByText('SP Student')).toBeInTheDocument()
+    expect(dialog.querySelector('img')).toHaveAttribute('src', 'https://example.test/prep.jpg')
   })
 
   it('loads on demand, shows all three histories, and preserves the underlying draft and keyboard focus', async () => {
@@ -82,12 +83,13 @@ describe('shared student history', () => {
 
   it('hides retained data on denied revalidation and provides retry', async () => {
     const user = userEvent.setup()
-    mocks.history.mockReturnValue({ data: { ...history(), isServantsPrepStudent: true }, error: { status: 403 }, mutate: mocks.retry })
+    mocks.history.mockReturnValue({ data: { ...history(), isServantsPrepStudent: true, photoUrl: 'https://example.test/prep.jpg' }, error: { status: 403 }, mutate: mocks.retry })
     render(<Harness />)
     await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access')
     expect(screen.queryByText('100%')).not.toBeInTheDocument()
-    expect(screen.queryByText('Servants Prep Student')).not.toBeInTheDocument()
+    expect(screen.queryByText('SP Student')).not.toBeInTheDocument()
+    expect(document.querySelector('img[src="https://example.test/prep.jpg"]')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(mocks.retry).toHaveBeenCalledOnce()
   })

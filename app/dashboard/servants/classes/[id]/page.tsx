@@ -500,13 +500,13 @@ export default function SundaySchoolClassDetailPage() {
                 {detail.children.map(child => (
                   <li key={child.id} className="flex items-center gap-2.5 border-b border-line py-2">
                     <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
-                    <div className="min-w-0 flex-1">
-                      <span className={`block truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className={`min-w-0 truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                         <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
                       </span>
                       {child.isServantsPrepStudent && (
-                        <StatusBadge tone="accent" dot={false} className="mt-1">
-                          Servants Prep Student
+                        <StatusBadge tone="accent" dot={false}>
+                          SP Student
                         </StatusBadge>
                       )}
                     </div>

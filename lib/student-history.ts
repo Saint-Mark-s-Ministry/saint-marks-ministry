@@ -16,6 +16,8 @@ export interface StudentHistory {
   subtitle: string
   /** Display-only enrollment status for linked Sunday School accounts. */
   isServantsPrepStudent?: boolean
+  /** Display photo resolved from the child's photo, then their linked account. */
+  photoUrl?: string | null
   canReadPrivateNotes?: boolean
   attendance: {
     kind: 'lessons' | 'rotations' | 'meetings'
