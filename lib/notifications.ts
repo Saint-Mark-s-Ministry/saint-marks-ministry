@@ -126,6 +126,34 @@ export async function notifySundaySchoolLessonReminder({
   return true
 }
 
+/** One in-app/push reminder per servant, class, meeting date, and scheduled day. */
+export async function notifySundaySchoolAttendanceReminder({
+  userId, classId, className, sessionDate, reminderDate, url,
+}: {
+  userId: string
+  classId: string
+  className: string
+  sessionDate: string
+  reminderDate: string
+  url: string
+}): Promise<boolean> {
+  const id = `ss-attendance-reminder:${classId}:${sessionDate}:${reminderDate}:${userId}`
+  const title = 'Take attendance for your class'
+  const body = `Please take attendance for ${className} for ${sessionDate}. Your class attendance is still incomplete.`
+  const result = await prisma.notification.createMany({
+    data: [{
+      id, userId, type: NotificationType.ANNOUNCEMENT, title, body, url,
+      metadata: { kind: 'sunday-school-attendance-reminder', classId, sessionDate, reminderDate },
+    }],
+    skipDuplicates: true,
+  })
+  if (result.count === 0) return false
+  await sendPushToUser(userId, { title, body, url, tag: id, notificationId: id }).catch(() => {
+    // The in-app reminder remains available if push delivery fails.
+  })
+  return true
+}
+
 /**
  * Create notifications for multiple users
  */
