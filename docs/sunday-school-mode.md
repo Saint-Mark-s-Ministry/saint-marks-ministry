@@ -122,7 +122,7 @@ push requires configured VAPID keys and a teacher's browser subscription.
 Absence follow-up runs daily at 15:00 UTC through the `CRON_SECRET`-protected
 `GET /api/cron/sunday-school-absence-notifications`. Three consecutive explicit
 weekly `ABSENT` marks notify the active direct class servants (including class
-coordinators); five escalate to the active age-group coordinators and that
+coordinators); four or more escalate to the active age-group coordinators and that
 band's assigned active priest overseer. Messages name the student and class and
 ask recipients to follow up, linking to Visitations. Present, late, excused,
 and unrecorded meetings break a streak; today's meeting is excluded until the
@@ -551,3 +551,34 @@ Migration: `20261014120000_add_visitation_priority` adds a non-null boolean with
 `false` as its default. Apply the committed migration with the direct connection
 using `bun db:deploy` before deploying the code, following the migration runbook.
 Production-derived branches must remain private.
+
+## Weekly class attendance reminders
+
+On Sunday, personally assigned class servants and class coordinators see a
+non-dismissible banner throughout Sunday School until all active children in
+their class have saved attendance marks. Any member of the class team can
+complete attendance for everyone. Session creation, servant attendance, partial
+child attendance and local-only drafts do not count as completed child attendance.
+Classes with no active children do not need reminders. Band-wide coordinators
+and administrators are reminded only for classes they are personally assigned to.
+
+The reminder week starts Sunday in `America/New_York`. Elementary reminders
+refer to the preceding Saturday; other classes refer to Sunday. The banner stays
+visible during the week while attendance is incomplete, and the next Sunday
+starts a new reminder week. Links include the class and exact meeting date,
+including when opened from an older notification.
+
+`/api/cron/sunday-school-attendance-reminders` sends in-app and best-effort push
+notifications at noon Eastern on Sunday, Tuesday and Thursday, skipping classes
+whose active roster is fully marked. It requires `Authorization: Bearer
+<CRON_SECRET>`. Vercel invokes it at 16:00 and 17:00 UTC on those days; the handler
+uses church-local time to select the noon run across daylight saving changes.
+Stable notification IDs suppress duplicate deliveries on retries and overlapping
+runs. Existing push configuration and user subscriptions apply. The cron becomes
+active when the updated Vercel configuration is deployed; no database migration
+is required.
+
+The personal reminder endpoint reloads database authorization and current direct
+assignments. It uses the active compatibility academic year and class roster,
+matching the attendance editor while Sunday School year backfills are reconciled.
+It returns class summaries only, without child or guardian information.

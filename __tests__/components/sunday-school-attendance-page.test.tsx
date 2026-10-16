@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   refreshTrend: vi.fn(),
   history: vi.fn(),
+  query: '',
 }))
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mocks.query),
 }))
 
 vi.mock('sonner', () => ({
@@ -63,6 +64,7 @@ describe('Sunday School attendance page', () => {
       removeItem: (key: string) => { memory.delete(key) },
     })
     vi.clearAllMocks()
+    mocks.query = ''
     vi.stubGlobal('fetch', mocks.fetch)
     mocks.history.mockReturnValue({ data: { dates: ['2026-10-04', '2026-10-11'], children: [
       { id: 'child-1', firstName: 'Mina', lastName: 'Mark', rate: 100, counts: { present: 1, late: 0, absent: 0, excused: 0 }, attendance: { '2026-10-04': 'PRESENT' } },
@@ -214,6 +216,16 @@ describe('Sunday School attendance page', () => {
     expect(screen.getByRole('status')).toBe(statusSlot)
     expect(Array.from(sections.children)).toEqual(originalSections)
     expect(originalSections[0].textContent).toBe(headerText)
+  })
+
+  it('opens the exact meeting date from an attendance reminder', async () => {
+    mocks.query = 'classId=class-1&date=2026-10-03'
+    render(<SundaySchoolAttendancePage />)
+    await screen.findByText('Mina Mark')
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledWith(
+      '/api/sunday-school/sessions?classId=class-1&from=2026-10-03&to=2026-10-03',
+      expect.anything()
+    ))
   })
 
 })

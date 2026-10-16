@@ -39,8 +39,9 @@ describe('absence notification delivery', () => {
   it('keeps escalation and later absence episodes distinct', async () => {
     const { notifySundaySchoolAbsence } = await import('@/lib/notifications')
     mocks.create.mockResolvedValue({ count: 1 })
-    await notifySundaySchoolAbsence({ ...input, threshold: 4, weeks: 5 })
+    await notifySundaySchoolAbsence({ ...input, threshold: 4, weeks: 4 })
     await notifySundaySchoolAbsence({ ...input, firstAbsenceDate: '2026-11-07' })
+    expect(mocks.create.mock.calls[0][0].data[0].body).toContain('4 consecutive weeks (4 or more weeks)')
     expect(mocks.create.mock.calls.map(([query]) => query.data[0].id)).toEqual([
       'ss-absence:class:child:2026-10-03:4:teacher',
       'ss-absence:class:child:2026-11-07:2:teacher',

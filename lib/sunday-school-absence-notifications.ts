@@ -103,7 +103,7 @@ export async function sendSundaySchoolAbsenceNotifications(now = new Date()) {
       if (!firstAbsenceDate || weeks <= 2) continue
       const tiers: Array<{ threshold: 2 | 4; userIds: string[] }> = [
         { threshold: 2, userIds: servants.map(a => a.userId) },
-        ...(weeks > 4 ? [{ threshold: 4 as const, userIds: escalationIds }] : []),
+        ...(weeks >= 4 ? [{ threshold: 4 as const, userIds: escalationIds }] : []),
       ]
       for (const tier of tiers) for (const userId of new Set(tier.userIds)) {
         if (await notifySundaySchoolAbsence({

@@ -64,7 +64,7 @@ describe('absence recipients and thresholds', () => {
     setWeeks(weeks)
     const result = await sendSundaySchoolAbsenceNotifications(now)
     const recipients = mocks.notify.mock.calls.map(([input]) => [input.userId, input.threshold])
-    expect(recipients).toEqual(weeks < 3 ? [] : weeks < 5
+    expect(recipients).toEqual(weeks < 3 ? [] : weeks < 4
       ? [['servant', 2]] : [['servant', 2], ['coordinator', 4], ['priest', 4]])
     expect(result.sent).toBe(recipients.length)
   })
