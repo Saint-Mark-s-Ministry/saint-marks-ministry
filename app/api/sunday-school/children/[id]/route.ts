@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sundaySchoolChildAccountSelect, withServantsPrepStudentStatus } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -56,7 +57,7 @@ export async function GET(
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+        user: { select: sundaySchoolChildAccountSelect },
         attendance: {
           include: {
             session: { select: { id: true, date: true, topic: true } },
@@ -66,7 +67,7 @@ export async function GET(
       },
     })
 
-    return NextResponse.json(child)
+    return NextResponse.json(child ? withServantsPrepStudentStatus(child) : null)
   } catch (error: unknown) {
     return handleApiError(error)
   }
@@ -329,12 +330,12 @@ export async function PATCH(
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+          user: { select: sundaySchoolChildAccountSelect },
         },
       })
     })
 
-    return NextResponse.json(updated)
+    return NextResponse.json(withServantsPrepStudentStatus(updated))
   } catch (error: unknown) {
     return handleApiError(error)
   }
