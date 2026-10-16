@@ -38,6 +38,10 @@ beforeEach(() => {
   })
   mocks.child.mockImplementation(async ({ select }: { select: { firstName?: boolean } }) => select.firstName ? {
     id: 'student-1', firstName: 'Mina', lastName: 'Mark', notes: 'Roster note', class: { name: 'Grade 5' },
+    level: 'GRADE_5', birthDate: new Date('2015-03-12'), gender: 'MALE', isActive: true,
+    cellPhone: '555-0100', fatherOfConfession: 'Fr. Mark',
+    guardianName: 'Guardian Mark', guardianPhone: '555-0101', guardianEmail: 'guardian@example.com',
+    family: { name: 'Mark Family', homeAddress: '123 Main Street', motherName: 'Mary Mark', motherPhone: '555-0102', motherEmail: 'mother@example.com', fatherName: 'John Mark', fatherPhone: '555-0103', fatherEmail: 'father@example.com' },
     user: mocks.childAccount(),
     photoUrl: mocks.childPhoto(),
     attendance: [{ id: 'mark-1', status: 'PRESENT', notes: 'On time', session: { date: new Date('2026-01-04'), topic: 'Faith', class: { name: 'Grade 5' } } }],
@@ -67,6 +71,7 @@ describe('Sunday School child history', () => {
     expect(mocks.child.mock.calls[1][0].select.user).toEqual({ select: {
       isDisabled: true,
       profileImageUrl: true,
+      phone: true, email: true,
       enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
     } })
   })
@@ -85,7 +90,7 @@ describe('Sunday School child history', () => {
     expect(data).not.toHaveProperty('user')
   })
 
-  it('scopes every historical relation to visible classes and omits confidential and contact fields', async () => {
+  it('scopes historical records and returns profile contacts only in the authorized child response', async () => {
     const response = await childHistory(request, params)
     expect(response.status).toBe(200)
     const data = await response.json()
@@ -98,14 +103,20 @@ describe('Sunday School child history', () => {
     expect(select.visitations.where).toEqual({ classId: { in: ['class-1'] } })
     expect(select.phoneCalls.where).toEqual({ classId: { in: ['class-1'] } })
     expect(select.visitations.select).not.toHaveProperty('priestNotes')
-    expect(select).not.toHaveProperty('guardianPhone')
-    expect(select).not.toHaveProperty('family')
+    expect(data.profile.guardian).toEqual({ name: 'Guardian Mark', phone: '555-0101', email: 'guardian@example.com' })
+    expect(data.profile.family).toMatchObject({ motherPhone: '555-0102', fatherEmail: 'father@example.com', homeAddress: '123 Main Street' })
+    expect(data.profile.birthDate).toBe('2015-03-12T00:00:00.000Z')
+    expect(select.family.select).not.toHaveProperty('children')
+    expect(select.user.select).not.toHaveProperty('password')
+    expect(data).not.toHaveProperty('user')
     expect(mocks.access).toHaveBeenCalledWith({ id: 'staff-1', role: 'SERVANT', isDisabled: false })
   })
 
   it('denies a child outside the viewer’s class even with a stale admin session', async () => {
     mocks.access.mockResolvedValue({ canRead: true, isAdmin: false, readOnly: false, visibleClassIds: new Set(['other-class']) })
-    expect((await childHistory(request, params)).status).toBe(403)
+    const response = await childHistory(request, params)
+    expect(response.status).toBe(403)
+    expect(await response.json()).not.toHaveProperty('profile')
     expect(mocks.child).toHaveBeenCalledTimes(1)
   })
 
@@ -131,6 +142,24 @@ describe('Sunday School child history', () => {
   it('keeps an empty class scope closed', async () => {
     mocks.access.mockResolvedValue({ canRead: true, isAdmin: false, readOnly: false, visibleClassIds: new Set() })
     expect((await childHistory(request, params)).status).toBe(403)
+  })
+
+  it.each([
+    ['555-0100', '555-0199', '555-0100'],
+    [null, '555-0199', '555-0199'],
+    [null, null, null],
+  ])('uses the child phone before the linked account phone: %s / %s', async (childPhone, accountPhone, expected) => {
+    const original = mocks.child.getMockImplementation()!
+    mocks.child.mockImplementation(async args => {
+      const result = await original(args)
+      return args.select.firstName ? { ...result, cellPhone: childPhone } : result
+    })
+    mocks.childAccount.mockReturnValue({ isDisabled: false, enrollments: [], phone: accountPhone, email: 'student@example.com' })
+    const response = await childHistory(request, params)
+    const data = await response.json()
+    expect(response.status).toBe(200)
+    expect(data.profile.phone).toBe(expected)
+    expect(data.profile.email).toBe('student@example.com')
   })
 
   it('does not advertise private notes to Super Admins', async () => {

@@ -6,9 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ds/status-badge'
+import { KeyValueList } from '@/components/ds/kv-list'
+import { ContactLink } from '@/components/contact-link'
 import { useStudentHistory, useStudentHistoryPrivateNotes } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import { getAttendanceStatusLabel } from '@/lib/attendance-utils'
+import { getLevelDisplayName } from '@/lib/sunday-school-class'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
 import type { SundaySchoolPhoneCallOutcome } from '@prisma/client'
 
@@ -45,12 +48,12 @@ function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
         <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
       )}
     </div>
-    <DialogDescription>Sunday School student history</DialogDescription>
+    <DialogDescription>Sunday School student profile and history</DialogDescription>
   </DialogHeader>
 }
 
 function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; viewerId: string }) {
-  const [tab, setTab] = useState('attendance')
+  const [tab, setTab] = useState('profile')
   const { data, error, isLoading, isValidating, mutate } = useStudentHistory(target, viewerId)
   // SWR may retain data after a denied revalidation. Never render it on error.
   if (error) {
@@ -66,11 +69,13 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
+        <TabsTrigger value="profile">Profile</TabsTrigger>
         <TabsTrigger value="attendance">Attendance</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
         <TabsTrigger value="visitations">Visitations</TabsTrigger>
       </TabsList>
+      <TabsContent value="profile"><StudentProfile name={data.name} profile={data.profile} /></TabsContent>
       <TabsContent value="attendance"><AttendanceHistory attendance={data.attendance} /></TabsContent>
       <TabsContent value="notes" className="space-y-4">
         {data.notes.general && <section className="rounded-lg border border-line p-4"><h3 className="mb-2 text-sm font-semibold">General notes</h3><p className="whitespace-pre-wrap break-words text-sm">{data.notes.general}</p></section>}
@@ -100,6 +105,60 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     </Tabs>
     </div>
   </>
+}
+
+function StudentProfile({ name, profile }: { name: string; profile: StudentHistory['profile'] }) {
+  const family = profile.family
+  const hasGuardian = Object.values(profile.guardian).some(Boolean)
+  const missing = <span className="text-ink-3">Not provided</span>
+  return <div className="space-y-5">
+    <section aria-label="Student information" className="space-y-2">
+      <h3 className="text-sm font-semibold">Student information</h3>
+      <KeyValueList items={[
+        { label: 'Class', value: profile.className ?? 'Unassigned' },
+        { label: 'Grade', value: getLevelDisplayName(profile.level) },
+        { label: 'Date of birth', value: profile.birthDate ? formatDateUTC(profile.birthDate, { weekday: undefined, month: 'long', day: 'numeric', year: 'numeric' }) : missing },
+        { label: 'Gender', value: profile.gender === 'MALE' ? 'Male' : profile.gender === 'FEMALE' ? 'Female' : missing },
+        { label: 'Roster status', value: profile.isActive ? 'Active' : 'Archived' },
+        { label: 'Father of confession', value: profile.fatherOfConfession || missing },
+      ]} />
+    </section>
+    <ContactDetails title="Student contact" name={name} phone={profile.phone} email={profile.email} contactLabel="student" />
+    <section aria-label="Family and guardians" className="space-y-3">
+      <h3 className="text-sm font-semibold">Family and guardians</h3>
+      {family && <>
+        <KeyValueList items={[
+          { label: 'Family', value: family.name || missing },
+          { label: 'Home address', value: family.homeAddress ? <ContactLink kind="address" value={family.homeAddress} name={family.name} label="family home address" className="whitespace-pre-wrap" /> : missing },
+        ]} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ContactDetails title="Mother" name={family.motherName} phone={family.motherPhone} email={family.motherEmail} contactLabel="mother" showName />
+          <ContactDetails title="Father" name={family.fatherName} phone={family.fatherPhone} email={family.fatherEmail} contactLabel="father" showName />
+        </div>
+      </>}
+      {hasGuardian && <ContactDetails title="Guardian" {...profile.guardian} contactLabel="guardian" showName />}
+      {!family && !hasGuardian && <Empty>No family or guardian contact information on file.</Empty>}
+    </section>
+  </div>
+}
+
+function ContactDetails({ title, name, phone, email, contactLabel, showName = false }: {
+  title: string
+  name: string | null
+  phone: string | null
+  email: string | null
+  contactLabel: string
+  showName?: boolean
+}) {
+  const missing = <span className="text-ink-3">Not provided</span>
+  return <section aria-label={title} className="space-y-2 rounded-lg border border-line p-3">
+    <h4 className="text-sm font-semibold">{title}</h4>
+    <KeyValueList items={[
+      ...(showName ? [{ label: 'Name', value: name || missing }] : []),
+      { label: 'Phone', value: phone ? <ContactLink kind="phone" value={phone} name={name} label={`${contactLabel}'s phone number`} /> : missing },
+      { label: 'Email', value: email ? <ContactLink kind="email" value={email} name={name} label={`${contactLabel}'s email`} /> : missing },
+    ]} />
+  </section>
 }
 
 function AttendanceHistory({ attendance }: { attendance: StudentHistory['attendance'] }) {
