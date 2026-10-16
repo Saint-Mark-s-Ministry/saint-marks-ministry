@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { useState, useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -148,7 +146,7 @@ export function GraduationDialog({
               <div className="bg-green-50 border border-green-200 rounded-lg divide-y divide-green-100">
                 {categorizedStudents.eligible.map(({ student, analytics: sa }) => (
                   <div key={student.id} className="p-3">
-                    <div className="font-medium text-sm"><StudentName id={student.id} name={student.name} /></div>
+                    <div className="font-medium text-sm">{student.name}</div>
                     <div className="flex flex-wrap gap-2 mt-1">
                       <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
                         {sa?.attendancePercentage?.toFixed(1) ?? 'N/A'}% attendance
@@ -175,7 +173,7 @@ export function GraduationDialog({
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg divide-y divide-yellow-100">
                 {categorizedStudents.exceptions.map(({ student, issues }) => (
                   <div key={student.id} className="p-3">
-                    <div className="font-medium text-sm"><StudentName id={student.id} name={student.name} /></div>
+                    <div className="font-medium text-sm">{student.name}</div>
                     <div className="mt-1 space-y-1">
                       {issues.map((issue, i) => (
                         <div key={i} className="flex items-center gap-1 text-xs text-yellow-700">

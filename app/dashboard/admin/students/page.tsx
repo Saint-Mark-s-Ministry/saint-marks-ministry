@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { Suspense, useEffect, useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -17,7 +15,7 @@ import {
   type StudentTableSortKey,
 } from '@/lib/student-table-sort'
 import { toast } from 'sonner'
-import { ChevronUp, ChevronDown, ArrowUpDown, X, Trash2, UserPlus, Pencil, GraduationCap, UserX, ClipboardList, Eye } from 'lucide-react'
+import { ChevronUp, ChevronDown, ArrowUpDown, X, Trash2, UserPlus, Pencil, GraduationCap, UserX, ClipboardList } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
@@ -764,9 +762,10 @@ function StudentsManagementContent() {
                           </td>
                           <td className="px-3">
                             <PersonCell
-                              studentId={student.id} name={student.name}
+                              name={student.name}
                               imageUrl={student.profileImageUrl}
                               meta={student.email || 'No email on file'}
+                              onClick={() => setPreviewId(student.id)}
                             />
                           </td>
                           {!preview && (
@@ -797,10 +796,7 @@ function StudentsManagementContent() {
                           <td className="px-3">
                             <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
                           </td>
-                          <td className="whitespace-nowrap pr-2">
-                            <Button variant="ghost" size="icon-sm" aria-label={`Preview ${student.name}`} title="Preview student" onClick={() => setPreviewId(student.id)}>
-                              <Eye />
-                            </Button>
+                          <td className="pr-2">
                             <Button variant="ghost" size="icon-sm" aria-label={`Edit ${student.name}`} title="Edit student" onClick={() => openStudentDetails(student.id)}>
                               <Pencil />
                             </Button>
@@ -825,10 +821,10 @@ function StudentsManagementContent() {
                         onChange={() => toggleStudent(student.id)}
                         className="size-5 shrink-0 accent-brand"
                       />
-                      <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5">
-                        <button type="button" aria-label={`Preview ${student.name}`} onClick={() => setPreviewId(student.id)}><Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} /></button>
+                      <button type="button" onClick={() => setPreviewId(student.id)} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
+                        <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} />
                         <span className="flex min-w-0 flex-col">
-                          <StudentName id={student.id} name={student.name} className="truncate text-[15px]" />
+                          <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
                           <span className="truncate text-xs text-ink-3">
                             {enrollment ? (enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
@@ -838,7 +834,7 @@ function StudentsManagementContent() {
                           {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
                           <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
-                      </div>
+                      </button>
                       <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
                     </li>
                   )
@@ -858,7 +854,7 @@ function StudentsManagementContent() {
               <div className="flex items-center gap-3">
                 <Initials name={preview.name} imageUrl={preview.profileImageUrl} size={40} />
                 <div className="flex min-w-0 flex-col gap-1">
-                  <h2 className="truncate text-[15px] font-semibold text-ink"><StudentName id={preview.id} name={preview.name} /></h2>
+                  <h2 className="truncate text-[15px] font-semibold text-ink">{preview.name}</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {preview.enrollments?.[0] && <EnrollmentBadge status={preview.enrollments[0].status} />}
                     <EligibilityBadge enrollment={preview.enrollments?.[0]} eligible={previewAnalytics?.graduationEligible} />

@@ -62,7 +62,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         records: child.attendance.map(record => ({
           id: record.id, date: record.session.date.toISOString(), status: record.status, notes: record.notes,
           title: [record.session.class.name, record.session.topic].filter(Boolean).join(' · '),
-          notApplicable: false, excluded: false,
         })),
       },
       notes: { general: child.notes, entries: [] },

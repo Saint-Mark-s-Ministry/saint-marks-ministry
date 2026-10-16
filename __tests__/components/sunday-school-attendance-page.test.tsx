@@ -81,7 +81,7 @@ describe('Sunday School attendance page', () => {
       id: target.id, name: target.name, program: 'sunday-school', subtitle: 'Grade 5',
       attendance: { kind: 'meetings', rate: target.id === 'child-1' ? 100 : 0,
         counts: { present: target.id === 'child-1' ? 1 : 0, absent: target.id === 'child-2' ? 1 : 0, late: 0, excused: 0 },
-        records: [{ id: 'mark', date: '2026-10-04', title: 'Grade 5', status: target.id === 'child-1' ? 'PRESENT' : 'ABSENT', notes: null, notApplicable: false, excluded: false }],
+        records: [{ id: 'mark', date: '2026-10-04', title: 'Grade 5', status: target.id === 'child-1' ? 'PRESENT' : 'ABSENT', notes: null }],
       }, notes: { general: null, entries: [] }, visitations: [], phoneCalls: [],
     }, mutate: vi.fn() }))
     mocks.history.mockReturnValue({ data: { dates: ['2026-10-04', '2026-10-11'], children: [

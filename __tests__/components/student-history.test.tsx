@@ -11,13 +11,14 @@ vi.mock('next/dynamic', async () => {
   return { default: () => Dialog }
 })
 
-import { StudentHistoryProvider, StudentName } from '@/components/student-history-provider'
+import { StudentName } from '@/components/student-history-provider'
+import SundaySchoolLayout from '@/app/dashboard/servants/layout'
 
 function history(id = 'child-1'): StudentHistory {
   return {
     id, name: 'Mina Mark', program: 'sunday-school', subtitle: 'Sunday School · Grade 5', canReadPrivateNotes: true,
     attendance: { kind: 'meetings', counts: { present: 1, late: 0, absent: 0, excused: 0 }, rate: 100, records: [
-      { id: 'mark-1', date: '2026-10-04', title: 'Grade 5', status: 'PRESENT', notes: null, excluded: false, notApplicable: false },
+      { id: 'mark-1', date: '2026-10-04', title: 'Grade 5', status: 'PRESENT', notes: null },
     ] },
     notes: { general: `Roster note for ${id}`, entries: [] },
     visitations: [{ id: 'visit-1', status: 'DONE', visitedAt: '2026-10-05', createdAt: '2026-10-06', notes: 'Family visit', recorder: { name: 'Servant One' } }],
@@ -26,11 +27,11 @@ function history(id = 'child-1'): StudentHistory {
 }
 
 function Harness() {
-  return <StudentHistoryProvider>
+  return <SundaySchoolLayout>
     <label>Unsaved notes<input aria-label="Unsaved notes" defaultValue="Keep this draft" /></label>
     <StudentName id="child-1" name="Mina Mark" program="sunday-school" />
     <StudentName id="child-2" name="Mina Mark" program="sunday-school" />
-  </StudentHistoryProvider>
+  </SundaySchoolLayout>
 }
 
 beforeEach(() => {
@@ -39,7 +40,7 @@ beforeEach(() => {
   mocks.privateNotes.mockReturnValue({ data: { notes: [] }, isLoading: false, isValidating: false })
 })
 
-describe('shared student history', () => {
+describe('Sunday School student history', () => {
   it('shows the Prep badge in a linked Sunday School student’s details', async () => {
     const user = userEvent.setup()
     mocks.history.mockReturnValue({ data: { ...history(), isServantsPrepStudent: true, photoUrl: 'https://example.test/prep.jpg' } })
@@ -71,7 +72,7 @@ describe('shared student history', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('resolves students with identical names by program and ID', async () => {
+  it('resolves Sunday School students with identical names by ID', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[1])
@@ -113,20 +114,6 @@ describe('shared student history', () => {
     await user.click(screen.getByRole('tab', { name: 'Notes' }))
     expect(mocks.privateNotes).toHaveBeenCalledWith('child-1', 'staff-1')
     expect(screen.getByText('Restricted pastoral note')).toBeInTheDocument()
-  })
-
-  it('explains why Prep has no visitation records and labels N/A attendance', async () => {
-    const user = userEvent.setup()
-    const data = history()
-    data.program = 'prep'
-    data.visitations = null
-    data.attendance.records[0].notApplicable = true
-    mocks.history.mockReturnValue({ data })
-    render(<StudentHistoryProvider><StudentName id="prep-1" name="Mina Mark" /></StudentHistoryProvider>)
-    await user.click(screen.getByRole('button', { name: 'View history for Mina Mark' }))
-    expect(await screen.findByText('N/A')).toBeInTheDocument()
-    await user.click(screen.getByRole('tab', { name: 'Visitations' }))
-    expect(screen.getByText(/Servants Prep has no visitation records/)).toBeInTheDocument()
   })
 
   it('does not request confidential notes when the server denies that capability', async () => {

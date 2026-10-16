@@ -1,8 +1,7 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import type { Session } from 'next-auth'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
@@ -251,7 +250,12 @@ function MenteeCard({
           <Initials name={mentee.student.name} imageUrl={mentee.student.profileImageUrl} size={40} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <StudentName id={mentee.student.id} name={mentee.student.name} className="truncate text-[15px] font-semibold" />
+              <Link
+                href={`/dashboard/admin/students?student=${mentee.student.id}`}
+                className="truncate text-[15px] font-semibold text-ink no-underline hover:underline"
+              >
+                {mentee.student.name}
+              </Link>
               {a && (a.graduation.eligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">At risk</StatusBadge>)}
             </div>
             <span className="truncate text-xs text-ink-3">

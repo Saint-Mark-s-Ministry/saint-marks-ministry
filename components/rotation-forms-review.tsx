@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { useState } from 'react'
 import { mutate as mutateCache } from 'swr'
 import { toast } from 'sonner'
@@ -47,7 +45,7 @@ export function RotationFormsReview({ canReview }: { canReview: boolean }) {
     {!forms?.length ? <EmptyState message="No student submissions yet. Students upload their signed four-week form from Sunday School in their portal; it will appear here for review." /> : <ul className="divide-y divide-line">
       {forms.map(form => <li key={form.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
-          <p className="font-medium text-ink"><StudentName id={form.assignment.studentId} name={form.assignment.student.name} /> · {form.assignment.class?.name ?? form.assignment.grade}</p>
+          <p className="font-medium text-ink">{form.assignment.student.name} · {form.assignment.class?.name ?? form.assignment.grade}</p>
           <p className="text-sm text-ink-2">{form.status === 'PENDING' ? 'Awaiting review' : form.status === 'APPROVED' ? 'Approved' : 'Changes requested'}</p>
           {form.reviewNotes && <p className="text-sm text-ink-2">{form.reviewNotes}</p>}
         </div>
@@ -58,7 +56,7 @@ export function RotationFormsReview({ canReview }: { canReview: boolean }) {
       </li>)}
     </ul>}
     {selected && <div className="space-y-3 border-t border-line px-4 py-4">
-      <p className="font-medium">Review <StudentName id={selected.assignment.studentId} name={selected.assignment.student.name} />&apos;s four-week form</p>
+      <p className="font-medium">Review {selected.assignment.student.name}&apos;s four-week form</p>
       <p className="text-sm text-ink-2">Next grade: {getLevelDisplayName(nextRotationLevel(selected.level))}. If this completes all ten grades, the rotation program will finish.</p>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={busy} className="mt-1" />I verified that all four weeks were fully attended and signed.</label>
       <label htmlFor="rotation-review-notes" className="block text-sm font-medium">Review notes (required when returning a form)</label>

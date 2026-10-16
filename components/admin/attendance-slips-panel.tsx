@@ -1,7 +1,5 @@
 'use client'
 
-import { StudentName } from '@/components/student-history-provider'
-
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -239,14 +237,20 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
                 const active = picked?.studentId === student.studentId
                 return (
                   <li key={student.studentId}>
-                    <div className={`flex min-h-12 w-full items-center gap-2.5 px-4 py-2 ${active ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}>
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setPickedId(student.studentId)}
+                      className={`flex min-h-12 w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-left ${active ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
+                    >
                       <Initials name={student.student.name} />
-                      <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                        <StudentName id={student.studentId} name={student.student.name} className="truncate text-[13.5px]" />
-                        <span className="text-xs text-ink-3">{!student.isAsyncStudent ? 'No longer async' : count === 0 ? 'No slips yet' : `${count} slip${count === 1 ? '' : 's'}`}</span>
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className="truncate text-[13.5px] font-medium text-ink">{student.student.name}</span>
+                        <span className="text-xs text-ink-3">
+                          {!student.isAsyncStudent ? 'No longer async' : count === 0 ? 'No slips yet' : `${count} slip${count === 1 ? '' : 's'}`}
+                        </span>
                       </span>
-                      <Button variant="ghost" size="sm" aria-pressed={active} onClick={() => setPickedId(student.studentId)}>View slips</Button>
-                    </div>
+                    </button>
                   </li>
                 )
               })}

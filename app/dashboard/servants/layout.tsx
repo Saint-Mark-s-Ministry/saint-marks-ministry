@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { StudentHistoryProvider } from '@/components/student-history-provider'
 
 export const metadata: Metadata = {
   title: 'Sunday School | St. Mark Church',
@@ -30,5 +31,5 @@ export const metadata: Metadata = {
 }
 
 export default function SundaySchoolLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return children
+  return <StudentHistoryProvider>{children}</StudentHistoryProvider>
 }
