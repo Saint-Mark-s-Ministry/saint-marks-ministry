@@ -33,6 +33,7 @@ export async function GET(
         name: true,
         phone: true,
         canAccessContactBook: true,
+        canUseViewAs: true,
         profileImageUrl: true,
         role: true,
         roleAssignments: {
@@ -70,6 +71,9 @@ export async function PATCH(
     const currentUser = await requireAuth()
     const { id } = await params
     const body = await request.json()
+    if (Object.prototype.hasOwnProperty.call(body, 'canUseViewAs')) {
+      return NextResponse.json({ error: 'Use the View as access endpoint to change this permission' }, { status: 403 })
+    }
     if (Object.prototype.hasOwnProperty.call(body, 'canAccessContactBook')) {
       return NextResponse.json({ error: 'Use the contact book access endpoint to change this permission' }, { status: 403 })
     }

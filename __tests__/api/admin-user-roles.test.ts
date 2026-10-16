@@ -80,4 +80,16 @@ describe('admin user access tags API', () => {
     })
     expect(mocks.updateUser).not.toHaveBeenCalled()
   })
+  it('clears the saved View as permission when the Priest tag is removed', async () => {
+    mocks.findUser.mockResolvedValue({
+      id: 'priest', role: 'PRIEST', roleAssignments: [{ id: 'grant', tag: 'PRIEST' }],
+      enrollments: [], linkedSundaySchoolChild: null, guardianOfChildren: [], sundaySchoolServing: [], mentorAssignments: [],
+    })
+    const response = await PUT(new Request('http://localhost/api/admin/users/priest/roles', {
+      method: 'PUT', body: JSON.stringify({ roleTags: ['SERVANTS_PREP_SERVANT'] }),
+    }), { params: Promise.resolve({ id: 'priest' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'priest' }, data: { role: 'SERVANT_PREP', canUseViewAs: false } })
+  })
+
 })

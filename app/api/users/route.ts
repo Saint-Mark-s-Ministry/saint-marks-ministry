@@ -100,6 +100,7 @@ export async function GET(request: Request) {
         },
         isDisabled: true,
         canAccessContactBook: true,
+        canUseViewAs: true,
         createdAt: true,
         updatedAt: true,
         enrollments: {

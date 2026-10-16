@@ -26,6 +26,7 @@ describe('user contact book configuration', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<UsersPage />)
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(screen.queryByRole('checkbox', { name: 'Allow View as' })).not.toBeInTheDocument()
     const switches = screen.getAllByRole('checkbox', { name: 'Allow contact book access' })
     expect(switches).toHaveLength(2)
     for (const checkbox of switches) {
@@ -49,5 +50,27 @@ describe('user contact book configuration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/users/admin', expect.objectContaining({ method: 'PATCH' })))
     expect(fetchMock.mock.calls.some(([url]) => url.includes('contact-book-access'))).toBe(false)
+  })
+})
+
+
+describe('priest View as configuration on Users', () => {
+  it.each([true, false])('synchronizes both layouts and saves permission %s separately from the profile', async enabled => {
+    const user = userEvent.setup()
+    const target = { id: 'priest', name: 'Father Mark', email: 'priest@example.test', role: 'PRIEST', roleAssignments: [{ tag: RoleTag.PRIEST }], canUseViewAs: !enabled }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => ({
+      ok: true, json: async () => init?.method ? target : url.startsWith('/api/users') ? [target] : [],
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<UsersPage />)
+    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    const switches = screen.getAllByRole('checkbox', { name: 'Allow View as' })
+    expect(switches).toHaveLength(2)
+    await user.click(switches[0])
+    expect(switches[1]).toHaveProperty('checked', enabled)
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/admin/users/priest/view-as-access', expect.objectContaining({ method: 'PUT', body: JSON.stringify({ canUseViewAs: enabled }) })))
+    const profile = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(profile![1]!.body as string)).not.toHaveProperty('canUseViewAs')
   })
 })
