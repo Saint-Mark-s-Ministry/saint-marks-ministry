@@ -12,7 +12,16 @@ status). The roster renders **Servants Prep Student** next to the child's name.
 The label follows enrollment status, including after grade 12. It is display
 information and must never be used as an authorization check.
 
+When staff confirm a spelling variant belongs to the same person, use the
+Servants Prep account's spelling on the linked Sunday School child record.
+Keep the existing child ID and history; a name correction does not require a
+replacement record or a birth-date correction.
+
 ## Audit and link grades 11 and 12
+
+The production Neon project is `tiny-thunder-19717007`; its production `main`
+branch is `br-billowing-voice-admn3rrs`. Pass these IDs explicitly to Neon tools.
+Shared projects may not appear in the connected account's project listing.
 
 Use `scripts/link-prep-roster-students.ts` with explicitly supplied environment
 variables for the intended database. Bun loads `.env.local` by default, so do
