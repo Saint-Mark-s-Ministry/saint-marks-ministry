@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useRef, useState } from 'react'
+import { createContext, Suspense, useContext, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { StudentHistoryProgram, StudentHistoryTarget } from '@/lib/student-history'
 import { cn } from '@/lib/utils'
@@ -13,9 +13,12 @@ export function StudentHistoryProvider({ children }: { children: React.ReactNode
   const trigger = useRef<HTMLElement | null>(null)
   return <HistoryContext.Provider value={(next, opener) => { trigger.current = opener; setTarget(next) }}>
     {children}
-    {target && <StudentHistoryDialog key={`${target.program}:${target.id}`} target={target} onClose={() => setTarget(null)} onRestoreFocus={() => {
-      if (trigger.current?.isConnected) trigger.current.focus()
-    }} />}
+    {/* Keep a cold dialog import from suspending the surrounding class page. */}
+    <Suspense fallback={<p role="status" className="fixed right-4 bottom-4 z-50 rounded-lg border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg">Loading student profile…</p>}>
+      {target && <StudentHistoryDialog key={`${target.program}:${target.id}`} target={target} onClose={() => setTarget(null)} onRestoreFocus={() => {
+        if (trigger.current?.isConnected) trigger.current.focus()
+      }} />}
+    </Suspense>
   </HistoryContext.Provider>
 }
 
