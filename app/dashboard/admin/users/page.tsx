@@ -1,5 +1,6 @@
 'use client'
 import { useSession } from 'next-auth/react'
+import { ViewAsAccessSwitch } from '@/components/view-as-access-switch'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-class-dialog'
@@ -61,6 +62,7 @@ interface User {
   roleAssignments?: { tag: RoleTag }[]
   sundaySchoolServing?: SundaySchoolAssignmentSummary[]
   isDisabled?: boolean
+  canUseViewAs?: boolean
   canAccessContactBook?: boolean
   _count?: {
     mentoredStudents: number
@@ -119,7 +121,7 @@ export default function UsersPage() {
     role: 'STUDENT' as UserRole,
     roleTags: [RoleTag.SERVANTS_PREP_STUDENT] as RoleTag[],
     roleAuditNote: '',
-    canAccessContactBook: false,
+    canUseViewAs: false, canAccessContactBook: false,
   })
   const [formError, setFormError] = useState('')
 
@@ -189,7 +191,7 @@ export default function UsersPage() {
 
       await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user')
     }
@@ -258,6 +260,18 @@ export default function UsersPage() {
         if (editingUser.id === session?.user.id) await refreshSession({ refreshContactBook: true })
       }
 
+      if (isSuperAdmin && formData.roleTags.includes(RoleTag.PRIEST) && formData.canUseViewAs !== (editingUser.canUseViewAs ?? false)) {
+        const accessResponse = await fetch(`/api/admin/users/${editingUser.id}/view-as-access`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ canUseViewAs: formData.canUseViewAs }),
+        })
+        if (!accessResponse.ok) {
+          const accessData = await accessResponse.json()
+          throw new Error(`Profile fields were saved, but View as access was not updated: ${accessData.error || 'Unknown error'}`)
+        }
+      }
+
       await fetchUsers(debouncedSearch, roleFilter)
 
       // Show appropriate success message
@@ -270,7 +284,7 @@ export default function UsersPage() {
       }
 
       setEditingUser(null)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to update user')
     }
@@ -334,6 +348,7 @@ export default function UsersPage() {
       roleTags: user.roleAssignments?.map((assignment) => assignment.tag) ?? [],
       roleAuditNote: '',
       canAccessContactBook: user.canAccessContactBook ?? false,
+      canUseViewAs: user.canUseViewAs ?? false,
     })
     setShowCreateForm(false)
     setFormError('')
@@ -346,7 +361,7 @@ export default function UsersPage() {
   const cancelForm = () => {
     setShowCreateForm(false)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
     setFormError('')
   }
 
@@ -557,7 +572,7 @@ export default function UsersPage() {
   const openCreate = () => {
     setShowCreateForm(true)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canAccessContactBook: false })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
   }
 
   return (
@@ -886,6 +901,9 @@ export default function UsersPage() {
                                             disabled={!!session?.impersonating}
                                           />
                                         )}
+                                        {formData.roleTags.includes(RoleTag.PRIEST) && (
+                                          <ViewAsAccessSwitch checked={formData.canUseViewAs} onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })} disabled={!!session?.impersonating} />
+                                        )}
                                       </UserRoleTagEditor>
                                       <div>
                                         <Label htmlFor="edit-role-note" className="text-xs">Audit note (optional)</Label>
@@ -1070,6 +1088,9 @@ export default function UsersPage() {
                                     onChange={(canAccessContactBook) => setFormData({ ...formData, canAccessContactBook })}
                                     disabled={!!session?.impersonating}
                                   />
+                                )}
+                                {formData.roleTags.includes(RoleTag.PRIEST) && (
+                                  <ViewAsAccessSwitch checked={formData.canUseViewAs} onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })} disabled={!!session?.impersonating} />
                                 )}
                               </UserRoleTagEditor>
                               <div>

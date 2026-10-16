@@ -451,3 +451,25 @@ The API checks current tags and impersonation before querying any note or child.
 The visitation response exposes this restriction to hide the confidential history
 and suppress its fetch. Super Admin accounts are excluded from new priest-note
 notifications. Ordinary ministry editing permissions do not grant note access.
+
+## Optional View as access for priests
+
+Super Admins can enable **Allow View as** in a priest's Users → Edit → Access tags
+section. `User.canUseViewAs` defaults to false. Priests need both their active
+Priest tag and this explicit grant; other non-admin roles cannot use the flag.
+Existing Super Admin access still requires an active Super Admin tag.
+Only active Super Admins may grant or revoke the permission through
+`PUT /api/admin/users/[id]/view-as-access`; priests cannot delegate it.
+Grants and revocations are audited in the same transaction as the update.
+Removing the Priest tag also clears the saved grant.
+
+Enabled priests use Ctrl Q to start the existing 30-minute read-only preview.
+The picker and session callback reload the actor's current permissions. Active
+previews revalidate on every session request, so revocation or disabling the
+actor ends access immediately. The navigation flag refreshes within the normal
+one-minute session interval. Client session updates cannot grant permission.
+The proxy continues blocking writes, and confidential priest notes are denied
+in every View as session, including one started by a priest.
+
+Apply `20261016171000_add_priest_view_as_access` before deploying this code.
+No priest is enabled automatically; grants are made individually on Users.

@@ -1,6 +1,8 @@
 const ACTION_LABELS: Record<string, string> = {
   AUTH_LOGIN: 'Signed in',
   AUTH_PASSWORD_CHANGE: 'Changed password',
+  VIEW_AS_ACCESS_GRANTED: 'Granted View as access',
+  VIEW_AS_ACCESS_REVOKED: 'Revoked View as access',
   ADMIN_VIEW_AS_STARTED: 'Started View as',
   ADMIN_VIEW_AS_SWITCHED: 'Switched View as user',
   ADMIN_VIEW_AS_STOPPED: 'Stopped View as',

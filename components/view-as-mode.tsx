@@ -52,10 +52,10 @@ export function ViewAsMode() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const viewingAs = session?.impersonating ?? null
-  const isSuperAdminActor = session?.user?.role === 'SUPER_ADMIN' || !!viewingAs
+  const canViewAs = session?.user?.role === 'SUPER_ADMIN' || (session?.user?.role === 'PRIEST' && session.user.canUseViewAs === true) || !!viewingAs
 
   useEffect(() => {
-    if (!isSuperAdminActor) return
+    if (!canViewAs) return
 
     const handleViewAsShortcut = (event: KeyboardEvent) => {
       if (
@@ -72,10 +72,10 @@ export function ViewAsMode() {
 
     window.addEventListener('keydown', handleViewAsShortcut)
     return () => window.removeEventListener('keydown', handleViewAsShortcut)
-  }, [isSuperAdminActor])
+  }, [canViewAs])
 
   useEffect(() => {
-    if (!open || !isSuperAdminActor) return
+    if (!open || !canViewAs) return
     let cancelled = false
 
     const fetchUsers = async () => {
@@ -86,7 +86,7 @@ export function ViewAsMode() {
         if (query.trim()) params.set('search', query.trim())
         const response = await fetch(`/api/admin/view-as/users?${params.toString()}`)
         if (!response.ok) {
-          throw new Error(response.status === 403 ? 'View as needs an active Super Admin role grant.' : 'Unable to load users')
+          throw new Error(response.status === 403 ? 'View as access is unavailable. Ask a Super Admin to check your access.' : 'Unable to load users')
         }
         const data = await response.json() as UserRow[]
         if (!cancelled) setUsers(data)
@@ -105,9 +105,9 @@ export function ViewAsMode() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open, query, isSuperAdminActor])
+  }, [open, query, canViewAs])
 
-  if (!session?.user || !isSuperAdminActor) return null
+  if (!session?.user || !canViewAs) return null
 
   const pick = async (userId: string) => {
     setBusy(true)
@@ -115,7 +115,7 @@ export function ViewAsMode() {
       const switchingViewedUser = !!viewingAs
       const updated = await update({ impersonate: userId })
       if (!updated?.impersonating || updated.user?.id !== userId) {
-        toast.error('View as could not be started. Confirm your Super Admin access and try again.')
+        toast.error('View as could not be started. Confirm your View as access and try again.')
         return
       }
       if (!switchingViewedUser) rememberViewAsReturnPath()
