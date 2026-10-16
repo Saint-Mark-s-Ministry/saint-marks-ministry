@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), authorization: vi.fn(), access: vi.fn(), principal: vi.fn(), unenrolled: vi.fn(), session: vi.fn(),
   enrollment: vi.fn(), notes: vi.fn(), attendance: vi.fn(), rotations: vi.fn(), child: vi.fn(),
+  childAccount: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('next-auth', () => ({ getServerSession: mocks.session }))
@@ -42,6 +43,7 @@ beforeEach(() => {
   mocks.notes.mockResolvedValue([{ id: 'note-1', content: 'Follow up', createdAt: new Date('2026-01-04'), author: { name: 'Mentor' } }])
   mocks.attendance.mockResolvedValue([])
   mocks.unenrolled.mockResolvedValue(null)
+  mocks.childAccount.mockReturnValue(null)
   mocks.principal.mockResolvedValue({ id: 'staff-1', role: 'SERVANT', isDisabled: false })
   mocks.access.mockResolvedValue({
     canRead: true, isAdmin: false, readOnly: false,
@@ -49,6 +51,7 @@ beforeEach(() => {
   })
   mocks.child.mockImplementation(async ({ select }: { select: { firstName?: boolean } }) => select.firstName ? {
     id: 'student-1', firstName: 'Mina', lastName: 'Mark', notes: 'Roster note', class: { name: 'Grade 5' },
+    user: mocks.childAccount(),
     attendance: [{ id: 'mark-1', status: 'PRESENT', notes: 'On time', session: { date: new Date('2026-01-04'), topic: 'Faith', class: { name: 'Grade 5' } } }],
     visitations: [{ id: 'visit-1', status: 'DONE', visitedAt: new Date('2026-01-05'), createdAt: new Date('2026-01-06'), notes: 'Visited', recorder: { name: 'Servant' } }],
     phoneCalls: [{ id: 'call-1', calledAt: new Date('2026-01-07'), outcome: 'CONNECTED', note: 'Spoke', callerName: 'Servant' }],
@@ -129,6 +132,25 @@ describe('Prep student history', () => {
 })
 
 describe('Sunday School child history', () => {
+  it.each([
+    [null, false],
+    [{ isDisabled: false, enrollments: [] }, false],
+    [{ isDisabled: true, enrollments: [{ id: 'prep-enrollment' }] }, false],
+    [{ isDisabled: false, enrollments: [{ id: 'prep-enrollment' }] }, true],
+  ])('includes current Prep status without account or enrollment details: %o', async (account, expected) => {
+    mocks.childAccount.mockReturnValue(account)
+    const response = await childHistory(request, params)
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data.isServantsPrepStudent).toBe(expected)
+    expect(data).not.toHaveProperty('user')
+    expect(JSON.stringify(data)).not.toContain('prep-enrollment')
+    expect(mocks.child.mock.calls[1][0].select.user).toEqual({ select: {
+      isDisabled: true,
+      enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
+    } })
+  })
+
   it('scopes every historical relation to visible classes and omits confidential and contact fields', async () => {
     const response = await childHistory(request, params)
     expect(response.status).toBe(200)

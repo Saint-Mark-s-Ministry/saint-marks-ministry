@@ -159,6 +159,43 @@ describe('Sunday School class detail API', () => {
     }))
   })
 
+  it.each([
+    [null, false],
+    [{ isDisabled: false, enrollments: [] }, false],
+    [{ isDisabled: true, enrollments: [{ id: 'prep-enrollment' }] }, false],
+    [{ isDisabled: false, enrollments: [{ id: 'prep-enrollment' }] }, true],
+  ])('returns only the Prep display flag for each class child: %o', async (user, expected) => {
+    mocks.findClass.mockResolvedValue({
+      id: 'class-1', academicYearId: 'year-1', level: 'GRADE_11',
+      children: [{ id: 'child-1', firstName: 'Mina', lastName: 'Mark', user }],
+    })
+    const response = await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data.children[0].isServantsPrepStudent).toBe(expected)
+    expect(data.children[0]).not.toHaveProperty('user')
+    expect(JSON.stringify(data)).not.toContain('prep-enrollment')
+    expect(mocks.findClass).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({ children: expect.objectContaining({
+        include: { user: { select: {
+          isDisabled: true,
+          enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
+        } } },
+      }) }),
+    }))
+  })
+
+  it('does not expose the class roster or Prep status outside the viewer scope', async () => {
+    mocks.canViewClass.mockReturnValue(false)
+    const response = await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Forbidden' })
+  })
+
   it('trims and updates a class name for a coordinator', async () => {
     const response = await PATCH(
       new Request('http://localhost/api/sunday-school/classes/class-1', {

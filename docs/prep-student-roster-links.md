@@ -6,11 +6,14 @@ and Sunday School enrollment, attendance, family, and account histories.
 No schema migration is needed. It does not create a servant assignment or
 change role tags.
 
-The roster and child endpoints return `isServantsPrepStudent` when the linked
-account is enabled and has an active Prep enrollment (`isActive` and `ACTIVE`
-status). The roster renders **Servants Prep Student** next to the child's name.
-The label follows enrollment status, including after grade 12. It is display
-information and must never be used as an authorization check.
+The roster, class detail, and child history endpoints return
+`isServantsPrepStudent` when the linked account is enabled and has an active Prep
+enrollment (`isActive` and `ACTIVE` status). The roster renders **Servants Prep
+Student** next to the child's name.
+The same badge appears in each class's roster and the student history dialog
+opened by selecting a child's name. The label follows enrollment status,
+including after grade 12. It is display information and must never be used as an
+authorization check.
 
 When staff confirm a spelling variant belongs to the same person, use the
 Servants Prep account's spelling on the linked Sunday School child record.

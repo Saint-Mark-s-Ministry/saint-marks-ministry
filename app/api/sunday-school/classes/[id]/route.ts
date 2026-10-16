@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -39,6 +40,7 @@ export async function GET(
           orderBy: { createdAt: "asc" },
         },
         children: {
+          include: { user: { select: servantsPrepStudentStatusSelect } },
           orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
         },
         sessions: {
@@ -69,6 +71,10 @@ export async function GET(
 
     return NextResponse.json({
       ...sundaySchoolClass,
+      children: sundaySchoolClass.children.map(({ user, ...child }) => ({
+        ...child,
+        isServantsPrepStudent: isServantsPrepStudent(user),
+      })),
       canCoordinate: canCoordinateClass(access, id),
       canServe: canServeClass(access, id),
       canTakeServantAttendance: canTakeServantAttendance(access, id),

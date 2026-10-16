@@ -6,6 +6,7 @@ import { getAuthorizationContext } from '@/lib/authorization'
 import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
 import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
+import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from '@/lib/sunday-school-child-account'
 import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
 import { loadChildForUser } from '@/lib/sunday-school-child-access'
 import { calculateAttendanceFromRecords, countAttendanceStatuses } from '@/lib/attendance-utils'
@@ -29,6 +30,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       where: { id },
       select: {
         id: true, firstName: true, lastName: true, notes: true,
+        user: { select: servantsPrepStudentStatusSelect },
         class: { select: { name: true } },
         attendance: {
           where: { session: classScope },
@@ -50,6 +52,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!child) throw new Error('Not found')
     const result: StudentHistory = {
       id: child.id, name: `${child.firstName} ${child.lastName}`, program: 'sunday-school',
+      isServantsPrepStudent: isServantsPrepStudent(child.user),
       subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
       canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
       attendance: {
