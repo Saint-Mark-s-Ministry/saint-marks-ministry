@@ -4,6 +4,8 @@ import { RegistrationStatus, UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
+  deleteUser: vi.fn(),
+  countOtherRoles: vi.fn(),
   transaction: vi.fn(),
   findSubmission: vi.fn(),
   updateSubmission: vi.fn(),
@@ -27,6 +29,11 @@ const mocks = vi.hoisted(() => ({
   emailApproved: vi.fn(),
   emailNotApproved: vi.fn(),
   deleteBlob: vi.fn(),
+}))
+
+vi.mock('@/lib/user-deletion', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/user-deletion')>(),
+  deleteUserWithRelations: mocks.deleteUser,
 }))
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }))
@@ -63,6 +70,7 @@ describe('registration approval follow-up', () => {
       mentorPhone: null,
       mentorEmail: null,
     })
+    mocks.countOtherRoles.mockResolvedValue(0)
     mocks.findUser.mockResolvedValue(null)
     mocks.findRoleAssignment.mockResolvedValue(null)
     mocks.createRoleAssignment.mockResolvedValue({ id: 'role-assignment-1' })
@@ -95,6 +103,7 @@ describe('registration approval follow-up', () => {
         update: mocks.updateUser,
       },
       userRoleAssignment: {
+        count: mocks.countOtherRoles,
         findFirst: mocks.findRoleAssignment,
         create: mocks.createRoleAssignment,
       },
@@ -113,6 +122,56 @@ describe('registration approval follow-up', () => {
         deleteMany: mocks.deleteNotifications,
       },
     }))
+  })
+
+  const replaceRequest = () => new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'approve', replaceUserId: 'old-student' }),
+  })
+
+  it('approves and deletes the selected exact-name account in the same serializable transaction', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN, isDisabled: false }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).replacedUserId).toBe('old-student')
+    expect(mocks.deleteUser).toHaveBeenCalledWith(expect.anything(), 'old-student')
+    expect(mocks.createUser).toHaveBeenCalled()
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' })
+  })
+
+  it('rejects a target that no longer matches without deleting or approving', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.findUser.mockReset().mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Different Name', role: UserRole.STUDENT })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+    expect(mocks.createUser).not.toHaveBeenCalled()
+  })
+
+  it('rejects a reviewer whose database permission was revoked', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.PRIEST })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('prevents prep reviewers from removing accounts with other ministry roles', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SERVANT_PREP }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.countOtherRoles.mockResolvedValue(1)
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('does not approve when old-account deletion has protected records', async () => {
+    const { UserDeletionConflictError } = await import('@/lib/user-deletion')
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.deleteUser.mockRejectedValueOnce(new UserDeletionConflictError('Protected history'))
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.createUser).not.toHaveBeenCalled()
+    expect(mocks.updateSubmission).not.toHaveBeenCalled()
   })
 
   it('creates a persistent reminder for the post-approval application', async () => {

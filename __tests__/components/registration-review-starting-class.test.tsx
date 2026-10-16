@@ -61,6 +61,26 @@ describe('SP registration starting class', () => {
     expect(mocks.mutate).toHaveBeenCalledOnce()
   })
 
+  it('confirms the selected old account before approving a duplicate registration', async () => {
+    mocks.submissions[0].exactNameMatches = [{ id: 'old-student', name: 'Mina Mark', email: 'old@example.com', isDisabled: false }]
+    const user = userEvent.setup()
+    render(<RegistrationsPage />)
+    await user.click(screen.getByRole('button', { name: 'Review' }))
+    await user.click(screen.getByRole('button', { name: 'Approve this account and delete old account' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('old@example.com')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('mina@example.com')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('deleted, not transferred')
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Approve this account and delete old account' }))
+    await user.click(screen.getByRole('button', { name: 'Approve and delete old account' }))
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce())
+    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'approve', replaceUserId: 'old-student', yearLevel: 'YEAR_1', isAsyncStudent: false,
+    })
+  })
+
   it('keeps existing applicants’ enrollment choices out of the starting-class form', async () => {
     mocks.submissions[0].createdUser = { id: 'student-1', name: 'Mina Mark', email: 'mina@example.com' }
     const user = userEvent.setup()

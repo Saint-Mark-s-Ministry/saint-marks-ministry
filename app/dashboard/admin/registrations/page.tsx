@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { canViewRegistrations, canManageInviteCodes, canReviewRegistrations } from '@/lib/roles'
 import { useInviteCodes, useRegistrationSubmissions, useRegistrationSettings } from '@/lib/swr'
 import { Copy, Plus, Eye, CheckCircle, XCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw, Link2 } from 'lucide-react'
-import { RegistrationStatus, YearLevel, Prisma } from '@prisma/client'
+import { RegistrationStatus, UserRole, YearLevel, Prisma } from '@prisma/client'
 
 type RegistrationSubmission = Prisma.RegistrationSubmissionGetPayload<{
   include: {
@@ -261,7 +261,7 @@ function SubmissionDetail({
   const [reviewNote, setReviewNote] = useState('')
   const [startingClass, setStartingClass] = useState<YearLevel | 'ASYNC'>(YearLevel.YEAR_1)
 
-  const handleApprove = async () => {
+  const handleApprove = async (replaceUserId?: string) => {
     setIsApproving(true)
     try {
       const res = await fetch(`/api/registration/submissions/${submission.id}/review`, {
@@ -269,6 +269,7 @@ function SubmissionDetail({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
+          replaceUserId,
           note: reviewNote,
           yearLevel: startingClass === 'ASYNC' ? null : startingClass,
           isAsyncStudent: startingClass === 'ASYNC',
@@ -281,7 +282,7 @@ function SubmissionDetail({
       }
 
       const data = await res.json()
-      toast.success('Registration approved!', {
+      toast.success(data.replacedUserId ? 'Registration approved and old account deleted' : 'Registration approved!', {
         description: data.tempPassword
           ? `A set-password link is being emailed to them. If they don’t receive it, share this temporary password: ${data.tempPassword}`
           : 'Linked to their existing account. Their password is unchanged.',
@@ -361,7 +362,7 @@ function SubmissionDetail({
               {isRejecting ? <Loader2 className="animate-spin" /> : <XCircle />}
               Reject
             </Button>
-            <Button className="flex-1" onClick={handleApprove} disabled={isApproving || isRejecting}>
+            <Button className="flex-1" onClick={() => void handleApprove()} disabled={isApproving || isRejecting}>
               {isApproving ? <Loader2 className="animate-spin" /> : <CheckCircle />}
               Approve
             </Button>
@@ -371,6 +372,36 @@ function SubmissionDetail({
     >
       <div className="flex flex-col gap-3">
         <RegistrationNameMatchWarning matches={submission.exactNameMatches ?? []} />
+        {canReview && !isReturningApplicant && Boolean(submission.exactNameMatches?.length) && (
+          <div className="rounded-md border border-warn/30 bg-warn-tint p-3 space-y-3 text-sm">
+            <p>You can replace an old student account when approving {submission.email}.</p>
+            {submission.exactNameMatches?.map((account) => (
+              <div key={account.id} className="space-y-2">
+                <p>{account.name} — {account.email}</p>
+                {canReview && !isReturningApplicant && session?.user && [UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === session.user.role) && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="h-auto whitespace-normal py-2" disabled={isApproving || isRejecting}>Approve this account and delete old account</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Approve new account and delete old account?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Approve {submission.fullName} ({submission.email}) at {startingClass === 'ASYNC' ? 'Async' : startingClass === YearLevel.YEAR_1 ? 'Year 1' : 'Year 2'} and permanently delete {account.name} ({account.email}).
+                          The old account’s enrollment, attendance, exam results, and other associated records will be deleted, not transferred. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction disabled={isApproving || isRejecting} onClick={() => void handleApprove(account.id)}>Approve and delete old account</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         {isReturningApplicant && (
           <p className="rounded-md bg-info-tint px-3 py-2 text-[13px] text-info">
             Returning applicant — linked to the existing account for{' '}
