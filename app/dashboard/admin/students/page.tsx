@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { Suspense, useEffect, useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -255,19 +257,11 @@ function StudentsManagementContent() {
     if (searchParams.get('filter') === 'review') setFilterStatus('review')
   }, [searchParams])
 
-  // Handle URL parameter to open student details modal directly
+  // Preserve links shared before profiles had their own route.
   useEffect(() => {
     const studentId = searchParams.get('student')
-    if (studentId && students.length > 0 && !loading) {
-      // Check if the student exists
-      const student = students.find(s => s.id === studentId)
-      if (student) {
-        setPreviewId(studentId)
-        // Clear the URL parameter after opening
-        router.replace('/dashboard/admin/students', { scroll: false })
-      }
-    }
-  }, [searchParams, students, loading, router])
+    if (studentId) router.replace(`/dashboard/admin/students/${encodeURIComponent(studentId)}`)
+  }, [searchParams, router])
 
   const fetchStudents = async () => {
     try {
@@ -766,7 +760,7 @@ function StudentsManagementContent() {
                               name={student.name}
                               imageUrl={student.profileImageUrl}
                               meta={student.email || 'No email on file'}
-                              onClick={() => setPreviewId(student.id)}
+                              href={`/dashboard/admin/students/${student.id}`}
                             />
                           </td>
                           {!preview && (
@@ -826,10 +820,10 @@ function StudentsManagementContent() {
                         onChange={() => toggleStudent(student.id)}
                         className="size-5 shrink-0 accent-brand"
                       />
-                      <button type="button" onClick={() => setPreviewId(student.id)} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
+                      <div className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
                         <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} />
                         <span className="flex min-w-0 flex-col">
-                          <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                          <StudentProfileLink studentId={student.id} className="truncate text-[15px]">{student.name}</StudentProfileLink>
                           <span className="truncate text-xs text-ink-3">
                             {enrollment ? (enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
@@ -841,7 +835,7 @@ function StudentsManagementContent() {
                           </span>
                           <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
-                      </button>
+                      </div>
                       <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
                     </li>
                   )

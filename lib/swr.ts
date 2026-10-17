@@ -458,3 +458,17 @@ export function useSundaySchoolAttendanceReminders(userId?: string) {
     { ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 30000 }
   )
 }
+
+export function useStudentDetails(studentId?: string) {
+  return useSWR<import('@/components/student-details-modal').StudentDetailsData>(
+    studentId ? `/api/students/${encodeURIComponent(studentId)}/details?fullHistory=true` : null,
+    fetcher, defaultSWRConfig,
+  )
+}
+
+export function useStudentServingProgress(studentId?: string) {
+  return useSWR<import('@/components/student-serving-history').StudentServingProgress>(
+    studentId ? `/api/sunday-school/progress?studentId=${encodeURIComponent(studentId)}` : null,
+    fetcher, defaultSWRConfig,
+  )
+}

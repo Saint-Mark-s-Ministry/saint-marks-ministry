@@ -257,7 +257,7 @@ export function CommandPalette() {
   const studentHref = (id: string) =>
     role === 'MENTOR'
       ? `/dashboard/mentor/my-mentees?student=${id}`
-      : `/dashboard/admin/students?student=${id}`
+      : `/dashboard/admin/students/${id}`
   const lessonHref = (id: string) =>
     isAdmin(role) ? `/dashboard/admin/curriculum?lesson=${id}` : '/dashboard/student/lessons'
 
