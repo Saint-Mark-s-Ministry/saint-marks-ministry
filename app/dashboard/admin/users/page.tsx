@@ -742,7 +742,7 @@ export default function UsersPage() {
                                 {isSuperAdmin && user.role !== 'STUDENT' ? (
                                                                   <button type="button" onClick={() => setOrganizationUser(user)} className="text-left hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
                                                                 ) : user.role === 'STUDENT' ? (
-                                  <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
+                                  <Link href={`/dashboard/admin/students/${user.id}`} className="hover:text-blue-600 hover:underline">
                                     {user.name}
                                   </Link>
                                 ) : (
@@ -966,7 +966,7 @@ export default function UsersPage() {
                           {isSuperAdmin && user.role !== 'STUDENT' ? (
                                                       <button type="button" onClick={() => setOrganizationUser(user)} className="text-left font-medium text-sm hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
                                                     ) : user.role === 'STUDENT' ? (
-                            <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
+                            <Link href={`/dashboard/admin/students/${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
                           ) : (
                             <span className="font-medium text-sm truncate">{user.name}</span>
                           )}

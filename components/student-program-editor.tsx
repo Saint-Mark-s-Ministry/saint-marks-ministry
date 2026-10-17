@@ -106,12 +106,12 @@ function SelectField({ id, label, value, disabled, onChange, options, empty }: {
 const toOptions = (items: { id: string; name: string }[]) => items.map(i => ({ value: i.id, label: i.name }))
 
 /** Every editable field for a student in one place: account, enrollment, async status, registration. */
-export function StudentProgramEditor({ student, onRefresh }: { student: EditableStudent; onRefresh: () => void }) {
+export function StudentProgramEditor({ student, onRefresh, readOnly = false }: { student: EditableStudent; onRefresh: () => void; readOnly?: boolean }) {
   const { data: session } = useSession()
   const myRole = session?.user?.role as UserRole | undefined
-  const canEdit = !!myRole && canManageEnrollments(myRole)
-  const canEditRole = !!myRole && canManageUsers(myRole)
-  const isSuperAdmin = !!myRole && canManageAllUsers(myRole)
+  const canEdit = !readOnly && !!myRole && canManageEnrollments(myRole)
+  const canEditRole = !readOnly && !!myRole && canManageUsers(myRole)
+  const isSuperAdmin = !readOnly && !!myRole && canManageAllUsers(myRole)
   const enrollment = student.enrollments?.[0]
   const registration = student.createdFromRegistration?.[0]
   const renewal = student.annualMentorRequirement

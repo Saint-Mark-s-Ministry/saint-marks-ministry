@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { ROTATION_LEVELS } from '@/lib/rotation-forms'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -430,7 +432,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                       return (
                         <tr key={a.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
                           <td className="p-3">
-                            <div className="font-medium dark:text-white">{a.student.name}</div>
+                            <StudentProfileLink studentId={a.studentId}>{a.student.name}</StudentProfileLink>
                             <div className="text-xs text-gray-500 dark:text-gray-400">{a.student.email}</div>
                           </td>
                           <td className="p-3">
@@ -488,7 +490,7 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm dark:text-white truncate">
-                              {a.student.name}
+                              <StudentProfileLink studentId={a.studentId}>{a.student.name}</StudentProfileLink>
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-1">
                               <Badge variant="outline" className="text-xs">

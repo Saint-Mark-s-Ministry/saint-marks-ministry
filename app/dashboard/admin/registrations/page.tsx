@@ -1,5 +1,8 @@
 'use client'
 
+import { ReplaceStudentAccountDialog } from '@/components/replace-student-account-dialog'
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { RegistrationNameMatchWarning } from '@/components/registration-name-match-warning'
@@ -261,7 +264,7 @@ function SubmissionDetail({
   const [reviewNote, setReviewNote] = useState('')
   const [startingClass, setStartingClass] = useState<YearLevel | 'ASYNC'>(YearLevel.YEAR_1)
 
-  const handleApprove = async (replaceUserId?: string) => {
+  const handleApprove = async (replaceUserId?: string, migrateHistory?: boolean) => {
     setIsApproving(true)
     try {
       const res = await fetch(`/api/registration/submissions/${submission.id}/review`, {
@@ -270,6 +273,7 @@ function SubmissionDetail({
         body: JSON.stringify({
           action: 'approve',
           replaceUserId,
+          migrateHistory,
           note: reviewNote,
           yearLevel: startingClass === 'ASYNC' ? null : startingClass,
           isAsyncStudent: startingClass === 'ASYNC',
@@ -282,7 +286,7 @@ function SubmissionDetail({
       }
 
       const data = await res.json()
-      toast.success(data.replacedUserId ? 'Registration approved and old account deleted' : 'Registration approved!', {
+      toast.success(data.migratedData ? 'Registration approved and SP history transferred' : data.replacedUserId ? 'Registration approved and old account deleted' : 'Registration approved!', {
         description: data.tempPassword
           ? `A set-password link is being emailed to them. If they don’t receive it, share this temporary password: ${data.tempPassword}`
           : 'Linked to their existing account. Their password is unchanged.',
@@ -297,8 +301,10 @@ function SubmissionDetail({
       }
       onUpdate()
       onClose()
+      return true
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve registration')
+      return false
     } finally {
       setIsApproving(false)
     }
@@ -384,21 +390,14 @@ function SubmissionDetail({
             <p>You can replace an old student account when approving {submission.email}.</p>
             {submission.exactNameMatches?.map((account) => (
               <div key={account.id} className="space-y-2">
-                <p>{account.name} — {account.email}</p>
+                <p><StudentProfileLink studentId={account.id}>{account.name}</StudentProfileLink> — {account.email}</p>
                 {canReview && !isReturningApplicant && session?.user && [UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === session.user.role) && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="h-auto min-h-11 w-full whitespace-normal border-bad bg-bad py-2 text-white hover:bg-bad/90 md:h-auto md:min-h-8" disabled={isApproving || isRejecting}>Approve this account and delete old account</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Approve new account and delete old account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Approve {submission.fullName} ({submission.email}) at {startingClass === 'ASYNC' ? 'Async' : startingClass === YearLevel.YEAR_1 ? 'Year 1' : 'Year 2'} and permanently delete {account.name} ({account.email}).
-                          The old account’s enrollment, attendance, exam results, and other associated records will be deleted, not transferred. This cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <div className="grid gap-1.5">
+                  <ReplaceStudentAccountDialog
+                    applicant={{ name: submission.fullName, email: submission.email }}
+                    oldAccount={account} yearLevel={startingClass}
+                    busy={isApproving || isRejecting} onConfirm={handleApprove}
+                  >
+                    <div className="grid gap-1.5">
                         <Label htmlFor={`replacement-class-${account.id}`}>Confirm starting class</Label>
                         <Select value={startingClass} onValueChange={(value) => setStartingClass(value as YearLevel | 'ASYNC')}>
                           <SelectTrigger id={`replacement-class-${account.id}`} className="w-full">
@@ -412,12 +411,7 @@ function SubmissionDetail({
                         </Select>
                         <p className="text-sm text-ink-2">Choose the new account’s class before confirming. Async students have no cohort year.</p>
                       </div>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="border-bad bg-bad text-white hover:border-bad hover:bg-bad/90" disabled={isApproving || isRejecting} onClick={() => void handleApprove(account.id)}>Approve and delete old account</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  </ReplaceStudentAccountDialog>
                 )}
               </div>
             ))}

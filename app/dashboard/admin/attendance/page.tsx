@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { latestAttendanceSave, type AttendanceSaveInfo } from '@/lib/attendance-save-info'
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
@@ -635,7 +637,7 @@ export default function AttendancePage() {
                             <div className="flex items-center gap-2.5">
                               <Initials name={student.name} imageUrl={student.profileImageUrl} />
                               <div className="flex min-w-0 flex-col leading-[1.3]">
-                                <span className="truncate font-medium text-ink">{student.name}</span>
+                                <StudentProfileLink studentId={student.id} className="truncate">{student.name}</StudentProfileLink>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
                                   {!enrollment?.isAsyncStudent && (enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2')}
                                   {enrollment?.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
@@ -706,7 +708,7 @@ export default function AttendancePage() {
                             aria-expanded={isExpanded}
                             onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
                           >
-                            <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                            <StudentProfileLink studentId={student.id} className="truncate text-[15px]">{student.name}</StudentProfileLink>
                             {isExpanded ? <ChevronDown className="size-4 shrink-0 text-ink-3" /> : <ChevronRight className="size-4 shrink-0 text-ink-3" />}
                           </button>
                         </div>

@@ -344,7 +344,7 @@ export default function AdminDashboard() {
                     return (
                       <TableRow key={student.id}>
                         <TableCell>
-                          <PersonCell name={student.name} href={`/dashboard/admin/students?student=${student.id}`} />
+                          <PersonCell name={student.name} href={`/dashboard/admin/students/${student.id}`} />
                         </TableCell>
                         <TableCell className="text-ink-2">{student.yearLevel ? `Year ${student.yearLevel === 'YEAR_1' ? '1' : '2'}` : 'Async'}</TableCell>
                         <TableCell>
@@ -367,7 +367,7 @@ export default function AdminDashboard() {
               {atRisk.slice(0, 5).map((student) => (
                 <li key={student.id}>
                   <Link
-                    href={`/dashboard/admin/students?student=${student.id}`}
+                    href={`/dashboard/admin/students/${student.id}`}
                     className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-ink no-underline"
                   >
                     <PersonCell

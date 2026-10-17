@@ -507,7 +507,7 @@ function ExamsPageContent() {
                 return (
                   <li key={student.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 md:table-row md:border-t md:border-line md:p-0">
                     <span className="md:table-cell md:h-[52px] md:px-3 md:align-middle">
-                      <PersonCell name={student.name} meta={isMentee ? 'Your mentee' : student.enrollments[0]?.isAsyncStudent ? 'Async' : student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} />
+                      <PersonCell href={`/dashboard/admin/students/${student.id}`} name={student.name} meta={isMentee ? 'Your mentee' : student.enrollments[0]?.isAsyncStudent ? 'Async' : student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} />
                     </span>
                     <span className="row-span-2 self-center md:table-cell md:px-3 md:align-middle">
                       <span className="flex items-center gap-1.5 text-[13px] text-ink-3">

@@ -1,3 +1,4 @@
+import { migrateStudentPrepData, type StudentPrepMigrationSummary } from '@/lib/student-prep-migration'
 import { autoLinkPrepStudentToRoster, PrepRosterLinkConflictError } from '@/lib/prep-roster-auto-link'
 import { deleteUserWithRelations, UserDeletionConflictError } from '@/lib/user-deletion'
 import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
@@ -45,7 +46,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { action, note, yearLevel, academicYearId, isAsyncStudent, replaceUserId } = body
+    const { action, note, yearLevel, academicYearId, isAsyncStudent, replaceUserId, migrateHistory } = body
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json(
@@ -56,6 +57,11 @@ export async function POST(
 
     if (replaceUserId !== undefined && (typeof replaceUserId !== 'string' || !replaceUserId || action !== 'approve')) {
       return NextResponse.json({ error: 'Replacement requires approval and an old account ID' }, { status: 400 })
+    }
+
+    if ((replaceUserId && typeof migrateHistory !== 'boolean') ||
+        (migrateHistory !== undefined && (!replaceUserId || typeof migrateHistory !== 'boolean'))) {
+      return NextResponse.json({ error: 'Choose whether to transfer the old account’s SP history before replacing it' }, { status: 400 })
     }
 
     if (action === 'approve') {
@@ -104,7 +110,7 @@ export async function POST(
             })
             if (otherRoles > 0) throw new UserDeletionConflictError('Only a super admin can replace an account with additional ministry roles')
           }
-          await deleteUserWithRelations(tx, replaceUserId)
+          if (!migrateHistory) await deleteUserWithRelations(tx, replaceUserId)
         }
 
         // Returning applicants are linked to their account at submission.
@@ -136,6 +142,7 @@ export async function POST(
         }
 
         let userId: string
+        let migratedData: StudentPrepMigrationSummary | null = null
         let tempPassword: string | null = null
         let newAccount: { id: string; authVersion: number } | null = null
         let shouldBackfillAttendance = !startingIsAsync
@@ -243,8 +250,22 @@ export async function POST(
           userId = newUser.id
           newAccount = { id: newUser.id, authVersion: newUser.authVersion }
 
-          // Create StudentEnrollment
-          await tx.studentEnrollment.create({
+          if (replaceUserId && migrateHistory) {
+            migratedData = await migrateStudentPrepData(tx, replaceUserId, userId)
+          }
+          if (migratedData?.enrollments) {
+            await tx.studentEnrollment.update({
+              where: { studentId: userId },
+              data: {
+                ...startingProgram,
+                ...(fatherOfConfessionId ? { fatherOfConfessionId } : {}),
+                ...(submission.mentorName ? { mentorName: submission.mentorName } : {}),
+                ...(submission.mentorPhone ? { mentorPhone: submission.mentorPhone } : {}),
+              },
+            })
+            // Transferred attendance must not acquire new lesson absences.
+            shouldBackfillAttendance = false
+          } else await tx.studentEnrollment.create({
             data: {
               studentId: newUser.id,
               ...startingProgram,
@@ -256,6 +277,15 @@ export async function POST(
               notes: `Registered via invite code on ${new Date().toLocaleDateString()}`,
             },
           })
+        }
+
+        if (replaceUserId && migrateHistory) await deleteUserWithRelations(tx, replaceUserId)
+        if (replaceUserId) {
+          await tx.auditEvent.create({ data: {
+            actorUserId: session.user.id, action: 'registration.replace_account',
+            entityType: 'User', entityId: userId, result: 'SUCCESS',
+            metadata: { registrationId: id, oldUserId: replaceUserId, newUserId: userId, migrateHistory, migratedData },
+          } })
         }
 
         const hasMentorInformation = Boolean(
@@ -334,9 +364,10 @@ export async function POST(
           tempPassword,
           linkedExistingUser: Boolean(existingUser),
           replacedUserId: replaceUserId || null,
+          migratedData,
           newAccount,
         }
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, ...(replaceUserId ? { timeout: 30000 } : {}) })
 
       const recipient = { email: result.submission.email, name: result.submission.fullName }
       emailRegistrationApproved(
@@ -359,6 +390,7 @@ export async function POST(
         tempPassword: result.tempPassword,
         linkedExistingUser: result.linkedExistingUser,
         replacedUserId: result.replacedUserId,
+        migratedData: result.migratedData,
         message: result.linkedExistingUser
           ? 'Registration approved and linked to the existing account'
           : 'Registration approved successfully',

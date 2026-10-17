@@ -73,14 +73,14 @@ describe('SP registration starting class', () => {
     const user = userEvent.setup()
     render(<RegistrationsPage />)
     await user.click(screen.getByRole('button', { name: 'Review' }))
-    await user.click(screen.getByRole('button', { name: 'Approve this account and delete old account' }))
+    await user.click(screen.getByRole('button', { name: 'Approve and replace old account' }))
     expect(screen.getByRole('alertdialog')).toHaveTextContent('old@example.com')
     expect(screen.getByRole('alertdialog')).toHaveTextContent('mina@example.com')
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('deleted, not transferred')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('transfer SP history')
     expect(mocks.fetch).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(mocks.fetch).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Approve this account and delete old account' }))
+    await user.click(screen.getByRole('button', { name: 'Approve and replace old account' }))
     const confirmationClass = screen.getByRole('combobox', { name: 'Confirm starting class' })
     expect(confirmationClass).toHaveTextContent('Year 1')
     if (choice !== 'Year 1') {
@@ -88,10 +88,11 @@ describe('SP registration starting class', () => {
       await user.click(screen.getByRole('option', { name: choice }))
     }
     expect(confirmationClass).toHaveTextContent(choice)
-    await user.click(screen.getByRole('button', { name: 'Approve and delete old account' }))
+    await user.click(screen.getByRole('radio', { name: /Yes, transfer SP history/ }))
+    await user.click(screen.getByRole('button', { name: 'Approve and transfer SP history' }))
     await waitFor(() => expect(mocks.fetch).toHaveBeenCalledOnce())
     expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({
-      action: 'approve', replaceUserId: 'old-student', yearLevel, isAsyncStudent,
+      action: 'approve', replaceUserId: 'old-student', yearLevel, isAsyncStudent, migrateHistory: true,
     })
   })
 
