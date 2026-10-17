@@ -776,8 +776,12 @@ function StudentsManagementContent() {
                           {!preview && (
                             <>
                               <td className="px-3">
-                                {enrollment?.mentor?.name ?? <span className="text-ink-3">Not assigned</span>}
-                                {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                                <div className="flex min-w-56 items-center justify-between gap-3">
+                                  <span className="min-w-0 truncate" title={enrollment?.mentor?.name ?? 'Not assigned'}>
+                                    {enrollment?.mentor?.name ?? <span className="text-ink-3">Not assigned</span>}
+                                  </span>
+                                  {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                                </div>
                               </td>
                               <td className="px-3">{enrollment?.fatherOfConfession?.name ?? <span className="text-ink-3">Not provided</span>}</td>
                             </>
@@ -830,8 +834,10 @@ function StudentsManagementContent() {
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
                             {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
                           </span>
-                          <span className="truncate text-xs text-ink-3">Assigned mentor: {enrollment?.mentor?.name ?? 'Not assigned'}</span>
-                          {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                          <span className="flex min-w-0 items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-xs text-ink-3">Assigned mentor: {enrollment?.mentor?.name ?? 'Not assigned'}</span>
+                            {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                          </span>
                           <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
                       </button>

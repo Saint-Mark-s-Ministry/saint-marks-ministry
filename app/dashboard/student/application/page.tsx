@@ -9,6 +9,7 @@ import { isStudent } from '@/lib/roles'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ds/status-badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -212,8 +213,11 @@ export default function CompleteApplicationPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Mentor Servant Information</CardTitle>
-              {annualMentorRequired && mentorReviewStatus !== "REVIEWED" && <p className="text-sm font-semibold text-amber-700">Update Required{mentorReviewStatus === "PENDING_REVIEW" ? " · Awaiting admin review" : ""}</p>}
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="min-w-0">Mentor Servant Information</CardTitle>
+                {annualMentorRequired && mentorReviewStatus !== 'REVIEWED' && <StatusBadge tone="warn">Update Required</StatusBadge>}
+              </div>
+              {mentorReviewStatus === 'PENDING_REVIEW' && <p className="text-sm text-amber-700">Awaiting admin review</p>}
               <CardDescription>
                 {annualMentorRequired
                   ? `Confirm or update these details for ${academicYear?.name ?? 'the current academic year'}.`

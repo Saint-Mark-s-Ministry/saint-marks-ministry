@@ -284,24 +284,24 @@ export default function StudentDashboard() {
         <div className="flex min-w-0 flex-col gap-5">
           <TodayInChurch />
           <Panel title="Your people">
-            {analytics.mentorUpdateRequired && <div className="flex items-center gap-2 px-4 pt-3">
-              <StatusBadge tone="warn">Update Required</StatusBadge>
-              <Link href="/dashboard/student/application" className="text-xs underline">Update mentor information</Link>
-            </div>}
             <div className="px-4 py-1">
               <KeyValueList
                 items={[
                   {
                     label: 'Assigned mentor',
-                    value: enrollment.mentor ? (
-                      <span className="flex flex-col">
-                        {enrollment.mentor.name}
-                        {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
-                        {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                    value: <span className="flex min-w-0 flex-col gap-1">
+                      <span className="flex min-w-0 items-center justify-between gap-3">
+                        <span className="min-w-0 truncate" title={enrollment.mentor?.name ?? 'Not assigned'}>{enrollment.mentor?.name ?? 'Not assigned'}</span>
+                        {analytics.mentorUpdateRequired && <StatusBadge tone="warn">Update Required</StatusBadge>}
                       </span>
-                    ) : (
-                      <span className="text-ink-3">Not assigned</span>
-                    ),
+                      {analytics.mentorUpdateRequired && <Link href="/dashboard/student/application" className="text-xs underline">Update mentor information</Link>}
+                      {enrollment.mentor && (
+                        <span className="flex flex-col">
+                          {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
+                          {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                        </span>
+                      )}
+                    </span>,
                   },
                   {
                     label: 'Father of confession',
