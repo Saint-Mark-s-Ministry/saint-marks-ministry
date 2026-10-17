@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { SundaySchoolServantAttendanceStatus } from '@prisma/client'
+import { SundaySchoolServantAttendanceStatus, type SundaySchoolServantsMeeting } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { getAuthorizationContext } from '@/lib/authorization'
@@ -58,7 +58,9 @@ async function rosterAssignments(ageGroupId: string, academicYearId: string) {
 }
 
 // Scheduled placeholders are read-only projections until the first attendance write.
-async function resolveMeeting(id: string) {
+type MeetingSession = Pick<SundaySchoolServantsMeeting, 'id' | 'ageGroupId' | 'academicYearId' | 'date' | 'title'>
+
+async function resolveMeeting(id: string): Promise<MeetingSession | null> {
   if (!id.startsWith('scheduled:')) return prisma.sundaySchoolServantsMeeting.findUnique({ where: { id } })
   const [, ageGroupId, dateInput] = id.split(':')
   if (id.split(':').length !== 3 || !/^\d{4}-\d{2}-\d{2}$/.test(dateInput ?? '')) return null
@@ -87,7 +89,7 @@ export async function GET(request: Request) {
     const ageGroupId = params.get('ageGroupId')
     const meetingId = params.get('meetingId')
     if (!ageGroupId) return NextResponse.json({ error: 'ageGroupId is required' }, { status: 400 })
-    const requestedMeeting = meetingId ? await resolveMeeting(meetingId) : null
+    let requestedMeeting = meetingId ? await resolveMeeting(meetingId) : null
     if (meetingId && (!requestedMeeting || requestedMeeting.ageGroupId !== ageGroupId)) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
     }
@@ -105,6 +107,11 @@ export async function GET(request: Request) {
       .map(date => ({ id: scheduledMeetingId(ageGroupId, date), date, title: null }))]
       .sort((a, b) => b.date.getTime() - a.date.getTime())
     const schedule = meetingScheduleLabel(group)
+    if (!meetingId) {
+      const today = getSundaySchoolTodayDateInputValue()
+      const todaysMeeting = meetings.find(meeting => toDateInputValue(meeting.date) === today)
+      if (todaysMeeting) requestedMeeting = { ...todaysMeeting, ageGroupId, academicYearId: year.id }
+    }
     if (!requestedMeeting) return NextResponse.json({ meetings, meeting: null, roster: [], canEdit, canCreate: canEdit, schedule })
     const [assignments, records] = await Promise.all([
       rosterAssignments(ageGroupId, year.id),

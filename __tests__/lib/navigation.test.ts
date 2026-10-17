@@ -83,6 +83,16 @@ describe('navigationFor', () => {
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/child-registrations')
   })
 
+  it('gives ordinary servants and coordinators a direct self check-in destination', () => {
+    for (const role of ['SERVANT', 'MENTOR', 'SERVANT_PREP', 'SUPER_ADMIN', 'PRIEST'] as UserRole[]) {
+      const groups = navigationFor({ role, ...servesSS }, 'sunday-school')
+      expect(groups.flatMap(group => group.items)).toContainEqual(expect.objectContaining({
+        href: '/dashboard/servants/servant-attendance/meetings', label: 'Meeting check-in',
+      }))
+      expect(currentNavLabel(groups, '/dashboard/servants/servant-attendance/meetings')).toBe('Meeting check-in')
+    }
+  })
+
   it('shows child registrations to coordinators', () => {
     const coordinator = { sundaySchool: { hasAccess: true, isCoordinator: true } }
     expect(hrefs('SERVANT', 'sunday-school', coordinator)).toContain('/dashboard/servants/child-registrations')

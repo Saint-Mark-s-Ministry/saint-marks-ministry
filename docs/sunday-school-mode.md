@@ -427,6 +427,10 @@ key. Existing meetings and attendance are preserved. Coordinators can still add
 extra meetings and record or correct past attendance with explicit present or
 absent marks for every servant.
 
+Every servant can open **Meeting check-in** directly from the Sunday School home
+page or the navigation menu. Today's meeting is selected automatically when
+available, without requiring a coordinator to create it first.
+
 Assigned servants can **Check in for this meeting** on the meeting's
 `America/New_York` calendar date. The server derives their identity from the
 session, verifies current roster membership, and requires a location captured

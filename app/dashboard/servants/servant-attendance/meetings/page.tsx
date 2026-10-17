@@ -28,7 +28,7 @@ function MeetingsContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Servants meetings" meta={['Monthly meeting sessions and attendance']} />
+      <PageHeader title="Meeting check-in" meta={['Check yourself in to your monthly servants meeting']} />
       <ServantAttendanceNavigation active="meetings" />
       {error ? (
         <Panel bodyClassName="p-4">

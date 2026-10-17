@@ -60,6 +60,7 @@ describe('Sunday School dashboard shortcuts', () => {
 
   it('sends Take attendance straight to the only assigned class', () => {
     render(<SundaySchoolDashboardPage />)
+    expect(screen.getByRole('link', { name: 'Meeting check-in' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance/meetings')
     expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute(
       'href',
       '/dashboard/servants/attendance?classId=class-8'
@@ -80,11 +81,12 @@ describe('Sunday School dashboard shortcuts', () => {
       '/dashboard/servants/attendance?classId=class-8',
     ])
   })
-  it('does not put meeting attendance on the Elementary dashboard', () => {
+  it('links ordinary Elementary servants straight to self check-in without mounting the meeting roster', () => {
     mocks.dashboard.classes = [{ ...classSummary('elementary-class', '1st Grade'), level: SundaySchoolLevel.GRADE_1, ageGroup: { id: 'elementary', name: 'Elementary School' } }]
     mocks.dashboard.ageGroups = [{ id: 'elementary', name: 'Elementary School', levels: [SundaySchoolLevel.GRADE_1], canCoordinate: false }]
     render(<SundaySchoolDashboardPage />)
-    expect(screen.queryByText(/servants meetings/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Meeting check-in' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance/meetings')
+    expect(screen.queryByRole('region', { name: 'Servants meetings' })).not.toBeInTheDocument()
   })
 
 })

@@ -148,6 +148,26 @@ describe('servants meetings', () => {
     expect(mocks.create).not.toHaveBeenCalled()
   })
 
+  it('automatically opens today’s scheduled meeting for an ordinary servant without creating records', async () => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-03T18:00:00Z'))
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary'))
+    const data = await res.json()
+    expect(res.status).toBe(200)
+    expect(data.meeting.id).toBe('scheduled:elementary:2026-01-03')
+    expect(data.canCheckIn).toBe(true)
+    expect(data.canEdit).toBe(false)
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+
+  it('keeps an explicitly selected past meeting instead of changing it to today', async () => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-03T18:00:00Z'))
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))
+    expect((await res.json()).meeting.id).toBe(meeting.id)
+  })
+
   it('projects third Sundays for Sunday classes', async () => {
     mocks.group.mockResolvedValue({ id: 'middle', name: 'Middle School', levels: ['GRADE_6'], isActive: true })
     const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=middle'))

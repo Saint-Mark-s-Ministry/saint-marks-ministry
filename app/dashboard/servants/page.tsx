@@ -161,6 +161,12 @@ export default function SundaySchoolDashboardPage() {
                 </Link>
               </Button>
             )}
+            <Button asChild variant="outline">
+              <Link href="/dashboard/servants/servant-attendance/meetings">
+                <ClipboardCheck />
+                Meeting check-in
+              </Link>
+            </Button>
             <Button asChild>
               <Link href={attendanceHref}>
                 <ClipboardCheck />
