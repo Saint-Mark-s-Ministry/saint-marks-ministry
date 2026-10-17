@@ -32,6 +32,8 @@ import { TodayInChurch } from '@/components/liturgical/today-in-church'
 import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
+import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
+import { servantsMeetingGroups } from '@/lib/sunday-school-meeting-groups'
 
 const UNBANDED = '__unbanded__'
 
@@ -161,12 +163,9 @@ export default function SundaySchoolDashboardPage() {
                 </Link>
               </Button>
             )}
-            <Button asChild variant="outline">
-              <Link href="/dashboard/servants/servant-attendance/meetings">
-                <ClipboardCheck />
-                Meeting check-in
-              </Link>
-            </Button>
+            {servantsMeetingGroups(dashboard).map(group => (
+              <SundaySchoolMeetingCheckInShortcut key={group.id} ageGroupId={group.id} />
+            ))}
             <Button asChild>
               <Link href={attendanceHref}>
                 <ClipboardCheck />

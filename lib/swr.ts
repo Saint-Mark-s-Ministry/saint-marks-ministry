@@ -362,7 +362,11 @@ export function useDigitalExam(examId: string, enabled = true) {
 export function useSundaySchoolMeetings(ageGroupId: string, meetingId?: string) {
   const params = new URLSearchParams({ ageGroupId })
   if (meetingId) params.set('meetingId', meetingId)
-  return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, defaultSWRConfig)
+  return useSWR(`/api/sunday-school/servants-meetings?${params}`, fetcher, {
+    ...defaultSWRConfig,
+    revalidateOnFocus: true,
+    refreshInterval: 60000,
+  })
 }
 
 /** Cache the directory by effective identity so View as cannot reuse another user's contacts. */
