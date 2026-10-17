@@ -178,7 +178,6 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   if (ssAdmin || user.sundaySchool?.isCoordinator) {
     servants.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
   }
-  servants.push({ href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck })
   servants.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
 
   const admin: NavItem[] = []
