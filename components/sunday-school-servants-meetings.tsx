@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useSundaySchoolMeetings } from '@/lib/swr'
 import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
+import { MEETING_ADDRESS, MEETING_RADIUS_METERS } from '@/lib/meeting-geofence'
 import { formatDateUTC } from '@/lib/utils'
 
 type Mark = 'PRESENT' | 'ABSENT'
@@ -18,6 +19,9 @@ interface MeetingData {
   meeting: Meeting | null
   canEdit: boolean
   canCreate: boolean
+  schedule?: string
+  canCheckIn?: boolean
+  selfStatus?: Mark | null
   roster: { id: string; name: string; status: Mark | null }[]
 }
 
@@ -30,12 +34,38 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<{ meetingId: string; marks: Record<string, Mark> }>({ meetingId: '', marks: {} })
-  const marks = draft.meetingId === meetingId ? draft.marks : {}
+  const marks = draft.meetingId === data?.meeting?.id ? draft.marks : {}
   const roster = data?.roster ?? []
   const present = roster.filter(person => (marks[person.id] ?? person.status) === 'PRESENT').length
   const unmarked = roster.filter(person => !(marks[person.id] ?? person.status)).length
   const selectedMeeting = data?.meeting
   const canEdit = Boolean(data?.canEdit && selectedMeeting)
+
+  async function checkIn() {
+    if (!selectedMeeting || !data?.canCheckIn) return
+    setBusy(true)
+    try {
+      if (!navigator.geolocation) throw new Error('Location is unavailable on this device. Please ask your coordinator for help.')
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, () => reject(new Error('Could not get your location. Enable precise location access and try again.')),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 })
+      })
+      const res = await fetch('/api/sunday-school/servants-meetings', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingId: selectedMeeting.id, position: {
+          latitude: position.coords.latitude, longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy, timestamp: position.timestamp,
+        } }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Could not check in')
+      setMeetingId(result.meetingId)
+      await mutate()
+      toast.success('You are checked in')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not check in')
+    } finally { setBusy(false) }
+  }
 
   async function addMeeting() {
     setBusy(true)
@@ -71,6 +101,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       if (!res.ok) throw new Error(result.error || 'Could not save attendance')
       await mutate()
       setDraft({ meetingId: '', marks: {} })
+      if (result.meetingId) setMeetingId(result.meetingId)
       toast.success('Meeting attendance saved')
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not save attendance')
@@ -78,11 +109,11 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   }
 
   return (
-    <section className="space-y-4" aria-label="Elementary servants meetings">
+    <section className="space-y-4" aria-label="Servants meetings">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Meeting sessions</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Meeting sessions and attendance for Elementary school servants.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Monthly servants meetings and attendance.</p>
         </div>
         {data?.canCreate && !adding && (
           <Button variant="outline" size="sm" onClick={() => setAdding(true)} disabled={busy}>
@@ -90,6 +121,8 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
           </Button>
         )}
       </div>
+      {data?.schedule && <p className="text-sm font-medium">{data.schedule}</p>}
+      <p className="text-sm text-gray-600 dark:text-gray-400">Self check-in opens on the meeting date and requires location access within {MEETING_RADIUS_METERS} meters of {MEETING_ADDRESS}.</p>
       {error ? <p role="alert" className="text-sm text-red-600">Could not load meetings. <button className="underline" onClick={() => mutate()}>Try again</button></p>
         : isLoading ? <p className="text-sm text-gray-500">Loading meetings…</p> : null}
       {adding && (
@@ -105,7 +138,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       {!isLoading && !error && data?.meetings.length === 0 && <p className="text-sm text-gray-500">No meetings have been added yet.</p>}
       {Boolean(data?.meetings.length) && (
         <div className="space-y-2"><Label htmlFor={`meeting-session-${ageGroupId}`}>Meeting session</Label>
-          <select id={`meeting-session-${ageGroupId}`} value={meetingId ?? ''} disabled={busy}
+          <select id={`meeting-session-${ageGroupId}`} value={data?.meeting?.id ?? meetingId ?? ''} disabled={busy}
             onChange={event => { setMeetingId(event.target.value || undefined); setDraft({ meetingId: '', marks: {} }) }}
             className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900">
             <option value="">Choose a meeting</option>
@@ -115,9 +148,12 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       )}
       {selectedMeeting && !isLoading && !error && (
         <div className="space-y-3">
+          {data?.canCheckIn && (data.selfStatus === 'PRESENT'
+            ? <p role="status" className="text-sm font-medium">You are checked in.</p>
+            : <Button onClick={checkIn} disabled={busy}>{busy ? 'Checking location…' : 'Check in for this meeting'}</Button>)}
           <p className="text-sm text-gray-600 dark:text-gray-400">{present} of {roster.length} present{unmarked > 0 ? ` · ${unmarked} not recorded` : ''}</p>
           {selectedMeeting.date.slice(0, 10) > getSundaySchoolTodayDateInputValue() && <p className="text-sm text-gray-500">Attendance opens on the meeting date.</p>}
-          {roster.length === 0 && <p className="text-sm text-gray-500">No active Elementary school servants are assigned yet.</p>}
+          {roster.length === 0 && <p className="text-sm text-gray-500">No active servants are assigned to this school group yet.</p>}
           <div className="divide-y dark:divide-gray-800">
             {roster.map(person => {
               const mark = marks[person.id] ?? person.status

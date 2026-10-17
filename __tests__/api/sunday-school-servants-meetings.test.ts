@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), context: vi.fn(), access: vi.fn(), group: vi.fn(), year: vi.fn(),
   classes: vi.fn(), visibleClass: vi.fn(), assignments: vi.fn(), meeting: vi.fn(), meetings: vi.fn(),
-  create: vi.fn(), records: vi.fn(), save: vi.fn(), transaction: vi.fn(),
+  create: vi.fn(), records: vi.fn(), save: vi.fn(), transaction: vi.fn(), venue: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: mocks.context }))
@@ -13,14 +13,17 @@ vi.mock('@/lib/sunday-school-access', async importOriginal => ({
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
   sundaySchoolAgeGroup: { findUnique: mocks.group },
-  academicYear: { findFirst: mocks.year },
+  academicYear: { findFirst: mocks.year, findUnique: mocks.year },
   sundaySchoolClass: { findFirst: mocks.visibleClass, findMany: mocks.classes },
   sundaySchoolServantAssignment: { findMany: mocks.assignments },
   sundaySchoolServantsMeeting: { findUnique: mocks.meeting, findMany: mocks.meetings, upsert: mocks.create },
   sundaySchoolMeetingAttendance: { findMany: mocks.records, upsert: mocks.save },
   $transaction: mocks.transaction,
 } }))
-import { GET, POST, PUT } from '@/app/api/sunday-school/servants-meetings/route'
+vi.mock('@/lib/meeting-geofence', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/meeting-geofence')>(), meetingVenue: mocks.venue,
+}))
+import { GET, POST, PUT, PATCH } from '@/app/api/sunday-school/servants-meetings/route'
 
 const coordinator = {
   isAdmin: false, readOnly: false, canRead: true,
@@ -33,9 +36,12 @@ const request = (method: string, body: unknown) => new Request('http://localhost
 })
 const put = (records = [{ servantId: servant.id, status: 'PRESENT' }]) => PUT(request('PUT', { meetingId: meeting.id, records }))
 
-describe('on-demand Elementary servants meetings', () => {
+describe('servants meetings', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.useRealTimers()
+    mocks.venue.mockResolvedValue({ latitude: 40.72, longitude: -74.09 })
     mocks.auth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
     mocks.context.mockResolvedValue({ disabled: false, readOnly: false })
     mocks.access.mockResolvedValue(coordinator)
@@ -134,4 +140,104 @@ describe('on-demand Elementary servants meetings', () => {
     mocks.meeting.mockResolvedValue({ ...meeting, ageGroupId: 'middle' })
     expect((await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))).status).toBe(404)
   })
+  it('projects first Saturdays without writing meetings', async () => {
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary'))
+    const data = await res.json()
+    expect(data.meetings.some((m: { date: string }) => m.date.startsWith('2026-01-03'))).toBe(true)
+    expect(data.schedule).toBe('First Saturday of every month')
+    expect(mocks.create).not.toHaveBeenCalled()
+  })
+
+  it('projects third Sundays for Sunday classes', async () => {
+    mocks.group.mockResolvedValue({ id: 'middle', name: 'Middle School', levels: ['GRADE_6'], isActive: true })
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=middle'))
+    const data = await res.json()
+    expect(data.meetings.some((m: { date: string }) => m.date.startsWith('2026-01-18'))).toBe(true)
+    expect(data.schedule).toBe('Third Sunday of every month')
+  })
+
+  it('checks into a scheduled session without requiring a coordinator to create it first', async () => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-03T18:00:00Z'))
+    mocks.meeting.mockResolvedValue(null)
+    mocks.create.mockResolvedValue({ ...meeting, date: new Date('2026-01-03') })
+    const res = await PATCH(request('PATCH', { meetingId: 'scheduled:elementary:2026-01-03',
+      position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() },
+    }))
+    expect(res.status).toBe(200)
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      where: { ageGroupId_academicYearId_date: { ageGroupId: 'elementary', academicYearId: 'year-1', date: new Date('2026-01-03') } },
+      update: {},
+    }))
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      create: { meetingId: meeting.id, servantId: servant.id, status: 'PRESENT', recordedBy: servant.id },
+    }))
+  })
+
+  it('rejects invented recurring dates before creating anything', async () => {
+    onMeetingDay()
+    const res = await PATCH(request('PATCH', { meetingId: 'scheduled:elementary:2026-01-15',
+      position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() },
+    }))
+    expect(res.status).toBe(404)
+    expect(mocks.create).not.toHaveBeenCalled()
+  })
+
+  function selfCheckIn(position: unknown = { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() }) {
+    return PATCH(request('PATCH', { meetingId: meeting.id, servantId: 'someone-else', position }))
+  }
+  function onMeetingDay() {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-15T18:00:00Z'))
+    mocks.auth.mockResolvedValue({ id: servant.id, role: 'SERVANT' })
+    mocks.access.mockResolvedValue({ ...coordinator, coordinatorAgeGroupIds: new Set() })
+  }
+  it('checks in only the authenticated servant and reuses the attendance key', async () => {
+    onMeetingDay()
+    expect((await selfCheckIn()).status).toBe(200)
+    expect((await selfCheckIn()).status).toBe(200)
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      where: { meetingId_servantId: { meetingId: meeting.id, servantId: servant.id } },
+      create: { meetingId: meeting.id, servantId: servant.id, status: 'PRESENT', recordedBy: servant.id },
+    }))
+  })
+  it('rejects check-in outside the venue', async () => {
+    onMeetingDay()
+    expect((await selfCheckIn({ latitude: 40.73, longitude: -74.09, accuracy: 10, timestamp: Date.now() })).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it.each([null, { latitude: 40.72, longitude: -74.09, accuracy: 1000, timestamp: 0 }])('rejects missing or inaccurate location', async position => {
+    onMeetingDay()
+    expect((await selfCheckIn(position)).status).toBe(400)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('rejects past and future self check-ins', async () => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-16T18:00:00Z'))
+    expect((await selfCheckIn()).status).toBe(400)
+    vi.setSystemTime(new Date('2026-01-14T18:00:00Z'))
+    expect((await selfCheckIn()).status).toBe(400)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('does not allow former or out-of-group servants to self check in', async () => {
+    onMeetingDay()
+    mocks.assignments.mockResolvedValue([])
+    expect((await selfCheckIn()).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('fails closed if the venue cannot be verified', async () => {
+    onMeetingDay()
+    mocks.venue.mockRejectedValue(new Error('Unavailable'))
+    expect((await selfCheckIn()).status).toBe(503)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('denies check-in from read-only and disabled contexts', async () => {
+    onMeetingDay()
+    mocks.context.mockResolvedValue({ disabled: false, readOnly: true })
+    expect((await selfCheckIn()).status).toBe(403)
+    mocks.context.mockResolvedValue({ disabled: true, readOnly: false })
+    expect((await selfCheckIn()).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+
 })

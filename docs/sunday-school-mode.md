@@ -411,34 +411,45 @@ a local database or isolated Neon branch with `bun db:push`. The additive schema
 change is the overseer column, index, and foreign key. Production schema changes
 remain an explicit, separately reviewed deployment step.
 
-## Elementary servants meetings
+## Monthly servants meetings
 
 **Servant Attendance → Servants meetings** opens the dedicated meeting page
-(`/dashboard/servants/servant-attendance/meetings`). The dashboard no longer
-contains the meeting section. Meetings are visible to every
-servant assigned to an Elementary class, the band coordinators, super admins,
-and priests. Other bands cannot view that roster. Only the band's coordinators,
-super admins, and priests can create sessions or save attendance.
+(`/dashboard/servants/servant-attendance/meetings`). Servants see their assigned
+school groups; band coordinators, super admins, and priests retain their existing
+scope. Elementary meetings fall on the first Saturday of each month; Sunday
+school groups meet on the third Sunday. Elementary is identified by the group's
+Elementary setting, name, or exclusively Saturday grade levels.
 
-Sessions are created on demand with **Add meeting**, a date, and an optional
-title. They have no weekly recurrence and do not reuse weekly class sessions.
-One session is allowed per band/year/date; repeat creation opens the existing
-session. Future sessions can be planned, but attendance opens on the meeting
-date. Coordinators may record or correct past meetings. Each servant must be
-explicitly marked present or absent before saving.
+The active academic year's monthly dates appear alongside existing sessions.
+Browsing projects scheduled dates without writing to the database. The first
+attendance write creates the session through the existing band/year/date unique
+key. Existing meetings and attendance are preserved. Coordinators can still add
+extra meetings and record or correct past attendance with explicit present or
+absent marks for every servant.
 
-`SundaySchoolServantsMeeting` stores the session and
-`SundaySchoolMeetingAttendance` stores one mark per meeting/servant. The roster
-combines active direct class assignments in the band and band assignments,
-deduplicates users, and retains saved attendees after assignments end. During
-the compatibility phase, sessions use the active legacy academic year, matching
-the existing dashboard and staffing resolver. No database is changed by a build;
-apply the committed migration explicitly during deployment.
+Assigned servants can **Check in for this meeting** on the meeting's
+`America/New_York` calendar date. The server derives their identity from the
+session, verifies current roster membership, and requires a location captured
+within two minutes, with accuracy of 100 meters or better, within 150 meters of
+427 Westside Ave, Jersey City, NJ. Location coordinates are checked but are not
+stored. Browser location permissions and HTTPS are required. Browser coordinates
+are user-supplied evidence and cannot prevent device location spoofing.
 
-`/api/sunday-school/servants-meetings`: GET lists sessions or loads the selected
-session; POST creates an explicit session; PUT saves attendance transactionally.
-Every request resolves database authorization and band visibility. Opening the
-section never creates a session or attendance marks.
+The server resolves the fixed address using the US Census geocoder, cached for
+one day, and checks the exact address match. Failed or ambiguous venue lookups
+block self check-in with a retry message; they never bypass the geofence.
+Coordinators retain attendance corrections without requiring location.
+
+`SundaySchoolServantsMeeting` and `SundaySchoolMeetingAttendance` remain the
+storage models. The roster combines active class and band assignments,
+deduplicates users, and retains former attendees in saved history. Existing
+compatibility academic-year and authorization rules apply. No schema change is
+required for monthly scheduling or check-in.
+
+`/api/sunday-school/servants-meetings`: GET lists saved and scheduled sessions or
+loads a roster; POST creates an extra session; PUT saves coordinator attendance;
+PATCH checks in only the signed-in servant. Every write rechecks database
+authorization. Repeated check-ins reuse the same meeting/servant record.
 
 ## Application MCP server
 

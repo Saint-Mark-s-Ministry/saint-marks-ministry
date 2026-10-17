@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), mutate: vi.fn(), fetch: vi.fn() }))
 vi.mock('@/lib/swr', () => ({ useSundaySchoolMeetings: mocks.hook }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+import { toast } from 'sonner'
 import { SundaySchoolServantsMeetings } from '@/components/sunday-school-servants-meetings'
 
 const meeting = { id: 'meeting-1', date: '2026-01-15T00:00:00.000Z', title: 'Planning' }
@@ -65,4 +66,24 @@ describe('Elementary servants meeting section', () => {
     expect(screen.getByRole('button', { name: 'Add meeting' })).toBeEnabled()
     expect(screen.getByText('Attendance opens on the meeting date.')).toBeInTheDocument()
   })
+  it('requests a fresh precise location and sends self check-in without a servant identity', async () => {
+    mocks.hook.mockReturnValue({ data: { ...base, meeting, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
+    const location = vi.fn((success: PositionCallback) => success({ coords: { latitude: 40.72, longitude: -74.09, accuracy: 10 }, timestamp: 1234 } as GeolocationPosition))
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: location } })
+    render(<SundaySchoolServantsMeetings ageGroupId="elementary" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check in for this meeting' }))
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalled())
+    expect(location).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 })
+    expect(mocks.fetch.mock.calls[0][1].method).toBe('PATCH')
+    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toEqual({ meetingId: meeting.id, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: 1234 } })
+  })
+  it('does not submit attendance when location permission is denied', async () => {
+    mocks.hook.mockReturnValue({ data: { ...base, meeting, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_success: PositionCallback, failure: () => void) => failure() } })
+    render(<SundaySchoolServantsMeetings ageGroupId="elementary" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check in for this meeting' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Enable precise location')))
+    expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+
 })

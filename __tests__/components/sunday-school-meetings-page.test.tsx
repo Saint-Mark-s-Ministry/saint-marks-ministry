@@ -35,12 +35,11 @@ describe('dedicated servants meeting page', () => {
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:october-3')
   })
 
-  it('does not mount an Elementary roster for a servant assigned only to another school', () => {
+  it('opens the assigned Sunday school group without exposing Elementary', () => {
     mocks.dashboard.classes = [{ id: 'middle-class', ageGroup: { id: 'middle' } }]
     mocks.params = 'ageGroupId=elementary'
     render(<MeetingsPage />)
-    expect(screen.queryByTestId('meeting-roster')).not.toBeInTheDocument()
-    expect(screen.getByText(/available to Elementary school servants/)).toBeInTheDocument()
+    expect(screen.getByTestId('meeting-roster')).toHaveTextContent('middle:list')
   })
 
   it('allows a band coordinator before the group has any classes', () => {
