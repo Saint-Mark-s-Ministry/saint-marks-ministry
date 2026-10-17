@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { StudentProfileLink } from '@/components/student-profile-link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { getPersonInitials } from '@/lib/person-name'
@@ -103,7 +104,10 @@ export function PersonCell({
   imageUrl?: string | null
   className?: string
 }) {
-  const nameNode = href ? (
+  const profileId = href?.match(/^\/dashboard\/admin\/students\/([^/?#]+)$/)?.[1]
+  const nameNode = profileId ? (
+    <StudentProfileLink studentId={decodeURIComponent(profileId)} className="truncate text-ink">{name}</StudentProfileLink>
+  ) : href ? (
     <Link href={href} className="truncate font-medium text-ink no-underline hover:underline">
       {name}
     </Link>
