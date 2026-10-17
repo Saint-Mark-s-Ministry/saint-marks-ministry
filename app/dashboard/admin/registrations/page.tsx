@@ -288,6 +288,13 @@ function SubmissionDetail({
           : 'Linked to their existing account. Their password is unchanged.',
         duration: 10000,
       })
+      if (data.sundaySchoolMatch?.status === 'linked') {
+        toast.success('Sunday School student roster matched automatically')
+      } else if (data.sundaySchoolMatch?.status === 'review') {
+        toast.warning('Sunday School roster match needs review', { description: data.sundaySchoolMatch.reason })
+      } else if (data.sundaySchoolMatch?.status === 'unmatched') {
+        toast.info('No matching Sunday School student roster record found')
+      }
       onUpdate()
       onClose()
     } catch (error) {

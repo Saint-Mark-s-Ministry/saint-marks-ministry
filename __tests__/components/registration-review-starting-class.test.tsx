@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   fetch: vi.fn(),
 }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
+
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: mocks.session, status: 'authenticated' }) }))
 vi.mock('@/hooks/useAdminGuard', () => ({ useAdminGuard: () => ({ session: mocks.session, status: 'authenticated' }) }))
 vi.mock('@/lib/swr', () => ({
@@ -16,6 +18,7 @@ vi.mock('@/lib/swr', () => ({
   useRegistrationSettings: () => ({ data: { registrationEnabled: true }, mutate: vi.fn() }),
 }))
 
+import { toast } from 'sonner'
 import RegistrationsPage from '@/app/dashboard/admin/registrations/page'
 
 beforeEach(() => {
@@ -90,6 +93,19 @@ describe('SP registration starting class', () => {
     expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({
       action: 'approve', replaceUserId: 'old-student', yearLevel, isAsyncStudent,
     })
+  })
+
+  it.each([
+    { status: 'linked', method: 'success' as const, message: 'Sunday School student roster matched automatically' },
+    { status: 'review', method: 'warning' as const, message: 'Sunday School roster match needs review' },
+  ])('shows the automatic matching $status result after approving', async ({ status, method, message }) => {
+    mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ sundaySchoolMatch: { status, reason: 'Birth dates differ' } }) })
+    const user = userEvent.setup()
+    render(<RegistrationsPage />)
+    await user.click(screen.getByRole('button', { name: 'Review' }))
+    await user.click(screen.getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(toast[method]).toHaveBeenCalledWith(...(status === 'review' ? [message, { description: 'Birth dates differ' }] : [message])))
+    expect(mocks.mutate).toHaveBeenCalledOnce()
   })
 
   it('keeps existing applicants’ enrollment choices out of the starting-class form', async () => {

@@ -4,6 +4,7 @@ import { RegistrationStatus, UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
+  autoLink: vi.fn(),
   deleteUser: vi.fn(),
   countOtherRoles: vi.fn(),
   transaction: vi.fn(),
@@ -36,6 +37,11 @@ vi.mock('@/lib/user-deletion', async (importOriginal) => ({
   deleteUserWithRelations: mocks.deleteUser,
 }))
 
+vi.mock('@/lib/prep-roster-auto-link', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/prep-roster-auto-link')>(),
+  autoLinkPrepStudentToRoster: mocks.autoLink,
+}))
+
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }))
 vi.mock('bcryptjs', () => ({ default: { hash: mocks.hash } }))
 vi.mock('@/lib/prisma', () => ({ prisma: { $transaction: mocks.transaction } }))
@@ -52,6 +58,7 @@ import { POST } from '@/app/api/registration/submissions/[id]/review/route'
 describe('registration approval follow-up', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.autoLink.mockResolvedValue({ status: 'not_applicable', reason: 'Outside matching scope' })
     mocks.getServerSession.mockResolvedValue({
       user: { id: 'admin-1', role: UserRole.SUPER_ADMIN },
     })
@@ -172,6 +179,49 @@ describe('registration approval follow-up', () => {
     expect(response.status).toBe(409)
     expect(mocks.createUser).not.toHaveBeenCalled()
     expect(mocks.updateSubmission).not.toHaveBeenCalled()
+  })
+
+  it.each([null, { user: { id: 'student-1', role: UserRole.STUDENT } }])('does not run matching for an unauthorized reviewer', async session => {
+    mocks.getServerSession.mockResolvedValue(session)
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect([401, 403]).toContain(response.status)
+    expect(mocks.autoLink).not.toHaveBeenCalled()
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('runs matching after approval inside the same serializable transaction and returns a safe result', async () => {
+    mocks.autoLink.mockResolvedValue({ status: 'linked', reason: 'Verified roster match' })
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).sundaySchoolMatch).toEqual({ status: 'linked', reason: 'Verified roster match' })
+    expect(mocks.autoLink).toHaveBeenCalledWith(expect.anything(), 'student-1', 'admin-1', 'registration-1')
+    expect(mocks.updateSubmission.mock.invocationCallOrder[0]).toBeLessThan(mocks.autoLink.mock.invocationCallOrder[0])
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' })
+  })
+
+  it('returns a retryable conflict and sends no approval notifications if a roster link changes', async () => {
+    const { PrepRosterLinkConflictError } = await import('@/lib/prep-roster-auto-link')
+    mocks.autoLink.mockRejectedValueOnce(new PrepRosterLinkConflictError())
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.emailApproved).not.toHaveBeenCalled()
+    expect(mocks.notifyReviewed).not.toHaveBeenCalled()
+  })
+
+  it('still approves registrations when matching needs manual review', async () => {
+    mocks.autoLink.mockResolvedValue({ status: 'review', reason: 'Birth dates differ' })
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).sundaySchoolMatch.status).toBe('review')
+    expect(mocks.emailApproved).toHaveBeenCalledOnce()
   })
 
   it('creates a persistent reminder for the post-approval application', async () => {
