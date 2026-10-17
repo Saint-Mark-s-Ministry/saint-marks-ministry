@@ -36,6 +36,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { LastSaved } from '@/components/ui/last-saved'
 import type { MentorContact } from '@/lib/mentor-contact'
+import { requiresAnnualMentorUpdate } from '@/lib/annual-mentor-requirement'
 
 interface Student {
   id: string
@@ -69,7 +70,7 @@ interface Student {
 
 function needsMentorReview(student: Student) {
   const enrollment = student.enrollments?.[0]
-  return Boolean(enrollment?.isActive && (enrollment.isAsyncStudent || enrollment.yearLevel === 'YEAR_2') && !student.annualMentorInformation?.[0]?.reviewedAt)
+  return requiresAnnualMentorUpdate(enrollment) && !student.annualMentorInformation?.[0]?.reviewedAt
 }
 
 interface StudentAnalytics {
