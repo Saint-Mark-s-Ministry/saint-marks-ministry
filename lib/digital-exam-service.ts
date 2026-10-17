@@ -8,6 +8,8 @@ import { publishExamChange } from '@/lib/exam-realtime'
 import { handleApiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
 
+import { verifyExamLocation } from '@/lib/exam-geofence'
+
 type Tx = Prisma.TransactionClient
 export async function examAccess() {
   const user = await requireAuth()
@@ -61,6 +63,9 @@ export async function mutateExam(examId: string, input: Record<string, unknown>,
   const action = input.action
   const staffAction = ['configure', 'open', 'close', 'unlock', 'release', 'reset', 'retake', 'ready', 'studentSound'].includes(String(action))
   if (staffAction ? !manage : !student) throw new Error('Forbidden')
+  // Resolve location before taking a database lock; every student write still
+  // rechecks eligibility and attempt state inside the existing transaction.
+  if (['start', 'save', 'submit'].includes(String(action))) await verifyExamLocation(input.position)
   const result = await lockedExam(examId, async (tx, exam, sheet) => {
     if (action === 'configure') {
       if (sheet?.openedAt) throw new ExamError('The answer key and choices are locked after opening.', 409)

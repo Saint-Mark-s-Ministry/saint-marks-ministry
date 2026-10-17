@@ -16,6 +16,7 @@ beforeEach(() => {
   const memoryStorage = () => { const map = new Map<string, string>(); return { getItem: (key: string) => map.get(key) ?? null, setItem: (key: string, value: string) => map.set(key, value), clear: () => map.clear(), removeItem: (key: string) => map.delete(key) } }
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage())
   online = true; hidden = false; eventLog = []
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: vi.fn((success: PositionCallback) => success({ coords: { latitude: 40.72, longitude: -74.09, accuracy: 10 }, timestamp: Date.now() } as GeolocationPosition)) } })
   Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online })
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
   Object.defineProperty(navigator, 'locks', { configurable: true, value: undefined })
@@ -39,6 +40,50 @@ describe('exam browser controls', () => {
     await waitFor(() => expect(result.current.pendingCount).toBe(0))
     expect(result.current.answers[4]).toBe('C')
     expect(fetcher.mock.calls.some(([, init]) => JSON.parse(String(init.body)).action === 'save')).toBe(true)
+  })
+  it('blocks starting without location permission and sends no exam mutation', async () => {
+    vi.mocked(navigator.geolocation.getCurrentPosition).mockImplementation((_success, failure) => failure?.({ code: 1 } as GeolocationPositionError))
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    expect(result.current.started).toBe(false)
+    expect(result.current.message).toContain('Enable precise location')
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+  it('sends location with answer writes, reuses a recent fix for saves, and refreshes it on submission', async () => {
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    act(() => result.current.choose(4, 'C'))
+    await waitFor(() => expect(result.current.pendingCount).toBe(0))
+    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+    await act(async () => result.current.submit())
+    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(2)
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    for (const action of ['start', 'save', 'submit']) {
+      expect(bodies.find(body => body.action === action)?.position).toEqual(expect.objectContaining({ latitude: 40.72, longitude: -74.09, accuracy: 10 }))
+    }
+    expect(localStorage.getItem('digital-exam:student:exam')).not.toContain('latitude')
+  })
+  it('preserves pending answers when the server rejects location, and retries with a new fix', async () => {
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    fetcher.mockImplementationOnce(async () => ({ ok: false, json: async () => ({ error: 'Outside the church geofence' }) }))
+    await act(async () => result.current.choose(2, 'B'))
+    expect(result.current.pendingCount).toBe(1)
+    expect(result.current.answers[2]).toBe('B')
+    expect(result.current.message).toContain('geofence')
+    expect(JSON.parse(localStorage.getItem('digital-exam:student:exam')!).answers['2']).toBe('B')
+    act(() => result.current.choose(2, 'B'))
+    await waitFor(() => expect(result.current.pendingCount).toBe(0))
+    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(2)
+  })
+  it('keeps the attempt and answers if location permission fails at submission', async () => {
+    const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
+    await act(async () => result.current.start())
+    vi.mocked(navigator.geolocation.getCurrentPosition).mockImplementation((_success, failure) => failure?.({ code: 1 } as GeolocationPositionError))
+    await act(async () => result.current.submit())
+    expect(result.current.attempt?.state).toBe('ACTIVE')
+    expect(result.current.message).toContain('Enable precise location')
+    expect(fetcher.mock.calls.some(([, init]) => JSON.parse(String(init.body)).action === 'submit')).toBe(false)
   })
   it('pauses immediately on hidden visibility and records return without unlocking', async () => {
     const { result } = renderHook(() => useExamAttempt('exam', 'student', view))
