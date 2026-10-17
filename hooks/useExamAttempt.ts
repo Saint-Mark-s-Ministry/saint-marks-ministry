@@ -5,6 +5,9 @@ import type { AttemptResponse, DigitalExamView, ExamAttemptView } from '@/lib/di
 import { safeExamDestination } from '@/lib/digital-exams'
 import type { ClientEventKind } from '@/lib/digital-exams'
 
+import { capturePreciseLocation } from '@/lib/browser-geolocation'
+import type { MeetingPosition } from '@/lib/meeting-geofence'
+
 type PendingEvent = { id: string; kind: ClientEventKind; at: string; destinationPath?: string }
 type Draft = { attemptNumber?: number; answers: Record<string, string>; events: PendingEvent[] }
 export function useExamAttempt(examId: string, userId: string, view?: DigitalExamView, refresh?: () => Promise<unknown>) {
@@ -18,6 +21,7 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
   const [, setDraftVersion] = useState(0)
   const current = useRef<ExamAttemptView | null>(null)
   const token = useRef('')
+  const location = useRef<MeetingPosition | null>(null)
   const draft = useRef<Draft>({ answers: {}, events: [] })
   const saving = useRef(false)
   const sendingEvents = useRef(false)
@@ -49,9 +53,16 @@ export function useExamAttempt(examId: string, userId: string, view?: DigitalExa
     }
   }, [persist])
   const post = useCallback(async (payload: Record<string, unknown>): Promise<AttemptResponse> => {
-    const response = await fetch(`/api/digital-exams/${examId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, sessionToken: token.current, visible: !document.hidden }), keepalive: payload.action === 'events' })
+    const needsLocation = ['start', 'save', 'submit'].includes(String(payload.action))
+    if (needsLocation && (payload.action !== 'save' || !location.current || Date.now() - location.current.timestamp >= 60000)) {
+      location.current = await capturePreciseLocation()
+    }
+    const response = await fetch(`/api/digital-exams/${examId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, ...(needsLocation ? { position: location.current } : {}), sessionToken: token.current, visible: !document.hidden }), keepalive: payload.action === 'events' })
     const data = await response.json()
-    if (!response.ok) throw new Error(data.error || 'Could not save exam changes.')
+    if (!response.ok) {
+      if (needsLocation) location.current = null
+      throw new Error(data.error || 'Could not save exam changes.')
+    }
     if (data.attempt) apply(data.attempt)
     return data
   }, [examId, apply])

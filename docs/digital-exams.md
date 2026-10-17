@@ -46,6 +46,29 @@ The student must wait for saves before final submission. Closing while changes
 are pending uses only the server's saved answers. Pending changes clear after
 submission.
 
+## Church location requirement
+
+Online original exams and approved digital retakes use the same fixed geofence
+as Sunday School servants meeting check-in: within 150 meters of 427 Westside
+Ave, Jersey City, NJ. All eligible students, including async students, must
+allow precise browser location access. HTTPS is required.
+
+The server checks location before every start/resume, answer save, and student
+submission, independently of the existing exam permissions, enrollment and
+session checks. Positions must be captured within two minutes and accurate to
+within 100 meters. Start/resume and submission request a new fix; autosaves can
+reuse a fix for up to one minute. Location is held in memory only and is not
+included in stored drafts, exam records or monitoring events.
+
+Missing, inaccurate, stale, or out-of-bounds location blocks the action. Venue
+lookup failures also block it. Pending answers stay on the device and retry;
+saved answers remain preserved. Heartbeats and activity reports continue even
+when location verification fails. Proctors can still close an exam to finalize
+already saved answers, and their management actions do not require location.
+Paper makeup exams are unchanged. Browser-reported coordinates do not prevent
+device location spoofing. Live venue lookup must be verified in deployment.
+No schema change is required for this location restriction.
+
 ## Free live dashboard alerts
 
 Without Pusher credentials the dashboard automatically refreshes every two
