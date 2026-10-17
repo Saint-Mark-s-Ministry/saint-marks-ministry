@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), mutate: vi.fn(), fetch: vi.fn() }))
 vi.mock('@/lib/swr', () => ({ useSundaySchoolMeetings: mocks.hook }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
 import { toast } from 'sonner'
 import { SundaySchoolServantsMeetings } from '@/components/sunday-school-servants-meetings'
 
@@ -11,6 +12,7 @@ const meeting = { id: 'meeting-1', date: '2026-01-15T00:00:00.000Z', title: 'Pla
 const base = { meetings: [meeting], meeting: null, roster: [], canEdit: false, canCreate: false }
 
 describe('Elementary servants meeting section', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
   beforeEach(() => {
     vi.resetAllMocks()
     vi.stubGlobal('fetch', mocks.fetch)
@@ -67,7 +69,7 @@ describe('Elementary servants meeting section', () => {
     expect(screen.getByText('Attendance opens on the meeting date.')).toBeInTheDocument()
   })
   it('requests a fresh precise location and sends self check-in without a servant identity', async () => {
-    mocks.hook.mockReturnValue({ data: { ...base, meeting, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
+    mocks.hook.mockReturnValue({ data: { ...base, meeting: { ...meeting, date: getSundaySchoolTodayDateInputValue() }, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
     const location = vi.fn((success: PositionCallback) => success({ coords: { latitude: 40.72, longitude: -74.09, accuracy: 10 }, timestamp: 1234 } as GeolocationPosition))
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: location } })
     render(<SundaySchoolServantsMeetings ageGroupId="elementary" />)
@@ -78,11 +80,23 @@ describe('Elementary servants meeting section', () => {
     expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toEqual({ meetingId: meeting.id, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: 1234 } })
   })
   it('does not submit attendance when location permission is denied', async () => {
-    mocks.hook.mockReturnValue({ data: { ...base, meeting, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
+    mocks.hook.mockReturnValue({ data: { ...base, meeting: { ...meeting, date: getSundaySchoolTodayDateInputValue() }, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_success: PositionCallback, failure: () => void) => failure() } })
     render(<SundaySchoolServantsMeetings ageGroupId="elementary" />)
     fireEvent.click(screen.getByRole('button', { name: 'Check in for this meeting' }))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Enable precise location')))
+    expect(mocks.fetch).not.toHaveBeenCalled()
+  })
+
+  it('closes self check-in on an open page at New York midnight even with stale server data', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-19T03:59:59.500Z'))
+    mocks.hook.mockReturnValue({ data: { ...base, meeting: { ...meeting, date: '2026-10-18' }, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
+    render(<SundaySchoolServantsMeetings ageGroupId="middle" />)
+    expect(screen.getByRole('button', { name: 'Check in for this meeting' })).toBeEnabled()
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.queryByRole('button', { name: 'Check in for this meeting' })).not.toBeInTheDocument()
+    expect(screen.getByText('Self check-in is closed for this meeting.')).toBeInTheDocument()
     expect(mocks.fetch).not.toHaveBeenCalled()
   })
 

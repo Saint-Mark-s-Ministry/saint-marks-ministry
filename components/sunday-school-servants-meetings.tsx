@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,18 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   const [meetingId, setMeetingId] = useState<string | undefined>(initialMeetingId)
   const { data: response, isLoading, error, mutate } = useSundaySchoolMeetings(ageGroupId, meetingId)
   const data = response as MeetingData | undefined
+  const [today, setToday] = useState(getSundaySchoolTodayDateInputValue)
+  useEffect(() => {
+    const updateDay = () => setToday(getSundaySchoolTodayDateInputValue())
+    const timer = setInterval(updateDay, 1000)
+    document.addEventListener('visibilitychange', updateDay)
+    window.addEventListener('focus', updateDay)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', updateDay)
+      window.removeEventListener('focus', updateDay)
+    }
+  }, [])
   const [adding, setAdding] = useState(false)
   const [date, setDate] = useState(getSundaySchoolTodayDateInputValue())
   const [title, setTitle] = useState('')
@@ -39,10 +51,11 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   const present = roster.filter(person => (marks[person.id] ?? person.status) === 'PRESENT').length
   const unmarked = roster.filter(person => !(marks[person.id] ?? person.status)).length
   const selectedMeeting = data?.meeting
+  const canCheckIn = Boolean(data?.canCheckIn && selectedMeeting?.date.slice(0, 10) === today)
   const canEdit = Boolean(data?.canEdit && selectedMeeting)
 
   async function checkIn() {
-    if (!selectedMeeting || !data?.canCheckIn) return
+    if (!selectedMeeting || !data?.canCheckIn || selectedMeeting.date.slice(0, 10) !== getSundaySchoolTodayDateInputValue()) return
     setBusy(true)
     try {
       if (!navigator.geolocation) throw new Error('Location is unavailable on this device. Please ask your coordinator for help.')
@@ -122,7 +135,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
         )}
       </div>
       {data?.schedule && <p className="text-sm font-medium">{data.schedule}</p>}
-      <p className="text-sm text-gray-600 dark:text-gray-400">Self check-in opens on the meeting date and requires location access within {MEETING_RADIUS_METERS} meters of {MEETING_ADDRESS}.</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">Self check-in opens on the meeting date and requires location access within {MEETING_RADIUS_METERS} meters of {MEETING_ADDRESS}. Check-in closes at midnight New York time.</p>
       {error ? <p role="alert" className="text-sm text-red-600">Could not load meetings. <button className="underline" onClick={() => mutate()}>Try again</button></p>
         : isLoading ? <p className="text-sm text-gray-500">Loading meetings…</p> : null}
       {adding && (
@@ -148,9 +161,10 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       )}
       {selectedMeeting && !isLoading && !error && (
         <div className="space-y-3">
-          {data?.canCheckIn && (data.selfStatus === 'PRESENT'
+          {data?.selfStatus === 'PRESENT'
             ? <p role="status" className="text-sm font-medium">You are checked in.</p>
-            : <Button onClick={checkIn} disabled={busy}>{busy ? 'Checking location…' : 'Check in for this meeting'}</Button>)}
+            : canCheckIn ? <Button onClick={checkIn} disabled={busy}>{busy ? 'Checking location…' : 'Check in for this meeting'}</Button> : null}
+          {selectedMeeting.date.slice(0, 10) < today && <p className="text-sm text-gray-500">Self check-in is closed for this meeting.</p>}
           <p className="text-sm text-gray-600 dark:text-gray-400">{present} of {roster.length} present{unmarked > 0 ? ` · ${unmarked} not recorded` : ''}</p>
           {selectedMeeting.date.slice(0, 10) > getSundaySchoolTodayDateInputValue() && <p className="text-sm text-gray-500">Attendance opens on the meeting date.</p>}
           {roster.length === 0 && <p className="text-sm text-gray-500">No active servants are assigned to this school group yet.</p>}

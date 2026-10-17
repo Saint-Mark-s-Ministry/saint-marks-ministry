@@ -438,8 +438,10 @@ Assigned servants can **Check in for this meeting** on the meeting's
 `America/New_York` calendar date. The server derives their identity from the
 session, verifies current roster membership, and requires a location captured
 within two minutes, with accuracy of 100 meters or better, within 150 meters of
-427 Westside Ave, Jersey City, NJ. Location coordinates are checked but are not
-stored. Browser location permissions and HTTPS are required. Browser coordinates
+427 Westside Ave, Jersey City, NJ. Self check-in closes at midnight New York time at the end of the meeting day.
+The server rechecks the day after venue lookup, and an open page removes the
+check-in button at midnight or upon returning to the page. Location coordinates
+are checked but are not stored. Browser location permissions and HTTPS are required. Browser coordinates
 are user-supplied evidence and cannot prevent device location spoofing.
 
 The server resolves the fixed address using the US Census geocoder, cached for

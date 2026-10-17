@@ -273,6 +273,30 @@ describe('servants meetings', () => {
     expect((await selfCheckIn(position)).status).toBe(400)
     expect(mocks.save).not.toHaveBeenCalled()
   })
+  it.each([
+    ['2026-01-15', '2026-01-16T05:00:00Z'],
+    ['2026-10-18', '2026-10-19T04:00:00Z'],
+  ])('closes %s check-in exactly at New York midnight', async (date, cutoff) => {
+    onMeetingDay()
+    mocks.meeting.mockResolvedValue({ ...meeting, date: new Date(date) })
+    vi.setSystemTime(new Date(new Date(cutoff).getTime() - 1))
+    expect((await selfCheckIn()).status).toBe(200)
+    mocks.save.mockClear()
+    vi.setSystemTime(new Date(cutoff))
+    expect((await selfCheckIn()).status).toBe(400)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('rejects an in-flight location lookup that finishes after midnight', async () => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-16T04:59:59Z'))
+    mocks.venue.mockImplementation(async () => {
+      vi.setSystemTime(new Date('2026-01-16T05:00:01Z'))
+      return { latitude: 40.72, longitude: -74.09 }
+    })
+    expect((await selfCheckIn()).status).toBe(400)
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
   it('rejects past and future self check-ins', async () => {
     onMeetingDay()
     vi.setSystemTime(new Date('2026-01-16T18:00:00Z'))

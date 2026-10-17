@@ -227,6 +227,10 @@ export async function PATCH(request: Request) {
     if (distanceMeters(body.position, venue) > MEETING_RADIUS_METERS) {
       return NextResponse.json({ error: `Check in within ${MEETING_RADIUS_METERS} meters of ${MEETING_ADDRESS}.` }, { status: 403 })
     }
+    // Venue lookup can cross midnight; enforce the cutoff again before writing.
+    if (toDateInputValue(meeting.date) !== getSundaySchoolTodayDateInputValue()) {
+      return NextResponse.json({ error: 'Self check-in closed at midnight New York time.' }, { status: 400 })
+    }
     meeting = await materializeMeeting(meeting)
     await prisma.sundaySchoolMeetingAttendance.upsert({
       where: { meetingId_servantId: { meetingId: meeting.id, servantId: user.id } },
