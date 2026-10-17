@@ -40,7 +40,8 @@ describe('servants meetings', () => {
   afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.useRealTimers()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-16T18:00:00Z'))
     mocks.venue.mockResolvedValue({ latitude: 40.72, longitude: -74.09 })
     mocks.auth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
     mocks.context.mockResolvedValue({ disabled: false, readOnly: false })
@@ -163,16 +164,57 @@ describe('servants meetings', () => {
 
   it('keeps an explicitly selected past meeting instead of changing it to today', async () => {
     onMeetingDay()
-    vi.setSystemTime(new Date('2026-01-03T18:00:00Z'))
+    vi.setSystemTime(new Date('2026-01-17T18:00:00Z'))
     const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))
     expect((await res.json()).meeting.id).toBe(meeting.id)
   })
 
-  it('projects third Sundays for Sunday classes', async () => {
+  it('lists only past and current meetings using the church-local date', async () => {
+    onMeetingDay()
+    // Still January 3 in New York, despite the UTC date being January 4.
+    vi.setSystemTime(new Date('2026-01-04T02:00:00Z'))
+    mocks.meetings.mockResolvedValue([
+      { ...meeting, id: 'future', date: new Date('2026-02-07') },
+      { ...meeting, id: 'past', date: new Date('2025-12-06') },
+    ])
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary'))
+    const data = await res.json()
+    expect(data.meetings.every((m: { date: string }) => m.date.slice(0, 10) <= '2026-01-03')).toBe(true)
+    expect(data.meetings.some((m: { id: string }) => m.id === 'past')).toBe(true)
+    expect(data.meeting.date.slice(0, 10)).toBe('2026-01-03')
+    expect(data.canCheckIn).toBe(true)
+  })
+
+  it.each(['meeting-1', 'scheduled:elementary:2026-02-07'])('hides future meeting direct links: %s', async id => {
+    onMeetingDay()
+    vi.setSystemTime(new Date('2026-01-03T18:00:00Z'))
+    mocks.meeting.mockResolvedValue(id.startsWith('scheduled:') ? null : meeting)
+    const res = await GET(new Request(`http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=${id}`))
+    expect(res.status).toBe(404)
+    expect(mocks.records).not.toHaveBeenCalled()
+  })
+
+  it('shows no Sunday meetings before the first meeting tomorrow', async () => {
+    vi.setSystemTime(new Date('2026-10-17T18:00:00Z'))
+    mocks.year.mockResolvedValue({ id: 'year-1', startDate: new Date('2026-09-01'), endDate: new Date('2027-08-31') })
+    mocks.group.mockResolvedValue({ id: 'middle', name: 'Middle School', levels: ['GRADE_6'], isActive: true })
+    mocks.meetings.mockResolvedValue([])
+    const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=middle'))
+    const data = await res.json()
+    expect(data.meetings).toEqual([])
+    expect(data.meeting).toBeNull()
+  })
+
+  it('opens the first Sunday meeting on October 18 with no earlier projected history', async () => {
+    vi.setSystemTime(new Date('2026-10-18T18:00:00Z'))
+    mocks.year.mockResolvedValue({ id: 'year-1', startDate: new Date('2026-09-01'), endDate: new Date('2027-08-31') })
+    mocks.meetings.mockResolvedValue([])
     mocks.group.mockResolvedValue({ id: 'middle', name: 'Middle School', levels: ['GRADE_6'], isActive: true })
     const res = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=middle'))
     const data = await res.json()
-    expect(data.meetings.some((m: { date: string }) => m.date.startsWith('2026-01-18'))).toBe(true)
+    expect(data.meetings.some((m: { date: string }) => m.date.startsWith('2026-10-18'))).toBe(true)
+    expect(data.meetings).toHaveLength(1)
+    expect(data.meeting.date.slice(0, 10)).toBe('2026-10-18')
     expect(data.schedule).toBe('Third Sunday of every month')
   })
 
