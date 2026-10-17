@@ -134,6 +134,7 @@ export interface StudentDetailsModalProps {
   onRefresh: () => void
   presentation?: 'dialog' | 'page'
   readOnly?: boolean
+  showNotes?: boolean
 }
 
 export type StudentDetailsData = Pick<StudentDetailsModalProps, 'examScores' | 'attendanceRecords' | 'allExams' | 'allLessons'> & {
@@ -169,7 +170,8 @@ export function StudentDetailsModal({
   onClose,
   onRefresh,
   presentation = 'dialog',
-  readOnly = false
+  readOnly = false,
+  showNotes = true
 }: StudentDetailsModalProps) {
   const { data: session } = useSession()
   const canEditData = !readOnly && session?.user?.role ? canManageData(session.user.role as UserRole) : false
@@ -181,6 +183,7 @@ export function StudentDetailsModal({
   const enrollmentId = enrollment?.id
   const attendanceStartDate = enrollment?.attendanceStartDate
   const isAsyncStudent = !!enrollment?.isAsyncStudent
+  const [activeTab, setActiveTab] = useState('profile')
   // Scoped to this student so the slip and confession panels don't refetch the enrollment
   const scopedEnrollment = useMemo(
     () => (student && enrollment ? { ...enrollment, student: { id: student.id, name: student.name } } : undefined),
@@ -222,14 +225,14 @@ export function StudentDetailsModal({
   // Fetch notes when student changes
   useEffect(() => {
     if (studentId) {
-      fetchNotes()
+      if (showNotes) fetchNotes()
       fetchExpectedAbsences()
     } else {
       setNotes([])
       setExpectedAbsences([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  }, [studentId, showNotes])
 
   // Sync the late-start date input with the current enrollment value
   useEffect(() => {
@@ -624,14 +627,14 @@ export function StudentDetailsModal({
         {loading ? (
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
-          <Tabs defaultValue="profile" className="w-full">
+          <Tabs value={(activeTab === 'serving' && !isAsyncStudent) || (activeTab === 'notes' && !showNotes) ? 'profile' : activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 [&>button]:flex-1 [&>button]:px-3 [&>button]:py-2 [&>button]:text-xs sm:[&>button]:text-sm">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
+              {showNotes && <TabsTrigger value="notes">Notes</TabsTrigger>}
               <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="confession">Confession</TabsTrigger>
-              {presentation === 'page' && <TabsTrigger value="serving">Serving</TabsTrigger>}
+              {presentation === 'page' && isAsyncStudent && <TabsTrigger value="serving">Serving</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-4">
@@ -765,7 +768,7 @@ export function StudentDetailsModal({
               {student && <StudentProgramEditor student={student} onRefresh={onRefresh} readOnly={readOnly} />}
             </TabsContent>
 
-            <TabsContent value="notes" className="space-y-4">
+            {showNotes && <TabsContent value="notes" className="space-y-4">
               {/* Add New Note */}
               {canEditData && <Card>
                 <CardContent className="pt-6">
@@ -890,7 +893,7 @@ export function StudentDetailsModal({
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             <TabsContent value="scores" className="space-y-4">
               {/* Score Summary */}
@@ -1420,7 +1423,7 @@ export function StudentDetailsModal({
                 ? <ConfessionTracker enrollment={scopedEnrollment} canEdit={canEditData} />
                 : <div className="py-8 text-center text-gray-500">Not enrolled in the program.</div>}
             </TabsContent>
-            {presentation === 'page' && studentId && (
+            {presentation === 'page' && isAsyncStudent && studentId && (
               <TabsContent value="serving" className="space-y-4">
                 <StudentServingHistory studentId={studentId} />
               </TabsContent>

@@ -1,4 +1,6 @@
 'use client'
+
+import { StudentProfileLink } from '@/components/student-profile-link'
 import { useSession } from 'next-auth/react'
 import { ViewAsAccessSwitch } from '@/components/view-as-access-switch'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
@@ -7,7 +9,6 @@ import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-cla
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -742,9 +743,9 @@ export default function UsersPage() {
                                 {isSuperAdmin && user.role !== 'STUDENT' ? (
                                                                   <button type="button" onClick={() => setOrganizationUser(user)} className="text-left hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
                                                                 ) : user.role === 'STUDENT' ? (
-                                  <Link href={`/dashboard/admin/students/${user.id}`} className="hover:text-blue-600 hover:underline">
+                                  <StudentProfileLink studentId={user.id} className="hover:text-blue-600 hover:underline">
                                     {user.name}
-                                  </Link>
+                                  </StudentProfileLink>
                                 ) : (
                                   user.name
                                 )}
@@ -966,7 +967,7 @@ export default function UsersPage() {
                           {isSuperAdmin && user.role !== 'STUDENT' ? (
                                                       <button type="button" onClick={() => setOrganizationUser(user)} className="text-left font-medium text-sm hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
                                                     ) : user.role === 'STUDENT' ? (
-                            <Link href={`/dashboard/admin/students/${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
+                            <StudentProfileLink studentId={user.id} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</StudentProfileLink>
                           ) : (
                             <span className="font-medium text-sm truncate">{user.name}</span>
                           )}

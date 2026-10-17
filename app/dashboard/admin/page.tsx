@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
@@ -366,15 +368,14 @@ export default function AdminDashboard() {
             <ul className="divide-y divide-line md:hidden">
               {atRisk.slice(0, 5).map((student) => (
                 <li key={student.id}>
-                  <Link
-                    href={`/dashboard/admin/students/${student.id}`}
+                  <StudentProfileLink studentId={student.id}
                     className="flex min-h-14 items-center gap-3 px-4 py-2.5 text-ink no-underline"
                   >
                     <PersonCell
                       name={student.name}
                       meta={`Att ${student.attendanceRate?.toFixed(0) ?? '—'}% · Exam ${student.examAverage?.toFixed(0) ?? '—'}%`}
                     />
-                  </Link>
+                  </StudentProfileLink>
                 </li>
               ))}
             </ul>

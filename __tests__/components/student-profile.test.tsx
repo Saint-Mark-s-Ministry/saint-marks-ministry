@@ -1,6 +1,5 @@
-import { Suspense } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({ guard: vi.fn(), details: vi.fn(), session: vi.fn(), serving: vi.fn(), mutate: vi.fn() }))
@@ -11,7 +10,9 @@ vi.mock('@/components/student-program-editor', () => ({ StudentProgramEditor: ()
 vi.mock('@/components/admin/confession-tracker', () => ({ ConfessionTracker: () => <div>Confession records</div> }))
 vi.mock('@/components/admin/attendance-slips-panel', () => ({ AttendanceSlipsPanel: () => <div>Attendance slips</div> }))
 
-import StudentProfilePage from '@/app/dashboard/admin/students/[id]/page'
+import { StudentProfileModal } from '@/components/student-profile-modal'
+import { PersonCell } from '@/components/ds/person'
+import { StudentProfileProvider } from '@/components/student-profile-provider'
 import { StudentProfileLink } from '@/components/student-profile-link'
 import { StudentServingHistory } from '@/components/student-serving-history'
 
@@ -29,8 +30,7 @@ const data = {
 }
 
 async function showProfile() {
-  const params = Promise.resolve({ id: 'nori' })
-  await act(async () => { render(<Suspense fallback="Loading route"><StudentProfilePage params={params} /></Suspense>) })
+  await act(async () => { render(<StudentProfileModal studentId="nori" onClose={() => {}} />) })
 }
 
 describe('SP student profile', () => {
@@ -54,14 +54,40 @@ describe('SP student profile', () => {
     expect(expand).not.toHaveBeenCalled()
   })
 
-  it('shows the complete profile as a page and calculates attendance excluding excused records and exam days', async () => {
+  it('shows the complete profile in a modal and calculates attendance excluding excused records and exam days', async () => {
     await showProfile()
     expect(screen.getByRole('heading', { name: 'Nori Bhojwani' })).toBeInTheDocument()
     expect(screen.getByText('75.0%')).toBeInTheDocument()
     expect(screen.getByText('76.0%')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    for (const name of ['Profile', 'Notes', 'Exams', 'Attendance', 'Confession', 'Serving']) expect(screen.getByRole('tab', { name })).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    for (const name of ['Profile', 'Exams', 'Attendance', 'Confession']) expect(screen.getByRole('tab', { name })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Notes' })).not.toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalledWith('/api/students/nori/notes')
+    expect(screen.queryByRole('tab', { name: 'Serving' })).not.toBeInTheDocument()
     expect(mocks.details).toHaveBeenCalledWith('nori')
+  })
+
+  it('only shows Serving for an async student', async () => {
+    mocks.details.mockReturnValue({ data: { ...data, student: { ...data.student, enrollments: [{ ...data.student.enrollments[0], isAsyncStudent: true, yearLevel: null }] } }, isLoading: false })
+    await showProfile()
+    expect(screen.getByRole('tab', { name: 'Serving' })).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Serving' }), { button: 0, ctrlKey: false })
+    expect(screen.getByText('SP serving requirement')).toBeInTheDocument()
+  })
+
+  it.each(['name link', 'person cell'])('opens a %s above the list and preserves filters and focus on close', async kind => {
+    render(<StudentProfileProvider>
+      <input aria-label="Search students" defaultValue="Nori" />
+      {kind === 'person cell' ? <PersonCell name="Nori Bhojwani" href="/dashboard/admin/students/nori" /> : <StudentProfileLink studentId="nori">Nori Bhojwani</StudentProfileLink>}
+    </StudentProfileProvider>)
+    const opener = screen.getByRole('link', { name: 'Nori Bhojwani' })
+    opener.focus()
+    fireEvent.click(opener)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('textbox', { name: 'Search students' })).toHaveValue('Nori')
+    await waitFor(() => expect(opener).toHaveFocus())
   })
 
   it('does not fetch student data for a Sunday School-only user', async () => {
@@ -92,15 +118,15 @@ describe('SP student profile', () => {
     expect(screen.getByText('No scores')).toBeInTheDocument()
   })
 
-  it('keeps priests read-only in the profile, notes, exams, and attendance tabs', async () => {
+  it('keeps priests read-only in the profile, exams, and attendance tabs', async () => {
     mocks.session.mockReturnValue({ data: { user: { id: 'priest', role: UserRole.PRIEST } } })
     mocks.guard.mockReturnValue({ session: { user: { id: 'priest', role: UserRole.PRIEST } }, status: 'authenticated' })
     await showProfile()
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
-    for (const name of ['Notes', 'Exams', 'Attendance']) {
+    for (const name of ['Exams', 'Attendance']) {
       fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false })
       expect(screen.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true')
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      expect(within(screen.getByRole('tabpanel')).queryByRole('button')).not.toBeInTheDocument()
       expect(screen.queryByPlaceholderText('Write a note about this student...')).not.toBeInTheDocument()
     }
   })
