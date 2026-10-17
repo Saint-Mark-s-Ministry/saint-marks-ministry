@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   findAnnualInformation: vi.fn(),
   findReminder: vi.fn(),
   createReminder: vi.fn(),
+  deleteReminders: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -16,6 +17,7 @@ vi.mock('@/lib/prisma', () => ({
     notification: {
       findFirst: mocks.findReminder,
       create: mocks.createReminder,
+      deleteMany: mocks.deleteReminders,
     },
   },
 }))
@@ -90,6 +92,7 @@ describe('Year 2 mentor information reminder', () => {
     mocks.findAnnualInformation.mockResolvedValue({ id: 'annual-info-1', reviewedAt: null })
     await ensureAnnualMentorReminder('student-1')
     expect(mocks.createReminder).toHaveBeenCalledOnce()
+    expect(mocks.deleteReminders).not.toHaveBeenCalled()
   })
 
   it('does not require annual reconfirmation until a student reaches Year 2', async () => {
@@ -105,16 +108,22 @@ describe('Year 2 mentor information reminder', () => {
     expect(mocks.createReminder).not.toHaveBeenCalled()
   })
 
-  it('requires mentor confirmation for an active async student with no cohort year', async () => {
+  it('exempts an active async student with no cohort year and clears its stale annual reminder', async () => {
     mocks.findEnrollment.mockResolvedValue({
       id: 'async-enrollment', isActive: true, isAsyncStudent: true,
       yearLevel: null, mentorName: 'Previous Mentor', mentorPhone: '555-0100',
     })
     await ensureAnnualMentorReminder('async-student')
-    expect(mocks.findAnnualInformation).toHaveBeenCalledWith({
-      where: { studentId_academicYearId: { studentId: 'async-student', academicYearId: 'year-1' } },
+    expect(mocks.findAnnualInformation).not.toHaveBeenCalled()
+    expect(mocks.createReminder).not.toHaveBeenCalled()
+    expect(mocks.deleteReminders).toHaveBeenCalledWith({
+      where: {
+        userId: 'async-student',
+        type: 'REGISTRATION_INCOMPLETE',
+        isPersistent: true,
+        metadata: { path: ['kind'], equals: 'annualMentorInformation' },
+      },
     })
-    expect(mocks.createReminder).toHaveBeenCalledOnce()
   })
 
   it('does not require confirmation for an inactive async enrollment', async () => {
