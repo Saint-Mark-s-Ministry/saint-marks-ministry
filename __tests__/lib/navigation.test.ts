@@ -87,9 +87,9 @@ describe('navigationFor', () => {
     for (const role of ['SERVANT', 'MENTOR', 'SERVANT_PREP', 'SUPER_ADMIN', 'PRIEST'] as UserRole[]) {
       const groups = navigationFor({ role, ...servesSS }, 'sunday-school')
       expect(groups.flatMap(group => group.items)).toContainEqual(expect.objectContaining({
-        href: '/dashboard/servants/servant-attendance/meetings', label: 'Meeting check-in',
+        href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings',
       }))
-      expect(currentNavLabel(groups, '/dashboard/servants/servant-attendance/meetings')).toBe('Meeting check-in')
+      expect(currentNavLabel(groups, '/dashboard/servants/servant-attendance/meetings')).toBe('Servants meetings')
     }
   })
 
