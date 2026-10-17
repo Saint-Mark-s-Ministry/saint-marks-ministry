@@ -344,8 +344,10 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
 
       {renewal && <Card>
         <CardContent className="pt-6 space-y-3">
-          <h3 className="font-semibold">Mentor Information · {renewal.activeYear.name}</h3>
-          {!renewal.information?.reviewedAt && <Badge variant="outline">Update Required</Badge>}
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="min-w-0 font-semibold">Mentor Information · {renewal.activeYear.name}</h3>
+            {!renewal.information?.reviewedAt && <Badge variant="outline" className="shrink-0 whitespace-nowrap">Update Required</Badge>}
+          </div>
           <p className="text-sm">{renewal.information?.reviewedAt ? 'Reviewed' : renewal.information ? 'Submitted · Awaiting admin review' : 'Awaiting student submission'}</p>
           {renewal.information && <>
             <p className="text-sm">{[renewal.information.mentorName, renewal.information.mentorPhone, renewal.information.mentorEmail].join(' · ')}</p>
