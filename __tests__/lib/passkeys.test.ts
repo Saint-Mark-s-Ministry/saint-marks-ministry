@@ -50,9 +50,17 @@ describe('passkey configuration', () => {
     expect(getPasskeyConfig()).toEqual({ rpID: 'example.test', origin: 'https://app.example.test', secure: true })
     expect(passkeyTokenFromHeader(`other=1; __Host-passkey-authenticate=${token}`, 'authenticate')).toBe(token)
   })
-  it.each(['https://evil.test', 'https://example.test.evil.test', 'https://app.example.test/path', 'http://app.example.test', 'https://app.example.test/'])('rejects unsafe or noncanonical origin %s', origin => {
+  it.each(['https://evil.test', 'https://example.test.evil.test', 'https://app.example.test/path', 'http://app.example.test', 'https://app.example.test/?query=1', 'https://app.example.test/#fragment', 'https://user:password@app.example.test'])('rejects unsafe origin %s', origin => {
     vi.stubEnv('PASSKEY_ORIGIN', origin)
     expect(() => getPasskeyConfig()).toThrow()
+  })
+  it('normalizes surrounding whitespace, hostname case, and a root trailing slash', () => {
+    vi.stubEnv('PASSKEY_RP_ID', '  EXAMPLE.TEST\n')
+    vi.stubEnv('PASSKEY_ORIGIN', '  https://APP.EXAMPLE.TEST/\n')
+    expect(getPasskeyConfig()).toEqual({ rpID: 'example.test', origin: 'https://app.example.test', secure: true })
+    expect(() => assertPasskeyOrigin('https://app.example.test')).not.toThrow()
+    expect(() => assertPasskeyOrigin('https://app.example.test/')).toThrow('Forbidden')
+    expect(() => assertPasskeyOrigin('https://evil.test')).toThrow('Forbidden')
   })
   it('requires explicit configuration and exact request origins', () => {
     expect(() => assertPasskeyOrigin('https://evil.test')).toThrow('Forbidden')
