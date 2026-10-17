@@ -28,6 +28,32 @@ Servants Prep account's spelling on the linked Sunday School child record.
 Keep the existing child ID and history; a name correction does not require a
 replacement record or a birth-date correction.
 
+## Automatic matching on registration approval
+
+Approving a Prep registration now attempts the same grade 11/12 identity match
+inside the approval transaction, after the registration is marked approved.
+It uses the account's latest approved registration, an enabled account and an
+active Prep enrollment. Both in-person and async approvals follow this flow.
+
+Only a unique normalized full name, exact birth date, and matching grade can
+create a link to an active unlinked Sunday School student roster record.
+Duplicate names on either side, missing or conflicting birth dates, grade
+differences, and archived records stay unlinked. Existing links always remain
+intact, including owner-confirmed exceptions and archived links.
+
+The approval response includes a status and reason without candidate identities
+or birth dates. Reviewers see whether a link was created or requires review.
+Successful links are audited with actor, student, child and registration IDs.
+All approval writes use a serializable transaction; changed evidence or a
+concurrent link rolls back approval and returns a retry message. No matching
+emails are sent and no cron job or schema migration is needed.
+
+This links a Prep account to a Sunday School **student** record. It does not
+merge login accounts, grant role tags, assign servants, transfer classes, rename
+students, or alter birthdays, families or attendance. Existing unmatched records
+are not swept by an unrelated approval. Use the audit CLI below for existing
+students or a roster record created after their registration was approved.
+
 ## Audit and link grades 11 and 12
 
 The production Neon project is `tiny-thunder-19717007`; its production `main`

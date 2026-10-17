@@ -1,3 +1,4 @@
+import { autoLinkPrepStudentToRoster, PrepRosterLinkConflictError } from '@/lib/prep-roster-auto-link'
 import { deleteUserWithRelations, UserDeletionConflictError } from '@/lib/user-deletion'
 import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
@@ -323,14 +324,19 @@ export async function POST(
           },
         })
 
+        // The newly approved registration is visible to the matcher in this transaction.
+        // Matching links student identities only; it grants no servant authority.
+        const sundaySchoolMatch = await autoLinkPrepStudentToRoster(tx, userId, session.user.id, id)
+
         return {
+          sundaySchoolMatch,
           submission: updatedSubmission,
           tempPassword,
           linkedExistingUser: Boolean(existingUser),
           replacedUserId: replaceUserId || null,
           newAccount,
         }
-      }, replaceUserId ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined)
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
       const recipient = { email: result.submission.email, name: result.submission.fullName }
       emailRegistrationApproved(
@@ -349,6 +355,7 @@ export async function POST(
 
       return NextResponse.json({
         submission: result.submission,
+        sundaySchoolMatch: result.sundaySchoolMatch,
         tempPassword: result.tempPassword,
         linkedExistingUser: result.linkedExistingUser,
         replacedUserId: result.replacedUserId,
@@ -423,9 +430,9 @@ export async function POST(
       })
     }
   } catch (error: unknown) {
-    if (error instanceof UserDeletionConflictError ||
-        (error instanceof Prisma.PrismaClientKnownRequestError && ['P2003', 'P2034'].includes(error.code))) {
-      return NextResponse.json({ error: error instanceof UserDeletionConflictError ? error.message : 'The accounts changed or have protected records. Refresh and review again.' }, { status: 409 })
+    if (error instanceof UserDeletionConflictError || error instanceof PrepRosterLinkConflictError ||
+        (error instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2003', 'P2034'].includes(error.code))) {
+      return NextResponse.json({ error: error instanceof UserDeletionConflictError || error instanceof PrepRosterLinkConflictError ? error.message : 'The accounts changed or have protected records. Refresh and review again.' }, { status: 409 })
     }
     console.error('Error reviewing registration submission:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
