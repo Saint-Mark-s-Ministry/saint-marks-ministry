@@ -16,6 +16,7 @@ export function StudentProfileLink({ studentId, children, className }: {
       href={`/dashboard/admin/students/${encodeURIComponent(studentId)}`}
       className={cn('rounded-sm font-medium underline-offset-4 hover:text-maroon-700 hover:underline dark:hover:text-maroon-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500', className)}
       aria-haspopup="dialog"
+      data-no-page-transition={openProfile ? true : undefined}
       onClick={event => {
         event.stopPropagation()
         if (openProfile && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {

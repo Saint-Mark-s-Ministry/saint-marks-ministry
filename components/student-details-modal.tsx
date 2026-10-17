@@ -132,26 +132,29 @@ export interface StudentDetailsModalProps {
   loading: boolean
   onClose: () => void
   onRefresh: () => void
-  presentation?: 'dialog' | 'page'
   readOnly?: boolean
   showNotes?: boolean
+  loadError?: string
+  onRetry?: () => void
+  onRestoreFocus?: () => void
 }
 
 export type StudentDetailsData = Pick<StudentDetailsModalProps, 'examScores' | 'attendanceRecords' | 'allExams' | 'allLessons'> & {
   student: EditableStudent
 }
 
-function StudentDetailsFrame({ presentation, studentId, title, onClose, children }: {
-  presentation: 'dialog' | 'page'
+function StudentDetailsFrame({ studentId, title, onClose, onRestoreFocus, children }: {
+  onRestoreFocus?: () => void
   studentId: string | null
   title: ReactNode
   onClose: () => void
   children: ReactNode
 }) {
-  if (presentation === 'page') return <section className="min-w-0 space-y-4">{children}</section>
   return (
     <Dialog open={!!studentId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => {
+        if (onRestoreFocus) { event.preventDefault(); onRestoreFocus() }
+      }}>
         <DialogHeader><DialogTitle className="flex items-center justify-between pr-8">{title}</DialogTitle></DialogHeader>
         {children}
       </DialogContent>
@@ -169,9 +172,11 @@ export function StudentDetailsModal({
   loading,
   onClose,
   onRefresh,
-  presentation = 'dialog',
   readOnly = false,
-  showNotes = true
+  showNotes = false,
+  loadError,
+  onRetry,
+  onRestoreFocus
 }: StudentDetailsModalProps) {
   const { data: session } = useSession()
   const canEditData = !readOnly && session?.user?.role ? canManageData(session.user.role as UserRole) : false
@@ -609,7 +614,7 @@ export function StudentDetailsModal({
     : 0
 
   return (
-    <StudentDetailsFrame presentation={presentation} studentId={studentId} onClose={onClose} title={<>
+    <StudentDetailsFrame studentId={studentId} onClose={onClose} onRestoreFocus={onRestoreFocus} title={<>
             <span>{studentName} - Details</span>
             <div className="flex items-center gap-2 text-sm font-normal">
               {isAsyncStudent && <AsyncBadge />}
@@ -624,7 +629,12 @@ export function StudentDetailsModal({
             </div>
     </>}>
 
-        {loading ? (
+        {loadError ? (
+          <div role="alert" className="space-y-3 py-6">
+            <p>{loadError}</p>
+            {onRetry && <Button variant="outline" onClick={onRetry}>Try again</Button>}
+          </div>
+        ) : loading ? (
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
           <Tabs value={(activeTab === 'serving' && !isAsyncStudent) || (activeTab === 'notes' && !showNotes) ? 'profile' : activeTab} onValueChange={setActiveTab} className="w-full">
@@ -634,7 +644,7 @@ export function StudentDetailsModal({
               <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="confession">Confession</TabsTrigger>
-              {presentation === 'page' && isAsyncStudent && <TabsTrigger value="serving">Serving</TabsTrigger>}
+              {isAsyncStudent && <TabsTrigger value="serving">Serving</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-4">
@@ -902,8 +912,8 @@ export function StudentDetailsModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-gray-500">Average Score</div>
-                      <div className={`text-2xl font-bold ${avgScore >= 75 ? 'text-green-700' : avgScore >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {avgScore.toFixed(2)}%
+                      <div className={`text-2xl font-bold ${examScores.length === 0 ? 'text-muted-foreground' : avgScore >= 75 ? 'text-green-700' : avgScore >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {examScores.length ? `${avgScore.toFixed(2)}%` : 'No scores'}
                       </div>
                     </div>
                     <div>
@@ -1215,8 +1225,8 @@ export function StudentDetailsModal({
                   <div className={`grid grid-cols-2 gap-4 ${naCount > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                     <div>
                       <div className="text-sm text-gray-500">Rate</div>
-                      <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {attendanceRate.toFixed(1)}%
+                      <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${effectiveTotal === 0 ? 'text-muted-foreground' : attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {effectiveTotal > 0 ? `${attendanceRate.toFixed(1)}%` : 'No records'}
                       </div>
                     </div>
                     <div>
@@ -1423,7 +1433,7 @@ export function StudentDetailsModal({
                 ? <ConfessionTracker enrollment={scopedEnrollment} canEdit={canEditData} />
                 : <div className="py-8 text-center text-gray-500">Not enrolled in the program.</div>}
             </TabsContent>
-            {presentation === 'page' && isAsyncStudent && studentId && (
+            {isAsyncStudent && studentId && (
               <TabsContent value="serving" className="space-y-4">
                 <StudentServingHistory studentId={studentId} />
               </TabsContent>
