@@ -11,10 +11,15 @@ describe('monthly servants meeting schedules', () => {
     expect(dates[0].toISOString()).toBe('2026-01-03T00:00:00.000Z')
   })
   it('schedules Sunday groups on the third Sunday', () => {
-    const dates = scheduledMeetingDates({ name: 'High School', levels: ['GRADE_9'] }, start, end)
+    const dates = scheduledMeetingDates({ name: 'High School', levels: ['GRADE_9'] }, new Date('2027-01-01'), new Date('2027-12-31'))
     expect(dates).toHaveLength(12)
     expect(dates.every(date => date.getUTCDay() === 0 && date.getUTCDate() >= 15 && date.getUTCDate() <= 21)).toBe(true)
-    expect(dates[1].toISOString()).toBe('2026-02-15T00:00:00.000Z')
+    expect(dates[1].toISOString()).toBe('2027-02-21T00:00:00.000Z')
+  })
+  it('starts Sunday meeting history on October 18, 2026', () => {
+    const dates = scheduledMeetingDates({ name: 'Middle', levels: ['GRADE_6'] }, start, end)
+    expect(dates.map(date => date.toISOString().slice(0, 10))).toEqual(['2026-10-18', '2026-11-15', '2026-12-20'])
+    expect(scheduledMeetingDates({ name: 'Middle', levels: ['GRADE_6'] }, start, new Date('2026-10-17'))).toEqual([])
   })
   it('uses Elementary configuration and levels even if the group is renamed', () => {
     const dates = scheduledMeetingDates({ name: 'Young children', isElementary: true, levels: [] }, start, end)

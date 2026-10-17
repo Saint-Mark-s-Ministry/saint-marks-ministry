@@ -420,7 +420,10 @@ scope. Elementary meetings fall on the first Saturday of each month; Sunday
 school groups meet on the third Sunday. Elementary is identified by the group's
 Elementary setting, name, or exclusively Saturday grade levels.
 
-The active academic year's monthly dates appear alongside existing sessions.
+The active academic year's monthly dates appear alongside existing sessions,
+showing only today and past dates in America/New_York. The first recurring
+Sunday meeting is October 18, 2026; no Sunday dates are projected before then. Future meetings are
+hidden from the list and cannot be opened through a direct meeting link.
 Browsing projects scheduled dates without writing to the database. The first
 attendance write creates the session through the existing band/year/date unique
 key. Existing meetings and attendance are preserved. Coordinators can still add

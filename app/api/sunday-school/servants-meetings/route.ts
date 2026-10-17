@@ -88,9 +88,11 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams
     const ageGroupId = params.get('ageGroupId')
     const meetingId = params.get('meetingId')
+    const today = getSundaySchoolTodayDateInputValue()
     if (!ageGroupId) return NextResponse.json({ error: 'ageGroupId is required' }, { status: 400 })
     let requestedMeeting = meetingId ? await resolveMeeting(meetingId) : null
-    if (meetingId && (!requestedMeeting || requestedMeeting.ageGroupId !== ageGroupId)) {
+    if (meetingId && (!requestedMeeting || requestedMeeting.ageGroupId !== ageGroupId ||
+        toDateInputValue(requestedMeeting.date) > today)) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
     }
     const year = requestedMeeting
@@ -99,16 +101,16 @@ export async function GET(request: Request) {
     if (!year) return NextResponse.json({ error: 'No active academic year' }, { status: 400 })
     const { user, group, canEdit, canSelfCheckIn } = await meetingAccess(ageGroupId, year.id)
     const savedMeetings = await prisma.sundaySchoolServantsMeeting.findMany({
-      where: { ageGroupId, academicYearId: year.id }, orderBy: { date: 'desc' },
+      where: { ageGroupId, academicYearId: year.id, date: { lte: normalizeSessionDate(today) } }, orderBy: { date: 'desc' },
       select: { id: true, date: true, title: true, _count: { select: { attendance: true } } },
     })
     const meetings = [...savedMeetings, ...scheduledMeetingDates(group, year.startDate, year.endDate)
       .filter(date => !savedMeetings.some(meeting => toDateInputValue(meeting.date) === toDateInputValue(date)))
       .map(date => ({ id: scheduledMeetingId(ageGroupId, date), date, title: null }))]
+      .filter(meeting => toDateInputValue(meeting.date) <= today)
       .sort((a, b) => b.date.getTime() - a.date.getTime())
     const schedule = meetingScheduleLabel(group)
     if (!meetingId) {
-      const today = getSundaySchoolTodayDateInputValue()
       const todaysMeeting = meetings.find(meeting => toDateInputValue(meeting.date) === today)
       if (todaysMeeting) requestedMeeting = { ...todaysMeeting, ageGroupId, academicYearId: year.id }
     }

@@ -128,14 +128,14 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       {adding && (
         <form className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); void addMeeting() }}>
           <div className="space-y-2"><Label htmlFor={`meeting-date-${ageGroupId}`}>Meeting date</Label>
-            <Input id={`meeting-date-${ageGroupId}`} type="date" required value={date} onChange={event => setDate(event.target.value)} disabled={busy} /></div>
+            <Input id={`meeting-date-${ageGroupId}`} type="date" required max={getSundaySchoolTodayDateInputValue()} value={date} onChange={event => setDate(event.target.value)} disabled={busy} /></div>
           <div className="space-y-2"><Label htmlFor={`meeting-title-${ageGroupId}`}>Title (optional)</Label>
             <Input id={`meeting-title-${ageGroupId}`} value={title} maxLength={200} placeholder="e.g. Service planning" onChange={event => setTitle(event.target.value)} disabled={busy} /></div>
           <div className="flex gap-2 sm:col-span-2"><Button type="submit" disabled={busy || !date}>{busy ? 'Adding…' : 'Create session'}</Button>
             <Button type="button" variant="outline" onClick={() => setAdding(false)} disabled={busy}>Cancel</Button></div>
         </form>
       )}
-      {!isLoading && !error && data?.meetings.length === 0 && <p className="text-sm text-gray-500">No meetings have been added yet.</p>}
+      {!isLoading && !error && data?.meetings.length === 0 && <p className="text-sm text-gray-500">No meetings have taken place yet.</p>}
       {Boolean(data?.meetings.length) && (
         <div className="space-y-2"><Label htmlFor={`meeting-session-${ageGroupId}`}>Meeting session</Label>
           <select id={`meeting-session-${ageGroupId}`} value={data?.meeting?.id ?? meetingId ?? ''} disabled={busy}
