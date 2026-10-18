@@ -35,6 +35,7 @@ import {
   useSundaySchoolFamilies,
   useSundaySchoolAgeGroups,
 } from '@/lib/swr'
+import { organizeAttendanceRoster, type AttendanceRosterNameOrder } from '@/lib/attendance-roster'
 import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, LEVEL_ORDER, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type {
   SundaySchoolChild,
@@ -143,6 +144,8 @@ function SundaySchoolChildrenContent() {
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
+  const [groupByGender, setGroupByGender] = useState(false)
 
   // Editing a roster follows from serving that class, which the server decides
   const selectedClass = classes.find(c => c.id === selectedClassId)
@@ -308,6 +311,8 @@ function SundaySchoolChildrenContent() {
     (child) => !rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase())
   )
 
+  const rosterGroups = organizeAttendanceRoster(visibleChildren, { nameOrder, groupByGender })
+
   return (
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
@@ -342,6 +347,19 @@ function SundaySchoolChildrenContent() {
                   />
                 </label>
                 <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" />
+                <FilterSelect
+                  aria-label="Alphabetize by"
+                  value={nameOrder}
+                  onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
+                  options={[
+                    { value: 'last', label: 'Sort by last name' },
+                    { value: 'first', label: 'Sort by first name' },
+                  ]}
+                />
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
+                  <input type="checkbox" checked={groupByGender} onChange={(event) => setGroupByGender(event.target.checked)} className="size-4 accent-brand" />
+                  Group by gender
+                </label>
                 {canManage && (
                   <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
                     <SundaySchoolRosterImport
@@ -376,130 +394,142 @@ function SundaySchoolChildrenContent() {
             ) : visibleChildren.length === 0 ? (
               <EmptyState message={children.length === 0 ? (canManage ? 'No children yet. Add one, import a roster, or share the sign-up link.' : 'No children on this roster yet.') : 'No children match.'} />
             ) : (
-              <ul className="divide-y divide-line">
-                {visibleChildren.map((child) => (
-                  <li
-                    key={child.id}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(0,14rem)_auto] lg:items-center"
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
-                      <div className="flex min-w-0 flex-1 flex-col leading-tight">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className={`min-w-0 truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
-                            <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
-                          </span>
-                          {child.isServantsPrepStudent && (
-                            <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
-                          )}
-                        </div>
-                        <span className="text-xs text-ink-3">
-                          {getLevelDisplayName(child.level)}
-                          {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
-                      {child.cellPhone && (
-                        <span className="mb-0.5 flex flex-wrap items-center gap-x-1">
-                          Child: <ContactLink kind="phone" value={child.cellPhone} name={getChildFullName(child)} label="child's cell number" />
-                        </span>
-                      )}
-                      {child.family ? (
-                        <div className="flex flex-col gap-0.5">
-                          {(child.family.motherName || child.family.motherPhone) && (
-                            <span className="flex flex-wrap items-center gap-x-1">
-                              Mother: {child.family.motherName ?? '—'}
-                              {child.family.motherPhone && (
-                                <>
-                                  <span aria-hidden>·</span>
-                                  <ContactLink kind="phone" value={child.family.motherPhone} name={child.family.motherName} label="mother's phone number" />
-                                </>
-                              )}
-                            </span>
-                          )}
-                          {(child.family.fatherName || child.family.fatherPhone) && (
-                            <span className="flex flex-wrap items-center gap-x-1">
-                              Father: {child.family.fatherName ?? '—'}
-                              {child.family.fatherPhone && (
-                                <>
-                                  <span aria-hidden>·</span>
-                                  <ContactLink kind="phone" value={child.family.fatherPhone} name={child.family.fatherName} label="father's phone number" />
-                                </>
-                              )}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            className="inline-flex w-fit cursor-pointer items-center gap-1 text-accent-ink hover:underline"
-                            onClick={() => setViewingFamily(child.family ?? null)}
-                          >
-                            <House className="size-3.5" aria-hidden />
-                            {getFamilyDisplayName(child.family)}
-                            {child.family.children.length > 1 &&
-                              ` · ${child.family.children.length - 1} ${child.family.children.length === 2 ? 'sibling' : 'siblings'}`}
-                          </button>
-                        </div>
-                      ) : child.guardianName || child.guardianPhone ? (
-                        <span className="flex flex-wrap items-center gap-x-1">
-                          Guardian: {child.guardianName ?? '—'}
-                          {child.guardianPhone && (
-                            <>
-                              <span aria-hidden>·</span>
-                              <ContactLink kind="phone" value={child.guardianPhone} name={child.guardianName} label="guardian's phone number" />
-                            </>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-ink-3">No family on file</span>
-                      )}
-                      {child.notes && (
-                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
-                          Note: {child.notes}
-                        </p>
-                      )}
-                      {child.fatherOfConfession && (
-                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.fatherOfConfession}>
-                          Father of confession: {child.fatherOfConfession}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="order-4 col-span-2 min-w-0 lg:order-none lg:col-span-1">
-                      {child.user ? (
-                        <span className="flex flex-wrap items-center gap-1.5">
-                          <StatusBadge tone="ok">Linked</StatusBadge>
-                          <ContactLink kind="email" value={child.user.email} name={getChildFullName(child)} label="student email" className="text-xs" />
-                        </span>
-                      ) : (
-                        <StatusBadge tone="neutral">No account</StatusBadge>
-                      )}
-                    </div>
-
-                    {canManage ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <ChildPhotoField
-                          compact
-                          childId={child.id}
-                          name={getChildFullName(child)}
-                          photoUrl={child.photoUrl ?? null}
-                          accountPhotoUrl={child.user?.profileImageUrl ?? null}
-                          onChange={() => { mutate() }}
-                        />
-                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${getChildFullName(child)}`} onClick={() => openEdit(child)}>
-                          <Pencil />
-                        </Button>
-                        <Button variant="ghost" size="icon-sm" aria-label={`Remove ${getChildFullName(child)}`} className="hover:text-bad" onClick={() => handleDelete(child)}>
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span />
+              <div>
+                {rosterGroups.map((group) => (
+                  <section key={group.key}>
+                    {group.label && (
+                      <h3 className="flex items-center gap-2 border-b border-line bg-hover/40 px-4 py-1.5 text-xs font-semibold text-ink-2">
+                        {group.label}
+                        <span className="tabular font-normal text-ink-3">{group.entries.length}</span>
+                      </h3>
                     )}
-                  </li>
+                    <ul className="divide-y divide-line">
+                      {group.entries.map((child) => (
+                        <li
+                          key={child.id}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(0,14rem)_auto] lg:items-center"
+                        >
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
+                            <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className={`min-w-0 truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                                  <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
+                                </span>
+                                {child.isServantsPrepStudent && (
+                                  <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
+                                )}
+                              </div>
+                              <span className="text-xs text-ink-3">
+                                {getLevelDisplayName(child.level)}
+                                {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
+                            {child.cellPhone && (
+                              <span className="mb-0.5 flex flex-wrap items-center gap-x-1">
+                                Child: <ContactLink kind="phone" value={child.cellPhone} name={getChildFullName(child)} label="child's cell number" />
+                              </span>
+                            )}
+                            {child.family ? (
+                              <div className="flex flex-col gap-0.5">
+                                {(child.family.motherName || child.family.motherPhone) && (
+                                  <span className="flex flex-wrap items-center gap-x-1">
+                                    Mother: {child.family.motherName ?? '—'}
+                                    {child.family.motherPhone && (
+                                      <>
+                                        <span aria-hidden>·</span>
+                                        <ContactLink kind="phone" value={child.family.motherPhone} name={child.family.motherName} label="mother's phone number" />
+                                      </>
+                                    )}
+                                  </span>
+                                )}
+                                {(child.family.fatherName || child.family.fatherPhone) && (
+                                  <span className="flex flex-wrap items-center gap-x-1">
+                                    Father: {child.family.fatherName ?? '—'}
+                                    {child.family.fatherPhone && (
+                                      <>
+                                        <span aria-hidden>·</span>
+                                        <ContactLink kind="phone" value={child.family.fatherPhone} name={child.family.fatherName} label="father's phone number" />
+                                      </>
+                                    )}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="inline-flex w-fit cursor-pointer items-center gap-1 text-accent-ink hover:underline"
+                                  onClick={() => setViewingFamily(child.family ?? null)}
+                                >
+                                  <House className="size-3.5" aria-hidden />
+                                  {getFamilyDisplayName(child.family)}
+                                  {child.family.children.length > 1 &&
+                                    ` · ${child.family.children.length - 1} ${child.family.children.length === 2 ? 'sibling' : 'siblings'}`}
+                                </button>
+                              </div>
+                            ) : child.guardianName || child.guardianPhone ? (
+                              <span className="flex flex-wrap items-center gap-x-1">
+                                Guardian: {child.guardianName ?? '—'}
+                                {child.guardianPhone && (
+                                  <>
+                                    <span aria-hidden>·</span>
+                                    <ContactLink kind="phone" value={child.guardianPhone} name={child.guardianName} label="guardian's phone number" />
+                                  </>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-ink-3">No family on file</span>
+                            )}
+                            {child.notes && (
+                              <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
+                                Note: {child.notes}
+                              </p>
+                            )}
+                            {child.fatherOfConfession && (
+                              <p className="mt-0.5 truncate text-xs text-ink-3" title={child.fatherOfConfession}>
+                                Father of confession: {child.fatherOfConfession}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="order-4 col-span-2 min-w-0 lg:order-none lg:col-span-1">
+                            {child.user ? (
+                              <span className="flex flex-wrap items-center gap-1.5">
+                                <StatusBadge tone="ok">Linked</StatusBadge>
+                                <ContactLink kind="email" value={child.user.email} name={getChildFullName(child)} label="student email" className="text-xs" />
+                              </span>
+                            ) : (
+                              <StatusBadge tone="neutral">No account</StatusBadge>
+                            )}
+                          </div>
+
+                          {canManage ? (
+                            <div className="flex shrink-0 items-center gap-1">
+                              <ChildPhotoField
+                                compact
+                                childId={child.id}
+                                name={getChildFullName(child)}
+                                photoUrl={child.photoUrl ?? null}
+                                accountPhotoUrl={child.user?.profileImageUrl ?? null}
+                                onChange={() => { mutate() }}
+                              />
+                              <Button variant="ghost" size="icon-sm" aria-label={`Edit ${getChildFullName(child)}`} onClick={() => openEdit(child)}>
+                                <Pencil />
+                              </Button>
+                              <Button variant="ghost" size="icon-sm" aria-label={`Remove ${getChildFullName(child)}`} className="hover:text-bad" onClick={() => handleDelete(child)}>
+                                <Trash2 />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             )}
           </Panel>
         )}
