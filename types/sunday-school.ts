@@ -388,7 +388,8 @@ export interface SundaySchoolClassSummary {
 export interface SundaySchoolAttendanceTrendPoint {
   date: string
   attendedCount: number | null
-  rosterCount: number | null
+  recordedCount: number | null
+  recordedClassCount: number
   attendanceRate: number | null
 }
 
@@ -421,6 +422,8 @@ export interface SundaySchoolDashboard {
     coordinatesAnyAgeGroup: boolean
   }
   attendanceTrend: {
+    currentEnrolledCount: number | null
+    classCount: number
     audience: SundaySchoolAttendanceAudience
     points: SundaySchoolAttendanceTrendPoint[]
     academicYears: SundaySchoolAcademicYearOption[]

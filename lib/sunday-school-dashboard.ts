@@ -4,6 +4,7 @@ import type { SundaySchoolMeetingDay } from './sunday-school-class'
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface SundaySchoolAttendanceSessionInput {
+  classId: string
   date: Date
   attendance: Array<{ status: AttendanceStatus | SundaySchoolServantAttendanceStatus }>
 }
@@ -11,7 +12,8 @@ export interface SundaySchoolAttendanceSessionInput {
 export interface SundaySchoolAttendanceTrendPoint {
   date: string
   attendedCount: number | null
-  rosterCount: number | null
+  recordedCount: number | null
+  recordedClassCount: number
   attendanceRate: number | null
 }
 
@@ -74,7 +76,7 @@ export function getSundaySchoolReportingRange(
 }
 
 /**
- * Aggregate every visible class for each scheduled week. No saved roster means
+ * Aggregate every visible class for each scheduled week. No saved attendance means
  * unknown, so that week is represented by nulls and Recharts renders a gap.
  */
 export function buildSundaySchoolAttendanceTrend(
@@ -85,7 +87,7 @@ export function buildSundaySchoolAttendanceTrend(
 ): SundaySchoolAttendanceTrendPoint[] {
   if (end < start) return []
 
-  const totalsByDate = new Map<string, { attended: number; roster: number }>()
+  const totalsByDate = new Map<string, { attended: number; recorded: number; classIds: Set<string> }>()
 
   for (const session of sessions) {
     if (session.attendance.length === 0) continue
@@ -97,8 +99,9 @@ export function buildSundaySchoolAttendanceTrend(
       normalizedSession.getUTCDate() + (daysForward < daysBackward ? daysForward : -daysBackward)
     )
     const date = normalizedSession.toISOString().slice(0, 10)
-    const totals = totalsByDate.get(date) ?? { attended: 0, roster: 0 }
-    totals.roster += session.attendance.length
+    const totals = totalsByDate.get(date) ?? { attended: 0, recorded: 0, classIds: new Set<string>() }
+    totals.recorded += session.attendance.length
+    totals.classIds.add(session.classId)
     totals.attended += session.attendance.filter(
       record => record.status === 'PRESENT' || record.status === 'LATE'
     ).length
@@ -113,9 +116,10 @@ export function buildSundaySchoolAttendanceTrend(
     points.push({
       date,
       attendedCount: totals?.attended ?? null,
-      rosterCount: totals?.roster ?? null,
+      recordedCount: totals?.recorded ?? null,
+      recordedClassCount: totals?.classIds.size ?? 0,
       attendanceRate: totals
-        ? Math.round((totals.attended / totals.roster) * 1000) / 10
+        ? Math.round((totals.attended / totals.recorded) * 1000) / 10
         : null,
     })
   }

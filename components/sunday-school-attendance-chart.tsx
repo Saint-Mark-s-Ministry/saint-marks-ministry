@@ -52,25 +52,26 @@ export function SundaySchoolAttendanceChart({
   isRefreshing = false,
 }: SundaySchoolAttendanceChartProps) {
   const recordedPoints = useMemo(
-    () => trend.points.filter(point => point.rosterCount !== null),
+    () => trend.points.filter(point => point.recordedCount !== null),
     [trend.points]
   )
   const chartPoints = useMemo(
     () => trend.points.map(point => ({
       ...point,
-      notRecorded: point.rosterCount === null ? 0 : null,
+      currentEnrolledCount: trend.currentEnrolledCount,
+      notRecorded: point.recordedCount === null ? 0 : null,
     })),
-    [trend.points]
+    [trend.points, trend.currentEnrolledCount]
   )
   const latest = recordedPoints.at(-1)
   const totals = recordedPoints.reduce(
     (sum, point) => ({
       attended: sum.attended + (point.attendedCount ?? 0),
-      roster: sum.roster + (point.rosterCount ?? 0),
+      recorded: sum.recorded + (point.recordedCount ?? 0),
     }),
-    { attended: 0, roster: 0 }
+    { attended: 0, recorded: 0 }
   )
-  const averageRate = totals.roster > 0 ? Math.round((totals.attended / totals.roster) * 100) : null
+  const averageRate = totals.recorded > 0 ? Math.round((totals.attended / totals.recorded) * 100) : null
   const effectiveAcademicYearId = selectedAcademicYearId ?? trend.selectedAcademicYearId
   const selectedYear = trend.academicYears.find(year => year.id === effectiveAcademicYearId)
   const classOptions = trend.classes ?? []
@@ -95,7 +96,7 @@ export function SundaySchoolAttendanceChart({
             <CardTitle>Weekly Attendance</CardTitle>
           </div>
           <CardDescription>
-            {isServantAudience ? 'Servants' : 'Children'} who attended compared with the roster recorded {meetingDescription}.
+            {isServantAudience ? 'Servants' : 'Children'} who attended and whose attendance was recorded {meetingDescription}.
           </CardDescription>
         </div>
         {trend.academicYears.length > 0 && effectiveAcademicYearId && (
@@ -154,19 +155,30 @@ export function SundaySchoolAttendanceChart({
         )}
       </CardHeader>
       <CardContent>
-        {recordedPoints.length > 0 ? (
+        {chartPoints.length > 0 ? (
           <>
             <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 border-y py-3 text-sm dark:border-gray-800">
               <span>
-                <span className="text-gray-500 dark:text-gray-400">Year average </span>
-                <strong className="tabular-nums">{averageRate}%</strong>
+                <span className="text-gray-500 dark:text-gray-400">Recorded attendance rate </span>
+                <strong className="tabular-nums">{averageRate === null ? '—' : `${averageRate}%`}</strong>
               </span>
               {latest && (
                 <span>
                   <span className="text-gray-500 dark:text-gray-400">{latestLabel} </span>
                   <strong className="tabular-nums">
-                    {latest.attendedCount} of {latest.rosterCount}
+                    {latest.attendedCount} attended / {latest.recordedCount} recorded
                   </strong>
+                </span>
+              )}
+              {trend.currentEnrolledCount !== null && (
+                <span>
+                  <span className="text-gray-500 dark:text-gray-400">Current enrolled </span>
+                  <strong className="tabular-nums">{trend.currentEnrolledCount}</strong>
+                </span>
+              )}
+              {latest && (
+                <span className="text-gray-500 dark:text-gray-400">
+                  {latest.recordedClassCount} of {trend.classCount} classes with records in the latest recorded {meetingDay}
                 </span>
               )}
               <span className="text-gray-500 dark:text-gray-400">
@@ -176,7 +188,7 @@ export function SundaySchoolAttendanceChart({
             <div
               className="h-80 w-full"
               role="img"
-              aria-label={`Weekly ${isServantAudience ? 'servant' : 'child'} attendance and roster for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
+              aria-label={`Weekly ${isServantAudience ? 'servant' : 'child'} attendance and current enrollment for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartPoints} margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
@@ -217,7 +229,7 @@ export function SundaySchoolAttendanceChart({
                               day: 'numeric',
                             })}
                           </p>
-                          {point.rosterCount === null ? (
+                          {point.recordedCount === null ? (
                             <p className="mt-2 font-medium text-amber-600 dark:text-amber-400">
                               Attendance not recorded
                             </p>
@@ -228,11 +240,14 @@ export function SundaySchoolAttendanceChart({
                                 <strong className="tabular-nums">{point.attendedCount}</strong>
                               </p>
                               <p className="flex justify-between gap-6">
-                                <span className="text-gray-500 dark:text-gray-400">On roster</span>
-                                <strong className="tabular-nums">{point.rosterCount}</strong>
+                                <span className="text-gray-500 dark:text-gray-400">Attendance recorded</span>
+                                <strong className="tabular-nums">{point.recordedCount}</strong>
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {point.recordedClassCount} of {trend.classCount} classes with records
                               </p>
                               <p className="flex justify-between gap-6 border-t pt-1.5 dark:border-gray-700">
-                                <span className="text-gray-500 dark:text-gray-400">Attendance rate</span>
+                                <span className="text-gray-500 dark:text-gray-400">Recorded attendance rate</span>
                                 <strong className="tabular-nums">{point.attendanceRate}%</strong>
                               </p>
                             </div>
@@ -254,13 +269,25 @@ export function SundaySchoolAttendanceChart({
                   />
                   <Line
                     type="monotone"
-                    dataKey="rosterCount"
-                    name="On roster"
+                    dataKey="recordedCount"
+                    name="Attendance recorded"
                     stroke="var(--chart-roster)"
                     strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 4 }}
                     connectNulls={false}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="currentEnrolledCount"
+                    name="Current enrolled"
+                    stroke="var(--muted-foreground)"
+                    strokeDasharray="6 4"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={false}
+                    legendType={trend.currentEnrolledCount === null ? 'none' : 'line'}
+                    isAnimationActive={false}
                   />
                   <Line
                     type="linear"
@@ -277,7 +304,9 @@ export function SundaySchoolAttendanceChart({
               </ResponsiveContainer>
             </div>
             <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
+              Attendance recorded counts saved marks, including absences; it can change as classes submit attendance.
+              {trend.currentEnrolledCount !== null && ' The dashed line shows today’s enrolled roster for the selected scope, not historical enrollment. '}
+              Rates use recorded marks only. Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
             </p>
           </>
         ) : (
