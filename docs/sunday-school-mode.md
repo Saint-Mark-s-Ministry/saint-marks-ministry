@@ -444,9 +444,13 @@ check-in button at midnight or upon returning to the page. Location coordinates
 are checked but are not stored. Browser location permissions and HTTPS are required. Browser coordinates
 are user-supplied evidence and cannot prevent device location spoofing.
 
-The server resolves the fixed address using the US Census geocoder, cached for
-one day, and checks the exact address match. Failed or ambiguous venue lookups
-block self check-in with a retry message; they never bypass the geofence.
+The server uses the fixed church coordinates (40.71602, -74.08670) for
+427 West Side Ave at Clarke Ave. The address is confirmed by the
+[church directions](https://saintmark.com/contact/directions/); the building
+point is from [OpenStreetMap way 310223954](https://mapcarta.com/W310223954).
+Check-in does not require an external geocoder to be available. The venue is
+selected by the server, never supplied by the client; distance, position
+freshness and accuracy checks still apply.
 Coordinators retain attendance corrections without requiring location.
 
 `SundaySchoolServantsMeeting` and `SundaySchoolMeetingAttendance` remain the

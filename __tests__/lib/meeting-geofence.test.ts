@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { distanceMeters, meetingVenue, validMeetingPosition } from '@/lib/meeting-geofence'
+import { distanceMeters, MEETING_RADIUS_METERS, meetingVenue, validMeetingPosition } from '@/lib/meeting-geofence'
 
 afterEach(() => vi.unstubAllGlobals())
 describe('meeting geofence', () => {
@@ -15,15 +15,23 @@ describe('meeting geofence', () => {
     expect(distanceMeters(position, { ...position, latitude: 40.721 })).toBeCloseTo(111.19, 1)
     expect(distanceMeters(position, { ...position, latitude: 40.722 })).toBeGreaterThan(150)
   })
-  it('resolves only the configured address and rejects ambiguous results', async () => {
-    const match = { matchedAddress: '427 WEST SIDE AVE, JERSEY CITY, NJ', addressComponents: { city: 'JERSEY CITY', state: 'NJ' }, coordinates: { x: -74.09, y: 40.72 } }
-    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: { addressMatches: [match] } }) })
+  it('verifies the fixed church venue even when the geocoder is unavailable', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error('Geocoder unavailable'))
     vi.stubGlobal('fetch', fetcher)
-    expect(await meetingVenue()).toEqual({ latitude: 40.72, longitude: -74.09 })
-    expect(String(fetcher.mock.calls[0][0])).toContain('427+West+Side+Ave')
-    fetcher.mockResolvedValue({ ok: true, json: async () => ({ result: { addressMatches: [] } }) })
-    await expect(meetingVenue()).rejects.toThrow('Venue lookup unavailable')
-    fetcher.mockResolvedValue({ ok: true, json: async () => ({ result: { addressMatches: [{ ...match, matchedAddress: '429 WEST SIDE AVE' }] } }) })
-    await expect(meetingVenue()).rejects.toThrow('Venue lookup unavailable')
+    const venue = await meetingVenue()
+    expect(venue).toEqual({ latitude: 40.71602, longitude: -74.08670 })
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(await meetingVenue()).toEqual(venue)
+  })
+
+  it('accepts the church entrance and keeps the 150-meter boundary', async () => {
+    const venue = await meetingVenue()
+    // Independently listed address point is within the same church footprint.
+    expect(distanceMeters(venue, { latitude: 40.715914, longitude: -74.086587 }))
+      .toBeLessThan(MEETING_RADIUS_METERS)
+    expect(distanceMeters(venue, { ...venue, latitude: venue.latitude + 0.001 }))
+      .toBeLessThan(MEETING_RADIUS_METERS)
+    expect(distanceMeters(venue, { ...venue, latitude: venue.latitude + 0.002 }))
+      .toBeGreaterThan(MEETING_RADIUS_METERS)
   })
 })
