@@ -117,7 +117,11 @@ date, optional title, and a link to the lesson page. Stable notification IDs and
 duplicate-skipping inserts prevent repeat delivery while the notification exists;
 push is awaited before the cron response. No database migration is required.
 Deploy the code and Vercel cron configuration to activate the schedule; device
-push requires configured VAPID keys and a teacher's browser subscription.
+push requires configured VAPID keys and a teacher's browser subscription, or, in
+the native app, a registered Expo push token (`MobilePushToken`). The native
+payload carries `kind: sunday-school-lesson-reminder` and `lessonId` so a tap opens
+that lesson; the same fields are in the notification's `metadata`, so the in-app
+feed opens it too whether or not push was delivered.
 
 **A class's band is derived, not stored.** There is no `ageGroupId` on
 `SundaySchoolClass`. During compatibility the enum array remains; the durable

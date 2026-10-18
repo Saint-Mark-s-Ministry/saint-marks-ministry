@@ -64,9 +64,14 @@ This change set includes server code, so ship it before the app:
    - `20261011150000_add_lesson_scheduler`: lesson reminder column, notification type,
      and the `MobilePushToken` table
    - Take a snapshot first and verify `/api/health` afterwards (see `AGENTS.md`).
-2. **Deploy the web/API.** The new daily cron
-   `/api/cron/sunday-school-lesson-reminders` in `vercel.json` uses the existing
-   `CRON_SECRET`.
+2. **Deploy the web/API.** The Tuesday 14:00 UTC teaching-reminder cron
+   (`/api/cron/sunday-school-lesson-reminders`, already in `vercel.json`) uses the
+   existing `CRON_SECRET`; that path has one schedule (an earlier daily 15:00 UTC
+   entry for the same route was removed). The reminder is delivered in the app's
+   notification feed always, and as native push to devices with a registered token
+   (`MobilePushToken`, sent through Expo's push service by the shared sender in
+   `lib/notifications.ts`). Native push additionally needs `extra.remotePushEnabled`
+   set to `true` and an APNs-enabled build (see the mobile README).
 3. **Build and submit the app**, pointing at the production API:
 
    ```bash

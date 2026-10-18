@@ -18,6 +18,8 @@ interface NotificationPayload {
   url?: string
   tag?: string
   notificationId?: string
+  /** Extra fields for the native app so a tap can open the exact record (e.g. a lesson id). */
+  data?: Record<string, string | number | boolean | null>
 }
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send'
@@ -43,7 +45,7 @@ async function sendExpoPushToUser(userId: string, payload: NotificationPayload) 
           title: payload.title,
           body: payload.body,
           sound: 'default',
-          data: { url: payload.url, tag: payload.tag, notificationId: payload.notificationId },
+          data: { ...payload.data, url: payload.url, tag: payload.tag, notificationId: payload.notificationId },
         }))
       ),
     })
@@ -173,6 +175,7 @@ export async function notifySundaySchoolLessonReminder({
 
   await sendPushToUser(userId, {
     title, body, url, tag: id, notificationId: id,
+    data: { kind: 'sunday-school-lesson-reminder', lessonId },
   }).catch(() => {
     // The in-app reminder remains available if push delivery fails.
   })

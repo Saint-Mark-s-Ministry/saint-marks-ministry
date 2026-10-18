@@ -12,10 +12,6 @@
     {
       "path": "/api/cron/audit-retention",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/sunday-school-lesson-reminders",
-      "schedule": "0 15 * * *"
     }
   ]
 }
