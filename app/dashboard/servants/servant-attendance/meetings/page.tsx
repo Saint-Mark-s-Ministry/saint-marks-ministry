@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { PageHeader } from '@/components/ds/page-header'
@@ -28,7 +29,10 @@ function MeetingsContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Servants meetings" meta={['Meeting history and self check-in on your meeting date']} />
+      <PageHeader title="Servants meetings" meta={['Meeting history and self check-in on your meeting date']}
+        actions={(data as SundaySchoolDashboard | undefined)?.standing.isAdmin ? (
+          <Button asChild variant="outline"><Link href="/dashboard/servants/servant-attendance/meetings/history">Attendance history</Link></Button>
+        ) : undefined} />
       <ServantAttendanceNavigation active="meetings" />
       {error ? (
         <Panel bodyClassName="p-4">

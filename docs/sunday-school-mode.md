@@ -453,6 +453,21 @@ selected by the server, never supplied by the client; distance, position
 freshness and accuracy checks still apply.
 Coordinators retain attendance corrections without requiring location.
 
+Priests and super admins can open **Attendance history** from the Servants
+meetings page. `/dashboard/servants/servant-attendance/meetings/history` lists
+recorded meetings across all academic years and school groups, including
+archived groups, newest first with pagination. Selecting a meeting displays
+its saved present/absent marks and totals, including former servants. It does
+not add today's roster or count missing records as absences. This view is
+read-only and works without an active academic year or a current group assignment.
+
+`GET /api/sunday-school/servants-meetings/history` reloads current role tags
+and permits enabled priests and super admins only. `cursor` loads older pages;
+`meetingId` returns one saved meeting's attendance. Queries exclude future and
+unrecorded meetings, use explicit field selections, and return no contact
+information. Ordinary servants and coordinators retain their existing scoped
+meeting view and do not receive ministry-wide history access.
+
 `SundaySchoolServantsMeeting` and `SundaySchoolMeetingAttendance` remain the
 storage models. The roster combines active class and band assignments,
 deduplicates users, and retains former attendees in saved history. Existing

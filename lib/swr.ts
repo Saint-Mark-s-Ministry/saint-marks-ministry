@@ -472,3 +472,23 @@ export function useStudentServingProgress(studentId?: string) {
     fetcher, defaultSWRConfig,
   )
 }
+
+export function useSundaySchoolMeetingHistory(viewerId?: string, cursor?: string) {
+  const params = new URLSearchParams()
+  if (cursor) params.set('cursor', cursor)
+  const url = `/api/sunday-school/servants-meetings/history?${params}`
+  return useSWR<import('@/types/sunday-school-meeting-history').MeetingHistoryList>(
+    viewerId ? [url, viewerId] : null,
+    ([endpoint]: [string, string]) => fetcher(endpoint),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true }
+  )
+}
+
+export function useSundaySchoolMeetingHistoryDetail(viewerId?: string, meetingId?: string) {
+  const url = `/api/sunday-school/servants-meetings/history?${new URLSearchParams({ meetingId: meetingId ?? '' })}`
+  return useSWR<import('@/types/sunday-school-meeting-history').MeetingHistoryDetail>(
+    viewerId && meetingId ? [url, viewerId] : null,
+    ([endpoint]: [string, string]) => fetcher(endpoint),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true }
+  )
+}
