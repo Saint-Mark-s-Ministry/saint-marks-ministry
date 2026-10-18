@@ -451,7 +451,14 @@ point is from [OpenStreetMap way 310223954](https://mapcarta.com/W310223954).
 Check-in does not require an external geocoder to be available. The venue is
 selected by the server, never supplied by the client; distance, position
 freshness and accuracy checks still apply.
-Coordinators retain attendance corrections without requiring location.
+Ordinary servants can only self check in, before and after their own attendance
+is recorded. Checking in never grants permission to mark another servant.
+The UI uses the explicit server-derived `canManageAttendance` permission for
+Present/Absent controls and bulk saves. Only the group's active band
+coordinators and accounts with a current Super Admin or Priest tag may manage
+meeting attendance or create sessions; class-only coordinators cannot. The API
+reloads these permissions for every write, independently of check-in status.
+Authorized managers retain attendance corrections without requiring location.
 
 `SundaySchoolServantsMeeting` and `SundaySchoolMeetingAttendance` remain the
 storage models. The roster combines active class and band assignments,
