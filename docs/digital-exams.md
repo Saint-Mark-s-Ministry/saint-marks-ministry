@@ -60,8 +60,9 @@ within 100 meters. Start/resume and submission request a new fix; autosaves can
 reuse a fix for up to one minute. Location is held in memory only and is not
 included in stored drafts, exam records or monitoring events.
 
-Missing, inaccurate, stale, or out-of-bounds location blocks the action. Venue
-lookup failures also block it. Pending answers stay on the device and retry;
+Missing, inaccurate, stale, or out-of-bounds location blocks the action. The
+church coordinates are fixed in the shared geofence helper, so external geocoder
+availability does not block exams. Pending answers stay on the device and retry;
 saved answers remain preserved. Heartbeats and activity reports continue even
 when location verification fails. Proctors can still close an exam to finalize
 already saved answers, and their management actions do not require location.

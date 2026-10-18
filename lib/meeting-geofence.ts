@@ -15,19 +15,13 @@ export function distanceMeters(a: Pick<MeetingPosition, 'latitude' | 'longitude'
   return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, h)))
 }
 
-/** Resolve the fixed venue on the server; never accept a venue supplied by a client. */
+// Fixed church location: 427 West Side Ave at Clarke Ave, Jersey City.
+// Address: https://saintmark.com/contact/directions/
+// Building coordinates (OpenStreetMap way 310223954): https://mapcarta.com/W310223954
+// Keep this server-selected point independent of client input and external service availability.
+const MEETING_VENUE = Object.freeze({ latitude: 40.71602, longitude: -74.08670 })
+
+/** Return the fixed venue without a network lookup. Shared with online exam checks. */
 export async function meetingVenue(): Promise<{ latitude: number; longitude: number }> {
-  const url = new URL('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress')
-  url.search = new URLSearchParams({ address: '427 West Side Ave, Jersey City, NJ', benchmark: 'Public_AR_Current', format: 'json' }).toString()
-  const response = await fetch(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(10000) })
-  if (!response.ok) throw new Error('Venue lookup unavailable')
-  const data = await response.json()
-  const matches = data?.result?.addressMatches
-  if (!Array.isArray(matches) || matches.length !== 1) throw new Error('Venue lookup unavailable')
-  const match = matches[0]
-  const address = match.addressComponents
-  if (address?.city !== 'JERSEY CITY' || address?.state !== 'NJ' ||
-      !/^427\s+WEST\s*SIDE\s+AVE\b/i.test(match.matchedAddress ?? '') ||
-      !Number.isFinite(match.coordinates?.x) || !Number.isFinite(match.coordinates?.y)) throw new Error('Venue lookup unavailable')
-  return { latitude: match.coordinates.y, longitude: match.coordinates.x }
+  return MEETING_VENUE
 }
