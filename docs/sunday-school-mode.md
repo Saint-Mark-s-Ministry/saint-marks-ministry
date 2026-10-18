@@ -166,14 +166,26 @@ for the weeks before they joined. The formula itself is the app-wide
 `calculateAttendanceStats` (late counts half, excused excluded), shown as a
 plain rate with none of the graduation framing.
 
-**The dashboard trend uses each saved session as its historical roster
-snapshot.** Every mark saved for that class meeting counts toward the roster curve;
-`PRESENT` and `LATE` count toward the attended curve. Meetings with no saved
-marks stay as gaps so missing data is never presented as zero attendance. The
-reporting year begins on the first scheduled meeting strictly after September 11. Super
-admins and priests can filter the child trend to any class. The Servants chart
-is available to super admins, priests, and coordinators. Coordinators see only
-the classes they coordinate.
+**The dashboard separates enrollment from attendance recording.** The
+`Attendance recorded` curve counts saved marks (`recordedCount`), including
+absent and excused; `PRESENT` and `LATE` count toward the attended curve.
+`recordedClassCount` shows distinct classes with any saved marks that week,
+not classes with fully completed attendance. Missing marks are unknown, not
+absences; meetings with no marks stay as gaps. Trend rates divide attended
+by recorded marks, so they describe recorded attendance, not the whole ministry.
+
+For the active year’s child chart, `Current enrolled` is a dashed present-day
+reference using the same visible active classes and child counts as the top
+card, narrowed to the selected class when filtered. It remains visible when
+attendance has not been submitted. It is not historical enrollment and is
+omitted for past years and servant attendance. Current-year trends use active
+classes to match the top card; past-year trends retain inactive classes.
+The recent attendance chart uses the same labels and reference.
+
+The reporting year begins on the first scheduled meeting strictly after
+September 11. Super admins and priests can filter the child trend to any
+visible class. The Servants chart is available to super admins, priests, and
+coordinators. Coordinators see only the classes they coordinate.
 
 ## API routes
 
