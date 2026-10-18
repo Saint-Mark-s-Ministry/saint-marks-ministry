@@ -54,9 +54,9 @@ function AgeGroupsScreen() {
                 accessibilityLabel="New age group"
                 hitSlop={6}
                 onPress={() => setEditor("new")}
-                style={({ pressed }) => ({ width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? colors.primarySoft : colors.hover })}
+                style={({ pressed }) => ({ width: 34, height: 34, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
               >
-                <Icon ios="plus" android="add" size={22} />
+                <Icon ios="plus" android="add" size={22} color={colors.primary} />
               </Pressable>
             ) : undefined,
         }}
@@ -97,8 +97,8 @@ function AgeGroupsScreen() {
                         { backgroundColor: pressed ? colors.primarySoft : "transparent" },
                       ]}
                     >
-                      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-                        <Icon ios="square.grid.2x2" android="grid_view" size={17} color={colors.primary} />
+                      <View style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                        <Icon ios="person.3.fill" android="groups" size={17} color={colors.primary} />
                       </View>
                       <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
                         <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{g.name}</Copy>

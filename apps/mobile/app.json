@@ -134,6 +134,7 @@
       "predictiveBackGestureEnabled": true
     },
     "plugins": [
+      "./plugins/withOptionalRemotePush.js",
       "expo-router",
       "expo-font",
       "expo-system-ui",
@@ -168,7 +169,15 @@
         "expo-notifications",
         {
           "icon": "./assets/app-icon.png",
-          "color": "#5C1A1A"
+          "color": "#5C1A1A",
+          "sounds": [
+            "../../public/sounds/egyptian-english-uh-oh.wav",
+            "../../public/sounds/egyptian-english-oh-no.wav",
+            "../../public/sounds/egyptian-english-alalalala.wav",
+            "../../public/sounds/egyptian-english-come-back.wav",
+            "../../public/sounds/egyptian-english-where-going.wav",
+            "../../public/sounds/borat-very-nice.wav"
+          ]
         }
       ],
       "./plugins/withSceneDelegate.js"
@@ -180,7 +189,8 @@
       "router": {},
       "eas": {
         "projectId": "cfcab609-094a-48dd-b957-3f7e0442ca10"
-      }
+      },
+      "remotePushEnabled": false
     },
     "owner": "joshuakaisar"
   }

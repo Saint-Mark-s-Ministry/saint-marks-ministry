@@ -15,3 +15,4 @@ export type {
 export type * from "./sunday-school";
 export type * from "./rotation-forms";
 export type * from "./contact-book";
+export type * from "./digital-exams";

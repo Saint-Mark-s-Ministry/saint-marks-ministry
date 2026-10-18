@@ -50,6 +50,16 @@ describe("Prep Home dashboard (SMM-32)", () => {
       expect(nextLessonIndex(lessons, "2026-10-03")).toBe(2);
     });
 
+    it("skips cancelled and no-class dates when selecting the upcoming lesson", () => {
+      const lessons = [
+        { status: "CANCELLED", scheduledDate: "2026-10-14" },
+        { status: "NO_CLASS", scheduledDate: "2026-10-15" },
+        { status: "SCHEDULED", scheduledDate: "2026-10-16" },
+      ];
+      expect(nextLessonIndex(lessons, "2026-10-14")).toBe(2);
+      expect(nextLessonIndex(lessons.slice(0, 2), "2026-10-14")).toBe(-1);
+    });
+
     it("returns -1 when every lesson is completed or in the past", () => {
       const lessons = [
         { status: "COMPLETED", scheduledDate: "2026-09-25" },

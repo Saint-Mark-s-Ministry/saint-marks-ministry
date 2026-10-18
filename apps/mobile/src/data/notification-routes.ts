@@ -26,7 +26,7 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   student: fixed("/(prep)/home"),
   "student/lessons": withId("/prep-lessons", (id) => `/prep-my-lesson/${id}`),
   "student/application": fixed("/prep-application"),
-  "student/exams": fixed("/prep-exams"),
+  "student/exams": withId("/prep-live-exams", (id) => `/prep-live-exam/${id}`),
   "student/makeup-exams": fixed("/prep-exams"),
   "student/class-lessons": fixed("/prep-class-lessons"),
   "student/attendance-slip": fixed("/prep-attendance-slip"),
@@ -45,7 +45,7 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   "admin/mentees": fixed("/(prep)/students"),
   "admin/enrollments": fixed("/(prep)/students"),
   "admin/exams": withId("/prep-exams", (id) => `/prep-exam/${id}`),
-  "admin/exam-monitoring": fixed("/prep-exams"),
+  "admin/exam-monitoring": fixed("/prep-exam-monitoring"),
   "admin/attendance": fixed("/prep-attendance"),
   "admin/async-students": withId("/prep-async-students", (id) => `/prep-async-student/${id}`),
   "admin/curriculum": fixed("/prep-curriculum"),
@@ -122,6 +122,7 @@ export function resolveNotificationRoute(target: NotificationTarget): string | n
     const segments = pathSegments(url);
     if (segments[0] === "dashboard" && segments.length > 1) {
       const [, area, page, id] = segments;
+      if (area === "admin" && page === "exams" && id && segments[4] === "monitor") return `/prep-exam-monitor/${id}`;
       // `/dashboard/student` has no page; `/dashboard/servants/x/ID` has an id.
       const keyWithPage = page ? `${area}/${page}` : area;
       const withPage = WEB_TO_NATIVE[keyWithPage];

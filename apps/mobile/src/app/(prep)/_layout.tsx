@@ -73,7 +73,11 @@ function Tabs() {
         />
         <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="search" role="search">
+      <NativeTabs.Trigger
+        name="search"
+        role="search"
+        unstable_nativeProps={{ ios: { role: "search", automaticallyActivatesSearch: true } }}
+      >
         {Platform.OS === "android" && <NativeTabs.Trigger.Icon md="search" />}
         <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

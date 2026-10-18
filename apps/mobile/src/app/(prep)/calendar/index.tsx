@@ -8,6 +8,7 @@ import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
+import { feedback } from "@/data/haptics";
 import { useResource } from "@/data/resources";
 import { attendanceProgress, nextLessonIndex } from "@/data/prep-home";
 import {
@@ -15,6 +16,7 @@ import {
   canManageCalendar,
   dotTypesForDay,
   eventsByDate,
+  eventsForMonth,
   localDateKey,
   monthGrid,
   weekStrip,
@@ -35,7 +37,7 @@ export default function PrepCalendar() {
   // administrators also get exams, attendance progress and "new event".
   const canSee = adminLike || user?.role === "STUDENT" || user?.role === "MENTOR";
 
-  const [view, setView] = useState<ViewMode>("month");
+  const [view, setView] = useState<ViewMode>("week");
   const [cursor, setCursor] = useState(() => new Date());
   const today = localDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
@@ -61,16 +63,28 @@ export default function PrepCalendar() {
   const grid = monthGrid(monthStart);
   const week = weekStrip(cursor);
   const selectedEvents = (byDate.get(selectedDate) ?? []).slice().sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+  const agendaEvents = view === "month" ? eventsForMonth(events, cursor) : selectedEvents;
   const upcoming = events.filter((e) => e.date >= today);
 
   const goToday = () => {
+    if (selectedDate !== today || localDateKey(cursor) !== today) feedback("selection");
     setCursor(new Date());
     setSelectedDate(today);
   };
   const shiftMonth = (delta: number) => {
+    feedback("selection");
     const next = new Date(cursor);
-    next.setMonth(next.getMonth() + delta);
+    if (view === "week") next.setDate(next.getDate() + delta * 7);
+    else {
+      next.setDate(1);
+      next.setMonth(next.getMonth() + delta);
+    }
     setCursor(next);
+    setSelectedDate(localDateKey(next));
+  };
+  const selectDate = (key: string) => {
+    if (key !== selectedDate) feedback("selection");
+    setSelectedDate(key);
   };
   const openEvent = (event: CalendarEvent) => {
     const id = event.id.replace(/^(lesson|exam)-/, "");
@@ -148,8 +162,8 @@ export default function PrepCalendar() {
 
             <View style={[styles.row, { justifyContent: "space-between" }]}>
               <View style={[styles.row, { gap: 2 }]}>
-                <HeaderIconButton icon="chevron.left" label="Previous month" onPress={() => shiftMonth(-1)} />
-                <HeaderIconButton icon="chevron.right" label="Next month" onPress={() => shiftMonth(1)} />
+                <HeaderIconButton icon="chevron.left" label={view === "week" ? "Previous week" : "Previous month"} onPress={() => shiftMonth(-1)} />
+                <HeaderIconButton icon="chevron.right" label={view === "week" ? "Next week" : "Next month"} onPress={() => shiftMonth(1)} />
               </View>
               <View style={[styles.row, { gap: 8 }]}>
                 <Pressable accessibilityRole="button" onPress={goToday} style={({ pressed }) => [styles.pill, { backgroundColor: colors.hover, opacity: pressed ? 0.7 : 1 }]}>
@@ -200,7 +214,7 @@ export default function PrepCalendar() {
                         key={key}
                         accessibilityRole="button"
                         accessibilityLabel={`${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dots.length ? ", has events" : ""}`}
-                        onPress={() => setSelectedDate(key)}
+                        onPress={() => selectDate(key)}
                         style={{ width: `${100 / 7}%`, alignItems: "center", paddingVertical: 6, gap: 3 }}
                       >
                         <View
@@ -252,7 +266,7 @@ export default function PrepCalendar() {
                     <Pressable
                       key={key}
                       accessibilityRole="button"
-                      onPress={() => setSelectedDate(key)}
+                      onPress={() => selectDate(key)}
                       style={{
                         flexGrow: 1,
                         flexBasis: 0,
@@ -292,22 +306,25 @@ export default function PrepCalendar() {
             {view !== "list" && (
               <View style={{ gap: 10 }}>
                 <Copy style={{ fontSize: 17, fontWeight: "600" }}>
-                  {localDateKey(new Date(`${selectedDate}T00:00:00`)) === today
+                  {view === "month"
+                    ? monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+                    : localDateKey(new Date(`${selectedDate}T00:00:00`)) === today
                     ? "Today"
                     : new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </Copy>
-                {!selectedEvents.length && (
+                {!agendaEvents.length && (
                   <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 18 }}>
                     <Copy kind="caption">Nothing scheduled.</Copy>
                   </View>
                 )}
-                {!!selectedEvents.length && (
+                {!!agendaEvents.length && (
                   <ListSurface>
-                    {selectedEvents.map((event, index) => (
+                    {agendaEvents.map((event, index) => (
                       <EventRow
                         key={event.id}
                         event={event}
-                        divider={index < selectedEvents.length - 1}
+                        showDate={view === "month"}
+                        divider={index < agendaEvents.length - 1}
                         onPress={canOpenEvents ? () => openEvent(event) : undefined}
                         showResume={adminLike && !!upNext && event.id === `lesson-${upNext.id}`}
                         inProgress={inProgress}

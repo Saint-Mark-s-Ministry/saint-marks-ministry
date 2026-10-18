@@ -5,7 +5,8 @@
   "expo": {
     "install": {
       "exclude": [
-        "react"
+        "react",
+        "react-native-screens"
       ]
     }
   },
@@ -33,6 +34,8 @@
     "expo-glass-effect": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-image-picker": "~57.0.20",
+    "expo-keep-awake": "~57.0.2",
+    "expo-modules-core": "~57.0.21",
     "expo-linking": "~57.0.11",
     "expo-notifications": "~57.0.22",
     "expo-print": "~57.0.2",
@@ -45,7 +48,7 @@
     "react": "19.2.4",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "4.29.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.14",

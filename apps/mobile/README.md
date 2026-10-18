@@ -17,6 +17,11 @@ Android development and JavaScript bundle export are also configured.
   lessons, mentor/mentee views, enrollment and registration review, async student
   review, and annual mentor confirmation through Application. Async students
   without a cohort year are shown as “No cohort year”.
+- **Live exams:** native Exam Monitoring for Prep servants (read-only for
+  priests), original answer-sheet configuration, opening/closing, unlocking,
+  result release, retakes, and activity history; student Live Exam with
+  autosaving, encrypted pending drafts, interruption pauses, and final submission.
+  See [`../../docs/mobile-live-exams.md`](../../docs/mobile-live-exams.md).
 - **Shared:** sign-in and password changes, Contact Book with individually
   granted access and ministry roles, notifications, Super Admin main-class
   pinning, read-only View As, and password-confirmed account deletion.
@@ -63,7 +68,7 @@ LAN address and a server listening on that interface. Release builds require
 an explicitly configured HTTPS API origin.
 
 The EAS `beta` and `production` profiles use
-`https://servants-prep-app.vercel.app`. This is the public production web/API
+`https://www.stmarkministry.app`. This is the public production web/API
 origin; database credentials remain on the server and are never bundled into
 the app. The `beta` profile creates a directly installable internal build, while
 the `production` profile is reserved for App Store Connect/TestFlight.
@@ -78,8 +83,9 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
 - Uses `expo/fetch` with an explicit cookie jar, separate from Expo Go's shared
   cookie store. Requests stay on the configured origin and do not follow redirects.
 - Session cookies are stored with Expo SecureStore, scoped to the API origin.
-  Passwords and ministry records are not persisted on the device. Sign-out clears
-  local credentials even when the server cannot be reached.
+  Passwords are not persisted. Ministry records load from the server; pending
+  live-exam choices use the separate encrypted draft store described below.
+  Sign-out clears local credentials even when the server cannot be reached.
 - The existing API revalidates accounts and derives class permissions on the
   server. Priests can read attendance but cannot save it. Forced and voluntary
   password changes are completed in the native app.
@@ -97,10 +103,27 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   hidden during View As.
 - Privacy Policy and Terms are reachable on Sign in and public sign-up screens;
   Forgot password opens the existing web reset flow.
-- Draft attendance is memory-only and clears on sign-out/reload. There is no
-  offline write queue. A lost connection shows an error and retry action.
+- Draft attendance is memory-only and clears on sign-out/reload. Attendance has
+  no offline write queue. Live exams preserve pending answers and activity in
+  device-only encrypted storage; resuming after connection loss requires
+  proctor clearance before those answers can retry.
 - Glass is limited to navigation and selected controls. Content uses opaque
   surfaces; custom glass respects Reduce Transparency and falls back on Android.
+
+### Interaction feedback
+
+Haptics use one shared, best-effort policy. Custom answer choices, review stars,
+attendance marks and calendar selections use a soft tick. Existing action
+buttons retain light feedback; explicit save confirmations and failed actions
+use short system outcome patterns. Copy feedback follows a successful copy.
+Typing, score/answer autosaves, ordinary refreshes and restored state stay quiet.
+Native switches and segmented controls keep their system behavior.
+
+Feedback runs only while the app is active. A shared cooldown prevents duplicate
+pulses from nested controls and rapid taps, outcomes have an additional cooldown,
+and proctor warning pulses are spaced by at least eight seconds. Unsupported
+hardware and native failures never block an action. Device haptic settings and
+availability remain authoritative; physical devices are needed to assess feel.
 
 ## Verification
 
@@ -126,13 +149,21 @@ excluded for React only. Keep both apps aligned when upgrading dependencies.
 
 ### Search tab on iOS 27
 
-Search is a regular native tab. An earlier Bun patch to react-native-screens
-(`RNSTabBarController` rebuilt on `UITab` with `prominentTabIdentifier`) gave
-Search its own detached glass bubble on iOS 27, but it made touches stop
-reaching React on most tabs: the profile button, More rows and Search quick
-access did nothing, while Home worked. It was removed. react-native-screens
-4.29 migrates its tabs to `UITab` upstream; try that, with a tap test on every
-tab, before reintroducing any local patch.
+Search sits in a separate native glass bubble beside the four main tabs in both
+ministries. react-native-screens is pinned to 4.29.0 for its upstream UITab
+implementation. The Search triggers pass the native search role and
+`automaticallyActivatesSearch` through Expo Router’s `unstable_nativeProps`,
+which detaches the search tab on iOS 27 and activates its native search field.
+
+The previous custom UITab reconstruction is not used. A small version-pinned
+Bun patch preserves an admitted native selection across React mounting, until
+UIKit’s didSelectTab callback consumes it. Without this, a mount between the
+shouldSelectTab and didSelectTab callbacks drops the JS focus update and leaves
+newly selected content untappable until the tab is tapped a second time.
+Verify tab content,
+header profile/menu controls, More rows, and Search links after upgrades. The
+explicit react-native-screens version is excluded from Expo’s SDK version
+alignment; review compatibility when updating Expo or React Native.
 
 ### Typography
 
@@ -204,3 +235,12 @@ foreground and every minute while active. Server expiry restores the original
 account. Identity changes clear resource caches, remount portal state, and
 invalidate pending responses. Mobile also blocks unsafe data requests while
 viewing; the existing server read-only barrier remains authoritative.
+
+## Remote push temporarily disabled
+
+`extra.remotePushEnabled` is currently `false` in `app.json`. The app skips
+remote push permission/token registration, and the config plugin removes
+the iOS `aps-environment` entitlement so the existing signing profile can build
+the app. The in-app notification list and optional local proctor alert sounds
+remain available. To restore remote push later, set the flag to `true`, refresh
+the APNs-enabled signing profile, and rebuild the native app.

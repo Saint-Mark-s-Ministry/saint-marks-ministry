@@ -38,6 +38,7 @@ try {
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   try {
+    if (Constants.expoConfig?.extra?.remotePushEnabled === false) return null;
     if (!Device.isDevice) return null; // Push tokens don't exist on a Simulator.
 
     const existing = await Notifications.getPermissionsAsync();

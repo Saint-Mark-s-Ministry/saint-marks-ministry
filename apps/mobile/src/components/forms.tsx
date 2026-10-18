@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import { Button, Card, Copy, Icon, Screen } from "./ui";
 import { GlassChrome } from "./chrome";
 import { sansRegular, useAppTheme } from "@/theme";
+import { feedback } from "@/data/haptics";
 
 export const Field = forwardRef<TextInput, {
   label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean;
@@ -71,7 +72,10 @@ export function Choice({ label, value, options, onChange, disabled = false, comp
       title={label}
       actions={actions}
       style={{ alignSelf: compact ? "flex-start" : "stretch" }}
-      onPressAction={({ nativeEvent }) => onChange(nativeEvent.event)}
+      onPressAction={({ nativeEvent }) => {
+        if (nativeEvent.event !== value) feedback("selection");
+        onChange(nativeEvent.event);
+      }}
     >{trigger}</MenuView>}
   </View>;
 }
@@ -93,8 +97,8 @@ export function useAction() {
   const run = async (action: () => Promise<void>, success?: string) => {
     if (lock.current) return;
     lock.current = true; setBusy(true);
-    try { await action(); if (success) Alert.alert(success); }
-    catch (error) { Alert.alert("Unable to complete", error instanceof Error ? error.message : "Please try again."); }
+    try { await action(); if (success) { feedback("success"); Alert.alert(success); } }
+    catch (error) { feedback("error"); Alert.alert("Unable to complete", error instanceof Error ? error.message : "Please try again."); }
     finally { lock.current = false; setBusy(false); }
   };
   return { busy, run };

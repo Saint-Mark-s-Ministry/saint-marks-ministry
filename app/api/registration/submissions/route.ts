@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canViewRegistrations } from '@/lib/roles'
 import { Prisma, RegistrationStatus } from '@prisma/client'
+import { withRegistrationNameMatches } from '@/lib/registration-name-matches'
 
 /**
  * GET /api/registration/submissions
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({
-      submissions,
+      submissions: await withRegistrationNameMatches(submissions),
       pagination: {
         page,
         limit,

@@ -24,6 +24,8 @@ import { KeyValueList } from '@/components/ds/kv-list'
 import { canReviewServantApplications } from '@/lib/roles'
 import { compareServantApplicationPriority } from '@/lib/servant-applications'
 import { useServantApplications } from '@/lib/swr'
+import { RegistrationNameMatchWarning } from '@/components/registration-name-match-warning'
+import type { RegistrationNameMatch } from '@/lib/registration-name-matches'
 
 interface ServantApplication {
   id: string
@@ -36,6 +38,7 @@ interface ServantApplication {
   reviewer: { name: string } | null
   reviewNote: string | null
   reviewedAt: string | null
+  exactNameMatches?: RegistrationNameMatch[]
 }
 
 const STATUS_META: Record<RegistrationStatus, { label: string; tone: 'warn' | 'ok' | 'bad' }> = {
@@ -110,6 +113,9 @@ export default function ServantApplicationsPage() {
                 >
                   <PersonCell className="min-w-48 flex-1" name={a.fullName} meta={a.email} onClick={() => setSelectedId(a.id)} />
                   <span className="w-28 text-[13px] text-ink-2">{a.currentGrade || '—'}</span>
+                  {Boolean(a.exactNameMatches?.length) && (
+                    <StatusBadge tone="warn">Possible duplicate · exact name</StatusBadge>
+                  )}
                   <span className="w-28 text-[13px] text-ink-3">{fmt(a.createdAt)}</span>
                   <span className="w-24">
                     <StatusBadge tone={STATUS_META[a.status].tone}>{STATUS_META[a.status].label}</StatusBadge>
@@ -210,6 +216,7 @@ function ApplicationDetail({
       }
     >
       <div className="flex flex-col gap-3">
+        <RegistrationNameMatchWarning matches={application.exactNameMatches ?? []} applicationType="servant application" />
         <KeyValueList
           items={[
             { label: 'Name', value: application.fullName },

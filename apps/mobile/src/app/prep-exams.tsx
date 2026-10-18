@@ -62,6 +62,7 @@ export default function PrepExams() {
         {canView && (
           <>
             <Copy kind="caption">Create exams and enter scores</Copy>
+            <Button secondary label="Exam Monitoring" onPress={() => router.push("/prep-exam-monitoring")} />
 
             {offline && (
               <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>

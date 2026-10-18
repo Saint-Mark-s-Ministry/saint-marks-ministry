@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
-import * as Haptics from "expo-haptics";
+import { feedback } from "@/data/haptics";
 import * as SecureStore from "expo-secure-store";
 import { getTodayDateInputValue } from "@stmark/domain";
 import type { SundaySchoolServantAttendanceResponse } from "@stmark/contracts";
@@ -135,7 +135,7 @@ function ServantAttendanceScreen() {
   );
 
   function setMark(userId: string, status: ServantMarks[string]) {
-    void Haptics.selectionAsync().catch(() => undefined);
+    if (marks[userId] !== status) feedback("selection");
     setMarks((m) => ({ ...m, [userId]: status }));
   }
 

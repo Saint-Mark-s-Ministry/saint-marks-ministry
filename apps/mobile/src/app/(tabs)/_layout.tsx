@@ -78,6 +78,7 @@ function Tabs() {
       <NativeTabs.Trigger
         name="search"
         role="search"
+        unstable_nativeProps={{ ios: { role: "search", automaticallyActivatesSearch: true } }}
       >
         {Platform.OS === "android" && (
           <NativeTabs.Trigger.Icon md="search" />

@@ -1,7 +1,6 @@
 import { Platform, View } from "react-native";
+import type { AndroidSymbol, SFSymbol } from "expo-symbols";
 import { router, Stack, type Href } from "expo-router";
-import type { SFSymbol } from "sf-symbols-typescript";
-import type { AndroidSymbol } from "expo-symbols";
 import {
   CompactRow,
   Icon,
@@ -15,7 +14,7 @@ import { useAuth } from "@/data/auth-provider";
 import { canSeeContactBook } from "@/data/contact-book";
 import { useAppTheme } from "@/theme";
 
-type MinistryLink = { id: string; title: string; subtitle: string; href: Href };
+type MinistryLink = { id: string; title: string; subtitle: string; href: Href; icon: { ios: SFSymbol; android: AndroidSymbol } };
 
 /**
  * Grouped secondary destinations, mirroring the web's prepAdminNav groups
@@ -26,18 +25,20 @@ const READINGS_LINK: MinistryLink = {
   title: "Daily readings",
   subtitle: "Coptic date, lectionary and Synaxarium",
   href: "/readings",
+  icon: { ios: "text.book.closed.fill", android: "menu_book" },
 };
 
 const ADMIN_LINKS: MinistryLink[] = [
-  { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance" },
-  { id: "exams", title: "Exams", subtitle: "Scores and averages", href: "/prep-exams" },
-  { id: "curriculum", title: "Curriculum", subtitle: "Lessons by year", href: "/prep-curriculum" },
-  { id: "confession", title: "Confession", subtitle: "Periods and slips", href: "/prep-confession" },
-  { id: "roster", title: "Roster & async students", subtitle: "Enrollment and eligibility", href: "/prep-roster" },
-  { id: "async-students", title: "Async students", subtitle: "Review signed rotation forms", href: "/prep-async-students" },
-  { id: "registrations", title: "Registration review", subtitle: "Applicant queue", href: "/prep-registrations" },
-  { id: "activity", title: "Activity", subtitle: "Recent security history", href: "/prep-activity" },
-  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
+  { id: "attendance", title: "Attendance", subtitle: "Lesson attendance", href: "/prep-attendance", icon: { ios: "checkmark.circle", android: "check_circle" } },
+  { id: "exams", title: "Exams", subtitle: "Scores and averages", href: "/prep-exams", icon: { ios: "doc.text", android: "description" } },
+  { id: "exam-monitoring", title: "Exam Monitoring", subtitle: "Live progress, pauses, and exam controls", href: "/prep-exam-monitoring", icon: { ios: "waveform.path.ecg", android: "monitoring" } },
+  { id: "curriculum", title: "Curriculum", subtitle: "Lessons by year", href: "/prep-curriculum", icon: { ios: "book.closed", android: "menu_book" } },
+  { id: "confession", title: "Confession", subtitle: "Periods and slips", href: "/prep-confession", icon: { ios: "cross", android: "church" } },
+  { id: "roster", title: "Roster & async students", subtitle: "Enrollment and eligibility", href: "/prep-roster", icon: { ios: "person.3", android: "groups" } },
+  { id: "async-students", title: "Async students", subtitle: "Review signed rotation forms", href: "/prep-async-students", icon: { ios: "clock", android: "history" } },
+  { id: "registrations", title: "Registration review", subtitle: "Applicant queue", href: "/prep-registrations", icon: { ios: "person.badge.plus", android: "person_add" } },
+  { id: "activity", title: "Activity", subtitle: "Recent security history", href: "/prep-activity", icon: { ios: "waveform.path.ecg", android: "monitoring" } },
+  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files", icon: { ios: "folder", android: "folder" } },
 ];
 
 const CONTACT_BOOK_LINK: MinistryLink = {
@@ -45,44 +46,30 @@ const CONTACT_BOOK_LINK: MinistryLink = {
   title: "Contact Book",
   subtitle: "Find app users and contact them",
   href: "/contact-book",
+  icon: { ios: "book.closed.fill", android: "contacts" },
 };
 
 const SHARED_LINKS: MinistryLink[] = [
-  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
+  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files", icon: { ios: "folder", android: "folder" } },
+];
+
+const STUDENT_LINKS: MinistryLink[] = [
+  { id: "live-exams", title: "Live Exam", subtitle: "Your proctored original exam", href: "/prep-live-exams", icon: { ios: "checklist", android: "fact_check" } },
+  ...SHARED_LINKS,
 ];
 
 /** The mentor's own reduced destination set — matches the design source's 3-tab Dashboard/Mentees/Files bar, reached here rather than a role-conditional native tab bar (a bigger structural change out of this ticket's scope). */
 const MENTOR_LINKS: MinistryLink[] = [
-  { id: "mentor-dashboard", title: "Dashboard", subtitle: "Your mentees at a glance", href: "/prep-mentor-dashboard" },
-  { id: "mentees", title: "My mentees", subtitle: "Progress and notes", href: "/prep-mentees" },
-  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
+  { id: "mentor-dashboard", title: "Dashboard", subtitle: "Your mentees at a glance", href: "/prep-mentor-dashboard", icon: { ios: "house", android: "home" } },
+  { id: "mentees", title: "My mentees", subtitle: "Progress and notes", href: "/prep-mentees", icon: { ios: "person.2", android: "group" } },
+  { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files", icon: { ios: "folder", android: "folder" } },
 ];
-
-/** One glyph per destination (the SS More list does the same), not a single generic one. */
-function linkIcon(id: string): { ios: SFSymbol; android: AndroidSymbol } {
-  switch (id) {
-    case "readings": return { ios: "text.book.closed.fill", android: "menu_book" };
-    case "attendance": return { ios: "checkmark.circle", android: "check_circle" };
-    case "exams": return { ios: "doc.text", android: "description" };
-    case "curriculum": return { ios: "list.bullet.rectangle", android: "list_alt" };
-    case "confession": return { ios: "heart.text.square", android: "volunteer_activism" };
-    case "roster": return { ios: "person.3.fill", android: "diversity_3" };
-    case "async-students": return { ios: "tray.full", android: "inbox" };
-    case "registrations": return { ios: "person.badge.plus", android: "person_add" };
-    case "activity": return { ios: "clock", android: "history" };
-    case "files": return { ios: "folder.fill", android: "folder" };
-    case "contact-book": return { ios: "book.closed.fill", android: "contacts" };
-    case "mentor-dashboard": return { ios: "chart.bar.fill", android: "bar_chart" };
-    case "mentees": return { ios: "person.2.fill", android: "groups" };
-    default: return { ios: "square.grid.2x2", android: "dashboard" };
-  }
-}
 
 export default function PrepMinistry() {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const isAdminLike = !user || ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"].includes(user.role);
-  const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : SHARED_LINKS;
+  const baseLinks = isAdminLike ? ADMIN_LINKS : user?.role === "MENTOR" ? MENTOR_LINKS : user?.role === "STUDENT" ? STUDENT_LINKS : SHARED_LINKS;
   // Menu visibility only; the screen and API re-check access themselves.
   const links = [READINGS_LINK, ...baseLinks, ...(canSeeContactBook(user) ? [CONTACT_BOOK_LINK] : [])];
   return (
@@ -116,7 +103,7 @@ export default function PrepMinistry() {
                       backgroundColor: colors.primarySoft,
                     }}
                   >
-                    <Icon {...linkIcon(link.id)} size={18} />
+                    <Icon {...link.icon} size={18} />
                   </View>
                 }
                 onPress={() => router.push(link.href)}

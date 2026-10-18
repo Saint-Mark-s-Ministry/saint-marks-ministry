@@ -41,7 +41,7 @@ export function atRiskTone(value: number | null, kind: "attendance" | "exam"): T
 
 export type LessonForSchedule = { status: string; scheduledDate: string };
 
-/** The index of the next non-completed lesson at or after `today` (YYYY-MM-DD), or -1. */
+/** The index of the next scheduled lesson at or after `today` (YYYY-MM-DD), or -1. */
 export function nextLessonIndex(lessons: LessonForSchedule[], today: string): number {
-  return lessons.findIndex((lesson) => lesson.status !== "COMPLETED" && lesson.scheduledDate.slice(0, 10) >= today);
+  return lessons.findIndex((lesson) => lesson.status === "SCHEDULED" && lesson.scheduledDate.slice(0, 10) >= today);
 }

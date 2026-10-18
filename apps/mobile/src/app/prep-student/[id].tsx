@@ -1,3 +1,4 @@
+import { formatPercent } from "@/data/format-percent";
 import { Linking, Pressable, View } from "react-native";
 import { yearLevelLabel } from "@/data/year-level";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -207,13 +208,13 @@ function StatCard({ label, value, sublabel }: { label: string; value: number | n
     <View
       style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 22, padding: 14, gap: 8 }}
       accessible
-      accessibilityLabel={`${label}: ${(value !== null && value !== undefined) ? `${value}%` : "no data"}, ${sublabel}`}
+      accessibilityLabel={`${label}: ${(value !== null && value !== undefined) ? formatPercent(value) : "no data"}, ${sublabel}`}
     >
       <Copy kind="caption" style={{ fontWeight: "500" }}>
         {label}
       </Copy>
       <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "600" }} color={tone}>
-        {(value !== null && value !== undefined) ? `${value}%` : "—"}
+        {(value !== null && value !== undefined) ? formatPercent(value) : "—"}
       </Copy>
       {(value !== null && value !== undefined) && (
         <View style={{ height: 5, borderRadius: 2.5, backgroundColor: colors.border, overflow: "hidden" }}>
@@ -269,7 +270,7 @@ function ActivityRow({ entry, divider }: { entry: RecentActivity; divider: boole
         ? colors.warningSoft
         : colors.dangerSoft;
   const title = isAttendance ? `Lesson ${entry.lessonNumber}` : entry.sectionName;
-  const badgeLabel = isAttendance ? ATTENDANCE_LABEL[entry.status] ?? entry.status : `${entry.percentage}%`;
+  const badgeLabel = isAttendance ? ATTENDANCE_LABEL[entry.status] ?? entry.status : formatPercent(entry.percentage);
 
   return (
     <View

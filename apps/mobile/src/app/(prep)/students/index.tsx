@@ -1,3 +1,4 @@
+import { formatPercent } from "@/data/format-percent";
 import { useState } from "react";
 import { yearLevelLabel } from "@/data/year-level";
 import { Platform, View } from "react-native";
@@ -141,7 +142,7 @@ function PrepStudents() {
                   subtitle={
                     (s.attendancePercentage === null || s.attendancePercentage === undefined) && (s.examAverage === null || s.examAverage === undefined)
                       ? `${yearLabel(s.yearLevel)} · no scores yet`
-                      : `Att ${s.attendancePercentage ?? "—"}% · Exam ${s.examAverage ?? "—"}%`
+                      : `Att ${formatPercent(s.attendancePercentage)} · Exam ${formatPercent(s.examAverage)}`
                   }
                   icon={<InitialsAvatar name={s.studentName} size={38} />}
                   trailing={

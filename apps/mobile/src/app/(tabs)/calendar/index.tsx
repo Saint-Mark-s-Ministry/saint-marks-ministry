@@ -7,6 +7,7 @@ import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { CalendarEventRow, DayDots } from "@/components/calendar-parts";
 import { useAppTheme } from "@/theme";
+import { feedback } from "@/data/haptics";
 import {
   addDays,
   addMonths,
@@ -32,7 +33,7 @@ type Mode = (typeof MODES)[number];
 export default function Calendar() {
   const { colors } = useAppTheme();
   const today = todayKey();
-  const [mode, setMode] = useState<Mode>("month");
+  const [mode, setMode] = useState<Mode>("week");
   const [selected, setSelected] = useState<DateKey>(today);
   const [visibleMonth, setVisibleMonth] = useState<DateKey>(startOfMonth(today));
 
@@ -49,14 +50,16 @@ export default function Calendar() {
       openDay(day);
       return;
     }
-    setSelected(day);
+    feedback("selection"); setSelected(day);
     if (!sameMonth(day, visibleMonth)) setVisibleMonth(startOfMonth(day));
   };
   const goToday = () => {
+    if (selected !== today || !sameMonth(visibleMonth, today)) feedback("selection");
     setSelected(today);
     setVisibleMonth(startOfMonth(today));
   };
   const shift = (direction: -1 | 1) => {
+    feedback("selection");
     if (mode === "week") {
       const next = addDays(selected, direction * 7);
       setSelected(next);
@@ -178,14 +181,7 @@ export default function Calendar() {
         )}
 
         {mode === "month" && (
-          <DayAgenda
-            day={selected}
-            today={today}
-            events={eventsOn(selected)}
-            copticLabel={liturgical[selected]?.copticDate?.label}
-            fast={liturgical[selected]?.fast?.name}
-            onOpenDay={() => openDay(selected)}
-          />
+          <ListMode days={listDays} today={today} eventsOn={eventsOn} loading={loading} onOpenDay={openDay} />
         )}
 
         {mode === "week" &&

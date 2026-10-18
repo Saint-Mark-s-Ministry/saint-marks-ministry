@@ -2,7 +2,7 @@ import type { PropsWithChildren } from "react";
 import { Image, Platform, Pressable, View } from "react-native";
 import { MenuView } from "@expo/ui/community/menu";
 import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { feedback } from "@/data/haptics";
 import { Copy, Icon } from "./ui";
 import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
@@ -15,7 +15,7 @@ const MINISTRY_LOGOS = {
 };
 
 function go(current: Ministry) {
-  void Haptics.selectionAsync().catch(() => undefined);
+  feedback("selection");
   router.push({ pathname: "/switch-ministry", params: { current } });
 }
 
@@ -39,7 +39,7 @@ function MinistryMenu({ current, children }: PropsWithChildren<{ current: Minist
       onPressAction={({ nativeEvent }) => {
         const selected = options.find((option) => option.id === nativeEvent.event);
         if (!selected || selected.id === current) return;
-        void Haptics.selectionAsync().catch(() => undefined);
+        feedback("selection");
         router.replace(selected.id === "prep" ? "/(prep)/home" : "/(tabs)/home");
       }}
     >

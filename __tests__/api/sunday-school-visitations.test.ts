@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
+  context: vi.fn(),
+  principal: vi.fn(),
+  updateChildren: vi.fn(),
   findChild: vi.fn(),
   createVisitation: vi.fn(),
   createPriestNote: vi.fn(),
@@ -13,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
-vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: vi.fn() }))
+vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: mocks.context }))
 vi.mock('@/lib/sunday-school-access', () => ({
   getSundaySchoolAccess: mocks.getSundaySchoolAccess,
   canServeClass: mocks.canServeClass,
@@ -25,12 +28,13 @@ vi.mock('@/lib/notifications', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    sundaySchoolChild: { findUnique: mocks.findChild },
+    user: { findUnique: mocks.principal },
+    sundaySchoolChild: { findUnique: mocks.findChild, updateMany: mocks.updateChildren },
     $transaction: mocks.transaction,
   },
 }))
 
-import { POST } from '@/app/api/sunday-school/visitations/route'
+import { PATCH, POST } from '@/app/api/sunday-school/visitations/route'
 
 describe('Sunday School visitations API', () => {
   beforeEach(() => {
@@ -130,5 +134,57 @@ describe('Sunday School visitations API', () => {
     expect(response.status).toBe(400)
     expect(mocks.findChild).not.toHaveBeenCalled()
     expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('shared priority visits', () => {
+  const request = (body: unknown) => new Request('http://localhost/api/sunday-school/visitations', {
+    method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
+  })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
+    mocks.context.mockResolvedValue({ disabled: false, readOnly: false })
+    mocks.principal.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
+    mocks.getSundaySchoolAccess.mockResolvedValue({})
+    mocks.canServeClass.mockReturnValue(true)
+    mocks.findChild.mockResolvedValue({ id: 'child-1', classId: 'class-1', isActive: true })
+    mocks.updateChildren.mockResolvedValue({ count: 1 })
+  })
+  it('sets and clears priority without creating visit or phone call history', async () => {
+    for (const priority of [true, false]) {
+      const res = await PATCH(request({ childId: 'child-1', priority }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ id: 'child-1', visitationPriority: priority })
+      expect(mocks.updateChildren).toHaveBeenLastCalledWith({
+        where: { id: 'child-1', classId: 'class-1', isActive: true, class: { isActive: true, academicYear: { isActive: true } } },
+        data: { visitationPriority: priority },
+      })
+    }
+    expect(mocks.createVisitation).not.toHaveBeenCalled()
+  })
+  it('denies priests and disabled accounts before reading the child', async () => {
+    for (const context of [{ readOnly: true }, { disabled: true }]) {
+      mocks.context.mockResolvedValue(context)
+      expect((await PATCH(request({ childId: 'child-1', priority: true }))).status).toBe(403)
+    }
+    expect(mocks.findChild).not.toHaveBeenCalled()
+  })
+  it('denies unassigned users and inactive or unassigned children', async () => {
+    mocks.canServeClass.mockReturnValue(false)
+    expect((await PATCH(request({ childId: 'child-1', priority: true }))).status).toBe(403)
+    mocks.canServeClass.mockReturnValue(true)
+    for (const child of [{ id: 'child-1', classId: null, isActive: true }, { id: 'child-1', classId: 'class-1', isActive: false }]) {
+      mocks.findChild.mockResolvedValue(child)
+      expect((await PATCH(request({ childId: 'child-1', priority: true }))).status).toBe(403)
+    }
+    expect(mocks.updateChildren).not.toHaveBeenCalled()
+  })
+  it('validates booleans and reports concurrent roster changes', async () => {
+    expect((await PATCH(request({ childId: 'child-1', priority: 'true' }))).status).toBe(400)
+    expect((await PATCH(request(null))).status).toBe(400)
+    mocks.updateChildren.mockResolvedValue({ count: 0 })
+    expect((await PATCH(request({ childId: 'child-1', priority: true }))).status).toBe(409)
   })
 })

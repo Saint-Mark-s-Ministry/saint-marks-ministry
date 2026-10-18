@@ -148,6 +148,37 @@ async function createNotification({
   return notification
 }
 
+/** A stable ID makes cron retries and overlapping runs safe. Await push in cron jobs. */
+export async function notifySundaySchoolLessonReminder({
+  lessonId, userId, lessonDate, className, lessonTitle,
+}: {
+  lessonId: string
+  userId: string
+  lessonDate: string
+  className: string
+  lessonTitle: string | null
+}): Promise<boolean> {
+  const id = `ss-lesson-reminder:${lessonId}:${userId}`
+  const title = 'Sunday School teaching reminder'
+  const body = `You are teaching ${className} on ${lessonDate}${lessonTitle ? `: "${lessonTitle}"` : ''}. Please review your lesson and resources.`
+  const url = '/dashboard/servants/lessons'
+  const result = await prisma.notification.createMany({
+    data: [{
+      id, userId, type: NotificationType.ANNOUNCEMENT, title, body, url,
+      metadata: { kind: 'sunday-school-lesson-reminder', lessonId, lessonDate },
+    }],
+    skipDuplicates: true,
+  })
+  if (result.count === 0) return false
+
+  await sendPushToUser(userId, {
+    title, body, url, tag: id, notificationId: id,
+  }).catch(() => {
+    // The in-app reminder remains available if push delivery fails.
+  })
+  return true
+}
+
 /**
  * Create notifications for multiple users
  */
@@ -763,36 +794,6 @@ export async function notifyPriestNoteCreated({
     body: 'A confidential Sunday School visitation note is ready for review.',
     url: '/dashboard/servants/visitations',
     metadata: { noteId, visitationId, childId },
-  })
-}
-
-/**
- * Notify a servant one week before they're due to teach a Sunday School
- * weekly lesson. Called by the daily cron (app/api/cron/sunday-school-
- * lesson-reminders), never from the single-lesson or scheduler assignment
- * routes directly — assigning a date far in advance should not itself
- * trigger a reminder the servant can't act on yet.
- */
-export async function notifySundaySchoolLessonReminder({
-  ownerId,
-  className,
-  sundayDate,
-  lessonTitle,
-}: {
-  ownerId: string
-  className: string
-  sundayDate: string
-  lessonTitle: string | null
-}) {
-  await createNotifications({
-    userIds: [ownerId],
-    type: NotificationType.SUNDAY_SCHOOL_LESSON_REMINDER,
-    title: "You're teaching next week",
-    body: lessonTitle
-      ? `${className} on ${sundayDate} — "${lessonTitle}"`
-      : `${className} on ${sundayDate}`,
-    url: '/dashboard/servants/lessons',
-    metadata: { className, sundayDate, lessonTitle },
   })
 }
 

@@ -23,7 +23,7 @@ import {
 import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
+import { feedback } from "@/data/haptics";
 import { initialsFor } from "@/data/initials";
 import { serifDisplay, useAppTheme, sansFamilyForWeight, sansSemibold } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
@@ -224,6 +224,7 @@ export function CopyableValue({
   };
   const copy = async () => {
     await Clipboard.setStringAsync(value);
+    feedback("selection");
     if (resetTimer.current) clearTimeout(resetTimer.current);
     transition(true);
     resetTimer.current = setTimeout(() => transition(false), 1100);
@@ -329,9 +330,8 @@ export function Button({
       testID={testID}
       glass={glass}
       onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-          () => undefined,
-        );
+        if (disabled) return;
+        feedback("action");
         onPress();
       }}
     />
@@ -504,7 +504,7 @@ export function CompactRow({
     <Pressable
       accessibilityRole="button"
       onPress={() => {
-        void Haptics.selectionAsync().catch(() => undefined);
+        feedback("selection");
         onPress();
       }}
       style={({ pressed }) => [
@@ -574,7 +574,7 @@ export function CircleIconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        feedback("action");
         onPress();
       }}
       style={({ pressed }) => ({

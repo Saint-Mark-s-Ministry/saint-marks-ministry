@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import type { SundaySchoolFeedbackResponse, SundaySchoolFeedbackStatus } from "@stmark/contracts";
-import { Button, Copy, ListSurface, Screen, StatusPill } from "@/components/ui";
+import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
+import { FeedbackStatus } from "@/components/feedback-status";
 import { Choice, Field, ResourceState, confirmAction, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
@@ -16,7 +17,7 @@ import {
   validateFeedbackResponseDraft,
 } from "@/data/sunday-school-feedback";
 import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
-import { MinistryTintProvider, serifHero, useAppTheme } from "@/theme";
+import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const STATUSES: SundaySchoolFeedbackStatus[] = ["OPEN", "PLANNED", "IN_PROGRESS", "COMPLETED", "DECLINED"];
 const VOTE_OPTIONS: { value: string; label: string }[] = [
@@ -174,14 +175,25 @@ function FeedbackDetailScreen() {
     <>
       <Stack.Screen options={{ title: "Feedback details" }} />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
-        <View style={{ gap: 6 }}>
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            <StatusPill label={typeLabel(idea.type)} color={idea.type === "PROBLEM" ? colors.danger : colors.info} soft={idea.type === "PROBLEM" ? colors.dangerSoft : colors.infoSoft} />
-            <StatusPill label={statusLabel(idea.status)} color={colors.text2} soft={colors.hover} />
+        <ListSurface style={{ padding: 20, borderRadius: 18, gap: 16 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <Copy kind="caption">{typeLabel(idea.type)}</Copy>
+            <FeedbackStatus status={idea.status} />
           </View>
-          <Copy style={serifHero}>{idea.title}</Copy>
-          <Copy kind="caption">{submittedLabel(idea)} · {idea.score} net votes</Copy>
-        </View>
+          <Copy kind="heading" style={{ fontSize: 24, lineHeight: 30 }}>{idea.title}</Copy>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <InitialsAvatar name={idea.submitter?.name} size={28} variant="neutral" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Copy kind="caption">{submittedLabel(idea)}</Copy>
+              <Copy kind="caption">{idea.score} net votes</Copy>
+            </View>
+          </View>
+          {idea.description && (
+            <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 16 }}>
+              <Copy color={colors.text2}>{idea.description}</Copy>
+            </View>
+          )}
+        </ListSurface>
 
         {resolved && (
           <View style={{ padding: 12, borderRadius: 16, backgroundColor: colors.hover }}>
@@ -189,11 +201,12 @@ function FeedbackDetailScreen() {
           </View>
         )}
 
-        {idea.description && <Copy>{idea.description}</Copy>}
-
         {idea.teamResponse && (
-          <ListSurface style={{ padding: 14, gap: 4 }}>
-            <Copy style={{ fontWeight: "600" }}>{DEVELOPMENT_TEAM_LABEL}</Copy>
+          <ListSurface style={{ padding: 18, borderRadius: 16, gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Icon ios="bubble.left" android="chat_bubble_outline" size={16} />
+              <Copy style={{ fontWeight: "600", fontSize: 14 }} color={colors.primary}>{DEVELOPMENT_TEAM_LABEL}</Copy>
+            </View>
             <Copy>{idea.teamResponse}</Copy>
           </ListSurface>
         )}
