@@ -12,7 +12,7 @@ import { usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
 import { apiOrigin } from "@/data/auth-provider";
-import { resolveNotificationRoute } from "@/data/notification-routes";
+import { lessonReminderLessonId, resolveNotificationRoute } from "@/data/notification-routes";
 import { openNotificationRoute } from "@/data/notification-navigation";
 
 export default function Notifications() {
@@ -75,7 +75,7 @@ export default function Notifications() {
             <RowLink
               title={item.title}
               subtitle={item.body}
-              icon={<Icon ios="bell" android="notifications" />}
+              icon={lessonReminderLessonId(item.metadata) ? <Icon ios="book.closed" android="menu_book" /> : <Icon ios="bell" android="notifications" />}
               trailing={
                 !item.isRead ? (
                   <View
@@ -90,7 +90,7 @@ export default function Notifications() {
                 ) : undefined
               }
               onPress={() => {
-                const route = resolveNotificationRoute({ url: item.url, type: item.type });
+                const route = resolveNotificationRoute({ url: item.url, type: item.type, metadata: item.metadata });
                 if (item.isPersistent) {
                   // Persistent ones can't be marked read; they clear when the
                   // action is done. Open it in the app when we can.
@@ -117,10 +117,12 @@ export default function Notifications() {
             <Copy kind="caption">
               {item.isPersistent
                 ? "Action required · Tap to continue"
-                : resolveNotificationRoute({ url: item.url, type: item.type })
-                  ? item.isRead
-                    ? "Tap to open"
-                    : "Tap to open and mark as read"
+                : resolveNotificationRoute({ url: item.url, type: item.type, metadata: item.metadata })
+                  ? lessonReminderLessonId(item.metadata)
+                    ? "Tap to open the lesson"
+                    : item.isRead
+                      ? "Tap to open"
+                      : "Tap to open and mark as read"
                   : item.isRead
                     ? "Read"
                     : "Tap to mark as read"}

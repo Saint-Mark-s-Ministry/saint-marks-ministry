@@ -17,6 +17,7 @@ import { ActivityIndicator } from "react-native";
 import LaunchScreen from "@/components/launch-screen";
 import { useNavigationHeaderOptions } from "@/components/chrome";
 import { AttendanceAccessory } from "@/components/attendance-accessory";
+import { usePushNotificationRegistration } from "@/data/push-notifications";
 
 export { ErrorBoundary } from "expo-router";
 export const unstable_settings = { initialRouteName: "(tabs)" };
@@ -184,6 +185,13 @@ export default function RootLayout() {
 function AuthenticatedApp() {
   const { user, loading, viewingAs, switchingIdentity } = useAuth();
   const { colors } = useAppTheme();
+  // Register this device for native push (and handle taps on a push) for the
+  // person who is actually signed in. While an administrator is viewing as
+  // someone else the device stays bound to the administrator: the viewed
+  // person's pushes must never be redirected to this phone.
+  usePushNotificationRegistration(
+    viewingAs?.originalId ?? (user && !user.mustChangePassword ? user.id : undefined),
+  );
   const [fontsLoaded] = useFonts({
     Newsreader_500Medium,
     Geist_400Regular,

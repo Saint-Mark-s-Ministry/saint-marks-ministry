@@ -204,6 +204,17 @@ A notification's web link and type are mapped to a native route in
 Tapping one in the list, or a push, opens that screen; only a link with no
 native counterpart falls back to the browser.
 
+**Tuesday teaching reminders** (server: `lib/sunday-school-lesson-reminders.ts`)
+arrive as an `ANNOUNCEMENT` whose `metadata` is `{ kind: "sunday-school-lesson-reminder",
+lessonId }`; the same two fields ride in the native push `data`. The app opens
+`/lesson/<lessonId>` (falling back to the lessons list if the id is unusable). The
+feed is the source of truth: it is re-read when a push arrives and when the app
+resumes, so a reminder is there with push denied, undelivered, or retried, and a
+repeat of the same reminder id is one row. `usePushNotificationRegistration`
+(called from the root layout, bound to the signed-in person and never to a
+viewed-as account) registers the device and handles taps, including a push that
+launched the app.
+
 ## Repository boundaries and remaining scope
 
 - `apps/mobile`: native UI and API transport.
@@ -242,5 +253,6 @@ viewing; the existing server read-only barrier remains authoritative.
 remote push permission/token registration, and the config plugin removes
 the iOS `aps-environment` entitlement so the existing signing profile can build
 the app. The in-app notification list and optional local proctor alert sounds
-remain available. To restore remote push later, set the flag to `true`, refresh
+remain available, and so do teaching reminders (they are in the feed regardless
+of push). To restore remote push later, set the flag to `true`, refresh
 the APNs-enabled signing profile, and rebuild the native app.

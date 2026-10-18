@@ -16,7 +16,7 @@ import * as Notifications from "expo-notifications";
 import { Linking } from "react-native";
 import { request } from "./resources";
 import { apiOrigin } from "./auth-provider";
-import { resolveNotificationRoute } from "./notification-routes";
+import { resolveNotificationRoute, targetFromPushData, type NotificationTarget } from "./notification-routes";
 import { openNotificationRoute } from "./notification-navigation";
 
 try {
@@ -39,14 +39,17 @@ try {
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   try {
     if (Constants.expoConfig?.extra?.remotePushEnabled === false) return null;
-    if (!Device.isDevice) return null; // Push tokens don't exist on a Simulator.
 
+    // Ask first (a Simulator can show and answer the prompt too), so a denial
+    // is a normal, testable state. Teaching reminders and everything else
+    // still arrive in the in-app feed either way.
     const existing = await Notifications.getPermissionsAsync();
     let status = existing.status;
     if (status !== "granted") {
       status = (await Notifications.requestPermissionsAsync()).status;
     }
     if (status !== "granted") return null;
+    if (!Device.isDevice) return null; // Push tokens don't exist on a Simulator.
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) return null;
@@ -65,15 +68,36 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
  * Opens a notification's target the same way the in-app history list does:
  * in the app when there is a native screen for it, the website otherwise.
  */
-function openNotificationTarget(data?: { url?: string | null; type?: string | null }) {
-  const route = resolveNotificationRoute({ url: data?.url, type: data?.type });
+function openNotificationTarget(target: NotificationTarget) {
+  const route = resolveNotificationRoute(target);
   if (route) {
     openNotificationRoute(route);
     return;
   }
-  const url = data?.url;
+  const url = target.url;
   if (!url || !apiOrigin) return;
   void Linking.openURL(new URL(url, `${apiOrigin}/`).toString()).catch(() => {});
+}
+
+// Responses already acted on this process, so a stale "last response" is never replayed.
+const handledResponses = new Set<string>();
+
+/**
+ * A push tapped while the app was not running launches it, and the live
+ * listener below is not around yet to see that tap. Pick it up once the
+ * navigator has had a moment to mount.
+ */
+async function openLaunchNotification() {
+  try {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    if (!response) return;
+    const id = response.notification.request.identifier;
+    if (handledResponses.has(id)) return;
+    handledResponses.add(id);
+    openNotificationTarget(targetFromPushData(response.notification.request.content.data));
+  } catch {
+    // No native module or nothing pending: nothing to open.
+  }
 }
 
 /** Call once, while signed in, from the top-level authenticated layout. */
@@ -94,6 +118,7 @@ export function usePushNotificationRegistration(userId: string | undefined) {
     }
     if (registeredFor.current === userId) return;
     registeredFor.current = userId;
+    const launchTimer = setTimeout(() => void openLaunchNotification(), 800);
     void registerForPushNotificationsAsync().then((token) => {
       if (!token) return;
       registeredToken.current = token;
@@ -104,16 +129,15 @@ export function usePushNotificationRegistration(userId: string | undefined) {
         // Best-effort: a servant without notifications still uses everything else.
       });
     });
+    return () => clearTimeout(launchTimer);
   }, [userId]);
 
   useEffect(() => {
     try {
       const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        // The server sends the notification type as `tag` on push payloads.
-        const data = response.notification.request.content.data as
-          | { url?: string | null; type?: string | null; tag?: string | null }
-          | undefined;
-        openNotificationTarget({ url: data?.url, type: data?.type ?? data?.tag });
+        // The payload carries the web link, a type or stable id as `tag`, and
+        // for a teaching reminder its `kind` and `lessonId`.
+        openNotificationTarget(targetFromPushData(response.notification.request.content.data));
       });
       return () => subscription.remove();
     } catch {

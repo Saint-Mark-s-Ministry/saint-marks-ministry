@@ -1,3 +1,5 @@
+import { AppState } from "react-native";
+import * as Notifications from "expo-notifications";
 import {
   createContext,
   useCallback,
@@ -36,6 +38,8 @@ export type PortalNotification = {
   url?: string | null;
   type?: string | null;
   createdAt?: string;
+  /** Extra fields the server attached (a teaching reminder's `kind` and `lessonId`). */
+  metadata?: Record<string, unknown> | null;
 };
 type AttendanceSummary = { marks: AttendanceMarks; savedAt: string | null };
 export const attendanceKey = (classId: string, date: string) =>
@@ -59,6 +63,8 @@ type PortalState = {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  /** Re-reads just the notification feed (cheap; used when a push arrives or the app resumes). */
+  refreshNotifications: () => Promise<void>;
   attendance: Record<string, AttendanceSummary>;
   drafts: Record<string, AttendanceMarks>;
   setDraft: (classId: string, date: string, marks: AttendanceMarks) => void;
@@ -167,6 +173,36 @@ export function PortalProvider({ children }: PropsWithChildren) {
       if (id === refreshId.current) setLoading(false);
     }
   }, []);
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const data = await request<{ notifications: PortalNotification[]; unreadCount: number }>("/api/notifications");
+      // Replaced by id, never appended, so a reminder seen twice (push and
+      // refresh, or a retry) is still one row.
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+    } catch {
+      // Keep what is showing; the full refresh is what reports problems.
+    }
+  }, []);
+  // A reminder is a server record, so the feed is the source of truth: reread
+  // it when a push arrives while the app is open and whenever the app comes
+  // back to the foreground. That works whether or not push permission was
+  // granted or the push itself was delivered.
+  useEffect(() => {
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshNotifications();
+    });
+    let received: { remove: () => void } | undefined;
+    try {
+      received = Notifications.addNotificationReceivedListener(() => void refreshNotifications());
+    } catch {
+      // No native notifications module in this binary: the AppState path still works.
+    }
+    return () => {
+      appState.remove();
+      received?.remove();
+    };
+  }, [refreshNotifications]);
   useEffect(() => {
     const sequence = refreshId;
     void refresh();
@@ -292,6 +328,7 @@ export function PortalProvider({ children }: PropsWithChildren) {
         loading,
         error,
         refresh,
+        refreshNotifications,
         attendance,
         drafts,
         loadAttendance,

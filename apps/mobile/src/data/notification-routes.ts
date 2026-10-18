@@ -11,6 +11,34 @@
 export interface NotificationTarget {
   url?: string | null;
   type?: string | null;
+  /** The notification's `metadata` (feed) or the extra fields of a push payload. */
+  metadata?: unknown;
+}
+
+/** `metadata.kind` the server sets on a Tuesday teaching reminder (lib/notifications.ts). */
+export const LESSON_REMINDER_KIND = "sunday-school-lesson-reminder";
+
+/**
+ * The lesson a teaching reminder is about, or `null` for any other
+ * notification. The id ends up inside a route path, so only plain id
+ * characters are accepted (nothing like `../prep-files`).
+ */
+export function lessonReminderLessonId(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const { kind, lessonId } = metadata as Record<string, unknown>;
+  if (kind !== LESSON_REMINDER_KIND) return null;
+  return typeof lessonId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(lessonId) ? lessonId : null;
+}
+
+/**
+ * What a tapped push carries, as a routing target. The server sends the
+ * notification type (or a stable id) as `tag`, plus any extra fields such as a
+ * reminder's `kind` and `lessonId`.
+ */
+export function targetFromPushData(data: unknown): NotificationTarget {
+  const fields = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : null);
+  return { url: text(fields.url), type: text(fields.type) ?? text(fields.tag), metadata: fields };
 }
 
 type Builder = (id?: string) => string;
@@ -117,6 +145,9 @@ function pathSegments(url: string): string[] {
 
 /** The native route for a notification, or `null` if there is nothing to open. */
 export function resolveNotificationRoute(target: NotificationTarget): string | null {
+  // A teaching reminder opens the exact lesson, not the lessons list.
+  const reminderLesson = lessonReminderLessonId(target.metadata);
+  if (reminderLesson) return `/lesson/${reminderLesson}`;
   const url = target.url?.trim();
   if (url) {
     const segments = pathSegments(url);

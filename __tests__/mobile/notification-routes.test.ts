@@ -2,10 +2,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  LESSON_REMINDER_KIND,
   TYPE_TO_NATIVE,
   WEB_TO_NATIVE,
   isTabRoot,
+  lessonReminderLessonId,
   resolveNotificationRoute,
+  targetFromPushData,
 } from "../../apps/mobile/src/data/notification-routes";
 
 const APP = join(__dirname, "../../apps/mobile/src/app");
@@ -78,5 +81,53 @@ describe("notification -> native route", () => {
     for (const route of Object.values(TYPE_TO_NATIVE)) if (route) routes.add(route);
     const missing = [...routes].filter((route) => !routeFileExists(route));
     expect(missing).toEqual([]);
+  });
+
+  describe("Tuesday teaching reminders", () => {
+    const metadata = { kind: LESSON_REMINDER_KIND, lessonId: "cm9lesson1", lessonDate: "Sat, Oct 17, 2026" };
+
+    it("opens the exact lesson from the feed row (happy path)", () => {
+      expect(
+        resolveNotificationRoute({ url: "/dashboard/servants/lessons", type: "ANNOUNCEMENT", metadata }),
+      ).toBe("/lesson/cm9lesson1");
+    });
+
+    it("opens the exact lesson from a tapped push, which has no notification type", () => {
+      const target = targetFromPushData({
+        url: "/dashboard/servants/lessons",
+        tag: "ss-lesson-reminder:cm9lesson1:teacher",
+        notificationId: "ss-lesson-reminder:cm9lesson1:teacher",
+        kind: LESSON_REMINDER_KIND,
+        lessonId: "cm9lesson1",
+      });
+      expect(resolveNotificationRoute(target)).toBe("/lesson/cm9lesson1");
+    });
+
+    it("falls back to the lessons list when the lesson id is missing or unusable (highest-risk path)", () => {
+      for (const bad of [
+        { kind: LESSON_REMINDER_KIND },
+        { kind: LESSON_REMINDER_KIND, lessonId: "" },
+        { kind: LESSON_REMINDER_KIND, lessonId: 42 },
+        { kind: LESSON_REMINDER_KIND, lessonId: "../prep-files" },
+        { kind: LESSON_REMINDER_KIND, lessonId: "a/b" },
+        { kind: LESSON_REMINDER_KIND, lessonId: "x".repeat(65) },
+      ]) {
+        expect(lessonReminderLessonId(bad)).toBeNull();
+        expect(resolveNotificationRoute({ url: "/dashboard/servants/lessons", metadata: bad })).toBe("/lessons");
+      }
+    });
+
+    it("ignores other kinds and non-object metadata", () => {
+      expect(lessonReminderLessonId({ kind: "something-else", lessonId: "cm9lesson1" })).toBeNull();
+      expect(lessonReminderLessonId(null)).toBeNull();
+      expect(lessonReminderLessonId("sunday-school-lesson-reminder")).toBeNull();
+      expect(resolveNotificationRoute({ url: "/dashboard/servants/lessons", metadata: { kind: "other", lessonId: "x" } })).toBe("/lessons");
+    });
+
+    it("reads a push payload defensively", () => {
+      expect(targetFromPushData(undefined)).toEqual({ url: null, type: null, metadata: {} });
+      expect(targetFromPushData({ url: 5, tag: "REGISTRATION_RECEIVED" })).toMatchObject({ url: null, type: "REGISTRATION_RECEIVED" });
+      expect(targetFromPushData({ type: "GRADE_POSTED", tag: "ignored" }).type).toBe("GRADE_POSTED");
+    });
   });
 });
