@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { SundaySchoolServantsMeetings } from '@/components/sunday-school-servants-meetings'
 
 const meeting = { id: 'meeting-1', date: '2026-01-15T00:00:00.000Z', title: 'Planning' }
-const base = { meetings: [meeting], meeting: null, roster: [], canEdit: false, canCreate: false }
+const base = { meetings: [meeting], meeting: null, roster: [], canManageAttendance: false, canCreate: false }
 
 describe('Elementary servants meeting section', () => {
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
@@ -49,7 +49,7 @@ describe('Elementary servants meeting section', () => {
 
   it('requires explicit marks and saves them against the selected session', async () => {
     mocks.hook.mockImplementation((_group, selected) => ({
-      data: { ...base, canCreate: true, canEdit: true, meeting: selected ? meeting : null,
+      data: { ...base, canCreate: true, canManageAttendance: true, meeting: selected ? meeting : null,
         roster: selected ? [{ id: 'mary', name: 'Mary', status: null }] : [] },
       isLoading: false, mutate: mocks.mutate,
     }))
@@ -79,6 +79,38 @@ describe('Elementary servants meeting section', () => {
     expect(mocks.fetch.mock.calls[0][1].method).toBe('PATCH')
     expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toEqual({ meetingId: meeting.id, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: 1234 } })
   })
+  it('keeps the roster read-only after an ordinary servant checks in', async () => {
+    let checkedIn = false
+    mocks.hook.mockImplementation(() => ({
+      data: {
+        ...base, meeting: { ...meeting, date: getSundaySchoolTodayDateInputValue() },
+        canCheckIn: true, selfStatus: checkedIn ? 'PRESENT' : null,
+        // A generic edit flag must not substitute for meeting management permission.
+        canEdit: true, canManageAttendance: false,
+        roster: [
+          { id: 'mary', name: 'Mary', status: checkedIn ? 'PRESENT' : null },
+          { id: 'other', name: 'Other servant', status: null },
+        ],
+      },
+      isLoading: false, mutate: mocks.mutate,
+    }))
+    mocks.mutate.mockImplementation(async () => { checkedIn = true })
+    mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ meetingId: meeting.id }) })
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+      getCurrentPosition: (success: PositionCallback) => success({
+        coords: { latitude: 40.72, longitude: -74.09, accuracy: 10 }, timestamp: Date.now(),
+      } as GeolocationPosition),
+    } })
+    render(<SundaySchoolServantsMeetings ageGroupId="elementary" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check in for this meeting' }))
+    await waitFor(() => expect(screen.getByText('You are checked in.')).toBeInTheDocument())
+    expect(screen.getByText('Other servant')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Present|Absent|Save meeting attendance|Add meeting|Check in for this meeting)$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Meeting attendance for/ })).not.toBeInTheDocument()
+    expect(mocks.fetch).toHaveBeenCalledTimes(1)
+    expect(mocks.fetch.mock.calls[0][1].method).toBe('PATCH')
+  })
+
   it('does not submit attendance when location permission is denied', async () => {
     mocks.hook.mockReturnValue({ data: { ...base, meeting: { ...meeting, date: getSundaySchoolTodayDateInputValue() }, canCheckIn: true }, isLoading: false, mutate: mocks.mutate })
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_success: PositionCallback, failure: () => void) => failure() } })

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { SundaySchoolServantAttendanceStatus, type SundaySchoolServantsMeeting } from '@prisma/client'
+import { RoleTag, SundaySchoolServantAttendanceStatus, type SundaySchoolServantsMeeting } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { getAuthorizationContext } from '@/lib/authorization'
 import { prisma } from '@/lib/prisma'
-import { canCoordinateAgeGroup, getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import { getSundaySchoolAccess } from '@/lib/sunday-school-access'
 import { getSundaySchoolTodayDateInputValue, normalizeSessionDate, toDateInputValue } from '@/lib/sunday-school-class'
 
 import { meetingScheduleLabel, scheduledMeetingDates, scheduledMeetingId } from '@/lib/sunday-school-meeting-schedule'
@@ -21,8 +21,14 @@ async function meetingAccess(ageGroupId: string, academicYearId: string, write =
     prisma.sundaySchoolAgeGroup.findUnique({ where: { id: ageGroupId } }),
   ])
   if (!group) throw new Error('Not found')
-  const canEdit = !context.disabled && !context.readOnly && !access.readOnly &&
-    group.isActive && canCoordinateAgeGroup(access, ageGroupId)
+  // Managing the band roster is separate from a servant's own check-in.
+  // Privileged tags are reloaded from the database; a stale session role or
+  // class-only coordinator assignment must not grant meeting-wide writes.
+  const canManageAttendance = !context.disabled && !context.readOnly && !access.readOnly &&
+    group.isActive && (
+      context.roleTags.has(RoleTag.SUPER_ADMIN) || context.roleTags.has(RoleTag.PRIEST) ||
+      access.coordinatorAgeGroupIds.has(ageGroupId)
+    )
   const visibleGroupClass = access.visibleClassIds === 'all' ? true :
     await prisma.sundaySchoolClass.findFirst({
       where: { id: { in: Array.from(access.visibleClassIds) }, academicYearId,
@@ -30,9 +36,9 @@ async function meetingAccess(ageGroupId: string, academicYearId: string, write =
       select: { id: true },
     })
   const canView = !context.disabled && access.canRead &&
-    (canEdit || Boolean(visibleGroupClass))
-  if (!canView || (write && !canEdit)) throw new Error('Forbidden')
-  return { user, group, canEdit, canSelfCheckIn: !context.readOnly && !access.readOnly && group.isActive }
+    (canManageAttendance || Boolean(visibleGroupClass))
+  if (!canView || (write && !canManageAttendance)) throw new Error('Forbidden')
+  return { user, group, canManageAttendance, canSelfCheckIn: !context.readOnly && !access.readOnly && group.isActive }
 }
 
 async function rosterAssignments(ageGroupId: string, academicYearId: string) {
@@ -99,7 +105,7 @@ export async function GET(request: Request) {
       ? await prisma.academicYear.findUnique({ where: { id: requestedMeeting.academicYearId } })
       : await prisma.academicYear.findFirst({ where: { isActive: true } })
     if (!year) return NextResponse.json({ error: 'No active academic year' }, { status: 400 })
-    const { user, group, canEdit, canSelfCheckIn } = await meetingAccess(ageGroupId, year.id)
+    const { user, group, canManageAttendance, canSelfCheckIn } = await meetingAccess(ageGroupId, year.id)
     const savedMeetings = await prisma.sundaySchoolServantsMeeting.findMany({
       where: { ageGroupId, academicYearId: year.id, date: { lte: normalizeSessionDate(today) } }, orderBy: { date: 'desc' },
       select: { id: true, date: true, title: true, _count: { select: { attendance: true } } },
@@ -114,7 +120,7 @@ export async function GET(request: Request) {
       const todaysMeeting = meetings.find(meeting => toDateInputValue(meeting.date) === today)
       if (todaysMeeting) requestedMeeting = { ...todaysMeeting, ageGroupId, academicYearId: year.id }
     }
-    if (!requestedMeeting) return NextResponse.json({ meetings, meeting: null, roster: [], canEdit, canCreate: canEdit, schedule })
+    if (!requestedMeeting) return NextResponse.json({ meetings, meeting: null, roster: [], canEdit: canManageAttendance, canManageAttendance: false, canCreate: canManageAttendance, schedule })
     const [assignments, records] = await Promise.all([
       rosterAssignments(ageGroupId, year.id),
       prisma.sundaySchoolMeetingAttendance.findMany({
@@ -127,11 +133,12 @@ export async function GET(request: Request) {
     for (const record of records) people.set(record.servantId, record.servant)
     const marks = new Map(records.map(record => [record.servantId, record.status]))
     return NextResponse.json({
-      meetings, meeting: requestedMeeting, canCreate: canEdit, schedule,
+      meetings, meeting: requestedMeeting, canCreate: canManageAttendance, schedule,
       canCheckIn: canSelfCheckIn && assignments.some(a => a.userId === user.id) &&
         toDateInputValue(requestedMeeting.date) === getSundaySchoolTodayDateInputValue(),
       selfStatus: marks.get(user.id) ?? null,
-      canEdit: canEdit && toDateInputValue(requestedMeeting.date) <= getSundaySchoolTodayDateInputValue(),
+      canManageAttendance: canManageAttendance && toDateInputValue(requestedMeeting.date) <= getSundaySchoolTodayDateInputValue(),
+      canEdit: canManageAttendance && toDateInputValue(requestedMeeting.date) <= getSundaySchoolTodayDateInputValue(),
       roster: Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name)).map(person => ({
         ...person, status: marks.get(person.id) ?? null,
       })),
@@ -154,8 +161,8 @@ export async function POST(request: Request) {
     if (toDateInputValue(date) !== body.date) return NextResponse.json({ error: 'Invalid meeting date' }, { status: 400 })
     const year = await prisma.academicYear.findFirst({ where: { isActive: true } })
     if (!year) return NextResponse.json({ error: 'No active academic year' }, { status: 400 })
-    const { canEdit } = await meetingAccess(body.ageGroupId, year.id, true)
-    if (!canEdit) throw new Error('Forbidden')
+    const { canManageAttendance } = await meetingAccess(body.ageGroupId, year.id, true)
+    if (!canManageAttendance) throw new Error('Forbidden')
     if (date < normalizeSessionDate(year.startDate) || date > normalizeSessionDate(year.endDate)) {
       return NextResponse.json({ error: 'Meeting date must be within the active year' }, { status: 400 })
     }

@@ -1,3 +1,4 @@
+import { RoleTag } from '@prisma/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -44,7 +45,7 @@ describe('servants meetings', () => {
     vi.setSystemTime(new Date('2026-10-16T18:00:00Z'))
     mocks.venue.mockResolvedValue({ latitude: 40.72, longitude: -74.09 })
     mocks.auth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
-    mocks.context.mockResolvedValue({ disabled: false, readOnly: false })
+    mocks.context.mockResolvedValue({ disabled: false, readOnly: false, roleTags: new Set() })
     mocks.access.mockResolvedValue(coordinator)
     mocks.group.mockResolvedValue({ id: 'elementary', name: 'Elementary', levels: ['GRADE_1'], isActive: true })
     mocks.year.mockResolvedValue({ id: 'year-1', startDate: new Date('2025-09-01'), endDate: new Date('2026-08-31') })
@@ -263,6 +264,49 @@ describe('servants meetings', () => {
       create: { meetingId: meeting.id, servantId: servant.id, status: 'PRESENT', recordedBy: servant.id },
     }))
   })
+  it('keeps an ordinary servant self-only after a successful check-in', async () => {
+    onMeetingDay()
+    const other = { id: 'other-servant', name: 'Other servant' }
+    mocks.assignments.mockResolvedValue([
+      { userId: servant.id, user: servant }, { userId: other.id, user: other },
+    ])
+    expect((await selfCheckIn()).status).toBe(200)
+    mocks.records.mockResolvedValue([{ servantId: servant.id, status: 'PRESENT', servant }])
+    const result = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))
+    expect(await result.json()).toMatchObject({
+      selfStatus: 'PRESENT', canManageAttendance: false, canEdit: false, canCreate: false,
+    })
+    mocks.save.mockClear()
+    expect((await put([{ servantId: other.id, status: 'PRESENT' }])).status).toBe(403)
+    expect((await put([{ servantId: servant.id, status: 'ABSENT' }])).status).toBe(403)
+    expect((await POST(request('POST', { ageGroupId: 'elementary', date: '2026-01-15' }))).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+    expect(mocks.create).not.toHaveBeenCalled()
+  })
+
+  it('does not grant band attendance management to a class-only coordinator', async () => {
+    mocks.access.mockResolvedValue({ ...coordinator, coordinatorAgeGroupIds: new Set(), coordinatorClassIds: new Set(['class-1']) })
+    expect((await put()).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+
+  it('does not accept a stale privileged session role as meeting management authority', async () => {
+    mocks.auth.mockResolvedValue({ id: servant.id, role: 'SUPER_ADMIN' })
+    mocks.access.mockResolvedValue({ ...coordinator, isAdmin: true, visibleClassIds: 'all', coordinatorAgeGroupIds: new Set() })
+    const result = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))
+    expect(await result.json()).toMatchObject({ canManageAttendance: false, canCreate: false })
+    expect((await put()).status).toBe(403)
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+
+  it.each([RoleTag.SUPER_ADMIN, RoleTag.PRIEST])('preserves meeting management for the current %s tag', async tag => {
+    mocks.context.mockResolvedValue({ disabled: false, readOnly: false, roleTags: new Set([tag]) })
+    mocks.access.mockResolvedValue({ ...coordinator, coordinatorAgeGroupIds: new Set() })
+    const result = await GET(new Request('http://localhost/api/sunday-school/servants-meetings?ageGroupId=elementary&meetingId=meeting-1'))
+    expect(await result.json()).toMatchObject({ canManageAttendance: true, canCreate: true })
+    expect((await put()).status).toBe(200)
+  })
+
   it('rejects check-in outside the venue', async () => {
     onMeetingDay()
     expect((await selfCheckIn({ latitude: 40.73, longitude: -74.09, accuracy: 10, timestamp: Date.now() })).status).toBe(403)
