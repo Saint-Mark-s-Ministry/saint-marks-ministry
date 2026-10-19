@@ -8,6 +8,7 @@ Deep references live in `docs/`:
 
 | Document | What it covers |
 |---|---|
+| [`docs/weekly-deployments.md`](docs/weekly-deployments.md) | Weekly release branches, the draft master PR, release validation, and urgent hotfixes |
 | [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
 | [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
@@ -37,6 +38,18 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 
 **Package manager: Bun.** Do not use `npm` or `yarn` — the lockfile is
 `bun.lock`.
+
+## Weekly deployment workflow
+
+Target normal feature/fix PRs at the active `release/YYYY-MM-DD` branch. Find
+that branch through the open draft weekly deployment master PR into `main`.
+Base new work on the release branch so it includes the week's accumulated
+changes, and update the master PR's tracking list when work is included.
+
+The master PR collects the week’s production release. Keep it in draft while
+collecting work; merging it into `main` is the production release step. Follow
+[`docs/weekly-deployments.md`](docs/weekly-deployments.md) for final validation,
+the next week's branch, and separately authorized urgent hotfixes.
 
 ## Commands
 
