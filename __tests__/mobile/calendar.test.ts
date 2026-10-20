@@ -6,9 +6,9 @@ import {
   dayDots,
   formatWeekRange,
   isDateKey,
-  liturgicalDatesParam,
   monthGrid,
   sameMonth,
+  todayKey,
   weekOf,
   weekday,
 } from "../../apps/mobile/src/data/calendar";
@@ -59,9 +59,10 @@ describe("calendar date math (UTC days)", () => {
     expect(isDateKey("10/12/2026")).toBe(false);
   });
 
-  it("asks the church calendar about at most 60 days", () => {
-    const days = Array.from({ length: 70 }, (_, i) => addDays("2026-10-01", i));
-    expect(liturgicalDatesParam(days).split(",")).toHaveLength(60);
+  it("takes today from the church's clock, not the device's (highest-risk path)", () => {
+    // 03:30 UTC on the 18th is still the evening of the 17th in New York.
+    expect(todayKey(new Date("2026-10-18T03:30:00Z"))).toBe("2026-10-17");
+    expect(todayKey(new Date("2026-10-18T04:00:00Z"))).toBe("2026-10-18");
   });
 });
 
@@ -91,6 +92,31 @@ describe("calendar events", () => {
     expect(events["2026-10-14"][0]).toMatchObject({ kind: "fast", title: "Wednesday Fast" });
   });
 
+  it("sends a feast or a fast to that date's readings, and leaves commemorations out", () => {
+    const events = buildCalendarEvents({
+      lessons: [],
+      attendanceDue: [],
+      attendanceTaken: [],
+      liturgical: {
+        "2026-12-29": {
+          fast: { name: "Nativity Fast" },
+          feasts: [
+            { name: "Nativity", category: "majorFeast" },
+            { name: "St. Mark", category: "commemoration" },
+            { name: "Fast marker", category: "fast" },
+          ],
+        },
+      },
+    });
+    expect(events["2026-12-29"].map((e) => [e.kind, e.title])).toEqual([
+      ["feast", "Nativity"],
+      ["fast", "Nativity Fast"],
+    ]);
+    for (const event of events["2026-12-29"]) {
+      expect(event.route).toEqual({ pathname: "/readings", params: { date: "2026-12-29" } });
+    }
+  });
+
   it("puts what needs action first within a day", () => {
     const events = buildCalendarEvents({
       lessons: [{ ...lesson, sundayDate: "2026-10-11" }],
@@ -110,11 +136,11 @@ describe("calendar events", () => {
       attendanceTaken: [{ classId: "c2", className: "y", date: "2026-10-11" }],
       liturgical: { "2026-10-11": { fast: null, feasts: [{ name: "Big", category: "majorFeast" }] } },
     });
-    const liturgical = { fast: null, feasts: [{ name: "Big", category: "majorFeast" }] };
+    const liturgical = { fast: null, feasts: [{ name: "Big", category: "majorFeast" as const }] };
     expect(dayDots(all["2026-10-11"], liturgical)).toEqual(["attendance-due", "lesson", "attendance-taken"]);
     // A saint's commemoration and an ordinary fast never add a mark.
     expect(
-      dayDots(undefined, { fast: { name: "Wednesday Fast" }, feasts: [{ name: "St X", category: "commemoration" }] }),
+      dayDots(undefined, { fast: { name: "Wednesday Fast" }, feasts: [{ name: "St X", category: "commemoration" as const }] }),
     ).toEqual([]);
     expect(dayDots(undefined, undefined)).toEqual([]);
   });

@@ -3,7 +3,6 @@ import {
   expandableIds,
   groupByService,
   hasText,
-  headlineReference,
   isLordlyFeast,
   notableFeasts,
   readingsPath,
@@ -84,13 +83,6 @@ describe("daily readings", () => {
   it("builds the request for a day and language", () => {
     expect(readingsPath(null, "en")).toBe("/api/liturgical/readings?lang=en");
     expect(readingsPath("2026-10-12", "ar")).toBe("/api/liturgical/readings?date=2026-10-12&lang=ar");
-  });
-
-  it("picks the Liturgy Gospel as the headline, else any Gospel", () => {
-    expect(headlineReference(day)).toBe("John 10:1-16");
-    expect(headlineReference({ ...day, sections: [day.sections[1]] })).toBe("Matthew 16:13-19");
-    expect(headlineReference({ ...day, sections: [day.sections[2]] })).toBeNull();
-    expect(headlineReference(undefined)).toBeNull();
   });
 
   it("flags feasts but not commemorations or fasts", () => {

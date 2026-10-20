@@ -13,7 +13,9 @@ import {
 } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { TopActions } from "@/components/top-actions";
-import { TodaysReadingsCard } from "@/components/todays-readings-card";
+import { TodayInChurchCard } from "@/components/today-in-church-card";
+import { LiturgicalTags } from "@/components/liturgical-parts";
+import { useLiturgicalCalendar } from "@/data/use-liturgical";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifCard } from "@/theme";
@@ -93,6 +95,9 @@ export default function PrepHome() {
   const ordered = lessons.data ?? [];
   const upNextIndex = nextLessonIndex(ordered, today);
   const upNext = upNextIndex >= 0 ? ordered[upNextIndex] : undefined;
+  // The Church's day for the next meeting (feasts, fast), so it isn't planned around by accident.
+  const upNextDay = upNext?.scheduledDate.slice(0, 10);
+  const church = useLiturgicalCalendar(upNextDay ? [upNextDay] : []);
   const marked = upNext?._count?.attendanceRecords ?? 0;
   const roster = stats.data?.activeStudents ?? 0;
   const { inProgress, percent: markedPct } = attendanceProgress(marked, roster);
@@ -139,7 +144,7 @@ export default function PrepHome() {
           {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
         </Copy>
 
-        <TodaysReadingsCard />
+        <TodayInChurchCard />
 
         {user?.role === "STUDENT" && (
           <ListSurface>
@@ -229,6 +234,7 @@ export default function PrepHome() {
                       {upNext.examSection?.displayName ?? "All sections"}
                       {roster ? ` · ${roster} students` : ""}
                     </Copy>
+                    <LiturgicalTags day={upNextDay ? church.days[upNextDay] : undefined} />
                   </View>
                   {inProgress && (
                     <View

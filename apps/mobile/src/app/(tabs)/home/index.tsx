@@ -20,7 +20,9 @@ import {
 } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
-import { TodaysReadingsCard } from "@/components/todays-readings-card";
+import { TodayInChurchCard } from "@/components/today-in-church-card";
+import { LiturgicalTags } from "@/components/liturgical-parts";
+import { useLiturgicalCalendar } from "@/data/use-liturgical";
 import { useAuth } from "@/data/auth-provider";
 import { endpoint, useResource } from "@/data/resources";
 import { birthdayCaption, birthdayParts, upcomingBirthdays, type Birthday } from "@/data/sunday-school-birthdays";
@@ -47,6 +49,11 @@ export default function Home() {
     refresh,
   } = usePortal();
   const thisWeeksLesson = nearestLesson(lessons);
+  // Feast and fast tags for this week's lesson and the upcoming list (best effort).
+  const church = useLiturgicalCalendar([
+    ...(thisWeeksLesson ? [thisWeeksLesson.sundayDate.slice(0, 10)] : []),
+    ...lessons.slice(0, 4).map((lesson) => lesson.sundayDate.slice(0, 10)),
+  ]);
   const pending = classes.filter(
     (schoolClass) =>
       schoolClass.canServe &&
@@ -152,7 +159,7 @@ export default function Home() {
           </View>
         )}
 
-        <TodaysReadingsCard />
+        <TodayInChurchCard />
 
         {user?.role === "PARENT" && (
           <ListSurface>
@@ -221,6 +228,7 @@ export default function Home() {
               <Copy kind="caption">
                 {thisWeeksLesson.class.name} · {readableDate(thisWeeksLesson.sundayDate)}
               </Copy>
+              <LiturgicalTags day={church.days[thisWeeksLesson.sundayDate.slice(0, 10)]} pressable />
               <Button
                 label="View lesson"
                 onPress={() =>
@@ -248,6 +256,7 @@ export default function Home() {
                 divider={index < Math.min(lessons.length, 4) - 1}
                 title={lesson.title ?? "Weekly lesson"}
                 subtitle={lesson.class.name}
+                footer={<LiturgicalTags day={church.days[lesson.sundayDate.slice(0, 10)]} />}
                 icon={<CalendarDate date={lesson.sundayDate} />}
                 onPress={() =>
                   router.push({

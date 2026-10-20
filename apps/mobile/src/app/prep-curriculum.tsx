@@ -18,6 +18,9 @@ import {
   type LessonListItem,
 } from "@/data/prep-curriculum";
 import { LessonFormSheet } from "@/components/lesson-form-sheet";
+import { LiturgicalTags } from "@/components/liturgical-parts";
+import { churchToday } from "@/data/liturgical";
+import { useLiturgicalCalendar } from "@/data/use-liturgical";
 
 type AcademicYear = { id: string; name: string; isActive: boolean };
 
@@ -42,6 +45,12 @@ export default function PrepCurriculum() {
   const completed = all.filter((l) => l.status === "COMPLETED").length;
   const sections = sectionsInUse(all);
   const filtered = searchLessons(filterLessonsBySection(all, sectionId), query);
+  // Feasts and fasts on upcoming meeting dates only, so a lesson isn't planned on the
+  // Nativity or in Holy Week by accident. Past dates need no flag.
+  const churchDay = churchToday();
+  const church = useLiturgicalCalendar(
+    filtered.map((lesson) => lesson.scheduledDate.slice(0, 10)).filter((day) => day >= churchDay),
+  );
 
   return (
     <>
@@ -133,6 +142,7 @@ export default function PrepCurriculum() {
                           {new Date(lesson.scheduledDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           {lesson.speaker ? ` · ${lesson.speaker}` : ""}
                         </Copy>
+                        <LiturgicalTags day={church.days[lesson.scheduledDate.slice(0, 10)]} />
                       </View>
                       {badge && <StatusPill label={badge} color={tone} soft={soft} />}
                       <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />

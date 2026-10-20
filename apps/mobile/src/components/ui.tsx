@@ -490,6 +490,7 @@ export function CompactRow({
   onPress,
   icon,
   trailing,
+  footer,
   divider = false,
 }: {
   title: string;
@@ -497,6 +498,8 @@ export function CompactRow({
   onPress: () => void;
   icon?: React.ReactNode;
   trailing?: React.ReactNode;
+  /** Extra line under the subtitle (e.g. a lesson's feast and fast tags). */
+  footer?: React.ReactNode;
   divider?: boolean;
 }) {
   const { colors } = useAppTheme();
@@ -520,6 +523,7 @@ export function CompactRow({
       <View style={{ flex: 1, gap: 2 }}>
         <Copy style={{ fontWeight: "600" }}>{title}</Copy>
         {subtitle && <Copy kind="caption">{subtitle}</Copy>}
+        {footer}
       </View>
       {trailing}
       <Icon

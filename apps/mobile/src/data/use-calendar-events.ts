@@ -1,18 +1,7 @@
 import { useMemo } from "react";
 import { attendanceKey, meetingDate, usePortal } from "./portal-provider";
-import { useResource } from "./resources";
-import {
-  buildCalendarEvents,
-  liturgicalDatesParam,
-  type CalendarEvent,
-  type CalendarLiturgicalDay,
-  type DateKey,
-} from "./calendar";
-
-export interface LiturgicalCalendarDay extends CalendarLiturgicalDay {
-  date: string;
-  copticDate: { label: string } | null;
-}
+import { useLiturgicalCalendar } from "./use-liturgical";
+import { buildCalendarEvents, type CalendarEvent, type DateKey } from "./calendar";
 
 /**
  * Sunday School calendar events for a set of days: lessons, attendance owed or
@@ -21,11 +10,8 @@ export interface LiturgicalCalendarDay extends CalendarLiturgicalDay {
  */
 export function useCalendarEvents(days: DateKey[]) {
   const { classes, lessons, attendance, loading, refresh } = usePortal();
-  const dates = liturgicalDatesParam(days);
-  const church = useResource<{ days: Record<string, LiturgicalCalendarDay> }>(
-    dates ? `/api/liturgical/calendar?dates=${dates}` : null,
-  );
-  const liturgical = church.data?.days;
+  const church = useLiturgicalCalendar(days);
+  const liturgical = church.days;
 
   const events = useMemo(() => {
     const classById = new Map(classes.map((cls) => [cls.id, cls]));
@@ -42,7 +28,7 @@ export function useCalendarEvents(days: DateKey[]) {
       lessons,
       attendanceDue,
       attendanceTaken,
-      liturgical: liturgical ?? {},
+      liturgical,
     });
   }, [classes, lessons, attendance, liturgical]);
 
@@ -51,7 +37,7 @@ export function useCalendarEvents(days: DateKey[]) {
   return {
     events,
     eventsOn,
-    liturgical: liturgical ?? {},
+    liturgical,
     loading,
     refresh: async () => {
       await Promise.all([refresh(), church.refresh()]);

@@ -6,18 +6,8 @@ import { CalendarEventRow } from "@/components/calendar-parts";
 import { useAppTheme } from "@/theme";
 import { formatLongDay, isDateKey, todayKey, type DateKey } from "@/data/calendar";
 import { useResource } from "@/data/resources";
+import type { LiturgicalDay } from "@/data/liturgical";
 import { useCalendarEvents } from "@/data/use-calendar-events";
-
-interface LiturgicalDayDetail {
-  date: string;
-  copticDate: { label: string } | null;
-  season: { name: string; description: string | null } | null;
-  seasonDay: string | null;
-  fasting: { fast: { name: string } | null } | null;
-  feasts: { name: string; category: string }[];
-  saints: { name: string }[];
-  available: boolean;
-}
 
 /**
  * One day of the calendar: what the church celebrates (Coptic date, season,
@@ -28,7 +18,7 @@ export default function CalendarDay() {
   const { colors } = useAppTheme();
   const { date: raw } = useLocalSearchParams<{ date?: string }>();
   const date: DateKey = raw && isDateKey(raw) ? raw : todayKey();
-  const day = useResource<LiturgicalDayDetail>(`/api/liturgical/day?date=${date}`);
+  const day = useResource<LiturgicalDay>(`/api/liturgical/day?date=${date}`);
   const { eventsOn, loading: eventsLoading } = useCalendarEvents([date]);
   const events = eventsOn(date);
   const detail = day.data;

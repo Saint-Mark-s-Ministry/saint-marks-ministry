@@ -10,6 +10,9 @@ import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
 import { feedback } from "@/data/haptics";
 import { useResource } from "@/data/resources";
+import { churchToday, readingsRoute } from "@/data/liturgical";
+import { useChurchToday, useLiturgicalCalendar } from "@/data/use-liturgical";
+import { CalendarSubscribeMenu } from "@/components/liturgical-parts";
 import { attendanceProgress, nextLessonIndex } from "@/data/prep-home";
 import {
   buildCalendarEvents,
@@ -17,9 +20,12 @@ import {
   dotTypesForDay,
   eventsByDate,
   eventsForMonth,
+  hasEventOfType,
+  liturgicalEvents,
   localDateKey,
   monthGrid,
   weekStrip,
+  withoutFasts,
   type CalendarEvent,
   type CalendarEventType,
   type ExamForCalendar,
@@ -39,8 +45,9 @@ export default function PrepCalendar() {
 
   const [view, setView] = useState<ViewMode>("week");
   const [cursor, setCursor] = useState(() => new Date());
-  const today = localDateKey(new Date());
-  const [selectedDate, setSelectedDate] = useState(today);
+  // Today at the church, moving on at church midnight (not the phone's day).
+  const today = useChurchToday();
+  const [selectedDate, setSelectedDate] = useState(() => churchToday());
 
   const stats = useResource<{ activeStudents: number }>(adminLike ? "/api/dashboard/stats" : null);
   const lessons = useResource<LessonForCalendar[]>(canSee ? "/api/lessons" : null);
@@ -50,7 +57,26 @@ export default function PrepCalendar() {
   const offline = lessons.error === "Could not reach the server. Check your connection and try again.";
   const loading = canSee && (lessons.loading || (adminLike && exams.loading));
 
-  const events = buildCalendarEvents(lessons.data ?? [], exams.data ?? []);
+  const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const grid = monthGrid(monthStart);
+  const week = weekStrip(cursor);
+
+  // Feasts and fasts for the month grid, the week, and the next 14 days (best
+  // effort: the calendar below never waits on Coptic IO).
+  const churchKeys = [
+    ...grid.map(localDateKey),
+    ...week.map(localDateKey),
+    ...Array.from({ length: 14 }, (_, i) => {
+      const day = new Date(`${today}T12:00:00Z`);
+      day.setUTCDate(day.getUTCDate() + i);
+      return day.toISOString().slice(0, 10);
+    }),
+  ];
+  const church = useLiturgicalCalendar(churchKeys);
+  const events = [
+    ...buildCalendarEvents(lessons.data ?? [], exams.data ?? []),
+    ...liturgicalEvents(church.days, churchKeys),
+  ].sort((a, b) => a.date.localeCompare(b.date));
   const byDate = eventsByDate(events);
 
   const upNextIndex = nextLessonIndex(lessons.data ?? [], today);
@@ -59,12 +85,13 @@ export default function PrepCalendar() {
   const marked = upNext?._count?.attendanceRecords ?? 0;
   const { inProgress } = attendanceProgress(marked, roster);
 
-  const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  const grid = monthGrid(monthStart);
-  const week = weekStrip(cursor);
   const selectedEvents = (byDate.get(selectedDate) ?? []).slice().sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
-  const agendaEvents = view === "month" ? eventsForMonth(events, cursor) : selectedEvents;
-  const upcoming = events.filter((e) => e.date >= today);
+  const agendaEvents = view === "month" ? withoutFasts(eventsForMonth(events, cursor)) : selectedEvents;
+  // Upcoming: the program's own events, plus feasts for the next 14 days (not every fast day).
+  const horizon = churchKeys[churchKeys.length - 1];
+  const upcoming = withoutFasts(events).filter(
+    (e) => e.date >= today && (e.type === "lesson" || e.type === "exam" || e.date <= horizon),
+  );
 
   const goToday = () => {
     if (selectedDate !== today || localDateKey(cursor) !== today) feedback("selection");
@@ -87,6 +114,11 @@ export default function PrepCalendar() {
     setSelectedDate(key);
   };
   const openEvent = (event: CalendarEvent) => {
+    // A feast or fast opens that date's readings, for every role.
+    if (event.type === "feast" || event.type === "fast") {
+      router.push(readingsRoute(event.date));
+      return;
+    }
     const id = event.id.replace(/^(lesson|exam)-/, "");
     // A student opens their own lesson page; administrators the management one.
     if (event.type === "lesson") {
@@ -99,6 +131,7 @@ export default function PrepCalendar() {
   };
   // Mentors can see the schedule but have no lesson page to open.
   const canOpenEvents = adminLike || user?.role === "STUDENT";
+  const canOpen = (event: CalendarEvent) => event.type === "feast" || event.type === "fast" || canOpenEvents;
 
   return (
     <>
@@ -166,6 +199,7 @@ export default function PrepCalendar() {
                 <HeaderIconButton icon="chevron.right" label={view === "week" ? "Next week" : "Next month"} onPress={() => shiftMonth(1)} />
               </View>
               <View style={[styles.row, { gap: 8 }]}>
+                <CalendarSubscribeMenu />
                 <Pressable accessibilityRole="button" onPress={goToday} style={({ pressed }) => [styles.pill, { backgroundColor: colors.hover, opacity: pressed ? 0.7 : 1 }]}>
                   <Copy kind="caption" style={{ fontWeight: "600" }}>
                     Today
@@ -208,12 +242,15 @@ export default function PrepCalendar() {
                     const inMonth = day.getMonth() === monthStart.getMonth();
                     const isToday = key === today;
                     const isSelected = key === selectedDate;
-                    const dots = dotTypesForDay(byDate.get(key) ?? []);
+                    const dayEvents = byDate.get(key) ?? [];
+                    const dots = dotTypesForDay(dayEvents);
+                    const feast = hasEventOfType(dayEvents, "feast");
+                    const fastDay = hasEventOfType(dayEvents, "fast");
                     return (
                       <Pressable
                         key={key}
                         accessibilityRole="button"
-                        accessibilityLabel={`${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dots.length ? ", has events" : ""}`}
+                        accessibilityLabel={`${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dots.length ? ", has events" : ""}${feast ? ", feast" : ""}${fastDay ? ", fast day" : ""}`}
                         onPress={() => selectDate(key)}
                         style={{ width: `${100 / 7}%`, alignItems: "center", paddingVertical: 6, gap: 3 }}
                       >
@@ -247,7 +284,10 @@ export default function PrepCalendar() {
                               }}
                             />
                           ))}
+                          {feast && <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.warning }} />}
                         </View>
+                        {/* A fast day is a thin bar, not a dot, so weekly fasts don't read as events. */}
+                        <View style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: fastDay ? colors.muted : "transparent" }} />
                       </Pressable>
                     );
                   })}
@@ -261,11 +301,15 @@ export default function PrepCalendar() {
                   const key = localDateKey(day);
                   const isToday = key === today;
                   const isSelected = key === selectedDate;
-                  const dots = dotTypesForDay(byDate.get(key) ?? []);
+                  const dayEvents = byDate.get(key) ?? [];
+                  const dots = dotTypesForDay(dayEvents);
+                  const feast = hasEventOfType(dayEvents, "feast");
+                  const fastDay = hasEventOfType(dayEvents, "fast");
                   return (
                     <Pressable
                       key={key}
                       accessibilityRole="button"
+                      accessibilityLabel={`${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dots.length ? ", has events" : ""}${feast ? ", feast" : ""}${fastDay ? ", fast day" : ""}`}
                       onPress={() => selectDate(key)}
                       style={{
                         flexGrow: 1,
@@ -296,7 +340,9 @@ export default function PrepCalendar() {
                             }}
                           />
                         ))}
+                        {feast && <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: isToday ? colors.onAction : colors.warning }} />}
                       </View>
+                      <View style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: fastDay ? (isToday ? colors.onAction : colors.muted) : "transparent" }} />
                     </Pressable>
                   );
                 })}
@@ -325,7 +371,7 @@ export default function PrepCalendar() {
                         event={event}
                         showDate={view === "month"}
                         divider={index < agendaEvents.length - 1}
-                        onPress={canOpenEvents ? () => openEvent(event) : undefined}
+                        onPress={canOpen(event) ? () => openEvent(event) : undefined}
                         showResume={adminLike && !!upNext && event.id === `lesson-${upNext.id}`}
                         inProgress={inProgress}
                         marked={marked}
@@ -352,7 +398,7 @@ export default function PrepCalendar() {
                         key={event.id}
                         event={event}
                         divider={index < upcoming.length - 1}
-                        onPress={canOpenEvents ? () => openEvent(event) : undefined}
+                        onPress={canOpen(event) ? () => openEvent(event) : undefined}
                         showResume={adminLike && !!upNext && event.id === `lesson-${upNext.id}`}
                         inProgress={inProgress}
                         marked={marked}
@@ -413,8 +459,16 @@ function EventRow({
   showDate?: boolean;
 }) {
   const { colors } = useAppTheme();
-  const tint = event.type === "lesson" ? colors.primary : colors.info;
-  const soft = event.type === "lesson" ? colors.primarySoft : colors.infoSoft;
+  const tint =
+    event.type === "lesson" ? colors.primary : event.type === "feast" ? colors.warning : event.type === "fast" ? colors.muted : colors.info;
+  const soft =
+    event.type === "lesson"
+      ? colors.primarySoft
+      : event.type === "feast"
+        ? colors.warningSoft
+        : event.type === "fast"
+          ? colors.hover
+          : colors.infoSoft;
   const dateLabel = showDate
     ? new Date(`${event.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     : null;
@@ -458,7 +512,12 @@ function EventRow({
 function EventIcon({ type, tint, soft }: { type: CalendarEventType; tint: string; soft: string }) {
   return (
     <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: soft, marginTop: 2 }}>
-      <Icon ios={type === "lesson" ? "book.closed" : "graduationcap"} android="schedule" size={17} color={tint} />
+      <Icon
+        ios={type === "lesson" ? "book.closed" : type === "feast" ? "star" : type === "fast" ? "leaf" : "graduationcap"}
+        android="schedule"
+        size={17}
+        color={tint}
+      />
     </View>
   );
 }

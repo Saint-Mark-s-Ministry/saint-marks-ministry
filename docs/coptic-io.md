@@ -52,6 +52,38 @@ Lord in gold), liturgical season, the fast (or "No fast today"), the Lenten day
 when there is one, the day's Gospel (linking to the readings page) and the
 saints commemorated.
 
+## The iOS app
+
+The native app (`apps/mobile`) shows the same reference content through the same
+three authenticated routes. It adds no endpoint, no permission and no upstream
+call of its own: only `/api/liturgical/{day,readings,calendar}`, so the proxy's
+validation, caching, timeout and stale-if-error behaviour apply unchanged.
+
+| Where | What |
+|---|---|
+| Home, every role (Sunday School servants and parents, Servants Prep admins, mentors, students) | "Today in the Church" card (`components/today-in-church-card.tsx`): Coptic date, season, feasts, the fast or "No fast today", the Lenten day, the day's Gospel, the saints; a Subscribe menu. Failure is a quiet line and a *Try again* button, never an error screen. |
+| Daily readings (`app/readings.tsx`; Home card, More, a calendar day, a lesson, a feast) | Coptic date first, a native date picker and day stepper, English (NKJV) and Arabic (right-to-left), readings grouped by Vespers / Matins / Liturgy / Evening that expand in place, the Synaxarium, credit to Coptic IO. |
+| Sunday School Calendar and Servants Prep Calendar | Feasts (a dot and an agenda row) and fast days (a bar under the date, a row in a day's agenda). A feast or fast opens that date's readings. Month and upcoming lists show feasts, not every fast day, as on the web. |
+| Sunday School Lessons, a lesson, Home; Servants Prep curriculum (upcoming dates only) and the next-lesson card | Feast and fast tags beside each date; on a lesson the tags open that date's readings. |
+| Subscribe (`components/liturgical-parts.tsx`) | Apple Calendar (`webcal://`, which opens Calendar's own "Add Subscription Calendar"), Google Calendar, Outlook.com, and Copy link. Coptic IO's public feed, direct from the phone's calendar app. |
+
+**"Today" is the church's.** The device's zone and clock never decide it:
+`churchToday()` (America/New_York, from `@stmark/domain`) is read through
+`useChurchToday()`, which wakes at church midnight (exact to the millisecond,
+re-checked at least every ten minutes so a 23- or 25-hour DST day cannot leave
+it an hour late) and again when the app returns to the foreground. A date the
+person picked, or opened from a feast, is a plain `YYYY-MM-DD` and never follows
+the clock; the picker is handed noon UTC with its zone set to UTC, so no device
+zone can shift it.
+
+**Ranges are chunked, never truncated.** `useLiturgicalCalendar` sorts, de-dupes
+and drops invalid dates, requests at most 60 per call, merges the answers and
+keeps whichever chunks succeeded. It never throws and never blocks the screen it
+decorates; a failed chunk is simply absent. The phone's HTTP cache honours the
+routes' `Cache-Control`, so an answered date is not re-fetched for a day.
+
+Not in the iOS app (nor the web): Agpeya, Tasbeha, Liturgy text, feast push reminders.
+
 ## Architecture
 
 ```

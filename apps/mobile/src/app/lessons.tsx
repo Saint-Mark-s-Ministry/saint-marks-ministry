@@ -32,6 +32,9 @@ import {
   type LessonOwnership,
   type LessonSchedule,
 } from "@/data/sunday-school-lessons";
+import { LiturgicalTags } from "@/components/liturgical-parts";
+import { liturgicalSummary } from "@/data/liturgical";
+import { useLiturgicalCalendar } from "@/data/use-liturgical";
 import { MinistryTintProvider, useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
@@ -62,6 +65,8 @@ function LessonsScreen() {
   const lessons = scheduleLessons(all, schedule, today, ownership, user?.id);
   // Only upcoming lessons can still be fixed, so the banner counts those alone.
   const missing = missingSummaryLabel(missingSummary(scheduleLessons(all, "upcoming", today)));
+  // Feasts and fasts under each Sunday, so a lesson can follow the Church's year. Best effort.
+  const church = useLiturgicalCalendar(lessons.map((lesson) => lesson.sundayDate.slice(0, 10)));
   const primaryClass = classes.find((c) => c.id === classId);
   const offline = resource.error === OFFLINE;
 
@@ -187,11 +192,13 @@ function LessonsScreen() {
                 // span multiple classes ("All classes"); otherwise it just crowds out
                 // the title and link names for no new information.
                 const subtitle = classId ? lessonSubtitle(lesson) : [lesson.class.name, lessonSubtitle(lesson)].filter(Boolean).join(" · ");
+                const churchDay = church.days[lesson.sundayDate.slice(0, 10)];
+                const churchSummary = liturgicalSummary(churchDay);
                 return (
                   <Pressable
                     key={lesson.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`${lessonTitle(lesson)}, ${lesson.class.name}, ${state.label}`}
+                    accessibilityLabel={`${lessonTitle(lesson)}, ${lesson.class.name}, ${state.label}${churchSummary ? `, ${churchSummary}` : ""}`}
                     onPress={() =>
                       router.push({ pathname: "/lesson/[id]", params: { id: lesson.id, classId: lesson.classId } })
                     }
@@ -205,6 +212,7 @@ function LessonsScreen() {
                     <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
                       <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{lessonTitle(lesson)}</Copy>
                       <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>
+                      <LiturgicalTags day={churchDay} />
                     </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <StatusPill label={state.label} color={pill.color} soft={pill.soft} />

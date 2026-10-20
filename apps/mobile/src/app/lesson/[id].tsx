@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Linking, Pressable, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from "@stmark/contracts";
 import {
   Button,
@@ -26,6 +26,9 @@ import {
   validateLinkDraft,
   type LinkDraft,
 } from "@/data/sunday-school-lessons";
+import { LiturgicalTags } from "@/components/liturgical-parts";
+import { readingsRoute } from "@/data/liturgical";
+import { useLiturgicalCalendar } from "@/data/use-liturgical";
 import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
 
 // No Sunday School-specific artboard exists for this detail screen (only the
@@ -42,6 +45,9 @@ export default function Lesson() {
   const [editing, setEditing] = useState(false);
   const lesson = resource.data?.lessons.find((l) => l.id === id);
   const state = lesson ? readiness(lesson.status) : null;
+  const lessonDate = lesson?.sundayDate.slice(0, 10);
+  const church = useLiturgicalCalendar(lessonDate ? [lessonDate] : []);
+  const churchDay = lessonDate ? church.days[lessonDate] : undefined;
   const pill =
     state &&
     {
@@ -104,12 +110,22 @@ export default function Lesson() {
                 {lessonTitle(lesson)}
               </Copy>
               {state && pill && <StatusPill label={state.label} color={pill.color} soft={pill.soft} />}
+              {/* The Church's day for this Sunday: Coptic date, feasts, fast. A tag opens that day's readings. */}
+              <View style={{ alignItems: "center" }}>
+                <LiturgicalTags day={churchDay} copticDate pressable />
+              </View>
             </View>
 
             <ListSurface>
               <InfoRow label="Date" value={readableDate(lesson.sundayDate)} />
               <Divider />
               <InfoRow label="Teacher" value={lesson.owner?.name ?? "No teacher assigned"} />
+              <Divider />
+              <RowLink
+                title="Readings for this day"
+                subtitle="Gospel, epistles and the Synaxarium"
+                onPress={() => router.push(readingsRoute(lesson.sundayDate.slice(0, 10)))}
+              />
             </ListSurface>
 
             <View style={{ gap: 10 }}>

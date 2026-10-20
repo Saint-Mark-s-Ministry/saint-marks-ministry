@@ -57,17 +57,6 @@ export interface LiturgicalFeast {
   category: FeastCategory;
 }
 
-/** The part of /api/liturgical/day this page uses. */
-export interface LiturgicalDayDetail {
-  date: string;
-  copticDate: CopticDateInfo | null;
-  season: { name: string } | null;
-  seasonDay: string | null;
-  fasting: { fast: { name: string } | null } | null;
-  feasts: LiturgicalFeast[];
-  available?: boolean;
-}
-
 export const SERVICE_ORDER: ReadingService[] = ["vespers", "matins", "liturgy", "evening"];
 
 export const SERVICE_LABELS: Record<ReadingService, string> = {
@@ -85,6 +74,7 @@ export function readingsPath(date: string | null, lang: LiturgicalLanguage): str
   return `/api/liturgical/readings?${params.toString()}`;
 }
 
+/** `/api/liturgical/day`: season, fast, feasts, saints and reading references for a day. */
 export function dayPath(date: string | null, lang: LiturgicalLanguage): string {
   const params = new URLSearchParams();
   if (date) params.set("date", date);
@@ -139,14 +129,8 @@ export function chapterVerses(chapter: ScripturePassage["chapters"][number]): Sc
   return [...chapter.verses].sort((a, b) => a.num - b.num);
 }
 
-/** Feasts worth a chip: everything except the monthly commemoration and fasts. */
-export function notableFeasts(feasts: LiturgicalFeast[]): LiturgicalFeast[] {
-  return feasts.filter((feast) => feast.category !== "commemoration" && feast.category !== "fast");
-}
-
-export function isLordlyFeast(feast: LiturgicalFeast): boolean {
-  return feast.category === "majorFeast" || feast.category === "minorFeast";
-}
+// Feast helpers live with the rest of the church-calendar logic.
+export { isLordlyFeast, notableFeasts } from "./liturgical";
 
 /** Items on the page that can be expanded: every reading with text, every story with text. */
 export function expandableIds(readings: DailyReadings): string[] {
@@ -164,13 +148,4 @@ export function readingId(section: ReadingSection): string {
 
 export function storyId(index: number): string {
   return `story:${index}`;
-}
-
-/** The short line for Home and menus: the first Gospel reference of the day, if any. */
-export function headlineReference(readings: DailyReadings | undefined): string | null {
-  if (!readings) return null;
-  const gospel =
-    readings.sections.find((section) => section.key === "LGospel") ??
-    readings.sections.find((section) => /gospel/i.test(section.label));
-  return gospel ? referenceSummary(gospel) || null : null;
 }

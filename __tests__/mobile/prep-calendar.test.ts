@@ -11,6 +11,9 @@ import {
   localDateKey,
   monthGrid,
   weekStrip,
+  hasEventOfType,
+  liturgicalEvents,
+  withoutFasts,
 } from "../../apps/mobile/src/data/prep-calendar";
 
 describe("Prep Calendar (SMM-33)", () => {
@@ -98,6 +101,53 @@ describe("Prep Calendar (SMM-33)", () => {
     it("hides it when there is no signed-in role at all", () => {
       expect(canManageCalendar(undefined)).toBe(false);
       expect(canManageCalendar(null)).toBe(false);
+    });
+  });
+
+  describe("church calendar overlay (feasts and fasts)", () => {
+    const days = {
+      "2026-12-29": {
+        date: "2026-12-29",
+        copticDate: { day: 20, month: 4, year: 1743, monthName: "Koiahk", label: "20 Koiahk 1743 A.M." },
+        fast: { name: "Nativity Fast", type: null },
+        feasts: [
+          { name: "Nativity Eve", category: "majorFeast" as const },
+          { name: "St. Mark", category: "commemoration" as const },
+        ],
+      },
+      "2026-12-30": { date: "2026-12-30", copticDate: null, fast: null, feasts: [] },
+    };
+
+    it("turns feasts and fasts into agenda rows, leaving out commemorations (happy path)", () => {
+      const events = liturgicalEvents(days, ["2026-12-29", "2026-12-30"]);
+      expect(events.map((e) => [e.type, e.title, e.date])).toEqual([
+        ["feast", "Nativity Eve", "2026-12-29"],
+        ["fast", "Nativity Fast", "2026-12-29"],
+      ]);
+      expect(events[0].subtitle).toBe("Major feast · 20 Koiahk 1743 A.M.");
+      expect(events.every((e) => e.time === null)).toBe(true);
+    });
+
+    it("adds nothing for days the church calendar did not answer for", () => {
+      expect(liturgicalEvents(days, ["2027-01-01"])).toEqual([]);
+      expect(liturgicalEvents({}, ["2026-12-29"])).toEqual([]);
+    });
+
+    it("lists a day once even if it is asked for twice", () => {
+      expect(liturgicalEvents(days, ["2026-12-29", "2026-12-29"])).toHaveLength(2);
+    });
+
+    it("keeps month and upcoming lists free of the many fast days (highest-risk path)", () => {
+      const events = liturgicalEvents(days, ["2026-12-29"]);
+      expect(withoutFasts(events).map((e) => e.type)).toEqual(["feast"]);
+      expect(hasEventOfType(events, "fast")).toBe(true);
+      expect(hasEventOfType(withoutFasts(events), "fast")).toBe(false);
+    });
+
+    it("does not change the lesson and exam dots", () => {
+      const lesson = { id: "l1", scheduledDate: "2026-12-29T19:00:00.000Z", status: "SCHEDULED" as const, lessonNumber: 1 };
+      const events = [...buildCalendarEvents([lesson], []), ...liturgicalEvents(days, ["2026-12-29"])];
+      expect(dotTypesForDay(eventsByDate(events).get("2026-12-29") ?? [])).toEqual(["lesson"]);
     });
   });
 });

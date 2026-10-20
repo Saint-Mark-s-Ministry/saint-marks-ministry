@@ -19,12 +19,13 @@ import {
   monthParts,
   sameMonth,
   startOfMonth,
-  todayKey,
   weekOf,
   type CalendarEvent,
   type DateKey,
 } from "@/data/calendar";
 import { useCalendarEvents } from "@/data/use-calendar-events";
+import { useChurchToday } from "@/data/use-liturgical";
+import { CalendarSubscribeMenu } from "@/components/liturgical-parts";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const MODES = ["month", "week", "list"] as const;
@@ -32,7 +33,8 @@ type Mode = (typeof MODES)[number];
 
 export default function Calendar() {
   const { colors } = useAppTheme();
-  const today = todayKey();
+  // Today at the church, moving on at church midnight.
+  const today = useChurchToday();
   const [mode, setMode] = useState<Mode>("week");
   const [selected, setSelected] = useState<DateKey>(today);
   const [visibleMonth, setVisibleMonth] = useState<DateKey>(startOfMonth(today));
@@ -106,20 +108,23 @@ export default function Calendar() {
             <HeaderIconButton icon="chevron.left" label={previousLabel} onPress={() => shift(-1)} />
             <HeaderIconButton icon="chevron.right" label={nextLabel} onPress={() => shift(1)} />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go to today"
-            disabled={showingToday}
-            onPress={goToday}
-            style={({ pressed }) => [
-              styles.pill,
-              { backgroundColor: colors.hover, opacity: showingToday ? 0.45 : pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Copy kind="caption" style={{ fontWeight: "600" }}>
-              Today
-            </Copy>
-          </Pressable>
+          <View style={[styles.row, { gap: 8 }]}>
+            <CalendarSubscribeMenu />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go to today"
+              disabled={showingToday}
+              onPress={goToday}
+              style={({ pressed }) => [
+                styles.pill,
+                { backgroundColor: colors.hover, opacity: showingToday ? 0.45 : pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Copy kind="caption" style={{ fontWeight: "600" }}>
+                Today
+              </Copy>
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ gap: 2 }}>

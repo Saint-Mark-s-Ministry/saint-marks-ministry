@@ -4,6 +4,8 @@
 // never from a device-local `Date`, so a day is the same day for everybody and
 // a daylight-saving change can't shift a cell. Pure, so it is unit tested.
 
+import { churchToday, notableFeasts, type LiturgicalFeast } from "./liturgical";
+
 export type DateKey = string;
 
 const MS_PER_DAY = 86_400_000;
@@ -25,12 +27,14 @@ export function isDateKey(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && keyFromMs(utcMs(value)) === value;
 }
 
-/** Today's calendar day on this device (the person's own wall clock). */
+/**
+ * Today's calendar day at the church (America/New_York), not on the device:
+ * the church's Sunday starts at church midnight for everybody, wherever they
+ * are, and a phone with its own zone or a wrong clock setting must not move
+ * the "today" ring, the lesson that is due, or the readings.
+ */
 export function todayKey(now: Date = new Date()): DateKey {
-  const y = String(now.getFullYear()).padStart(4, "0");
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return churchToday(now);
 }
 
 export function addDays(key: DateKey, days: number): DateKey {
@@ -123,7 +127,7 @@ export interface CalendarEvent {
   kind: CalendarEventKind;
   title: string;
   subtitle?: string;
-  /** Where tapping it goes; omitted for things with nothing to open (a feast). */
+  /** Where tapping it goes. A feast or fast opens that date's readings. */
   route?: { pathname: string; params?: Record<string, string> };
 }
 
@@ -137,7 +141,7 @@ export interface CalendarLessonInput {
 
 export interface CalendarLiturgicalDay {
   fast: { name: string } | null;
-  feasts: { name: string; category: string }[];
+  feasts: LiturgicalFeast[];
 }
 
 export interface CalendarEventSources {
@@ -199,10 +203,11 @@ export function buildCalendarEvents(sources: CalendarEventSources): Record<DateK
   }
   for (const [date, day] of Object.entries(sources.liturgical)) {
     if (!day) continue;
-    day.feasts.forEach((feast, index) => {
-      push({ id: `feast:${date}:${index}`, date, kind: "feast", title: feast.name });
+    const route = { pathname: "/readings", params: { date } };
+    notableFeasts(day.feasts).forEach((feast, index) => {
+      push({ id: `feast:${date}:${index}`, date, kind: "feast", title: feast.name, subtitle: "Feast", route });
     });
-    if (day.fast) push({ id: `fast:${date}`, date, kind: "fast", title: day.fast.name });
+    if (day.fast) push({ id: `fast:${date}`, date, kind: "fast", title: day.fast.name, subtitle: "Fast", route });
   }
 
   for (const events of Object.values(byDay)) {
@@ -227,9 +232,4 @@ export function dayDots(
   if (liturgical?.feasts.some((feast) => DOT_FEAST_CATEGORIES.has(feast.category))) present.add("feast");
   const order: DotKind[] = ["attendance-due", "lesson", "attendance-taken", "feast"];
   return order.filter((kind) => present.has(kind)).slice(0, 3);
-}
-
-/** `YYYY-MM-DD` days to ask the church-calendar endpoint about (it accepts up to 60). */
-export function liturgicalDatesParam(days: DateKey[]): string {
-  return days.slice(0, 60).join(",");
 }

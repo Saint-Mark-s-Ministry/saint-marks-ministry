@@ -14,6 +14,7 @@
  */
 
 import { PREP_ADMIN_ROLES } from "./prep-home";
+import { notableFeasts, type LiturgicalCalendar } from "./liturgical";
 
 export { PREP_ADMIN_ROLES };
 
@@ -53,7 +54,7 @@ export function weekStrip(anchor: Date): Date[] {
   });
 }
 
-export type CalendarEventType = "lesson" | "exam";
+export type CalendarEventType = "lesson" | "exam" | "feast" | "fast";
 
 export type CalendarEvent = {
   id: string;
@@ -122,6 +123,44 @@ export function eventsByDate(events: CalendarEvent[]): Map<string, CalendarEvent
     map.set(event.date, [...(map.get(event.date) ?? []), event]);
   }
   return map;
+}
+
+/**
+ * The church calendar's feasts and fasts as agenda rows (best effort: empty
+ * when Coptic IO had no answer). Reference content only: it never decides who
+ * may see or open anything, and tapping one opens that date's readings.
+ */
+export function liturgicalEvents(days: LiturgicalCalendar, keys: Iterable<string>): CalendarEvent[] {
+  const events: CalendarEvent[] = [];
+  for (const key of new Set(keys)) {
+    const day = days[key];
+    if (!day) continue;
+    notableFeasts(day.feasts).forEach((feast, index) => {
+      events.push({
+        id: `feast-${key}-${index}`,
+        type: "feast",
+        date: key,
+        time: null,
+        title: feast.name,
+        subtitle: [feast.category === "majorFeast" ? "Major feast" : feast.category === "minorFeast" ? "Minor feast" : "Feast", day.copticDate?.label]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    });
+    if (day.fast) {
+      events.push({ id: `fast-${key}`, type: "fast", date: key, time: null, title: day.fast.name, subtitle: "Fast" });
+    }
+  }
+  return events;
+}
+
+/** Month and upcoming lists show feasts but not the (very frequent) fast days, as on the web. */
+export function withoutFasts(events: CalendarEvent[]): CalendarEvent[] {
+  return events.filter((event) => event.type !== "fast");
+}
+
+export function hasEventOfType(events: CalendarEvent[], type: CalendarEventType): boolean {
+  return events.some((event) => event.type === type);
 }
 
 /** Up to 2 dot colors for a grid day, one per distinct event type present, lesson before exam. */
