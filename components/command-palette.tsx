@@ -145,7 +145,7 @@ export function CommandPalette() {
   const [lessons, setLessons] = useState<SearchLesson[]>([])
   const [loading, setLoading] = useState(false)
   const { data: session } = useSession()
-  const { data: openExams } = useDigitalExams(session?.user.role === 'STUDENT')
+  const { data: openExams } = useDigitalExams(session?.user?.role === 'STUDENT')
   const router = useRouter()
   const pathname = usePathname()
 

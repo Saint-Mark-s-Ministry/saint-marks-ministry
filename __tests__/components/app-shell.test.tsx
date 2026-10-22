@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
   push: vi.fn(),
   openExams: [] as { id: string }[],
-  user: {} as Record<string, unknown>,
+  user: {} as Record<string, unknown> | undefined,
   status: 'authenticated' as 'authenticated' | 'loading' | 'unauthenticated',
 }))
 
@@ -230,6 +230,13 @@ describe('AppShell', () => {
     render(<AppShell>page</AppShell>)
     expect(screen.queryByRole('complementary', { name: 'Main' })).not.toBeInTheDocument()
     expect(screen.getByText('page')).toBeInTheDocument()
+  })
+
+  it('does not crash on public pages when a revoked session has no user', () => {
+    mocks.pathname = '/login'
+    mocks.user = undefined
+    render(<AppShell>Sign in</AppShell>)
+    expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
   it('shows the active academic year in prep mode', () => {

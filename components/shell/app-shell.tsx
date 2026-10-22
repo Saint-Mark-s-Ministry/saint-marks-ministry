@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (pathname !== '/dashboard/contact-book') clearContactBookFilters()
   }, [pathname])
   const router = useRouter()
-  const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user.role === 'STUDENT')
+  const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user?.role === 'STUDENT')
   const [rail, setRail] = useState(false)
 
   useEffect(() => {
