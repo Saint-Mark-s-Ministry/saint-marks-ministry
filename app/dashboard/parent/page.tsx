@@ -34,7 +34,8 @@ import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
 import { ResourceLink } from '@/components/ds/resource-link'
-import { LEVEL_ORDER, getLevelDisplayName } from '@/lib/sunday-school-class'
+import { LEVEL_ORDER, getLevelDisplayName, getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
+import { formatUTC } from '@/lib/utils'
 import { SundaySchoolLevel } from '@prisma/client'
 import { Loader2, Plus } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
@@ -167,12 +168,11 @@ interface ParentChild {
   class: { id: string; name: string; level: SundaySchoolLevel } | null
 }
 
-const dayLabel = (date: string) =>
-  new Date(date).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })
+const dayLabel = (date: string) => formatUTC(date, { weekday: 'short', month: 'short', day: 'numeric' })
 
 /** Everything a parent needs about one child, in one place: this week's lesson, homework, and what's next. */
 function ChildCard({ child, lessons, homework }: { child: ParentChild; lessons: SundaySchoolWeeklyLesson[]; homework?: SundaySchoolHomeworkResponse }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getSundaySchoolTodayDateInputValue()
   const upcoming = lessons.filter((lesson) => lesson.sundayDate.slice(0, 10) >= today)
   const next = upcoming[0]
   const later = upcoming.slice(1, 4)

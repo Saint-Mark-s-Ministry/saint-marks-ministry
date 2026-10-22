@@ -13,7 +13,7 @@ import { FilterSelect } from '@/components/ui/filter-select'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
-import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { LessonsHubTabs } from '@/components/sunday-school-hub-tabs'
 import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
@@ -38,10 +38,13 @@ type LinkDraft = { title: string; url: string }
 
 export default function SundaySchoolHomeworkPage() {
   const { session, status } = useSundaySchoolGuard()
-  const [requestedClasses, setRequestedClasses] = useState<Array<{ id: string }>>([])
-  const [classId, setClassId] = useViewingClassId(requestedClasses)
-  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true)
+  // The response lists every Elementary class this person has, whichever one is loaded;
+  // keep it while switching so the class choice doesn't flicker.
+  const [loadedClasses, setLoadedClasses] = useState<SundaySchoolHomeworkResponse['classes']>()
+  const [classId, setClassId] = useViewingClassId(loadedClasses)
+  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true, { keepPreviousData: true })
   const homeworkData = data as SundaySchoolHomeworkResponse | undefined
+  if (homeworkData?.classes && homeworkData.classes !== loadedClasses) setLoadedClasses(homeworkData.classes)
   const [weekId, setWeekId] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -57,13 +60,6 @@ export default function SundaySchoolHomeworkPage() {
   )
   const selectedWeek = weeks.find(week => week.weeklyLessonId === weekId) ?? null
   const selectedClass = classes.find(cls => cls.id === classId)
-
-  // Follow the shared class choice once we know which Elementary classes this person has.
-  useEffect(() => {
-    if (classes.length > 0 && classes.map(cls => cls.id).join() !== requestedClasses.map(cls => cls.id).join()) {
-      setRequestedClasses(classes)
-    }
-  }, [classes, requestedClasses])
 
   useEffect(() => {
     if (weeks.length === 0) {
@@ -179,13 +175,7 @@ export default function SundaySchoolHomeworkPage() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} />
-      <SundaySchoolHubTabs
-        label="Lessons"
-        tabs={[
-          { href: '/dashboard/servants/lessons', label: 'Lessons' },
-          { href: '/dashboard/servants/homework', label: 'Homework' },
-        ]}
-      />
+      <LessonsHubTabs showHomework />
 
       <Panel toolbar={
         <>

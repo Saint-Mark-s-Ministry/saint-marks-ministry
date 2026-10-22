@@ -12,6 +12,7 @@ import { KeyValueList } from '@/components/ds/kv-list'
 import { ContactLink } from '@/components/contact-link'
 import { useStudentHistory, useStudentHistoryPrivateNotes } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
+import { telHref } from '@/lib/contact-links'
 import { getAttendanceStatusLabel } from '@/lib/attendance-utils'
 import { getLevelDisplayName } from '@/lib/sunday-school-class'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
@@ -115,20 +116,21 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
 function QuickActions({ target, data }: { target: StudentHistoryTarget; data: StudentHistory }) {
   const family = data.profile.family
   const contacts = [
-    { who: 'Mother', name: family?.motherName, phone: family?.motherPhone },
-    { who: 'Father', name: family?.fatherName, phone: family?.fatherPhone },
-    { who: 'Guardian', name: data.profile.guardian.name, phone: data.profile.guardian.phone },
-  ].filter((contact): contact is { who: string; name: string | null | undefined; phone: string } => Boolean(contact.phone))
+    { who: 'Mother', name: family?.motherName, href: family?.motherPhone ? telHref(family.motherPhone) : null },
+    { who: 'Father', name: family?.fatherName, href: family?.fatherPhone ? telHref(family.fatherPhone) : null },
+    { who: 'Guardian', name: data.profile.guardian.name, href: data.profile.guardian.phone ? telHref(data.profile.guardian.phone) : null },
+  ].filter((contact): contact is { who: string; name: string | null | undefined; href: string } => Boolean(contact.href))
   const rate = data.attendance.rate
+  const lastVisit = data.visitations.find(visit => visit.status === 'DONE')
   return <div className="space-y-3">
     <dl className="grid grid-cols-3 gap-2 rounded-lg border border-line p-3 text-center">
-      <div><dt className="text-xs text-ink-3">Attendance</dt><dd className="tabular mt-0.5 text-lg font-semibold">{rate === null ? '—' : `${Math.round(rate)}%`}</dd></div>
-      <div><dt className="text-xs text-ink-3">Last visit</dt><dd className="mt-1 text-[13px] font-medium">{data.visitations[0] ? formatDateUTC(data.visitations[0].visitedAt ?? data.visitations[0].createdAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
+      <div><dt className="text-xs text-ink-3">Attendance</dt><dd className="tabular mt-0.5 text-lg font-semibold">{formatRate(rate)}</dd></div>
+      <div><dt className="text-xs text-ink-3">Last visit</dt><dd className="mt-1 text-[13px] font-medium">{lastVisit ? formatDateUTC(lastVisit.visitedAt ?? lastVisit.createdAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
       <div><dt className="text-xs text-ink-3">Last call</dt><dd className="mt-1 text-[13px] font-medium">{data.phoneCalls[0] ? formatDateUTC(data.phoneCalls[0].calledAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
     </dl>
     <div className="flex flex-wrap gap-2">
       {contacts.slice(0, 2).map(contact => <Button key={contact.who} asChild variant="outline" className="flex-1">
-        <a href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`} aria-label={`Call ${contact.who.toLowerCase()}${contact.name ? `, ${contact.name}` : ''}`}>
+        <a href={contact.href} aria-label={`Call ${contact.who.toLowerCase()}${contact.name ? `, ${contact.name}` : ''}`}>
           <Phone aria-hidden />
           Call {contact.who.toLowerCase()}
         </a>
@@ -198,7 +200,7 @@ function ContactDetails({ title, name, phone, email, contactLabel, showName = fa
 function AttendanceHistory({ attendance }: { attendance: StudentHistory['attendance'] }) {
   return <div className="space-y-4">
     <dl className="grid grid-cols-2 gap-3 rounded-lg border border-line p-4 sm:grid-cols-5">
-      {[{ label: 'Rate', value: attendance.rate === null ? '—' : `${Math.round(attendance.rate)}%` },
+      {[{ label: 'Rate', value: formatRate(attendance.rate) },
         ...Object.entries(attendance.counts).map(([label, value]) => ({ label, value }))].map(stat => <div key={stat.label}>
         <dt className="text-xs capitalize text-ink-3">{stat.label}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{stat.value}</dd>
       </div>)}
@@ -227,6 +229,8 @@ function PrivateNotes({ childId, viewerId }: { childId: string; viewerId: string
     </li>)}</ul>
   </section>
 }
+
+const formatRate = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate)}%`)
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-4 text-sm text-ink-3">{children}</p>

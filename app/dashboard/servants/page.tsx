@@ -12,10 +12,10 @@ import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
+import { LessonStatusBadge } from '@/components/sunday-school-lesson-status'
 import {
   Agenda,
   EventLegend,
-  localDayKey,
   MonthCalendar,
   monthGridDays,
   nextDays,
@@ -31,9 +31,12 @@ import {
   getClassMeetingDay,
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
+  getNextClassMeetingDay,
+  getSundaySchoolTodayDateInputValue,
 } from '@/lib/sunday-school-class'
-import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
+import { ALL_CLASSES, useViewing, useViewingClassId } from '@/lib/sunday-school-viewing'
 import { buildFollowUps } from '@/lib/sunday-school-follow-up'
+import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import type {
   SundaySchoolClassSummary,
   SundaySchoolDashboard,
@@ -50,21 +53,6 @@ import { servantsMeetingGroups } from '@/lib/sunday-school-meeting-groups'
 
 const UNBANDED = '__unbanded__'
 const shortDate = (day: string) => formatUTC(day, { weekday: 'short', month: 'short', day: 'numeric' })
-
-/** The class's next meeting on or after today, as a day key. */
-function nextMeetingDay(cls: Pick<SundaySchoolClassSummary, 'level'>, today: string) {
-  const [y, m, d] = today.split('-').map(Number)
-  const date = new Date(Date.UTC(y, m - 1, d))
-  while (date.getUTCDay() !== getClassMeetingDay(cls.level)) date.setUTCDate(date.getUTCDate() + 1)
-  return date.toISOString().slice(0, 10)
-}
-
-function lessonBadge(lesson: SundaySchoolWeeklyLesson | undefined) {
-  if (!lesson) return <StatusBadge tone="neutral">Not scheduled</StatusBadge>
-  if (lesson.status === 'READY') return <StatusBadge tone="ok">Ready</StatusBadge>
-  if (lesson.status === 'NEEDS_LINKS') return <StatusBadge tone="warn">Needs links</StatusBadge>
-  return <StatusBadge tone="warn">No teacher</StatusBadge>
-}
 
 function ChecklistRow({
   icon: Icon,
@@ -107,7 +95,14 @@ function ChecklistRow({
 
 export default function SundaySchoolDashboardPage() {
   const { status, session } = useSundaySchoolGuard()
-  const { data, isLoading } = useSundaySchoolDashboard(undefined, undefined, 'children', { keepPreviousData: true })
+  const [stored] = useViewing()
+  // The trend follows the class being viewed; the class list is the same either way.
+  const { data, isLoading } = useSundaySchoolDashboard(
+    undefined,
+    stored && stored !== ALL_CLASSES ? stored : undefined,
+    'children',
+    { keepPreviousData: true }
+  )
   const dashboard = data as SundaySchoolDashboard | undefined
   const allClasses = useMemo(() => dashboard?.classes ?? [], [dashboard])
   const [viewing] = useViewingClassId(allClasses, { allowAll: true })
@@ -116,18 +111,14 @@ export default function SundaySchoolDashboardPage() {
     [allClasses, viewing]
   )
 
-  const today = localDayKey()
+  const today = getSundaySchoolTodayDateInputValue()
   const [month, setMonth] = useState(() => new Date())
   const [classView, setClassView] = useState<'all' | 'mine' | 'due'>('all')
-  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1)
-  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-  const horizon = new Date(Date.now() + 35 * 24 * 60 * 60 * 1000)
-  const lessonRange = useMemo(() => {
-    const from = new Date(Math.min(monthStart.getTime(), Date.now()) - 7 * 24 * 60 * 60 * 1000)
-    const to = new Date(Math.max(monthEnd.getTime(), horizon.getTime()) + 7 * 24 * 60 * 60 * 1000)
-    return { from: utcDayKey(from), to: utcDayKey(to) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month.getFullYear(), month.getMonth()])
+  // Lessons for the month on screen and the five weeks ahead, a week either side.
+  const WEEK = 7 * 24 * 60 * 60 * 1000
+  const lessonsFrom = utcDayKey(new Date(Math.min(new Date(month.getFullYear(), month.getMonth(), 1).getTime(), Date.now()) - WEEK))
+  const lessonsTo = utcDayKey(new Date(Math.max(new Date(month.getFullYear(), month.getMonth() + 1, 0).getTime(), Date.now() + 5 * WEEK) + WEEK))
+  const lessonRange = useMemo(() => ({ from: lessonsFrom, to: lessonsTo }), [lessonsFrom, lessonsTo])
   const { data: lessonsData } = useSundaySchoolLessons(lessonRange)
   const { data: visitationsData } = useSundaySchoolVisitations()
   const scopeIds = useMemo(() => new Set(classes.map((c) => c.id)), [classes])
@@ -159,15 +150,20 @@ export default function SundaySchoolDashboardPage() {
       href: '/dashboard/servants/lessons',
     }))
   }, [lessons])
+  const events = [...lessonEvents, ...liturgical.events]
 
   const servedClass = classes.length === 1 && classes[0].canServe ? classes[0] : undefined
+  // The class's own trend (its meeting day, not a generic week). Same request as above
+  // whenever that class is already the Viewing choice.
+  const { data: servedTrendData } = useSundaySchoolDashboard(undefined, servedClass?.id, 'children', { keepPreviousData: true })
+  const servedTrend = (servedTrendData as SundaySchoolDashboard | undefined)?.attendanceTrend
   const homeworkClassId =
     servedClass && session?.user?.sundaySchool?.hasHomeworkAccess && getClassMeetingDay(servedClass.level) === 6 ? servedClass.id : undefined
   const { data: homeworkData } = useSundaySchoolHomework(homeworkClassId)
 
   const followUps = useMemo(() => {
     const visitClasses = (visitationsData as SundaySchoolVisitationsResponse | undefined)?.classes ?? []
-    return buildFollowUps(visitClasses.filter((c) => scopeIds.has(c.id)), [], today).length
+    return buildFollowUps(visitClasses.filter((c) => scopeIds.has(c.id)), [], today)
   }, [scopeIds, today, visitationsData])
 
   // An age-group coordinator runs several classes, so group the list by band.
@@ -198,9 +194,10 @@ export default function SundaySchoolDashboardPage() {
   const due = classes.filter((c) => !c.attendanceTakenThisWeek)
 
   // "This week" is the class's own meeting: Saturday for Elementary, Sunday for the rest.
-  const meetingFor = (cls: SundaySchoolClassSummary) => nextMeetingDay(cls, today)
-  const lessonFor = (cls: SundaySchoolClassSummary) =>
-    lessons.find((l) => l.classId === cls.id && utcDayKey(l.sundayDate) === meetingFor(cls))
+  const meetingFor = (cls: SundaySchoolClassSummary) => getNextClassMeetingDay(cls.level, today)
+  const weekLesson = servedClass
+    ? lessons.find((l) => l.classId === servedClass.id && utcDayKey(l.sundayDate) === meetingFor(servedClass))
+    : undefined
   const lastMeeting = (cls: SundaySchoolClassSummary) => utcDayKey(getMostRecentClassMeetingDate(cls.level))
   const homeworkWeek = homeworkClassId
     ? (homeworkData as SundaySchoolHomeworkResponse | undefined)?.weeks.find(
@@ -271,11 +268,11 @@ export default function SundaySchoolDashboardPage() {
                   <ChecklistRow
                     icon={BookOpen}
                     title="Lesson"
-                    done={lessonFor(servedClass)?.status === 'READY'}
-                    status={lessonBadge(lessonFor(servedClass))}
+                    done={weekLesson?.status === 'READY'}
+                    status={<LessonStatusBadge status={weekLesson?.status} />}
                     detail={
-                      lessonFor(servedClass)
-                        ? `${lessonFor(servedClass)!.title || 'No title yet'} · ${lessonFor(servedClass)!.owner ? `Teacher: ${lessonFor(servedClass)!.owner!.name}` : 'No teacher yet'}`
+                      weekLesson
+                        ? `${weekLesson.title || 'No title yet'} · ${weekLesson.owner ? `Teacher: ${weekLesson.owner.name}` : 'No teacher yet'}`
                         : 'No lesson is scheduled for this meeting.'
                     }
                     action={
@@ -319,9 +316,9 @@ export default function SundaySchoolDashboardPage() {
                   <ChecklistRow
                     icon={HeartHandshake}
                     title="Follow up"
-                    done={followUps === 0}
-                    status={followUps > 0 ? <StatusBadge tone="bad">{followUps} {followUps === 1 ? 'child' : 'children'}</StatusBadge> : <StatusBadge tone="ok">All clear</StatusBadge>}
-                    detail={followUps > 0 ? 'Absent several weeks or waiting for a visit' : 'Nobody needs a call this week'}
+                    done={followUps.length === 0}
+                    status={followUps.length > 0 ? <StatusBadge tone="bad">{followUps.length} {followUps.length === 1 ? 'child' : 'children'}</StatusBadge> : <StatusBadge tone="ok">All clear</StatusBadge>}
+                    detail={followUps.length > 0 ? 'Absent several weeks or waiting for a visit' : 'Nobody needs a call this week'}
                     action={
                       <Button asChild variant="outline" size="sm">
                         <Link href="/dashboard/servants/care">Open Care</Link>
@@ -332,12 +329,20 @@ export default function SundaySchoolDashboardPage() {
               </Panel>
             )}
 
+            {servedClass && !coordinates && servedTrend && (
+              <SundaySchoolRecentAttendanceChart
+                trend={servedTrend}
+                className={servedClass.name}
+                throughDate={today}
+              />
+            )}
+
             {coordinates && (
               <Panel
                 title="Needs you"
-                description={due.length > 0 ? 'Classes still missing attendance for their last meeting' : undefined}
+                description="Attendance still missing, and children absent several weeks or waiting for a visit"
               >
-                {due.length === 0 && followUps === 0 ? (
+                {due.length === 0 && followUps.length === 0 ? (
                   <EmptyState message="Every class has attendance, and nobody is waiting for follow-up." />
                 ) : (
                   <ul className="divide-y divide-line">
@@ -360,15 +365,23 @@ export default function SundaySchoolDashboardPage() {
                       </li>
                     ))}
                     {due.length > 8 && <li className="px-4 py-2 text-xs text-ink-3">+{due.length - 8} more classes</li>}
-                    {followUps > 0 && (
-                      <li className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    {followUps.slice(0, 5).map((item) => (
+                      <li key={item.childId} className="flex items-center justify-between gap-3 px-4 py-2.5">
                         <span className="flex min-w-0 flex-col">
-                          <span className="text-[13.5px] font-medium text-ink">
-                            {followUps} {followUps === 1 ? 'child needs' : 'children need'} follow-up
+                          <span className="truncate text-[13.5px] font-medium text-ink">{item.name}</span>
+                          <span className="truncate text-xs text-ink-3">
+                            {item.reasons.includes('absent') ? `Absent ${item.absentWeeks} weeks in a row` : 'Priority visit'} · {item.className}
                           </span>
-                          <span className="text-xs text-ink-3">Absent several weeks or waiting for a visit</span>
                         </span>
                         <Button asChild size="sm" variant="outline">
+                          <Link href={`/dashboard/servants/visitations?childId=${item.childId}`}>{item.canEdit ? 'Call or visit' : 'Open'}</Link>
+                        </Button>
+                      </li>
+                    ))}
+                    {followUps.length > 5 && (
+                      <li className="flex items-center justify-between gap-3 px-4 py-2">
+                        <span className="text-xs text-ink-3">+{followUps.length - 5} more children need follow-up</span>
+                        <Button asChild size="sm" variant="ghost">
                           <Link href="/dashboard/servants/care">Care</Link>
                         </Button>
                       </li>
@@ -456,7 +469,7 @@ export default function SundaySchoolDashboardPage() {
                 }
                 className="hidden md:block"
               >
-                <MonthCalendar month={month} events={[...lessonEvents, ...liturgical.events]} fastDays={liturgical.fastDays} onMonthChange={setMonth} maxPerDay={2} />
+                <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} maxPerDay={2} />
               </Panel>
             )}
           </div>
@@ -476,7 +489,7 @@ export default function SundaySchoolDashboardPage() {
             >
               <Agenda
                 days={upcomingDays}
-                events={[...lessonEvents, ...liturgical.events].filter((e) => e.day >= today)}
+                events={events.filter((e) => e.day >= today)}
                 emptyToday="No class today"
               />
             </Panel>

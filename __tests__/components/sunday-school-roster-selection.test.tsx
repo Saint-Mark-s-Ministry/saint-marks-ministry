@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 
 const mocks = vi.hoisted(() => ({
   children: vi.fn(() => ({ data: [], isLoading: false, mutate: vi.fn() })),
@@ -32,34 +32,28 @@ describe('roster class selection', () => {
     window.history.replaceState({}, '', '/dashboard/servants/roster')
   })
 
-  it('restores the selected grade after the page is reloaded', async () => {
-    window.history.replaceState({ marker: 'keep' }, '', '/dashboard/servants/roster?viewAs=priest#students')
+  it('shows the class chosen in Viewing, and keeps it after a reload', async () => {
+    window.localStorage.setItem('sunday-school.viewing', 'grade-8')
     const page = render(<RosterPage />)
-    await waitFor(() => expect(screen.getByLabelText('Class')).toHaveValue('pre-k'))
-
-    fireEvent.change(screen.getByLabelText('Class'), { target: { value: 'grade-8' } })
-    expect(screen.getByLabelText('Class')).toHaveValue('grade-8')
-    expect(new URLSearchParams(window.location.search).get('classId')).toBe('grade-8')
-    expect(new URLSearchParams(window.location.search).get('viewAs')).toBe('priest')
-    expect(window.location.hash).toBe('#students')
-    expect(window.history.state).toEqual({ marker: 'keep' })
+    await waitFor(() => expect(mocks.children).toHaveBeenLastCalledWith('grade-8'))
+    // There is one class picker, in the shell; the page does not add its own.
+    expect(screen.queryByLabelText('Class')).not.toBeInTheDocument()
 
     page.unmount()
     render(<RosterPage />)
-    await waitFor(() => expect(screen.getByLabelText('Class')).toHaveValue('grade-8'))
-    expect(mocks.children).toHaveBeenLastCalledWith('grade-8')
+    await waitFor(() => expect(mocks.children).toHaveBeenLastCalledWith('grade-8'))
   })
 
-  it('honors a link to an accessible class', async () => {
+  it('honors a link to an accessible class and makes it the new choice', async () => {
     window.history.replaceState({}, '', '/dashboard/servants/roster?classId=grade-8')
     render(<RosterPage />)
-    await waitFor(() => expect(screen.getByLabelText('Class')).toHaveValue('grade-8'))
+    await waitFor(() => expect(mocks.children).toHaveBeenLastCalledWith('grade-8'))
+    expect(window.localStorage.getItem('sunday-school.viewing')).toBe('grade-8')
   })
 
-  it('falls back to an available class when the saved class is unavailable', async () => {
+  it('falls back to an available class when the linked class is unavailable', async () => {
     window.history.replaceState({}, '', '/dashboard/servants/roster?classId=unavailable')
     render(<RosterPage />)
-    await waitFor(() => expect(screen.getByLabelText('Class')).toHaveValue('pre-k'))
-    expect(mocks.children).toHaveBeenLastCalledWith('pre-k')
+    await waitFor(() => expect(mocks.children).toHaveBeenLastCalledWith('pre-k'))
   })
 })

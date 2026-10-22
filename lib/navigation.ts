@@ -203,15 +203,14 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
     },
   ]
 
-  const ministry: NavItem[] = []
-  if (coordinates) {
-    ministry.push({ href: '/dashboard/servants/classes', label: 'Classes & servants', icon: School })
-    ministry.push({ href: '/dashboard/servants/child-registrations', label: 'Registration requests', icon: UserPlus })
-  }
-  if (coordinates) {
-    ministry.push({ href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck })
-    ministry.push({ href: '/dashboard/servants/reports', label: 'Reports', icon: ChartLine })
-  }
+  const ministry: NavItem[] = coordinates
+    ? [
+        { href: '/dashboard/servants/classes', label: 'Classes & servants', icon: School },
+        { href: '/dashboard/servants/child-registrations', label: 'Registration requests', icon: UserPlus },
+        { href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck },
+        { href: '/dashboard/servants/reports', label: 'Reports', icon: ChartLine },
+      ]
+    : []
 
   const admin: NavItem[] = []
   if (ssAdmin) admin.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
@@ -226,7 +225,11 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
   if (admin.length > 0) groups.push({ label: 'Admin', items: admin })
   groups.push({
     label: 'Community',
-    items: [{ href: '/dashboard/servants/feedback', label: 'Ideas & feedback', icon: MessageSquare }],
+    items: [
+      // Coordinators find meetings under Ministry; everyone else checks in and reviews them here.
+      ...(coordinates ? [] : [{ href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck }]),
+      { href: '/dashboard/servants/feedback', label: 'Ideas & feedback', icon: MessageSquare },
+    ],
   })
   return groups
 }

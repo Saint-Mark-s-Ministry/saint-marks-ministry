@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { SundaySchoolLevel } from '@prisma/client'
 import { useSundaySchoolAgeGroups, useSundaySchoolClasses } from '@/lib/swr'
-import { compareClassesByLevelAndName } from '@/lib/sunday-school-class'
+import { compareAgeGroupsByLevel, compareClassesByLevelAndName } from '@/lib/sunday-school-class'
 import { ALL_CLASSES, useViewing, resolveViewingClassId } from '@/lib/sunday-school-viewing'
 import { cn } from '@/lib/utils'
 
@@ -20,13 +20,12 @@ interface PickerAgeGroup {
   id: string
   name: string
   levels: SundaySchoolLevel[]
-  sortOrder?: number
 }
 
-/** Classes grouped by the age group that owns their grade, in band order. */
-export function groupClassesForViewing(classes: PickerClass[], ageGroups: PickerAgeGroup[]) {
+/** Classes grouped by the age group that owns their grade, in band order (as on Home). */
+function groupClassesForViewing(classes: PickerClass[], ageGroups: PickerAgeGroup[]) {
   const active = classes.filter(cls => cls.isActive).sort(compareClassesByLevelAndName)
-  const bands = [...ageGroups].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  const bands = [...ageGroups].sort(compareAgeGroupsByLevel)
   const groups = bands
     .map(band => ({ label: band.name, classes: active.filter(cls => band.levels.includes(cls.level)) }))
     .filter(group => group.classes.length > 0)
@@ -54,7 +53,7 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
 
   const value = resolveViewingClassId(activeIds, stored, null, true)
   const selected = classes.find(cls => cls.id === value)
-  const title = selected ? selected.name : activeIds.length === classes.length ? 'All classes' : 'All my classes'
+  const title = selected ? selected.name : 'All classes'
   const detail = selected
     ? selected.classroom || groups.find(group => group.classes.some(cls => cls.id === selected.id))?.label || ''
     : `${activeIds.length} classes`
@@ -67,7 +66,7 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
       onChange={event => setStored(event.target.value)}
       className="absolute inset-0 cursor-pointer appearance-none opacity-0"
     >
-      <option value={ALL_CLASSES}>{activeIds.length === classes.length ? 'All classes' : 'All my classes'}</option>
+      <option value={ALL_CLASSES}>All classes</option>
       {groups.map(group => (
         <optgroup key={group.label} label={group.label}>
           {group.classes.map(cls => (

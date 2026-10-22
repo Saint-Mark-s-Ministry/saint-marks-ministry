@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { AttendanceHubTabs } from '@/components/sunday-school-hub-tabs'
+import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
 import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
@@ -21,7 +22,6 @@ import { ServantContactDialog } from '@/components/servant-contact-dialog'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/ui/page-loading'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import {
@@ -34,7 +34,6 @@ import {
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
-  getTodayDateInputValue,
   sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
@@ -64,7 +63,11 @@ function ServantAttendanceContent() {
     [ageGroupsData, classesData]
   )
 
-  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: searchParams.get('classId') })
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, {
+    requested: searchParams.get('classId'),
+    // With no choice yet, open a class that has servants assigned, as before.
+    preferred: classes.find(cls => cls.assignments.some(assignment => assignment.classId === cls.id))?.id,
+  })
   const [sessionDate, setSessionDate] = useState(toDateInputValue(getMostRecentSunday()))
   const [marks, setMarks] = useState<Record<string, SundaySchoolServantAttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
@@ -166,13 +169,7 @@ function ServantAttendanceContent() {
         title="Attendance"
         meta={[selectedClass?.name, canEdit ? 'Which servants served this week' : 'Recorded servant attendance', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
       />
-      <SundaySchoolHubTabs
-        label="Who"
-        tabs={[
-          { href: `/dashboard/servants/attendance${selectedClassId ? `?classId=${selectedClassId}` : ''}`, label: 'Children' },
-          { href: '/dashboard/servants/servant-attendance', label: 'Servants' },
-        ]}
-      />
+      <AttendanceHubTabs showServants />
 
       {classes.length === 0 ? (
         <Panel>
@@ -194,10 +191,7 @@ function ServantAttendanceContent() {
                     />
                   </label>
                 )}
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Date
-                  <Input type="date" aria-label="Date" value={sessionDate} max={getTodayDateInputValue()} onChange={(e) => setSessionDate(e.target.value)} className="w-40 md:h-8" />
-                </label>
+                <MeetingDatePicker value={sessionDate} onChange={setSessionDate} />
                 {attendance && (
                   <span className="tabular text-[13px] text-ink-2 md:ml-auto">
                     <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} present

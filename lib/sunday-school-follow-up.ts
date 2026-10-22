@@ -1,4 +1,5 @@
 import { getBirthdayParts } from './sunday-school-birthdays'
+import { getChildFullName } from './sunday-school-class'
 
 /** A child is on the follow-up list after this many meetings marked absent in a row (matches the absence notice). */
 export const FOLLOW_UP_ABSENT_WEEKS = 3
@@ -77,6 +78,19 @@ export function buildFollowUps(
 ): FollowUpItem[] {
   const items = new Map<string, FollowUpItem>()
   const classById = new Map(classes.map(cls => [cls.id, cls]))
+  const row = (child: { id: string; firstName: string; lastName: string }, cls: FollowUpClass): FollowUpItem => ({
+    childId: child.id,
+    name: getChildFullName(child),
+    classId: cls.id,
+    className: cls.name,
+    canEdit: cls.canEdit,
+    reasons: [],
+    absentWeeks: 0,
+    absentSince: null,
+    birthdayInDays: null,
+    birthDate: null,
+    lastContact: null,
+  })
 
   for (const cls of classes) for (const child of cls.children) {
     const weeks = child.absentStreak?.weeks ?? 0
@@ -93,16 +107,10 @@ export function buildFollowUps(
       ? { kind: 'call' as const, date: callDate, outcome: call.outcome }
       : visitDate ? { kind: 'visit' as const, date: visitDate } : null
     items.set(child.id, {
-      childId: child.id,
-      name: `${child.firstName} ${child.lastName}`.trim(),
-      classId: cls.id,
-      className: cls.name,
-      canEdit: cls.canEdit,
+      ...row(child, cls),
       reasons,
       absentWeeks: weeks,
       absentSince: since,
-      birthdayInDays: null,
-      birthDate: null,
       lastContact: newest && (!since || reasons.includes('priority') || newest.date >= since) ? newest : null,
     })
   }
@@ -112,26 +120,11 @@ export function buildFollowUps(
     if (!cls) continue
     const days = daysUntilBirthday(child.birthDate, today)
     if (days === null || days >= FOLLOW_UP_BIRTHDAY_DAYS) continue
-    const existing = items.get(child.id)
-    if (existing) {
-      existing.reasons.push('birthday')
-      existing.birthdayInDays = days
-      existing.birthDate = child.birthDate
-      continue
-    }
-    items.set(child.id, {
-      childId: child.id,
-      name: `${child.firstName} ${child.lastName}`.trim(),
-      classId: cls.id,
-      className: cls.name,
-      canEdit: cls.canEdit,
-      reasons: ['birthday'],
-      absentWeeks: 0,
-      absentSince: null,
-      birthdayInDays: days,
-      birthDate: child.birthDate,
-      lastContact: null,
-    })
+    const item = items.get(child.id) ?? row(child, cls)
+    item.reasons.push('birthday')
+    item.birthdayInDays = days
+    item.birthDate = child.birthDate
+    items.set(child.id, item)
   }
 
   const rank = (item: FollowUpItem) =>

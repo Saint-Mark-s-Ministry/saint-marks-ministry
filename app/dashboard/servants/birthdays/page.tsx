@@ -24,7 +24,7 @@ import {
 } from '@/lib/sunday-school-birthdays'
 import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type { SundaySchoolBirthdayChild, SundaySchoolClass } from '@/types/sunday-school'
-import { CareHubTabs } from '@/components/sunday-school-care-tabs'
+import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 
 const MONTH_OPTIONS = [
@@ -46,7 +46,7 @@ export default function SundaySchoolBirthdaysPage() {
     ),
     [ageGroupsData, classesData]
   )
-  const [classId, setClassId] = useViewingClassId(classes, { allowAll: true })
+  const [classId] = useViewingClassId(classes, { allowAll: true })
   const childrenWithBirthdays = useMemo(
     () => [...((data as SundaySchoolBirthdayChild[] | undefined) ?? [])].sort(compareBirthdays),
     [data]
@@ -100,20 +100,6 @@ export default function SundaySchoolBirthdaysPage() {
                 options={MONTH_OPTIONS}
               />
             </label>
-            {classes.length > 1 && (
-              <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                Class
-                <FilterSelect
-                  aria-label="Class"
-                  value={classId}
-                  onChange={setClassId}
-                  options={[
-                    { value: ALL_CLASSES, label: 'All classes' },
-                    ...classes.map(classroom => ({ value: classroom.id, label: classroom.name })),
-                  ]}
-                />
-              </label>
-            )}
           </>
         }
         footer={<span>{visibleChildren.length} birthdays</span>}

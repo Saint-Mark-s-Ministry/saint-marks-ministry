@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
-export interface HubTab {
+interface HubTab {
   href: string
   label: string
   count?: number
@@ -13,27 +13,17 @@ export interface HubTab {
 /**
  * The tab row under a hub page's header (Attendance, Care, Lessons). Each tab
  * is its own URL, so existing links keep working; it looks like the design
- * system's Segmented control but navigates instead of filtering.
+ * system's Segmented control but navigates instead of filtering. The class
+ * comes from Viewing, so tabs never carry a ?classId.
  */
-export function SundaySchoolHubTabs({ tabs, label, className }: { tabs: HubTab[]; label: string; className?: string }) {
+function HubTabs({ tabs, label }: { tabs: HubTab[]; label: string }) {
   const pathname = usePathname()
-  const search = useSearchParams()?.toString() ?? ''
   if (tabs.length < 2) return null
 
-  const isCurrent = (href: string) => {
-    const [path, query] = href.split('?')
-    if (pathname !== path) return false
-    if (query) return new URLSearchParams(search).toString().includes(query)
-    return !tabs.some(other => other.href !== href && other.href.startsWith(`${path}?`) && search.includes(other.href.split('?')[1]))
-  }
-
   return (
-    <nav
-      aria-label={label}
-      className={cn('inline-flex h-11 max-w-full items-center gap-0.5 overflow-x-auto rounded-[8px] bg-hover p-[3px] md:h-8', className)}
-    >
+    <nav aria-label={label} className="inline-flex h-11 max-w-full items-center gap-0.5 overflow-x-auto rounded-[8px] bg-hover p-[3px] md:h-8">
       {tabs.map(tab => {
-        const current = isCurrent(tab.href)
+        const current = pathname === tab.href
         return (
           <Link
             key={tab.href}
@@ -52,5 +42,45 @@ export function SundaySchoolHubTabs({ tabs, label, className }: { tabs: HubTab[]
         )
       })}
     </nav>
+  )
+}
+
+/** Attendance: children, and servants for the people who may see them. */
+export function AttendanceHubTabs({ showServants }: { showServants: boolean }) {
+  return (
+    <HubTabs
+      label="Who"
+      tabs={[
+        { href: '/dashboard/servants/attendance', label: 'Children' },
+        ...(showServants ? [{ href: '/dashboard/servants/servant-attendance', label: 'Servants' }] : []),
+      ]}
+    />
+  )
+}
+
+/** Care keeps Follow up, Visits & calls and Birthdays under one menu entry. */
+export function CareHubTabs({ followUpCount }: { followUpCount?: number }) {
+  return (
+    <HubTabs
+      label="Care"
+      tabs={[
+        { href: '/dashboard/servants/care', label: 'Follow up', count: followUpCount },
+        { href: '/dashboard/servants/visitations', label: 'Visits & calls' },
+        { href: '/dashboard/servants/birthdays', label: 'Birthdays' },
+      ]}
+    />
+  )
+}
+
+/** Lessons, and Homework for Elementary servants. */
+export function LessonsHubTabs({ showHomework }: { showHomework: boolean }) {
+  return (
+    <HubTabs
+      label="Lessons"
+      tabs={[
+        { href: '/dashboard/servants/lessons', label: 'Lessons' },
+        ...(showHomework ? [{ href: '/dashboard/servants/homework', label: 'Homework' }] : []),
+      ]}
+    />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 /**
  * "Viewing": the one class choice every Sunday School page follows.
@@ -32,7 +32,7 @@ function current(): string | null {
   return stored === undefined ? memoryValue : stored
 }
 
-export function setViewing(value: string) {
+function setViewing(value: string) {
   try {
     window.localStorage.setItem(STORAGE_KEY, value)
   } catch {
@@ -58,34 +58,45 @@ export function useViewing(): [string | null, (value: string) => void] {
 
 /**
  * Picks the class a page shows: an explicit `requested` id (a link with
- * ?classId=) wins and becomes the new choice, then the stored choice, then
- * all classes (when the page can show them) or the first class.
+ * ?classId=) wins, then the stored choice, then all classes (when the page can
+ * show them), then `preferred` (e.g. the class you serve), then the first class.
  */
 export function resolveViewingClassId(
   classIds: string[],
   stored: string | null,
   requested: string | null | undefined,
   allowAll: boolean,
+  preferred?: string | null,
 ): string {
   if (requested && classIds.includes(requested)) return requested
   if (stored && classIds.includes(stored)) return stored
   if (allowAll && classIds.length !== 1) return ALL_CLASSES
+  if (preferred && classIds.includes(preferred)) return preferred
   return classIds[0] ?? (allowAll ? ALL_CLASSES : '')
 }
 
 export function useViewingClassId(
   classes: Array<{ id: string }> | undefined,
-  { requested, allowAll = false }: { requested?: string | null; allowAll?: boolean } = {},
+  { requested, allowAll = false, preferred }: { requested?: string | null; allowAll?: boolean; preferred?: string | null } = {},
 ): [string, (value: string) => void] {
   const [stored, store] = useViewing()
   const classIds = useMemo(() => (classes ?? []).map(cls => cls.id), [classes])
-  const value = resolveViewingClassId(classIds, stored, requested, allowAll)
+  // A link to a class applies once; after that the Viewing picker is in charge again.
+  const [appliedRequest, setAppliedRequest] = useState<string | null>(null)
+  const pending = requested && requested !== appliedRequest && classIds.includes(requested) ? requested : null
+  const value = resolveViewingClassId(classIds, stored, pending, allowAll, preferred)
 
-  // Following a link to a specific class makes that class the choice everywhere.
   useEffect(() => {
-    if (requested && classIds.includes(requested) && stored !== requested) store(requested)
-  }, [requested, classIds, stored, store])
+    if (pending) {
+      setAppliedRequest(pending)
+      if (stored !== pending) store(pending)
+      return
+    }
+    // A one-class page showing "All classes" picks a class; save it so the
+    // picker says what the page shows. A specific class chosen elsewhere is
+    // left alone, so pages that list only some classes never fight over it.
+    if (!allowAll && value && (stored === null || stored === ALL_CLASSES)) store(value)
+  }, [allowAll, pending, store, stored, value])
 
-  const update = useCallback((next: string) => store(next), [store])
-  return [value, update]
+  return [value, store]
 }

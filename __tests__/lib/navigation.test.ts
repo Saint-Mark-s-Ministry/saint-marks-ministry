@@ -99,11 +99,13 @@ describe('navigationFor', () => {
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/child-registrations')
   })
 
-  it('shows servants meetings only to people who coordinate', () => {
-    expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/servant-attendance/meetings')
-    const coordinator = { sundaySchool: { hasAccess: true, isCoordinator: true } }
-    expect(hrefs('SERVANT', 'sunday-school', coordinator)).toContain('/dashboard/servants/servant-attendance/meetings')
-    expect(hrefs('PRIEST', 'sunday-school', servesSS)).toContain('/dashboard/servants/servant-attendance/meetings')
+  it('gives every servant a way to servants meetings: Ministry for coordinators, Community for the rest', () => {
+    const meetings = '/dashboard/servants/servant-attendance/meetings'
+    const groupOf = (user: Record<string, unknown>) =>
+      navigationFor({ role: 'SERVANT', ...user }, 'sunday-school').find((group) => group.items.some((item) => item.href === meetings))?.label
+    expect(groupOf(servesSS)).toBe('Community')
+    expect(groupOf({ sundaySchool: { hasAccess: true, isCoordinator: true } })).toBe('Ministry')
+    expect(hrefs('PRIEST', 'sunday-school', servesSS)).toContain(meetings)
   })
 
   it('gives every servant the same five places, in order', () => {

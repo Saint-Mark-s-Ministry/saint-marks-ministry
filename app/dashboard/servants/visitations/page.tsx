@@ -19,7 +19,6 @@ import { Segmented } from '@/components/ds/segmented'
 import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
-import { FilterSelect } from '@/components/ui/filter-select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,11 +35,11 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Textarea } from '@/components/ui/textarea'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { useSundaySchoolAgeGroups, useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import { useViewingClassId } from '@/lib/sunday-school-viewing'
-import { CareHubTabs } from '@/components/sunday-school-care-tabs'
+import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import type {
   SundaySchoolPriestNote,
   SundaySchoolVisitationChild,
@@ -71,7 +70,7 @@ function VisitationsContent() {
   const requestedClassId = requestedChildId
     ? classes.find(classroom => classroom.children.some(child => child.id === requestedChildId))?.id
     : searchParams.get('classId')
-  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
+  const [selectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [search, setSearch] = useState('')
   const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done' | 'priority'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
@@ -125,12 +124,13 @@ function VisitationsContent() {
     setConfidentialNote('')
   }
 
-  const openedRequestedChild = useRef(false)
+  // Open the linked child once per link, including when a new link arrives while the page is open.
+  const openedRequestedChild = useRef<string | null>(null)
   useEffect(() => {
-    if (openedRequestedChild.current || !requestedChildId) return
+    if (!requestedChildId || openedRequestedChild.current === requestedChildId) return
     const child = classes.flatMap(classroom => classroom.children).find(item => item.id === requestedChildId)
     if (!child) return
-    openedRequestedChild.current = true
+    openedRequestedChild.current = requestedChildId
     openChild(child)
   }, [classes, requestedChildId])
 
@@ -302,17 +302,6 @@ function VisitationsContent() {
                     ]}
                   />
                   <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
-                    {classes.length > 1 && (
-                      <FilterSelect
-                        aria-label="Class"
-                        value={selectedClass?.id ?? ''}
-                        onChange={(v) => {
-                          setSelectedClassId(v)
-                          setSelectedChildId(null)
-                        }}
-                        options={classes.map((c) => ({ value: c.id, label: `${c.name} — ${getLevelDisplayName(c.level)}` }))}
-                      />
-                    )}
                     <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
                   </div>
                 </>

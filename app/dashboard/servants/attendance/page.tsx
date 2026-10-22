@@ -5,7 +5,6 @@ import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { SundaySchoolAttendanceSaveBar } from '@/components/sunday-school-attendance-save-bar'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -18,7 +17,7 @@ import { StudentName } from '@/components/student-history-provider'
 import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
-import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { AttendanceHubTabs } from '@/components/sunday-school-hub-tabs'
 import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
@@ -31,7 +30,6 @@ import {
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
-  getTodayDateInputValue,
   sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
@@ -42,6 +40,7 @@ import type {
 import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
 import { Users } from 'lucide-react'
+import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
 
 function SundaySchoolAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
@@ -56,7 +55,7 @@ function SundaySchoolAttendanceContent() {
     (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   ), [ageGroupsData, classesData])
 
-  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
+  const [selectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
@@ -141,15 +140,7 @@ function SundaySchoolAttendanceContent() {
           )
         }
       />
-      {selectedClass?.canViewServantAttendance && (
-        <SundaySchoolHubTabs
-          label="Who"
-          tabs={[
-            { href: '/dashboard/servants/attendance', label: 'Children' },
-            { href: `/dashboard/servants/servant-attendance?classId=${selectedClassId}`, label: 'Servants' },
-          ]}
-        />
-      )}
+      <AttendanceHubTabs showServants={Boolean(selectedClass?.canViewServantAttendance)} />
 
       {classes.length === 0 ? (
         <Panel>
@@ -166,28 +157,7 @@ function SundaySchoolAttendanceContent() {
           <Panel
             toolbar={
               <>
-                {classes.length > 1 && (
-                  <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                    Class
-                    <FilterSelect
-                      aria-label="Class"
-                      value={selectedClassId}
-                      onChange={setSelectedClassId}
-                      options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                    />
-                  </label>
-                )}
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Date
-                  <Input
-                    type="date"
-                    aria-label="Date"
-                    value={sessionDate}
-                    max={getTodayDateInputValue()}
-                    onChange={(e) => setSessionDate(e.target.value)}
-                    className="w-40 md:h-8"
-                  />
-                </label>
+                <MeetingDatePicker value={sessionDate} onChange={setSessionDate} />
                 <div className="flex w-full flex-wrap items-center gap-3 lg:ml-auto lg:w-auto">
                   <FilterSelect
                     aria-label="Alphabetize by"

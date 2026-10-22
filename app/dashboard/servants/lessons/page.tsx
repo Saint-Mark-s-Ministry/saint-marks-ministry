@@ -6,12 +6,11 @@ import { ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useLiturgicalCalendar, useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
-import { formatDateUTC } from '@/lib/utils'
+import { cn, formatDateUTC } from '@/lib/utils'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
-import { StatusBadge } from '@/components/ds/status-badge'
-import { FilterSelect } from '@/components/ui/filter-select'
+import { LessonStatusBadge } from '@/components/sunday-school-lesson-status'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -20,26 +19,17 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
 import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
-import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { getSundaySchoolTodayDateInputValue, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { EventLegend, MonthCalendar, monthGridDays, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
 import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
-import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { LessonsHubTabs } from '@/components/sunday-school-hub-tabs'
 import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 
 interface ResourceDraft { title: string; url: string }
 
-function dateOnly(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function statusBadge(lesson: SundaySchoolWeeklyLesson) {
-  if (lesson.status === 'READY') return <StatusBadge tone="ok">Ready</StatusBadge>
-  if (lesson.status === 'NEEDS_LINKS') return <StatusBadge tone="warn">Needs links</StatusBadge>
-  return <StatusBadge tone="neutral">Unassigned</StatusBadge>
-}
 
 function LessonsContent() {
   const { session, status } = useSundaySchoolGuard()
@@ -65,7 +55,7 @@ function LessonsContent() {
   const [title, setTitle] = useState('')
   const [resources, setResources] = useState<ResourceDraft[]>([])
   const [saving, setSaving] = useState(false)
-  const today = dateOnly(new Date())
+  const today = getSundaySchoolTodayDateInputValue()
 
   const classOptions = sortClassesByAgeGroup(Array.from(
     new Map(lessons.map(lesson => [lesson.class.id, lesson.class])).values()
@@ -78,7 +68,7 @@ function LessonsContent() {
     ).values()
   ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
 
-  const [classId, setClassId] = useViewingClassId(classOptions, { allowAll: true })
+  const [classId] = useViewingClassId(classOptions, { allowAll: true })
 
   const visibleLessons = lessons.filter(lesson => {
     if (classId !== ALL_CLASSES && lesson.classId !== classId) return false
@@ -87,15 +77,17 @@ function LessonsContent() {
     return lesson.sundayDate.slice(0, 10) >= today
   })
   if (scope === 'past') visibleLessons.reverse()
-  // A calendar chip links to #lesson-<id> in the list: show that week even if it is past or far off.
+  // A calendar chip links to ?lesson=<id> in the list: show that week even if it is past or far off.
+  const focusLessonId = searchParams.get('lesson')
+  const focusLesson = lessons.find(lesson => lesson.id === focusLessonId)
+  const focusDay = focusLesson?.sundayDate.slice(0, 10)
+  // Keyed on the id and date, not the object, so a refetch doesn't undo what the person did since.
   useEffect(() => {
-    const id = window.location.hash.replace('#lesson-', '')
-    const target = id && lessons.find(lesson => lesson.id === id)
-    if (!target) return
-    setScope(target.sundayDate.slice(0, 10) < today ? 'past' : 'upcoming')
-    setShown(lessons.length)
-    requestAnimationFrame(() => document.getElementById(`lesson-${id}`)?.scrollIntoView({ block: 'center' }))
-  }, [lessons.length, view]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!focusLessonId || !focusDay) return
+    setScope(focusDay < today ? 'past' : 'upcoming')
+    setShown(Number.MAX_SAFE_INTEGER)
+    requestAnimationFrame(() => document.getElementById(`lesson-${focusLessonId}`)?.scrollIntoView({ block: 'center' }))
+  }, [focusLessonId, focusDay, today])
 
   // What the Church keeps on each Sunday shown, so the lesson can match it.
   const { data: liturgicalDays } = useLiturgicalCalendar(visibleLessons.map(lesson => lesson.sundayDate.slice(0, 10)))
@@ -111,7 +103,7 @@ function LessonsContent() {
         ? `${lesson.class.name}: ${lesson.title || 'no lesson yet'}`
         : lesson.title || 'No lesson yet',
       meta: lesson.owner ? `Teacher: ${lesson.owner.name}` : 'No teacher yet',
-      href: `/dashboard/servants/lessons?view=list#lesson-${lesson.id}`,
+      href: `/dashboard/servants/lessons?view=list&lesson=${lesson.id}`,
       muted: lesson.status === 'UNASSIGNED',
     })),
     ...liturgical.events,
@@ -179,13 +171,7 @@ function LessonsContent() {
           }
         />
 
-        <SundaySchoolHubTabs
-          label="Lessons"
-          tabs={[
-            { href: '/dashboard/servants/lessons', label: 'Lessons' },
-            ...(showHomework ? [{ href: '/dashboard/servants/homework', label: 'Homework' }] : []),
-          ]}
-        />
+        <LessonsHubTabs showHomework={showHomework} />
 
         <div className="hidden items-center gap-2 md:flex">
           <Segmented
@@ -197,15 +183,6 @@ function LessonsContent() {
               { value: 'list', label: 'List' },
             ]}
           />
-          {classOptions.length > 1 && (
-            <FilterSelect
-              aria-label="Show lessons for"
-              value={classId}
-              onChange={setClassId}
-              className="ml-auto"
-              options={[{ value: ALL_CLASSES, label: 'All classes' }, ...classOptions.map((cls) => ({ value: cls.id, label: cls.name }))]}
-            />
-          )}
         </div>
 
         {view === 'calendar' && (
@@ -237,15 +214,6 @@ function LessonsContent() {
                   { value: 'past', label: 'Past' },
                 ]}
               />
-              {classOptions.length > 1 && (
-                <FilterSelect
-                  aria-label="Filter lessons by class"
-                  value={classId}
-                  onChange={setClassId}
-                  className="md:ml-auto md:hidden"
-                  options={[{ value: ALL_CLASSES, label: 'All classes' }, ...classOptions.map((cls) => ({ value: cls.id, label: cls.name }))]}
-                />
-              )}
             </>
           }
           footer={<span className="tabular">{visibleLessons.length} {visibleLessons.length === 1 ? 'lesson' : 'lessons'}</span>}
@@ -271,7 +239,10 @@ function LessonsContent() {
                   <li
                     key={lesson.id}
                     id={`lesson-${lesson.id}`}
-                    className="scroll-mt-20 target:bg-gold-tint/60 grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center"
+                    className={cn(
+                      'grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center',
+                      lesson.id === focusLessonId && 'bg-gold-tint/60'
+                    )}
                   >
                     <span className="flex min-w-0 flex-col gap-1 text-[13px] text-ink-2">
                       {formatDateUTC(lesson.sundayDate, { year: undefined })}
@@ -306,7 +277,13 @@ function LessonsContent() {
                       )}
                     </span>
                     <span className="flex min-w-0 flex-wrap items-center gap-2 sm:col-start-2 xl:col-start-auto xl:flex-nowrap xl:justify-end">
-                      <span className="flex w-[7.25rem] shrink-0 items-center">{statusBadge(lesson)}</span>
+                      <span className="flex w-[7.25rem] shrink-0 items-center"><LessonStatusBadge status={lesson.status} /></span>
+                      {/* The common case is volunteering for an open week: one tap, no list to scan. */}
+                      {lesson.canAssignOwner && !lesson.ownerId && lesson.eligibleOwners.some(owner => owner.id === session?.user?.id) && (
+                        <Button size="sm" className="shrink-0" onClick={() => assignOwner(lesson, session!.user!.id)}>
+                          I’ll teach it
+                        </Button>
+                      )}
                       {lesson.canAssignOwner && (
                         <select
                           aria-label={`Teacher for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}

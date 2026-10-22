@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
-import { AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
+import { AttendanceStatus, AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { getAuthorizationContext } from "@/lib/authorization"
 import { handleApiError } from "@/lib/api-utils"
@@ -98,15 +98,19 @@ export async function GET(request: Request) {
 
     // Consecutive weeks each child was marked absent, for the Care follow-up list.
     const now = new Date()
-    const since = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+    // Half a year is far longer than any streak worth acting on, and keeps the scan small.
+    const since = new Date(now.getTime() - 26 * 7 * 24 * 60 * 60 * 1000)
+    // Only absences matter: any other mark, or no mark, ends a streak.
     const sessions = classes.length === 0 ? [] : await prisma.sundaySchoolSession.findMany({
       where: { classId: { in: classes.map(classroom => classroom.id) }, date: { gte: since } },
-      select: { classId: true, date: true, attendance: { select: { childId: true, status: true } } },
+      select: { classId: true, date: true, attendance: { where: { status: AttendanceStatus.ABSENT }, select: { childId: true } } },
     })
-    const marks = new Map<string, Array<{ date: Date; status: (typeof sessions)[number]["attendance"][number]["status"] }>>()
+    const marks = new Map<string, Array<{ date: Date; status: AttendanceStatus }>>()
     for (const session of sessions) for (const record of session.attendance) {
       const key = `${session.classId}:${record.childId}`
-      marks.set(key, [...(marks.get(key) ?? []), { date: session.date, status: record.status }])
+      let history = marks.get(key)
+      if (!history) marks.set(key, history = [])
+      history.push({ date: session.date, status: AttendanceStatus.ABSENT })
     }
 
     return NextResponse.json({

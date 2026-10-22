@@ -20,6 +20,7 @@ vi.mock('next/dynamic', async () => {
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mocks.query),
+  usePathname: () => '/dashboard/servants/attendance',
 }))
 
 vi.mock('sonner', () => ({

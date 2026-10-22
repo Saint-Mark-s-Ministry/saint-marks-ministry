@@ -10,7 +10,7 @@ import { Initials } from '@/components/ds/person'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageLoading } from '@/components/ui/page-loading'
-import { CareHubTabs } from '@/components/sunday-school-care-tabs'
+import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import { StudentName } from '@/components/student-history-provider'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolBirthdays, useSundaySchoolVisitations } from '@/lib/swr'
@@ -63,8 +63,7 @@ function contactText(item: FollowUpItem) {
   if (item.reasons.includes('absent')) {
     return `No call or visit logged since ${item.absentSince ? formatDateUTC(item.absentSince, { year: undefined }) : 'the absences began'}`
   }
-  if (item.reasons.includes('priority')) return 'No visit recorded yet'
-  return item.birthDate ? formatBirthday(item.birthDate) : ''
+  return 'No visit recorded yet'
 }
 
 /**
@@ -91,6 +90,7 @@ export default function SundaySchoolCarePage() {
   const urgent = items.filter(item => item.reasons.includes('absent') || item.reasons.includes('priority'))
   const birthdays = items.filter(item => item.reasons.includes('birthday'))
   const readOnly = response?.standing.readOnly ?? false
+  const showClass = viewing === ALL_CLASSES
 
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
@@ -123,7 +123,7 @@ export default function SundaySchoolCarePage() {
             {urgent.length === 0 ? (
               <EmptyState message="Everyone is coming. Nobody needs a call this week." />
             ) : (
-              <FollowUpList items={urgent} showClass={viewing === ALL_CLASSES && classes.length > 1} />
+              <FollowUpList items={urgent} showClass={showClass} />
             )}
           </Panel>
 
@@ -138,11 +138,7 @@ export default function SundaySchoolCarePage() {
             {birthdays.length === 0 ? (
               <EmptyState message="No birthdays in the next 7 days." />
             ) : (
-              <FollowUpList
-                items={birthdays}
-                showClass={viewing === ALL_CLASSES && classes.length > 1}
-                birthdaysOnly
-              />
+              <FollowUpList items={birthdays} showClass={showClass} birthdaysOnly />
             )}
           </Panel>
         </>
@@ -175,7 +171,7 @@ function FollowUpList({ items, showClass, birthdaysOnly = false }: { items: Foll
                 </span>
                 {birthdaysOnly ? (
                   <span className="text-xs text-ink-3">
-                    {item.birthDate ? formatBirthday(item.birthDate) : ''} · {item.birthdayInDays !== null ? birthdayLabel(item.birthdayInDays) : ''}
+                    {formatBirthday(item.birthDate!)} · {birthdayLabel(item.birthdayInDays!)}
                   </span>
                 ) : (
                   <>
