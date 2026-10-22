@@ -333,6 +333,11 @@ Do not add a role. Extend the assignment model — see
 
 ## Production
 
+When preparing a weekly deployment, add reviewed user-facing changes to
+`lib/release-notes.ts` in the same release. Use the actual deployment date and
+follow [`docs/release-notes.md`](docs/release-notes.md). History starts with the
+next deployment; do not infer historical deployment dates from Git commits.
+
 Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch

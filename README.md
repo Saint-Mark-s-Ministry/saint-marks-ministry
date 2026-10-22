@@ -100,6 +100,8 @@ deletion in the mobile app.
 
 ### Shared experience and branding
 
+- **What’s new** — weekly deployment notes for both ministries, available in
+  the sidebar, phone More menu, and search. See [the release-note workflow](docs/release-notes.md).
 - **Responsive mobile web experience** using the same features and permissions
   as the desktop application
 - **Compact SP / SS mode switcher** for eligible users, with an animated

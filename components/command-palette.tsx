@@ -20,6 +20,7 @@ import {
   FolderOpen,
   School,
   NotebookPen,
+  Megaphone,
   X,
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
@@ -252,6 +253,13 @@ export function CommandPalette() {
     pathname.startsWith('/dashboard/servants'),
     session.user.sundaySchool?.hasHomeworkAccess ?? false,
   ).filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
+  navItems.push({
+    label: 'What’s new',
+    href: pathname.startsWith('/dashboard/servants') || session.user.role === 'SERVANT' || session.user.role === 'PARENT'
+      ? '/dashboard/servants/whats-new'
+      : '/dashboard/whats-new',
+    icon: Megaphone,
+  })
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'
   const studentHref = (id: string) =>

@@ -27,6 +27,10 @@ by this workflow.
 ## Preparing a release
 
 1. Confirm the included changes and defer unfinished work to the next week.
+   Add a plain-language **What’s new** entry for the week's user-visible
+   changes in `lib/release-notes.ts`, using the actual deployment date. Follow
+   [the release-note workflow](release-notes.md); keep technical details in the
+   PR and internal documentation. History starts with this next deployment.
 2. Resolve conflicts with current `main`, if needed. Re-run checks after changes.
 3. Run the repository checks on the final release head:
    `bunx tsc --noEmit`, `bun lint`, and `bun test:run`. Confirm the intended

@@ -20,6 +20,7 @@ import {
   Layers,
   NotebookPen,
   MessageSquare,
+  Megaphone,
   Presentation,
   School,
   Settings,
@@ -308,5 +309,11 @@ export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }
+  const inSundaySchool = ministry === 'sunday-school' || user.role === 'SERVANT' || user.role === 'PARENT'
+  groups.push({ label: 'Updates', items: [{
+    href: inSundaySchool ? '/dashboard/servants/whats-new' : '/dashboard/whats-new',
+    label: 'What’s new',
+    icon: Megaphone,
+  }] })
   return groups
 }

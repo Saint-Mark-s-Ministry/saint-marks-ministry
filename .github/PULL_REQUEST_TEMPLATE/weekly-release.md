@@ -21,6 +21,7 @@ List work that is not included yet. Move unfinished work to the next week.
 ## Release validation
 
 - [ ] Final scope and combined diff reviewed.
+- [ ] Client-facing What’s new entry covers the shipped changes and uses the actual deployment date.
 - [ ] TypeScript, lint, and full tests pass on the final release head.
 - [ ] Intended preview deployment builds and affected flows are checked.
 - [ ] Schema migrations and configuration requirements are documented, or none are needed.

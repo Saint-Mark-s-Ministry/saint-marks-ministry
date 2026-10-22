@@ -17,7 +17,7 @@ const servesSS = { sundaySchool: { hasAccess: true, isCoordinator: false } }
 describe('navigationFor', () => {
   it('gives a super admin every prep destination, grouped', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
-    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church'])
+    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church', 'Updates'])
     expect(hrefs('SUPER_ADMIN', 'prep', noSS)).toEqual(
       expect.arrayContaining([
         '/dashboard/admin/users',
@@ -58,6 +58,21 @@ describe('navigationFor', () => {
           .find((i) => i.href === '/dashboard/readings')
         expect(item).toBeDefined()
         expect(item?.tab).not.toBe(true)
+      }
+    }
+  })
+
+  it('gives every role release notes in the current ministry, outside the phone tabs', () => {
+    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'PARENT', 'SERVANT'] as UserRole[]) {
+      for (const { id: ministry } of availableMinistries({ role, ...servesSS })) {
+        const sundaySchool = ministry === 'sunday-school'
+        const path = sundaySchool ? '/dashboard/servants/whats-new' : '/dashboard/whats-new'
+        const groups = navigationFor({ role, ...servesSS }, ministry)
+        const item = groups.flatMap(group => group.items).find(item => item.href === path)
+        expect(item?.label).toBe('What’s new')
+        expect(item?.tab).not.toBe(true)
+        expect(currentNavLabel(groups, path)).toBe('What’s new')
+        expect(resolveMinistry({ role, ...servesSS }, path)).toBe(sundaySchool ? 'sunday-school' : 'prep')
       }
     }
   })
