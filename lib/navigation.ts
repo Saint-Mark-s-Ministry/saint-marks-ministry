@@ -5,8 +5,8 @@ import {
   BookOpen,
   BookOpenText,
   ContactRound,
-  Cake,
   CalendarCheck,
+  ChartLine,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -18,7 +18,6 @@ import {
   Home,
   Inbox,
   Layers,
-  NotebookPen,
   MessageSquare,
   Megaphone,
   Presentation,
@@ -62,6 +61,8 @@ export interface NavItem {
   tab?: boolean
   /** Short label for the tab bar, when the full one is too long. */
   tabLabel?: string
+  /** Other paths that belong to this destination, such as a hub's tab pages. */
+  also?: string[]
 }
 
 export interface NavGroup {
@@ -173,40 +174,60 @@ function prepAdminNav(role: UserRole): NavGroup[] {
 function sundaySchoolNav(user: NavUser): NavGroup[] {
   const role = user.role
   const ssAdmin = canAdministerSundaySchool(role)
+  const coordinates = ssAdmin || (user.sundaySchool?.isCoordinator ?? false)
 
-  const servants: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
-  if (ssAdmin) servants.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
-  if (ssAdmin || user.sundaySchool?.isCoordinator) {
-    servants.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
+  // One destination per job. Care, Lessons and Attendance are hubs: their
+  // tab pages keep their own URLs so old links and notifications still work.
+  const main: NavItem[] = [
+    { href: '/dashboard/servants', label: 'Home', icon: Home, tab: true },
+    {
+      href: '/dashboard/servants/attendance',
+      label: 'Attendance',
+      icon: ClipboardCheck,
+      tab: true,
+      also: ['/dashboard/servants/servant-attendance'],
+    },
+    { href: '/dashboard/servants/roster', label: 'Children', icon: Users, tab: true, also: ['/dashboard/servants/children'] },
+    {
+      href: '/dashboard/servants/care',
+      label: 'Care',
+      icon: HandHeart,
+      also: ['/dashboard/servants/visitations', '/dashboard/servants/birthdays'],
+    },
+    {
+      href: '/dashboard/servants/lessons',
+      label: 'Lessons',
+      icon: Presentation,
+      tab: true,
+      also: user.sundaySchool?.hasHomeworkAccess ? ['/dashboard/servants/homework'] : undefined,
+    },
+  ]
+
+  const ministry: NavItem[] = []
+  if (coordinates) {
+    ministry.push({ href: '/dashboard/servants/classes', label: 'Classes & servants', icon: School })
+    ministry.push({ href: '/dashboard/servants/child-registrations', label: 'Registration requests', icon: UserPlus })
   }
-  servants.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
+  if (coordinates) {
+    ministry.push({ href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck })
+    ministry.push({ href: '/dashboard/servants/reports', label: 'Reports', icon: ChartLine })
+  }
 
   const admin: NavItem[] = []
+  if (ssAdmin) admin.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
   if (canReviewServantApplications(role)) {
     admin.push({ href: '/dashboard/servants/servant-applications', label: 'Servant applications', icon: HandHeart })
   }
   if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/users', label: 'Users', icon: UserCog })
   if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/activity', label: 'Activity', icon: Activity })
 
-  const main: NavItem[] = [
-    { href: '/dashboard/servants', label: 'Dashboard', icon: Home, tab: true, tabLabel: 'Home' },
-    { href: '/dashboard/servants/lessons', label: 'Lessons', icon: Presentation, tab: true },
-    ...(user.sundaySchool?.hasHomeworkAccess
-      ? [{ href: '/dashboard/servants/homework', label: 'Homework', icon: NotebookPen }]
-      : []),
-    { href: '/dashboard/servants/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
-    { href: '/dashboard/servants/roster', label: 'Roster', icon: Users, tab: true },
-    { href: '/dashboard/servants/birthdays', label: 'Birthdays', icon: Cake },
-    { href: '/dashboard/servants/visitations', label: 'Visitations', icon: HandHeart },
-  ]
-  const feedback: NavItem = { href: '/dashboard/servants/feedback', label: 'Feedback', icon: MessageSquare }
-  // Feedback is open to every servant; it sits with the admin tools only when
-  // there are admin tools, so a servant never sees an "Admin" heading.
-  if (admin.length > 0) admin.push(feedback)
-  else main.push(feedback)
-
-  const groups: NavGroup[] = [{ items: main }, { label: 'Servants', items: servants }]
+  const groups: NavGroup[] = [{ items: main }]
+  if (ministry.length > 0) groups.push({ label: 'Ministry', items: ministry })
   if (admin.length > 0) groups.push({ label: 'Admin', items: admin })
+  groups.push({
+    label: 'Community',
+    items: [{ href: '/dashboard/servants/feedback', label: 'Ideas & feedback', icon: MessageSquare }],
+  })
   return groups
 }
 
@@ -292,14 +313,28 @@ export function isNavItemActive(href: string, pathname: string, search = ''): bo
   return pathname === path || pathname.startsWith(path + '/')
 }
 
+/**
+ * The one nav item the current page belongs to: the most specific match
+ * across each item's own href and the pages listed in `also`.
+ */
+export function currentNavItem(groups: NavGroup[], pathname: string, search = ''): NavItem | null {
+  let best: NavItem | null = null
+  let bestLength = -1
+  for (const item of groups.flatMap((g) => g.items)) {
+    for (const href of [item.href, ...(item.also ?? [])]) {
+      if (!isNavItemActive(href, pathname, search)) continue
+      if (href.length > bestLength) {
+        best = item
+        bestLength = href.length
+      }
+    }
+  }
+  return best
+}
+
 /** The breadcrumb's page name for the current path, from the nav. */
 export function currentNavLabel(groups: NavGroup[], pathname: string, search = ''): string | null {
-  let best: NavItem | null = null
-  for (const item of groups.flatMap((g) => g.items)) {
-    if (!isNavItemActive(item.href, pathname, search)) continue
-    if (!best || item.href.length > best.href.length) best = item
-  }
-  return best?.label ?? null
+  return currentNavItem(groups, pathname, search)?.label ?? null
 }
 
 /** Super Admins use Users; the directory is for explicitly approved other users. */

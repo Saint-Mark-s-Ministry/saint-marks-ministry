@@ -2,7 +2,7 @@
 
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,8 @@ import { StudentName } from '@/components/student-history-provider'
 import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
+import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import {
@@ -54,8 +56,7 @@ function SundaySchoolAttendanceContent() {
     (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   ), [ageGroupsData, classesData])
 
-  const [selectedClassId, setSelectedClassId] = useState<string>('')
-  const appliedQueryClassId = useRef<string | null>(null)
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
@@ -77,18 +78,6 @@ function SundaySchoolAttendanceContent() {
     'children'
   )
   const trendDashboard = trendData as SundaySchoolDashboard | undefined
-
-  // Preselect the class from the dashboard link, else the first one available
-  useEffect(() => {
-    if (classes.length === 0) return
-    if (requestedClassId && requestedClassId !== appliedQueryClassId.current && classes.some(c => c.id === requestedClassId)) {
-      appliedQueryClassId.current = requestedClassId
-      setSelectedClassId(requestedClassId)
-      return
-    }
-    if (!requestedClassId) appliedQueryClassId.current = null
-    setSelectedClassId(current => current || classes[0].id)
-  }, [classes, requestedClassId])
 
   useEffect(() => {
     if (!selectedClassLevel) return
@@ -126,8 +115,11 @@ function SundaySchoolAttendanceContent() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Take attendance"
-        meta="Marks save automatically; Save attendance also marks anyone left unmarked absent"
+        title="Attendance"
+        meta={[
+          selectedClass?.name,
+          sessionDate ? new Date(`${sessionDate}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }) : null,
+        ]}
         actions={
           selectedClassId && (
             <div className="flex flex-wrap gap-2">
@@ -137,19 +129,27 @@ function SundaySchoolAttendanceContent() {
                 aria-controls="individual-attendance-history"
                 onClick={() => setShowHistory(value => !value)}
               >
-                {showHistory ? 'Hide individual history' : 'Individual history'}
+                {showHistory ? 'Hide history' : 'History'}
               </Button>
               <Button asChild variant="outline">
                 <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
                   <Users />
-                  Roster
+                  Children
                 </Link>
               </Button>
             </div>
           )
         }
       />
-
+      {selectedClass?.canViewServantAttendance && (
+        <SundaySchoolHubTabs
+          label="Who"
+          tabs={[
+            { href: '/dashboard/servants/attendance', label: 'Children' },
+            { href: `/dashboard/servants/servant-attendance?classId=${selectedClassId}`, label: 'Servants' },
+          ]}
+        />
+      )}
 
       {classes.length === 0 ? (
         <Panel>
@@ -166,20 +166,22 @@ function SundaySchoolAttendanceContent() {
           <Panel
             toolbar={
               <>
+                {classes.length > 1 && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                    Class
+                    <FilterSelect
+                      aria-label="Class"
+                      value={selectedClassId}
+                      onChange={setSelectedClassId}
+                      options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                    />
+                  </label>
+                )}
                 <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={setSelectedClassId}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Week of
+                  Date
                   <Input
                     type="date"
-                    aria-label="Week of"
+                    aria-label="Date"
                     value={sessionDate}
                     max={getTodayDateInputValue()}
                     onChange={(e) => setSessionDate(e.target.value)}
@@ -209,8 +211,22 @@ function SundaySchoolAttendanceContent() {
             }
           >
             {!canEdit && !loadingSession && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
-            <div className="border-b border-line px-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
               <AttendanceLegend showExcused={false} />
+              {canEdit && attendance && unmarkedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={editor.finalizing || loadingSession}
+                  onClick={() => {
+                    for (const entry of attendance.roster) {
+                      if (!marks[entry.id]) editor.mark(entry.id, AttendanceStatus.PRESENT)
+                    }
+                  }}
+                >
+                  Mark everyone else present
+                </Button>
+              )}
             </div>
             {loadingSession ? (
               <EmptyState message="Loading roster…" />

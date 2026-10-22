@@ -13,6 +13,8 @@ import { FilterSelect } from '@/components/ui/filter-select'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
+import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
@@ -36,7 +38,8 @@ type LinkDraft = { title: string; url: string }
 
 export default function SundaySchoolHomeworkPage() {
   const { session, status } = useSundaySchoolGuard()
-  const [classId, setClassId] = useState('')
+  const [requestedClasses, setRequestedClasses] = useState<Array<{ id: string }>>([])
+  const [classId, setClassId] = useViewingClassId(requestedClasses)
   const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true)
   const homeworkData = data as SundaySchoolHomeworkResponse | undefined
   const [weekId, setWeekId] = useState('')
@@ -55,9 +58,12 @@ export default function SundaySchoolHomeworkPage() {
   const selectedWeek = weeks.find(week => week.weeklyLessonId === weekId) ?? null
   const selectedClass = classes.find(cls => cls.id === classId)
 
+  // Follow the shared class choice once we know which Elementary classes this person has.
   useEffect(() => {
-    if (!classId && classes.length > 0) setClassId(classes[0].id)
-  }, [classId, classes])
+    if (classes.length > 0 && classes.map(cls => cls.id).join() !== requestedClasses.map(cls => cls.id).join()) {
+      setRequestedClasses(classes)
+    }
+  }, [classes, requestedClasses])
 
   useEffect(() => {
     if (weeks.length === 0) {
@@ -172,14 +178,23 @@ export default function SundaySchoolHomeworkPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Homework" meta={['Publish Elementary homework and track completion through the school year']} />
+      <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} />
+      <SundaySchoolHubTabs
+        label="Lessons"
+        tabs={[
+          { href: '/dashboard/servants/lessons', label: 'Lessons' },
+          { href: '/dashboard/servants/homework', label: 'Homework' },
+        ]}
+      />
 
       <Panel toolbar={
         <>
-          <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-            Class
-            <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
-          </label>
+          {classes.length > 1 && (
+            <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+              Class
+              <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
+            </label>
+          )}
           <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
             Assigned meeting
             <FilterSelect aria-label="Assigned meeting" value={weekId} onChange={setWeekId} options={weeks.map(week => ({ value: week.weeklyLessonId, label: formatDateUTC(week.assignedDate) }))} />

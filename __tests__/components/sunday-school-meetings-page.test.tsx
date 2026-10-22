@@ -22,11 +22,9 @@ describe('dedicated servants meeting page', () => {
     }
   })
 
-  it('opens the meeting section for ordinary Elementary servants and links both attendance pages', () => {
+  it('opens the meeting section for ordinary Elementary servants', () => {
     render(<MeetingsPage />)
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:list')
-    expect(screen.getByRole('link', { name: 'Servants meetings' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Class attendance' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance')
   })
 
   it('offers priests and admins a dedicated history entry point', () => {

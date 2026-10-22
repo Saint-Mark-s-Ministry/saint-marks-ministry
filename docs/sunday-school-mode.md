@@ -218,7 +218,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `servant-attendance` | GET | `SUPER_ADMIN`, direct class coordinator, or the class's age-group coordinator |
 | `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
 | `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
-| `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; priests may edit every class |
+| `visitations` | GET, POST | Read: scoped to visible classes; each child carries `absentStreak` (consecutive meetings marked absent, same rule as the absence notice). Write: people who serve the child's class; priests may edit every class |
 | `phone-calls` | POST | People who serve the child's active class may log a call; priests may edit every class. Calls are returned in the scoped `visitations` GET response. |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
@@ -254,18 +254,59 @@ every write.
 
 Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 
+### Navigation: five places
+
+Everyday work lives in five places. On phones the first four are the tab bar
+(Home, Attendance, Children, Lessons) and Care sits under **More**, with a
+**Follow up** button on Children and a row on Home that lead to it.
+
+| Place | Pages (each keeps its own URL) |
+|---|---|
+| **Home** | `page.tsx` |
+| **Attendance** | `attendance/page.tsx` (Children tab) · `servant-attendance/page.tsx` (Servants tab, shown when the class allows it) |
+| **Children** | `roster/page.tsx` (the legacy `/children` URL still works) |
+| **Care** | `care/page.tsx` (Follow up) · `visitations/page.tsx` (Visits & calls) · `birthdays/page.tsx` (Birthdays) |
+| **Lessons** | `lessons/page.tsx` (Lessons) · `homework/page.tsx` (Homework, Elementary only) |
+
+A "hub" keeps its tab pages under one menu entry: `NavItem.also` in
+`lib/navigation.ts` lists the extra paths that should highlight it, and
+`currentNavItem()` picks the most specific match. The tab row itself is
+`components/sunday-school-hub-tabs.tsx`.
+
+Coordinators and super admins also get a **Ministry** group (Classes & servants,
+Registration requests, Servants meetings, Reports); super admins get **Admin**
+(Age groups, Servant applications, Users, Activity).
+
+### Viewing: one class choice for every page
+
+The sidebar (desktop) and app bar (phone) carry a **Viewing** picker
+(`components/sunday-school-viewing-picker.tsx`). Every class-scoped page reads
+it through `useViewingClassId()` in `lib/sunday-school-viewing.ts`, so a servant
+picks a class once instead of on each page. A link with `?classId=` wins and
+becomes the new choice. Pages that can list several classes (Home, Care,
+Birthdays, Lessons) also accept **All classes**. Someone with one class just
+sees its name. The choice is a display preference kept in `localStorage`
+(`sunday-school.viewing`), never an authority: every API still re-derives what
+the person may see and change. Per-page class pickers appear only when the
+person has more than one class.
+
+### Pages
+
 | Page | Purpose |
 |---|---|
-| `page.tsx` | Landing: Children/Servants attendance chart, classes grouped by age group, attendance-due badges, totals |
-| `lessons/page.tsx` | Full academic-year schedule, My Lessons, past lessons, owner assignment, and multi-link editor |
+| `page.tsx` | Home. A servant with one class gets **This week**: lesson, attendance, homework (Elementary) and follow-up, each with its action. Coordinators, priests and admins get **Needs you** (classes missing attendance for their last meeting, children needing follow-up), the class list grouped by age group, and the month calendar. Everyone gets Today in the Church and **Coming up** (lessons, feasts and fasts for four weeks). "This week" follows each class's own meeting day (Saturday for Elementary). |
+| `reports/page.tsx` | Year totals and the Children/Servants attendance chart (moved off Home) |
+| `lessons/page.tsx` | Calendar view by default on desktop (with the church-calendar subscribe button); a list on phones, opening on upcoming weeks 8 at a time. Upcoming, I teach, and Past; teacher assignment and the multi-link editor. A calendar chip opens that week in the list. |
 | `homework/page.tsx` | Elementary-only weekly packages, named links, three-state roster tracking, and school-year history |
-| `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
-| `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
+| `attendance/page.tsx` | The core screen: mark each child, **Mark everyone else present**, then **Finish**, which marks anyone left unmarked absent. Marks autosave as drafts. Eight-week trend below. |
+| `servant-attendance/page.tsx` | Servants tab of Attendance for coordinators: mark Present/Absent for the week, batch save |
+| `servant-attendance/meetings/page.tsx` | Monthly servants meetings (Ministry group; servants reach check-in from Home) |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `roster/page.tsx` | Children: roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking. Tapping a name opens the child profile: a side panel on desktop, full screen on phones, with attendance rate, last visit and call, **Call mother/father/guardian**, and a link to log a call or visit; tabs Family, Attendance, Care, Notes. |
+| `care/page.tsx` | Follow up: children absent 3+ meetings in a row (the absence-notice threshold), starred for a priority visit, or with a birthday in the next 7 days, one row per child with every reason. Built from the `visitations` response (which now includes each child's `absentStreak`) and the birthdays API; nothing is stored separately. |
 | `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
-| `visitations/page.tsx` | Per-child visitation status and separate dated phone-call follow-up history across the viewer's assigned class scope |
+| `visitations/page.tsx` | Per-child visitation status and dated phone-call history across the viewer's class scope. `?childId=` opens that child's record. |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
@@ -293,7 +334,7 @@ legacy role is `MENTOR` or `SUPER_ADMIN`. Servants Prep servants keep Prep as
 their default. The switcher still gives access to the other ministry. A
 `SERVANT` has only one mode and sees no switcher.
 
-Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Student
+Parents see one card per child in `/dashboard/parent`: the next class's lesson and links, that child's homework and completion status, and the next few weeks. Student
 accounts use `/dashboard/student/class-lessons`. Active async prep students see
 the class explicitly linked to their active serving rotation in the active prep
 academic year; other students use their linked child record. Grade-only rotations

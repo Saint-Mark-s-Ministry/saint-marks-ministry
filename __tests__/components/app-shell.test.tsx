@@ -40,6 +40,8 @@ vi.mock('@/components/annual-mentor-reminder-banner', () => ({
 vi.mock('@/lib/swr', () => ({
   useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
+  useSundaySchoolClasses: () => ({ data: [] }),
+  useSundaySchoolAgeGroups: () => ({ data: [] }),
 }))
 
 import { AppShell } from '@/components/shell/app-shell'
@@ -74,7 +76,7 @@ describe('AppShell', () => {
     await user.click(collapse)
     expect(sidebar()).toHaveAttribute('data-rail', 'true')
     expect(window.localStorage.getItem('sidebar-rail')).toBe('1')
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toBeInTheDocument()
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toBeInTheDocument()
 
     unmount()
     render(<AppShell>page</AppShell>)
@@ -139,19 +141,17 @@ describe('AppShell', () => {
     expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
   })
 
-  it('offers priests servant attendance in Sunday School mode', () => {
+  it('files servant attendance under Attendance for priests', () => {
+    mocks.pathname = '/dashboard/servants/servant-attendance'
     render(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toHaveAttribute(
-      'href',
-      '/dashboard/servants/servant-attendance'
-    )
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('shows servant attendance to a servant who is not a coordinator', () => {
+  it('keeps ministry tools away from a servant who is not a coordinator', () => {
     mocks.user = { ...mocks.user, role: UserRole.SERVANT, name: 'Mina Servant' }
     render(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toBeInTheDocument()
-    expect(within(sidebar()).queryByRole('link', { name: 'Child registrations' })).not.toBeInTheDocument()
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toBeInTheDocument()
+    expect(within(sidebar()).queryByRole('link', { name: 'Registration requests' })).not.toBeInTheDocument()
   })
 
   it('uses meaningful initials for long clerical names', () => {
@@ -164,8 +164,8 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/servants/roster'
     const { container } = render(<AppShell>page</AppShell>)
     expect(container.querySelector('[data-ministry]')).toHaveAttribute('data-ministry', 'sunday-school')
-    expect(within(sidebar()).getByRole('link', { name: 'Roster' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Sunday SchoolRoster')
+    expect(within(sidebar()).getByRole('link', { name: 'Children' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Sunday SchoolChildren')
   })
 
   it('lets someone in both ministries switch between them', async () => {

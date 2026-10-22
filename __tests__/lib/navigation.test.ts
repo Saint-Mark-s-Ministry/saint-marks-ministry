@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { UserRole } from '@prisma/client'
 import {
   availableMinistries,
+  currentNavItem,
   currentNavLabel,
   isNavItemActive,
   navigationFor,
@@ -94,15 +95,29 @@ describe('navigationFor', () => {
     const groups = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
     expect(groups.map((g) => g.label)).not.toContain('Admin')
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).toContain('/dashboard/servants/feedback')
-    expect(hrefs('SERVANT', 'sunday-school', servesSS)).toContain('/dashboard/servants/birthdays')
+    expect(hrefs('SERVANT', 'sunday-school', servesSS)).toContain('/dashboard/servants/care')
     expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/child-registrations')
   })
 
-  it('keeps the meeting check-in destination out of the sidebar', () => {
-    for (const role of ['SERVANT', 'MENTOR', 'SERVANT_PREP', 'SUPER_ADMIN', 'PRIEST'] as UserRole[]) {
-      const groups = navigationFor({ role, ...servesSS }, 'sunday-school')
-      expect(groups.flatMap(group => group.items).map(item => item.href))
-        .not.toContain('/dashboard/servants/servant-attendance/meetings')
+  it('shows servants meetings only to people who coordinate', () => {
+    expect(hrefs('SERVANT', 'sunday-school', servesSS)).not.toContain('/dashboard/servants/servant-attendance/meetings')
+    const coordinator = { sundaySchool: { hasAccess: true, isCoordinator: true } }
+    expect(hrefs('SERVANT', 'sunday-school', coordinator)).toContain('/dashboard/servants/servant-attendance/meetings')
+    expect(hrefs('PRIEST', 'sunday-school', servesSS)).toContain('/dashboard/servants/servant-attendance/meetings')
+  })
+
+  it('gives every servant the same five places, in order', () => {
+    const [main] = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
+    expect(main.items.map((i) => i.label)).toEqual(['Home', 'Attendance', 'Children', 'Care', 'Lessons'])
+    expect(main.items.filter((i) => i.tab).map((i) => i.label)).toEqual(['Home', 'Attendance', 'Children', 'Lessons'])
+  })
+
+  it('keeps ministry tools away from a plain servant', () => {
+    const groups = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
+    expect(groups.map((g) => g.label)).not.toContain('Ministry')
+    const links = hrefs('SERVANT', 'sunday-school', servesSS)
+    for (const href of ['/dashboard/servants/classes', '/dashboard/servants/reports', '/dashboard/servants/age-groups']) {
+      expect(links).not.toContain(href)
     }
   })
 
@@ -111,15 +126,15 @@ describe('navigationFor', () => {
     expect(hrefs('SERVANT', 'sunday-school', coordinator)).toContain('/dashboard/servants/child-registrations')
   })
 
-  it('shows Homework only with Elementary scope and keeps it out of the phone tabs', () => {
+  it('files Homework under Lessons only with Elementary scope', () => {
     const elementary = { sundaySchool: { hasAccess: true, isCoordinator: false, hasHomeworkAccess: true } }
     const older = { sundaySchool: { hasAccess: true, isCoordinator: false, hasHomeworkAccess: false } }
-    expect(hrefs('SERVANT', 'sunday-school', elementary)).toContain('/dashboard/servants/homework')
-    expect(hrefs('SERVANT', 'sunday-school', older)).not.toContain('/dashboard/servants/homework')
-    const homework = navigationFor({ role: 'SERVANT', ...elementary }, 'sunday-school')
+    const lessonsFor = (extra: object) => navigationFor({ role: 'SERVANT', ...extra }, 'sunday-school')
       .flatMap(group => group.items)
-      .find(item => item.href === '/dashboard/servants/homework')
-    expect(homework?.tab).not.toBe(true)
+      .find(item => item.href === '/dashboard/servants/lessons')
+    expect(lessonsFor(elementary)?.also).toContain('/dashboard/servants/homework')
+    expect(lessonsFor(older)?.also ?? []).not.toContain('/dashboard/servants/homework')
+    expect(hrefs('SERVANT', 'sunday-school', elementary)).not.toContain('/dashboard/servants/homework')
   })
 
   it('gives parents their own nav, not the admin one', () => {
@@ -175,6 +190,17 @@ describe('active state', () => {
   it('tells the parent register link apart from the children page', () => {
     expect(isNavItemActive('/dashboard/parent?register=1', '/dashboard/parent', 'register=1')).toBe(true)
     expect(isNavItemActive('/dashboard/parent', '/dashboard/parent', 'register=1')).toBe(false)
+  })
+
+  it('highlights the hub for its tab pages and the most specific item otherwise', () => {
+    const coordinator = { sundaySchool: { hasAccess: true, isCoordinator: true, hasHomeworkAccess: true } }
+    const groups = navigationFor({ role: 'SERVANT', ...coordinator }, 'sunday-school')
+    expect(currentNavItem(groups, '/dashboard/servants/visitations')?.label).toBe('Care')
+    expect(currentNavItem(groups, '/dashboard/servants/birthdays')?.label).toBe('Care')
+    expect(currentNavItem(groups, '/dashboard/servants/homework')?.label).toBe('Lessons')
+    expect(currentNavItem(groups, '/dashboard/servants/servant-attendance')?.label).toBe('Attendance')
+    expect(currentNavItem(groups, '/dashboard/servants/servant-attendance/meetings')?.label).toBe('Servants meetings')
+    expect(currentNavItem(groups, '/dashboard/servants')?.label).toBe('Home')
   })
 
   it('labels the breadcrumb from the most specific match', () => {

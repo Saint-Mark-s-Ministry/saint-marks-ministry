@@ -2,8 +2,10 @@
 
 import { StudentName } from '@/components/student-history-provider'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,7 +45,7 @@ import type {
   SundaySchoolFamily,
 } from '@/types/sunday-school'
 import { SundaySchoolChildGender, SundaySchoolLevel } from '@prisma/client'
-import { House, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { HeartHandshake, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
 import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
 
@@ -134,7 +136,7 @@ function SundaySchoolChildrenContent() {
     [familiesData]
   )
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: searchParams.get('classId') })
   const { data, error: rosterError, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -151,13 +153,6 @@ function SundaySchoolChildrenContent() {
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const canManage = selectedClass?.canServe ?? false
   const canLinkAccount = selectedClass?.canCoordinate ?? false
-
-  useEffect(() => {
-    if (selectedClassId || classes.length === 0) return
-    const fromQuery = searchParams.get('classId')
-    const match = fromQuery && classes.some(c => c.id === fromQuery) ? fromQuery : classes[0].id
-    setSelectedClassId(match)
-  }, [classes, searchParams, selectedClassId])
 
   const selectClass = (classId: string) => {
     setSelectedClassId(classId)
@@ -317,14 +312,24 @@ function SundaySchoolChildrenContent() {
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Roster"
-          meta={['Children, family connections and contact details for your class']}
+          title="Children"
+          meta={[selectedClass?.name, 'Names, families and how to reach them']}
           actions={
-            canManage && classes.length > 0 ? (
-              <Button onClick={openCreate}>
-                <Plus />
-                Add child
-              </Button>
+            classes.length > 0 ? (
+              <>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/servants/care">
+                    <HeartHandshake />
+                    Follow up
+                  </Link>
+                </Button>
+                {canManage && (
+                  <Button onClick={openCreate}>
+                    <Plus />
+                    Add child
+                  </Button>
+                )}
+              </>
             ) : undefined
           }
         />
@@ -337,17 +342,20 @@ function SundaySchoolChildrenContent() {
           <Panel
             toolbar={
               <>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={selectClass}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" />
+                {classes.length > 1 && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                    Class
+                    <FilterSelect
+                      aria-label="Class"
+                      value={selectedClassId}
+                      onChange={selectClass}
+                      options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                    />
+                  </label>
+                )}
+                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
                 <FilterSelect
+                  className="hidden md:inline-flex"
                   aria-label="Alphabetize by"
                   value={nameOrder}
                   onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
@@ -356,12 +364,12 @@ function SundaySchoolChildrenContent() {
                     { value: 'first', label: 'Sort by first name' },
                   ]}
                 />
-                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
+                <label className="hidden min-h-11 items-center gap-2 text-[13px] text-ink-2 md:flex md:min-h-8">
                   <input type="checkbox" checked={groupByGender} onChange={(event) => setGroupByGender(event.target.checked)} className="size-4 accent-brand" />
                   Group by gender
                 </label>
                 {canManage && (
-                  <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                  <div className="flex w-full items-center gap-2 lg:ml-auto lg:w-auto [&>*]:flex-1 lg:[&>*]:flex-none">
                     <SundaySchoolRosterImport
                       classId={selectedClassId}
                       className={selectedClass?.name ?? 'this class'}

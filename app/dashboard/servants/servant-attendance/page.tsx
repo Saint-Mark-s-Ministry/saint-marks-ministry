@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { ServantAttendanceNavigation } from '@/components/servant-attendance-navigation'
+import { SundaySchoolHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
@@ -63,7 +64,7 @@ function ServantAttendanceContent() {
     [ageGroupsData, classesData]
   )
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: searchParams.get('classId') })
   const [sessionDate, setSessionDate] = useState(toDateInputValue(getMostRecentSunday()))
   const [marks, setMarks] = useState<Record<string, SundaySchoolServantAttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
@@ -76,16 +77,6 @@ function ServantAttendanceContent() {
       router.replace('/dashboard/servants')
     }
   }, [canOpenPage, router, status])
-
-  useEffect(() => {
-    if (selectedClassId || classes.length === 0) return
-    const fromQuery = searchParams.get('classId')
-    const match = fromQuery && classes.some(cls => cls.id === fromQuery)
-      ? fromQuery
-      : (classes.find(cls => cls.assignments.some(assignment => assignment.classId === cls.id))
-          ?? classes[0]).id
-    setSelectedClassId(match)
-  }, [classes, searchParams, selectedClassId])
 
   const {
     data: attendanceData,
@@ -172,11 +163,16 @@ function ServantAttendanceContent() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Servant attendance"
-        meta={[canEdit ? 'Record which servants served each week' : 'Recorded servant attendance across classes', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        title="Attendance"
+        meta={[selectedClass?.name, canEdit ? 'Which servants served this week' : 'Recorded servant attendance', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
       />
-
-      <ServantAttendanceNavigation active="classes" />
+      <SundaySchoolHubTabs
+        label="Who"
+        tabs={[
+          { href: `/dashboard/servants/attendance${selectedClassId ? `?classId=${selectedClassId}` : ''}`, label: 'Children' },
+          { href: '/dashboard/servants/servant-attendance', label: 'Servants' },
+        ]}
+      />
 
       {classes.length === 0 ? (
         <Panel>
@@ -187,18 +183,20 @@ function ServantAttendanceContent() {
           <Panel
             toolbar={
               <>
+                {classes.length > 1 && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                    Class
+                    <FilterSelect
+                      aria-label="Class"
+                      value={selectedClassId}
+                      onChange={setSelectedClassId}
+                      options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                    />
+                  </label>
+                )}
                 <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={setSelectedClassId}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Week of
-                  <Input type="date" aria-label="Week of" value={sessionDate} max={getTodayDateInputValue()} onChange={(e) => setSessionDate(e.target.value)} className="w-40 md:h-8" />
+                  Date
+                  <Input type="date" aria-label="Date" value={sessionDate} max={getTodayDateInputValue()} onChange={(e) => setSessionDate(e.target.value)} className="w-40 md:h-8" />
                 </label>
                 {attendance && (
                   <span className="tabular text-[13px] text-ink-2 md:ml-auto">

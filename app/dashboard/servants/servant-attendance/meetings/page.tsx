@@ -9,7 +9,6 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { ServantAttendanceNavigation } from '@/components/servant-attendance-navigation'
 import { SundaySchoolServantsMeetings } from '@/components/sunday-school-servants-meetings'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolDashboard } from '@/lib/swr'
@@ -33,7 +32,6 @@ function MeetingsContent() {
         actions={(data as SundaySchoolDashboard | undefined)?.standing.isAdmin ? (
           <Button asChild variant="outline"><Link href="/dashboard/servants/servant-attendance/meetings/history">Attendance history</Link></Button>
         ) : undefined} />
-      <ServantAttendanceNavigation active="meetings" />
       {error ? (
         <Panel bodyClassName="p-4">
           <p role="alert" className="text-sm text-bad">Could not load your meeting groups.</p>

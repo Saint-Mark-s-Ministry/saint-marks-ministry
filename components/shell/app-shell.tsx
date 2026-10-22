@@ -101,6 +101,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const shellUser = { name: user.name, role: user.role, roleLabel, imageUrl: user.profileImageUrl ?? user.image }
   const homeHref = ministry === 'sunday-school' ? (user.role === 'PARENT' ? '/dashboard/parent' : '/dashboard/servants') : prepHome(user.role)
   const showYear = ministry === 'prep' && user.role !== 'PARENT'
+  // The Sunday School class choice belongs to the ministry pages, not parents or shared pages.
+  const viewing = ministry === 'sunday-school' && user.role !== 'PARENT' && pathname.startsWith('/dashboard/servants')
 
   return (
     // Phones: a fixed-height column (app bar, scrolling content, tab bar) so neither
@@ -121,9 +123,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         search=""
         user={shellUser}
         rail={rail}
+        viewing={viewing}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <MobileAppBar ministry={ministry} ministries={ministries} />
+        <MobileAppBar ministry={ministry} ministries={ministries} viewing={viewing} />
         <TopBar
           ministry={ministry}
           homeHref={homeHref}

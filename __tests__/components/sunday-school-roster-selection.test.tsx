@@ -28,6 +28,7 @@ import RosterPage from '@/app/dashboard/servants/roster/page'
 describe('roster class selection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
     window.history.replaceState({}, '', '/dashboard/servants/roster')
   })
 

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { Phone } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -26,7 +28,8 @@ export default function StudentHistoryDialog({ target, onClose, onRestoreFocus }
 }) {
   const { data: session } = useSession()
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
+    {/* A full screen on phones; a panel from the right on larger screens, so the list stays in view. */}
+    <DialogContent className="top-0 left-0 h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none border-0 p-4 pt-5 data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:left-auto sm:right-0 sm:max-w-xl sm:border-l sm:p-6" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
       {session?.user?.id
         ? <HistoryContent key={session.user.id} target={target} viewerId={session.user.id} />
         : <HistoryHeader target={target} />}
@@ -39,7 +42,7 @@ function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
   isServantsPrepStudent?: boolean
   photoUrl?: string | null
 }) {
-  return <DialogHeader>
+  return <DialogHeader className="text-left">
     <div className="flex min-w-0 items-center gap-2 pr-6">
       {/* eslint-disable-next-line @next/next/no-img-element -- scoped user-uploaded photo */}
       {photoUrl && <img src={photoUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full object-cover" />}
@@ -68,12 +71,13 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} photoUrl={data.photoUrl} />
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
+    <QuickActions target={target} data={data} />
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
+      <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
+        <TabsTrigger value="profile">Family</TabsTrigger>
         <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        <TabsTrigger value="visitations">Care</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
-        <TabsTrigger value="visitations">Visitations</TabsTrigger>
       </TabsList>
       <TabsContent value="profile"><StudentProfile name={data.name} profile={data.profile} /></TabsContent>
       <TabsContent value="attendance"><AttendanceHistory attendance={data.attendance} /></TabsContent>
@@ -105,6 +109,36 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     </Tabs>
     </div>
   </>
+}
+
+/** The two things a servant opens a child for most: reach the family, and log that they did. */
+function QuickActions({ target, data }: { target: StudentHistoryTarget; data: StudentHistory }) {
+  const family = data.profile.family
+  const contacts = [
+    { who: 'Mother', name: family?.motherName, phone: family?.motherPhone },
+    { who: 'Father', name: family?.fatherName, phone: family?.fatherPhone },
+    { who: 'Guardian', name: data.profile.guardian.name, phone: data.profile.guardian.phone },
+  ].filter((contact): contact is { who: string; name: string | null | undefined; phone: string } => Boolean(contact.phone))
+  const rate = data.attendance.rate
+  return <div className="space-y-3">
+    <dl className="grid grid-cols-3 gap-2 rounded-lg border border-line p-3 text-center">
+      <div><dt className="text-xs text-ink-3">Attendance</dt><dd className="tabular mt-0.5 text-lg font-semibold">{rate === null ? '—' : `${Math.round(rate)}%`}</dd></div>
+      <div><dt className="text-xs text-ink-3">Last visit</dt><dd className="mt-1 text-[13px] font-medium">{data.visitations[0] ? formatDateUTC(data.visitations[0].visitedAt ?? data.visitations[0].createdAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
+      <div><dt className="text-xs text-ink-3">Last call</dt><dd className="mt-1 text-[13px] font-medium">{data.phoneCalls[0] ? formatDateUTC(data.phoneCalls[0].calledAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
+    </dl>
+    <div className="flex flex-wrap gap-2">
+      {contacts.slice(0, 2).map(contact => <Button key={contact.who} asChild variant="outline" className="flex-1">
+        <a href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`} aria-label={`Call ${contact.who.toLowerCase()}${contact.name ? `, ${contact.name}` : ''}`}>
+          <Phone aria-hidden />
+          Call {contact.who.toLowerCase()}
+        </a>
+      </Button>)}
+      {contacts.length === 0 && <p className="text-[13px] text-ink-3">No family phone number on file.</p>}
+      {target.program === 'sunday-school' && <Button asChild className="flex-1">
+        <Link href={`/dashboard/servants/visitations?childId=${target.id}`}>Calls &amp; visits</Link>
+      </Button>}
+    </div>
+  </div>
 }
 
 function StudentProfile({ name, profile }: { name: string; profile: StudentHistory['profile'] }) {

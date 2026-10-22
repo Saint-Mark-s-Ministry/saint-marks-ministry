@@ -8,6 +8,7 @@ import { handleApiError } from "@/lib/api-utils"
 import { requireAuth } from "@/lib/auth-helpers"
 import { notifyPriestNoteCreated } from "@/lib/notifications"
 import { prisma } from "@/lib/prisma"
+import { getSundaySchoolAbsenceStreak } from "@/lib/sunday-school-absence-notifications"
 import {
   canServeClass,
   canViewClass,
@@ -95,10 +96,29 @@ export async function GET(request: Request) {
       orderBy: [{ level: "asc" }, { name: "asc" }],
     })
 
+    // Consecutive weeks each child was marked absent, for the Care follow-up list.
+    const now = new Date()
+    const since = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+    const sessions = classes.length === 0 ? [] : await prisma.sundaySchoolSession.findMany({
+      where: { classId: { in: classes.map(classroom => classroom.id) }, date: { gte: since } },
+      select: { classId: true, date: true, attendance: { select: { childId: true, status: true } } },
+    })
+    const marks = new Map<string, Array<{ date: Date; status: (typeof sessions)[number]["attendance"][number]["status"] }>>()
+    for (const session of sessions) for (const record of session.attendance) {
+      const key = `${session.classId}:${record.childId}`
+      marks.set(key, [...(marks.get(key) ?? []), { date: session.date, status: record.status }])
+    }
+
     return NextResponse.json({
       classes: classes.map((classroom) => ({
         ...classroom,
         canEdit: canServeClass(access, classroom.id),
+        children: classroom.children.map((child) => {
+          const { weeks, firstAbsenceDate } = getSundaySchoolAbsenceStreak(
+            classroom.level, marks.get(`${classroom.id}:${child.id}`) ?? [], now, since,
+          )
+          return { ...child, absentStreak: { weeks, since: firstAbsenceDate } }
+        }),
       })),
       standing: {
         readOnly: access.readOnly,

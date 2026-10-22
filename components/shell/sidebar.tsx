@@ -10,12 +10,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Initials } from '@/components/ds/person'
 import type { Ministry, MinistryOption, NavGroup } from '@/lib/navigation'
-import { isNavItemActive } from '@/lib/navigation'
+import { currentNavItem } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { MinistrySwitcher } from './ministry-switcher'
 import { ThemeButton } from './theme-button'
 import { UserMenuItems } from './user-menu'
 import { useShortcutModifier } from '@/hooks/useShortcutModifier'
+import { SundaySchoolViewingPicker } from '@/components/sunday-school-viewing-picker'
 
 export function openCommandPalette() {
   window.dispatchEvent(new CustomEvent('open-command-palette'))
@@ -36,6 +37,7 @@ export function NavList({
   /** 44px rows for the phone sheet. */
   touch?: boolean
 }) {
+  const currentHref = currentNavItem(groups, pathname, search)?.href
   return (
     <div className="flex flex-col gap-[18px]">
       {groups.map((group, gi) => (
@@ -46,7 +48,7 @@ export function NavList({
             </div>
           )}
           {group.items.map((item) => {
-            const active = isNavItemActive(item.href, pathname, search)
+            const active = item.href === currentHref
             const Icon = item.icon
             return (
               <Link
@@ -81,6 +83,7 @@ export function Sidebar({
   search,
   user,
   rail,
+  viewing = false,
 }: {
   ministry: Ministry
   ministries: MinistryOption[]
@@ -89,6 +92,8 @@ export function Sidebar({
   search: string
   user: { name?: string | null; role: UserRole; roleLabel: string; imageUrl?: string | null }
   rail: boolean
+  /** Show the Sunday School "Viewing" class choice under search. */
+  viewing?: boolean
 }) {
   const shortcutModifier = useShortcutModifier()
 
@@ -120,6 +125,8 @@ export function Sidebar({
           </kbd>
         )}
       </button>
+
+      {viewing && <SundaySchoolViewingPicker variant="sidebar" />}
 
       {/* Only the nav scrolls, so the account row stays in view on short screens. */}
       <nav

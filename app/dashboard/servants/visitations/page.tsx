@@ -2,7 +2,8 @@
 
 import { StudentName } from '@/components/student-history-provider'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
 import {
@@ -38,6 +39,8 @@ import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { useSundaySchoolAgeGroups, useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
+import { CareHubTabs } from '@/components/sunday-school-care-tabs'
 import type {
   SundaySchoolPriestNote,
   SundaySchoolVisitationChild,
@@ -52,7 +55,9 @@ const CALL_OUTCOME_LABELS: Record<SundaySchoolPhoneCallOutcome, string> = {
   OTHER: 'Other',
 }
 
-export default function SundaySchoolVisitationsPage() {
+function VisitationsContent() {
+  const searchParams = useSearchParams()
+  const requestedChildId = searchParams.get('childId')
   const { status } = useSundaySchoolGuard()
   const { data, error, isLoading, mutate } = useSundaySchoolVisitations()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
@@ -62,7 +67,11 @@ export default function SundaySchoolVisitationsPage() {
     (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   ), [ageGroupsData, response])
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  // A link from Follow up (?childId=) opens that child's class and record.
+  const requestedClassId = requestedChildId
+    ? classes.find(classroom => classroom.children.some(child => child.id === requestedChildId))?.id
+    : searchParams.get('classId')
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [search, setSearch] = useState('')
   const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done' | 'priority'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
@@ -84,12 +93,6 @@ export default function SundaySchoolVisitationsPage() {
   const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
   const isPriest = response?.standing.isPriest ?? false
   const canReadPrivateNotes = response?.standing.canReadPrivateNotes ?? false
-
-  useEffect(() => {
-    if (!selectedClassId && classes.length > 0) {
-      setSelectedClassId(classes[0].id)
-    }
-  }, [classes, selectedClassId])
 
   const selectedClass = classes.find(classroom => classroom.id === selectedClassId) ?? classes[0]
   const selectedChild = classes
@@ -121,6 +124,15 @@ export default function SundaySchoolVisitationsPage() {
     setPriestNotes([])
     setConfidentialNote('')
   }
+
+  const openedRequestedChild = useRef(false)
+  useEffect(() => {
+    if (openedRequestedChild.current || !requestedChildId) return
+    const child = classes.flatMap(classroom => classroom.children).find(item => item.id === requestedChildId)
+    if (!child) return
+    openedRequestedChild.current = true
+    openChild(child)
+  }, [classes, requestedChildId])
 
   const loadPriestNotes = useCallback(async (childId: string) => {
     setLoadingPriestNotes(true)
@@ -247,7 +259,8 @@ export default function SundaySchoolVisitationsPage() {
   return (
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
-        <PageHeader title="Visitations" meta={['Visits and phone call follow-up for every child in your classes']} />
+        <PageHeader title="Care" meta={[selectedClass?.name, 'Visits and phone calls for each child']} />
+        <CareHubTabs />
 
         {response?.standing.readOnly && (
           <div role="status" className="rounded-lg bg-info-tint px-4 py-2.5 text-[13px] text-info">
@@ -289,15 +302,17 @@ export default function SundaySchoolVisitationsPage() {
                     ]}
                   />
                   <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
-                    <FilterSelect
-                      aria-label="Class"
-                      value={selectedClass?.id ?? ''}
-                      onChange={(v) => {
-                        setSelectedClassId(v)
-                        setSelectedChildId(null)
-                      }}
-                      options={classes.map((c) => ({ value: c.id, label: `${c.name} — ${getLevelDisplayName(c.level)}` }))}
-                    />
+                    {classes.length > 1 && (
+                      <FilterSelect
+                        aria-label="Class"
+                        value={selectedClass?.id ?? ''}
+                        onChange={(v) => {
+                          setSelectedClassId(v)
+                          setSelectedChildId(null)
+                        }}
+                        options={classes.map((c) => ({ value: c.id, label: `${c.name} — ${getLevelDisplayName(c.level)}` }))}
+                      />
+                    )}
                     <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
                   </div>
                 </>
@@ -618,5 +633,13 @@ export default function SundaySchoolVisitationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function SundaySchoolVisitationsPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <VisitationsContent />
+    </Suspense>
   )
 }

@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ds/status-badge'
 import { formatDateUTC } from '@/lib/utils'
 import type { SundaySchoolHomeworkDisplayStatus, SundaySchoolHomeworkResponse } from '@/types/sunday-school'
 
-function HomeworkStatus({ status }: { status: SundaySchoolHomeworkDisplayStatus }) {
+export function HomeworkStatus({ status }: { status: SundaySchoolHomeworkDisplayStatus }) {
   if (status === 'COMPLETED') return <StatusBadge tone="ok">Completed</StatusBadge>
   if (status === 'NOT_COMPLETED') return <StatusBadge tone="bad">Not completed</StatusBadge>
   return <StatusBadge tone="neutral">Not recorded</StatusBadge>

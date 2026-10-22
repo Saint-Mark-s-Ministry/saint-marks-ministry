@@ -124,11 +124,11 @@ describe('Sunday School attendance page', () => {
     await user.click(mina)
     const dialog = screen.getByRole('dialog', { name: 'Mina Mark' })
     await user.click(within(dialog).getByRole('tab', { name: 'Attendance' }))
-    expect(within(dialog).getByText('100%')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('100%').length).toBeGreaterThan(0)
     expect(within(dialog).queryByText(/Abanoub/)).not.toBeInTheDocument()
     expect(within(dialog).getByText(/Oct 4, 2026/)).toBeInTheDocument()
     expect(within(dialog).getByRole('tab', { name: 'Notes' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('tab', { name: 'Visitations' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('tab', { name: 'Care' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(mina).toHaveFocus()
@@ -136,7 +136,7 @@ describe('Sunday School attendance page', () => {
     await user.click(screen.getByRole('button', { name: 'View history for Abanoub Saad' }))
     const other = screen.getByRole('dialog', { name: 'Abanoub Saad' })
     await user.click(within(other).getByRole('tab', { name: 'Attendance' }))
-    expect(within(other).getByText('0%')).toBeInTheDocument()
+    expect(within(other).getAllByText('0%').length).toBeGreaterThan(0)
     expect(within(other).queryByText(/Mina/)).not.toBeInTheDocument()
   })
 
@@ -195,7 +195,7 @@ describe('Sunday School attendance page', () => {
     // Mark only Mina present, then save
     const minaRow = screen.getByText('Mina Mark').closest('li')!
     await user.click(within(minaRow).getByRole('button', { name: 'Present' }))
-    await user.click(screen.getByRole('button', { name: 'Save attendance' }))
+    await user.click(screen.getByRole('button', { name: 'Finish attendance and mark 1 absent' }))
 
     await waitFor(() => {
       const batch = mocks.fetch.mock.calls.find(([url]) => url === '/api/sunday-school/attendance/batch')

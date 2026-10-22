@@ -254,6 +254,8 @@ export interface SundaySchoolVisitationChild {
   lastName: string
   visitations: SundaySchoolVisitationRecord[]
   phoneCalls: SundaySchoolPhoneCallRecord[]
+  /** Consecutive meetings marked absent, ending with the latest one. */
+  absentStreak?: { weeks: number; since: string | null }
 }
 
 export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
