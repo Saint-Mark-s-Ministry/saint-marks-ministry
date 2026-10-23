@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Command } from 'cmdk'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { DialogSurface } from '@/components/ui/dialog'
+import { Dialog, DialogSurface } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import {
   Search,
@@ -268,7 +268,7 @@ export function CommandPalette() {
     isAdmin(role) ? `/dashboard/admin/curriculum?lesson=${id}` : '/dashboard/student/lessons'
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           data-slot="dialog-overlay"
@@ -403,6 +403,6 @@ export function CommandPalette() {
           </Command>
         </DialogSurface>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </Dialog>
   )
 }

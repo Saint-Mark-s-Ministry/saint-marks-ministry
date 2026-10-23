@@ -508,3 +508,16 @@ an enabled account without a forced password change, an active class, and an
 unexpired signature. Guardian contacts, child rosters, attendance, teacher names,
 resource URLs and pastoral notes are never part of the feed. See
 [the calendar runbook](sunday-school-mode.md#class-lesson-calendar-subscriptions).
+
+## Child check-in responsibility
+
+`/api/sunday-school/follow-up-assignments` reloads the current database principal
+and Sunday School class scope for every read/write. During compatibility it
+uses the active legacy academic-year staffing resolver. Class servants and
+coordinators may assign or clear responsibility only within their own active
+classes, and only to active direct class staffing in the same year. Super admins
+may manage every class. Priests may read this feature but may not change these
+assignments. A responsibility assignment never grants additional authority.
+Disabled accounts are denied, and guardian contacts and private notes are not
+returned. Tests cover stale JWT roles, out-of-scope classes, ended/disabled
+staffing, transfer, old-year assignments, and priest write denial.

@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { DialogSurface } from '@/components/ui/dialog'
+import { Dialog, DialogSurface } from '@/components/ui/dialog'
 import { Copy, Mail, MapPin, MessageCircle, Phone, Video } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -188,7 +188,7 @@ function ContactActionSheet({
   const close = () => onOpenChange(false)
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(19,18,17,0.4)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogSurface
@@ -248,6 +248,6 @@ function ContactActionSheet({
           )}
         </DialogSurface>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </Dialog>
   )
 }

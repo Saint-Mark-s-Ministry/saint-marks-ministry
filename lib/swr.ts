@@ -1,3 +1,4 @@
+import type { SundaySchoolCheckIns } from '@/types/sunday-school-check-ins'
 import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
@@ -244,6 +245,15 @@ export function useSundaySchoolBirthdays(options?: SWRConfiguration) {
 /** Only the children who need a call or visit, with their latest contact (Home and Care). */
 export function useSundaySchoolFollowUps(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/visitations?view=follow-up', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolCheckIns(classId?: string) {
+  const url = classId
+    ? `/api/sunday-school/follow-up-assignments?classId=${encodeURIComponent(classId)}`
+    : '/api/sunday-school/follow-up-assignments'
+  return useSWR<SundaySchoolCheckIns>(url, fetcher, {
+    ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 60000,
+  })
 }
 
 export function useSundaySchoolVisitations(options?: SWRConfiguration) {

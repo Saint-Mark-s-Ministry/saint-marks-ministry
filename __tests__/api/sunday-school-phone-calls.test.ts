@@ -3,6 +3,7 @@ import { SundaySchoolPhoneCallOutcome } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
+  principal: vi.fn(),
   access: vi.fn(),
   canServeClass: vi.fn(),
   canViewClass: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('@/lib/sunday-school-access', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    user: { findUnique: mocks.principal },
     sundaySchoolChild: { findUnique: mocks.findChild },
     sundaySchoolClass: { findMany: mocks.findClasses },
     $transaction: mocks.transaction,
@@ -58,6 +60,7 @@ describe('Sunday School phone calls', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.auth.mockResolvedValue({ id: 'servant-1', name: 'Servant One', role: 'SERVANT' })
+    mocks.principal.mockResolvedValue({ id: 'servant-1', name: 'Servant One', role: 'SERVANT' })
     mocks.access.mockResolvedValue({ canRead: true, readOnly: false })
     mocks.canServeClass.mockReturnValue(true)
     mocks.canViewClass.mockReturnValue(true)
@@ -100,15 +103,26 @@ describe('Sunday School phone calls', () => {
     }))
   })
 
-  it('allows a priest to record a follow-up call', async () => {
+  it('keeps priest call logging read-only', async () => {
     mocks.auth.mockResolvedValue({ id: 'priest-1', name: 'Priest One', role: 'PRIEST' })
+    mocks.authorization.mockResolvedValue({ roleTags: new Set(['PRIEST']) })
     mocks.access.mockResolvedValue({ canRead: true, readOnly: false })
     mocks.canServeClass.mockReturnValue(true)
 
     const response = await postCall(callDetails)
 
-    expect(response.status).toBe(201)
-    expect(mocks.transaction).toHaveBeenCalled()
+    expect(response.status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('uses the database principal instead of a stale JWT role and denies disabled users', async () => {
+    mocks.auth.mockResolvedValue({ id: 'servant-1', name: 'Old name', role: 'SUPER_ADMIN' })
+    expect((await postCall(callDetails)).status).toBe(201)
+    expect(mocks.access).toHaveBeenCalledWith({ id: 'servant-1', name: 'Servant One', role: 'SERVANT' }, 'year-1')
+    mocks.authorization.mockResolvedValue({ disabled: true, roleTags: new Set() })
+    mocks.transaction.mockClear()
+    expect((await postCall(callDetails)).status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('denies an unassigned servant', async () => {

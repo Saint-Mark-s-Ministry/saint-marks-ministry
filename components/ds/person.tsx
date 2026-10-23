@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { StudentProfileLink } from '@/components/student-profile-link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { DialogSurface } from '@/components/ui/dialog'
+import { Dialog, DialogSurface } from '@/components/ui/dialog'
 import { X } from 'lucide-react'
 import { getPersonInitials } from '@/lib/person-name'
 import { cn } from '@/lib/utils'
@@ -55,7 +55,7 @@ export function Initials({
 function PhotoViewer({ name, imageUrl, children }: { name?: string | null; imageUrl: string; children: React.ReactNode }) {
   const label = name ? `${name}'s photo` : 'Photo'
   return (
-    <DialogPrimitive.Root>
+    <Dialog>
       <DialogPrimitive.Trigger
         aria-label={`View ${label}`}
         // Rows and cards are often clickable; the photo shouldn't also trigger them
@@ -85,7 +85,7 @@ function PhotoViewer({ name, imageUrl, children }: { name?: string | null; image
           </DialogPrimitive.Close>
         </DialogSurface>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </Dialog>
   )
 }
 

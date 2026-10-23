@@ -1,8 +1,7 @@
 'use client'
 
-import { useAnimatedSize } from '@/hooks/use-animated-size'
+import { Dialog, DialogPortal, DialogOverlay, DialogSurface, DialogTitle } from '@/components/ui/dialog'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
@@ -89,7 +88,6 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const animatedPanelRef = useAnimatedSize(panelRef)
 
   const { data, mutate } = useSWR<NotificationsResponse>(
     session?.user ? '/api/notifications?limit=15' : null,
@@ -253,17 +251,14 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
 
       {/* Portaled to <body>: the navbar's blur/translate would otherwise become
           the containing block for these fixed elements and trap them in the navbar. */}
-      {isOpen && createPortal(
-        <>
-          {/* Mobile backdrop */}
-          <div
-            className="fixed inset-0 z-[60] bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none lg:hidden"
-            onClick={() => updateOpen(false)}
-          />
+      <Dialog open={isOpen} onOpenChange={updateOpen}>
+        <DialogPortal>
+          <DialogOverlay className="z-[60] bg-black/40 lg:hidden" onClick={() => updateOpen(false)} />
 
           {/* Panel — bottom sheet on mobile, dropdown on desktop */}
-          <div
-            ref={animatedPanelRef}
+          <DialogSurface
+            ref={panelRef}
+            aria-describedby={undefined}
             id="notifications-panel"
             role="dialog"
             aria-label="Notifications"
@@ -275,8 +270,9 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
             border bg-popover text-popover-foreground shadow-xl
             flex flex-col
             max-h-[85dvh] lg:max-h-[520px]
-            animate-in fade-in-0 slide-in-from-bottom-4 duration-200 motion-reduce:animate-none
-            lg:slide-in-from-top-2 lg:zoom-in-95
+            data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-4
+            data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-4 duration-200
+            lg:data-[state=open]:slide-in-from-top-2 lg:data-[state=open]:zoom-in-95 lg:data-[state=closed]:slide-out-to-top-2 lg:data-[state=closed]:zoom-out-95
           ">
             {/* Drag handle (mobile only) */}
             <div className="flex justify-center pt-2.5 pb-1 lg:hidden flex-shrink-0">
@@ -286,7 +282,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
             {/* Header */}
             <div className="flex items-center justify-between border-b px-4 py-3 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm">Notifications</h3>
+                <DialogTitle className="font-semibold text-sm">Notifications</DialogTitle>
                 {unreadCount > 0 && (
                   <span className="text-xs text-muted-foreground tabular-nums">
                     ({unreadCount} unread)
@@ -405,10 +401,9 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
 
             {/* Bottom safe area for mobile */}
             <div className="lg:hidden h-[max(1rem,env(safe-area-inset-bottom))] flex-shrink-0" />
-          </div>
-        </>,
-        document.body
-      )}
+          </DialogSurface>
+        </DialogPortal>
+      </Dialog>
     </div>
   )
 }

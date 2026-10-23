@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { Phone, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { mutate as mutateCache } from 'swr'
@@ -9,6 +8,8 @@ import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { SundaySchoolCareEditor } from '@/components/sunday-school-care-editor'
+import { Initials } from '@/components/ds/person'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { KeyValueList } from '@/components/ds/kv-list'
 import { ContactLink } from '@/components/contact-link'
@@ -46,8 +47,7 @@ function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
 }) {
   return <DialogHeader className="text-left">
     <div className="flex min-w-0 items-center gap-2 pr-6">
-      {/* eslint-disable-next-line @next/next/no-img-element -- scoped user-uploaded photo */}
-      {photoUrl && <img src={photoUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full object-cover" />}
+      {photoUrl && <Initials name={target.name} imageUrl={photoUrl} size={28} />}
       <DialogTitle className="min-w-0 break-words">{target.name}</DialogTitle>
       {isServantsPrepStudent && (
         <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
@@ -73,7 +73,7 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} photoUrl={data.photoUrl} />
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
-    <QuickActions target={target} data={data} onPriorityChange={value => void mutate({ ...data, priority: { ...data.priority!, value } }, { revalidate: false })} />
+    <QuickActions target={target} data={data} onOpenCare={() => setTab('visitations')} onPriorityChange={value => void mutate({ ...data, priority: { ...data.priority!, value } }, { revalidate: false })} />
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
         <TabsTrigger value="profile">Family</TabsTrigger>
@@ -93,6 +93,7 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
         {data.canReadPrivateNotes && <PrivateNotes childId={target.id} viewerId={viewerId} />}
       </TabsContent>
       <TabsContent value="visitations" className="space-y-4">
+          {(data.care?.canEdit ?? data.priority?.canEdit) && <SundaySchoolCareEditor childId={target.id} onSaved={() => mutate()} />}
           <h3 className="text-sm font-semibold">Visitation history</h3>
           {data.visitations.length === 0 && <Empty>No visitations recorded yet.</Empty>}
           <ul className="space-y-3">{data.visitations.map(visit => <li key={visit.id} className="rounded-lg border border-line p-4 text-sm">
@@ -114,10 +115,11 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
 }
 
 /** The two things a servant opens a child for most: reach the family, and log that they did. */
-function QuickActions({ target, data, onPriorityChange }: {
+function QuickActions({ target, data, onPriorityChange, onOpenCare }: {
   target: StudentHistoryTarget
   data: StudentHistory
   onPriorityChange: (value: boolean) => void
+  onOpenCare: () => void
 }) {
   const family = data.profile.family
   const contacts = [
@@ -141,9 +143,7 @@ function QuickActions({ target, data, onPriorityChange }: {
         </a>
       </Button>)}
       {contacts.length === 0 && <p className="text-[13px] text-ink-3">No family phone number on file.</p>}
-      {target.program === 'sunday-school' && <Button asChild className="flex-1">
-        <Link href={`/dashboard/servants/visitations?childId=${target.id}`}>Calls &amp; visits</Link>
-      </Button>}
+      {target.program === 'sunday-school' && <Button className="flex-1" onClick={onOpenCare}>Calls &amp; visits</Button>}
     </div>
     {data.priority && <PrioritySwitch childId={target.id} priority={data.priority} onChange={onPriorityChange} />}
   </div>

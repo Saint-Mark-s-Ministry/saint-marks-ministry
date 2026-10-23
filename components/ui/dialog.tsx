@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useModalExit } from "@/hooks/use-modal-exit"
 import { useAnimatedSize } from "@/hooks/use-animated-size"
 
 function Dialog({
@@ -15,7 +16,12 @@ function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
-  const isOpen = open ?? uncontrolledOpen
+  const requestedOpen = open ?? uncontrolledOpen
+  const exit = useModalExit(() => {
+    if (open === undefined) setUncontrolledOpen(false)
+    onOpenChange?.(false)
+  })
+  const isOpen = requestedOpen && !exit.closing
   const visibleChildren = React.useRef<React.ReactNode>(children)
 
   // Keep the last open contents mounted while Radix plays the closing animation.
@@ -27,8 +33,10 @@ function Dialog({
       data-slot="dialog"
       open={isOpen}
       onOpenChange={nextOpen => {
-        if (open === undefined) setUncontrolledOpen(nextOpen)
-        onOpenChange?.(nextOpen)
+        if (!nextOpen) { exit.close(); return }
+        exit.cancel()
+        if (open === undefined) setUncontrolledOpen(true)
+        onOpenChange?.(true)
       }}
       {...props}
     >
@@ -63,7 +71,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] motion-reduce:animate-none",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:[animation-duration:var(--modal-motion-duration)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -78,7 +86,7 @@ function DialogSurface({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   const animatedRef = useAnimatedSize(ref)
-  return <DialogPrimitive.Content ref={animatedRef} className={cn("motion-reduce:animate-none", className)} {...props} />
+  return <DialogPrimitive.Content ref={animatedRef} className={cn("data-[state=closed]:[animation-duration:var(--modal-motion-duration)] motion-reduce:animate-none", className)} {...props} />
 }
 
 function DialogContent({
@@ -97,7 +105,7 @@ function DialogContent({
         ref={ref}
         data-slot="dialog-content"
         className={cn(
-          "bg-surface text-ink border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid content-start w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-[0_24px_60px_-20px_rgba(27,24,23,0.35)] duration-200 motion-reduce:animate-none sm:max-w-lg",
+          "bg-surface text-ink border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:[animation-duration:var(--modal-motion-duration)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid content-start w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-[0_24px_60px_-20px_rgba(27,24,23,0.35)] duration-200 motion-reduce:animate-none sm:max-w-lg",
           className
         )}
         {...props}

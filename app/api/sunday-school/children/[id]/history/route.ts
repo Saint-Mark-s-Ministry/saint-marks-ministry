@@ -1,4 +1,5 @@
 import { withSundaySchoolFamilyDetails } from '@/lib/sunday-school-family'
+import { RoleTag, UserRole } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -41,7 +42,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           motherName: true, motherPhone: true, motherEmail: true,
           fatherName: true, fatherPhone: true, fatherEmail: true,
         } },
-        class: { select: { name: true } },
+        class: { select: { name: true, isActive: true, academicYear: { select: { isActive: true } } } },
         attendance: {
           where: { session: classScope },
           select: { id: true, status: true, notes: true, session: { select: { date: true, topic: true, class: { select: { name: true } } } } },
@@ -66,6 +67,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       photoUrl: getChildPhotoUrl(child),
       subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
       canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
+      care: { canEdit: !authorization.readOnly && !authorization.roleTags.has(RoleTag.PRIEST) && principal.role !== UserRole.PRIEST && child.isActive && Boolean(child.class?.isActive && child.class.academicYear.isActive && child.classId) && canServeClass(access, child.classId!) },
       // Same rule as PATCH /visitations: people who serve the child's active class.
       priority: {
         value: child.visitationPriority,

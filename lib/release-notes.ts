@@ -23,6 +23,7 @@ export const releaseNotes: ReleaseNote[] = [
     summary: 'Find your weekly tasks, follow up with children, and prepare lessons with fewer steps.',
     changes: {
       new: [
+        'Assign each child a servant for check-ins from Care. Filter to your children and see whose phone call has been logged this week.',
         'Practice children’s names with photo flashcards from Children. Reveal each name, track your progress, and review the names you’re still learning.',
         'Create a Contact update QR from Children so your class can add missing child or parent phone numbers. Existing contacts stay protected. QR links expire after two hours.',
         'Subscribe to your class’s lesson calendar from Lessons to see its schedule in Apple Calendar, Google Calendar, or Outlook. Optionally add Coptic.io’s church calendar for feasts, fasts, and seasons.',
@@ -31,7 +32,7 @@ export const releaseNotes: ReleaseNote[] = [
         'What’s new keeps updates for Sunday School and Servants Prep in one place.',
       ],
       improved: [
-        'Dialogs expand and shrink smoothly as their content changes, with reduced-motion support.',
+        'Dialogs animate smoothly when opening, closing and resizing, with reduced-motion support. Tap a child’s profile photo to enlarge it.',
         'Sunday School is organized around Home, Attendance, Children, Care, and Lessons. Pick your class once and every page follows it.',
         'Take children’s attendance with recent attendance dots, meeting date arrows, and a button to mark everyone else present. Finish saves the meeting and marks unmarked children absent.',
         'Prepare lessons from a calendar on a computer or an upcoming lesson list on a phone, and volunteer to teach with one tap.',
