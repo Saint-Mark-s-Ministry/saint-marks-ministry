@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/sunday-school-attendance-reminders",
-      "schedule": "0 15,16,17 * * 0,2,4,6"
+      "schedule": "0 16 * * 0,2,4,6"
     },
     {
       "path": "/api/cron/sunday-school-absence-notifications",
