@@ -405,10 +405,14 @@ servant who is in the room; the bounds above are what stand in for the review.
 On **Children**, use **Viewing class** to select a class and choose **Learn names**
 to practice matching faces to names. The deck includes every active child in that class with a roster
 photo or linked account photo, independent of the roster search and sorting.
-Reveal or hide the name, move between cards, shuffle, or start again after the
-last card. Children without photos are counted and skipped; add their photos
-through the existing roster photo controls. Closing the dialog starts a fresh
-session next time. Practice is local to the open dialog and saves no results.
+Reveal the name, then choose **Got it!** or **Practice again** to move to the next
+child. A progress bar, recall streak, and round summary make it a small memory
+game. Review just the names that need practice or play another round with everyone.
+Shuffle changes only the remaining cards and keeps the round's progress.
+The reveal and card transitions animate unless reduced motion is enabled.
+Children without photos are counted and skipped; add their photos through the
+existing roster photo controls. Closing the dialog starts a fresh session next
+time. Practice is local to the open dialog and saves no results.
 
 Flashcards reuse the authorized roster response and existing class access.
 They display only the photo and name, with no new API or database fields.

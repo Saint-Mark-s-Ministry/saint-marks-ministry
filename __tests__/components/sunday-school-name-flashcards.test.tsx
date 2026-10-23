@@ -38,23 +38,43 @@ describe('Sunday School name flashcards', () => {
     expect(dialog.queryByText('Mina Gerges')).not.toBeInTheDocument()
   })
 
-  it('uses active children in this class with photos, supports account photos and hides names on every move', async () => {
+  it('plays a round, scores recall, and reviews only the names that need practice', async () => {
     const { user } = await openCards()
     expect(screen.getByRole('status')).toHaveTextContent('Card 1 of 2')
     expect(screen.getByText('1 child has no photo yet and is skipped.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Got it!' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Reveal name' }))
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
     expect(screen.queryByText('Mina Gerges')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reveal name' })).toHaveFocus()
     expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
     expect(screen.queryByText('Mary Hanna')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
     await user.click(screen.getByRole('button', { name: 'Reveal name' }))
     expect(screen.getByText('Mary Hanna')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Previous' }))
-    expect(screen.getByRole('button', { name: 'Reveal name' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Next' }))
-    await user.click(screen.getByRole('button', { name: 'Start again' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Card 1 of 2')
+    await user.click(screen.getByRole('button', { name: 'Practice again' }))
+    expect(screen.getByRole('status')).toHaveTextContent('You remembered 1 of 2 names.')
+    await user.click(screen.getByRole('button', { name: 'Practice 1 name again' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Round 2 · Card 1 of 1')
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
+    expect(screen.getByRole('status')).toHaveTextContent('You remembered 1 of 1 names.')
+    expect(screen.queryByRole('button', { name: 'Practice 1 name again' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Play again with everyone' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Round 3 · Card 1 of 2')
+  })
+
+  it('celebrates a completed round and counts a recall streak', async () => {
+    const { user } = await openCards()
+    for (let i = 0; i < 2; i++) {
+      await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+      await user.click(screen.getByRole('button', { name: 'Got it!' }))
+    }
+    expect(screen.getByRole('status')).toHaveTextContent('You remembered 2 of 2 names.')
+    expect(screen.getByText('Best streak: 2 in a row')).toBeInTheDocument()
+    expect(screen.getByText('Every face, a familiar name. Nicely done!')).toBeInTheDocument()
   })
 
   it('shuffles without losing or duplicating cards and resets the answer', async () => {
@@ -65,13 +85,15 @@ describe('Sunday School name flashcards', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Card 1 of 2')
     expect(screen.getByRole('button', { name: 'Reveal name' })).toBeInTheDocument()
     expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
     expect(screen.getByRole('img')).toHaveAttribute('src', '/mina.jpg')
   })
 
   it('starts fresh after closing and resets safely when roster data changes', async () => {
     const { user, rerender } = await openCards()
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
     await user.click(screen.getByRole('button', { name: 'Reveal name' }))
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Learn names' }))
@@ -86,6 +108,27 @@ describe('Sunday School name flashcards', () => {
     expect(screen.queryByText('Mary Hanna')).not.toBeInTheDocument()
   })
 
+  it('preserves reviewed cards and scores when shuffling the remaining faces', async () => {
+    const { user } = await openCards([
+      children[0], children[1],
+      { ...children[0], id: 'third', firstName: 'Third', photoUrl: '/third.jpg', user: null },
+    ])
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
+    await user.click(screen.getByRole('button', { name: 'Shuffle' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Card 2 of 3')
+    expect(screen.getByText('1 remembered')).toBeInTheDocument()
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/third.jpg')
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Practice again' }))
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
+    await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+    await user.click(screen.getByRole('button', { name: 'Got it!' }))
+    expect(screen.getByRole('status')).toHaveTextContent('You remembered 2 of 3 names.')
+    expect(screen.queryByText(/Best streak/)).not.toBeInTheDocument()
+  })
+
   it('explains empty decks instead of showing initials that give away names', async () => {
     await openCards([children[2], children[3], children[4]])
     expect(screen.getByText(/No photos to practice yet/)).toBeInTheDocument()
@@ -97,7 +140,7 @@ describe('Sunday School name flashcards', () => {
     const { user } = await openCards()
     fireEvent.error(screen.getByRole('img'))
     expect(screen.getByText('Photo unavailable. Try the next card.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: 'Skip this photo' }))
     expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
   })
 })
