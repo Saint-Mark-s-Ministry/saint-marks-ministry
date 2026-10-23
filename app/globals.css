@@ -1177,6 +1177,10 @@
   transform-origin: center;
 }
 
+.name-game-stage[data-motion='shuffle'] > .name-game-card {
+  animation: none;
+}
+
 .name-game-photo {
   transform: scale(1);
 }

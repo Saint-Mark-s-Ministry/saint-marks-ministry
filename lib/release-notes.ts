@@ -23,6 +23,7 @@ export const releaseNotes: ReleaseNote[] = [
     summary: 'Find your weekly tasks, follow up with children, and prepare lessons with fewer steps.',
     changes: {
       new: [
+        'Practice children’s names with photo flashcards from Children. Reveal each name, track your progress, and review the names you’re still learning.',
         'Create a Contact update QR from Children so your class can add missing child or parent phone numbers. Existing contacts stay protected. QR links expire after two hours.',
         'Subscribe to your class’s lesson calendar from Lessons to see its schedule in Apple Calendar, Google Calendar, or Outlook. Optionally add Coptic.io’s church calendar for feasts, fasts, and seasons.',
         'Sunday School Home brings together your next lesson, attendance, homework where available, and children who need follow-up. Coordinators can see which classes need attention.',

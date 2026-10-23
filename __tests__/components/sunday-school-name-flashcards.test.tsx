@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SundaySchoolNameFlashcards } from '@/components/sunday-school-name-flashcards'
@@ -14,6 +14,7 @@ const children = [
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 async function openCards(roster = children) {
@@ -118,6 +119,40 @@ describe('Sunday School name flashcards', () => {
       expect(screen.getByRole('button', { name: 'Reveal name' })).toHaveFocus()
       expect(screen.getByRole('status')).toHaveTextContent('Card 1 of 2')
     }
+  })
+
+  it('fades out before changing the child and prevents interaction until the fade-in finishes', async () => {
+    await openCards()
+    vi.spyOn(Math, 'random').mockReturnValue(0.999)
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    let finishOut!: () => void
+    let finishIn!: () => void
+    const animate = vi.fn()
+      .mockReturnValueOnce({ finished: new Promise<void>(resolve => { finishOut = resolve }), cancel: vi.fn() })
+      .mockReturnValueOnce({ finished: new Promise<void>(resolve => { finishIn = resolve }), cancel: vi.fn() })
+    const stage = screen.getByRole('img').closest('.name-game-stage')!
+    Object.assign(stage, { animate })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle' }))
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/mina.jpg')
+    expect(screen.getByRole('button', { name: 'Shuffle' })).toBeDisabled()
+    await act(async () => { finishOut() })
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
+    expect(screen.getByRole('button', { name: 'Reveal name' })).toBeDisabled()
+    await act(async () => { finishIn() })
+    expect(screen.getByRole('button', { name: 'Reveal name' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Reveal name' })).toHaveFocus()
+  })
+
+  it('changes the child immediately when reduced motion is preferred', async () => {
+    const { user } = await openCards()
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    const animate = vi.fn()
+    Object.assign(screen.getByRole('img').closest('.name-game-stage')!, { animate })
+    await user.click(screen.getByRole('button', { name: 'Shuffle' }))
+    expect(screen.getByRole('img')).toHaveAttribute('src', '/mary.jpg')
+    expect(animate).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Reveal name' })).toBeEnabled()
   })
 
   it('preserves reviewed cards and scores when shuffling the remaining faces', async () => {

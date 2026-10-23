@@ -77,14 +77,24 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
   const [streak, setStreak] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
   const [transition, setTransition] = useState(0)
+  const [motion, setMotion] = useState<'deal' | 'shuffle'>('deal')
+  const [shuffling, setShuffling] = useState(false)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const shuffleAnimation = useRef<Animation | null>(null)
+  const shuffleRun = useRef(0)
   const nextActionRef = useRef<HTMLButtonElement>(null)
   const complete = index === order.length
   const card = order[index]
   const remembered = Object.values(answers).filter(Boolean).length
 
   useEffect(() => {
-    if (transition > 0) nextActionRef.current?.focus({ preventScroll: true })
-  }, [transition])
+    if (transition > 0 && !shuffling) nextActionRef.current?.focus({ preventScroll: true })
+  }, [transition, shuffling])
+
+  useEffect(() => () => {
+    shuffleRun.current++
+    shuffleAnimation.current?.cancel()
+  }, [])
 
   const advance = (gotIt: boolean) => {
     if (!card || (!revealed && !failedPhoto)) return
@@ -93,6 +103,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
     setStreak(nextStreak)
     setBestStreak(previous => Math.max(previous, nextStreak))
     setIndex(index + 1)
+    setMotion('deal')
     setRevealed(false)
     setFailedPhoto(false)
     setTransition(previous => previous + 1)
@@ -102,6 +113,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
     setOrder(shuffleCards(nextCards, order[order.length - 1]?.id))
     setIndex(0)
     setRound(previous => previous + 1)
+    setMotion('deal')
     setAnswers({})
     setStreak(0)
     setBestStreak(0)
@@ -111,14 +123,44 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
   }
 
   // Shuffle only the unreviewed cards, preserving progress and the score.
-  const shuffle = () => {
+  const applyShuffle = () => {
     setOrder(previous => [
       ...previous.slice(0, index),
       ...shuffleCards(previous.slice(index), previous[index]?.id),
     ])
     setRevealed(false)
     setFailedPhoto(false)
+    setMotion('shuffle')
     setTransition(previous => previous + 1)
+  }
+
+  const shuffle = async () => {
+    if (shuffling || order.length - index < 2) return
+    const stage = stageRef.current
+    if (!stage?.animate || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      applyShuffle()
+      return
+    }
+
+    const run = ++shuffleRun.current
+    setShuffling(true)
+    try {
+      shuffleAnimation.current = stage.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: 'ease-out', fill: 'forwards' })
+      await shuffleAnimation.current.finished
+      if (run !== shuffleRun.current) return
+      applyShuffle()
+      shuffleAnimation.current.cancel()
+      shuffleAnimation.current = stage.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-in', fill: 'forwards' })
+      await shuffleAnimation.current.finished
+    } catch {
+      // Closing the dialog cancels an in-flight transition.
+    } finally {
+      if (run === shuffleRun.current) {
+        shuffleAnimation.current?.cancel()
+        shuffleAnimation.current = null
+        setShuffling(false)
+      }
+    }
   }
 
   if (complete) {
@@ -155,7 +197,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <p role="status" className="text-sm text-ink-3">Round {round} · Card {index + 1} of {order.length}</p>
-        <Button type="button" variant="ghost" onClick={shuffle} disabled={order.length - index < 2}>
+        <Button type="button" variant="ghost" onClick={shuffle} disabled={shuffling || order.length - index < 2}>
           <Shuffle aria-hidden />Shuffle
         </Button>
       </div>
@@ -168,7 +210,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
           {streak > 1 && <span className="flex items-center gap-1 font-medium text-accent-ink"><Flame className="size-3.5" aria-hidden />{streak} in a row</span>}
         </div>
       </div>
-      <div className="name-game-stage">
+      <div ref={stageRef} className="name-game-stage" data-motion={motion} aria-busy={shuffling}>
         <div key={`${card.id}-${transition}`} className="name-game-card flex flex-col items-center gap-4 rounded-xl border border-line bg-hover/40 p-4">
           <div className="name-game-photo w-full" data-revealed={revealed}>
             {failedPhoto ? (
@@ -187,9 +229,9 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
             )}
           </div>
           {revealed ? (
-            <Button type="button" variant="ghost" onClick={() => setRevealed(false)}>Hide name</Button>
+            <Button type="button" variant="ghost" disabled={shuffling} onClick={() => setRevealed(false)}>Hide name</Button>
           ) : (
-            <Button ref={nextActionRef} type="button" className="w-full" onClick={() => setRevealed(true)}>
+            <Button ref={nextActionRef} type="button" disabled={shuffling} className="w-full" onClick={() => setRevealed(true)}>
               Reveal name
             </Button>
           )}
@@ -197,11 +239,11 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
       </div>
       {revealed ? (
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={() => advance(false)}><RotateCcw aria-hidden />Practice again</Button>
-          <Button type="button" onClick={() => advance(true)}><Check aria-hidden />Got it!</Button>
+          <Button type="button" variant="outline" disabled={shuffling} onClick={() => advance(false)}><RotateCcw aria-hidden />Practice again</Button>
+          <Button type="button" disabled={shuffling} onClick={() => advance(true)}><Check aria-hidden />Got it!</Button>
         </div>
       ) : failedPhoto ? (
-        <Button type="button" variant="outline" onClick={() => advance(false)}>Skip this photo<ChevronRight aria-hidden /></Button>
+        <Button type="button" variant="outline" disabled={shuffling} onClick={() => advance(false)}>Skip this photo<ChevronRight aria-hidden /></Button>
       ) : null}
     </div>
   )
