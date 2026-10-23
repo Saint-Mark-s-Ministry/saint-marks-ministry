@@ -63,6 +63,8 @@ export interface NavItem {
   tabLabel?: string
   /** Other paths that belong to this destination, such as a hub's tab pages. */
   also?: string[]
+  /** Something waiting there (e.g. classes missing attendance), shown as a count. */
+  badge?: number
 }
 
 export interface NavGroup {

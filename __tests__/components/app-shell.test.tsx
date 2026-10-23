@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
   push: vi.fn(),
   openExams: [] as { id: string }[],
+  reminders: [] as { classId: string }[],
   user: {} as Record<string, unknown> | undefined,
   status: 'authenticated' as 'authenticated' | 'loading' | 'unauthenticated',
 }))
@@ -41,6 +42,7 @@ vi.mock('@/lib/swr', () => ({
   useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
   useSundaySchoolClasses: () => ({ data: [] }),
+  useSundaySchoolAttendanceReminders: (userId?: string) => ({ data: userId ? { reminders: mocks.reminders } : undefined }),
   useSundaySchoolAgeGroups: () => ({ data: [] }),
 }))
 
@@ -53,6 +55,7 @@ describe('AppShell', () => {
 
   beforeEach(() => {
     window.localStorage.clear()
+    mocks.reminders = []
     window.sessionStorage.clear()
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
@@ -139,6 +142,13 @@ describe('AppShell', () => {
     mocks.openExams = []
     rerender(<AppShell>page</AppShell>)
     expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
+  })
+
+  it('counts classes still missing attendance on the Attendance menu item', () => {
+    mocks.user = { ...mocks.user, id: 'servant-1', role: UserRole.SERVANT, name: 'Mina Servant' }
+    mocks.reminders = [{ classId: 'a' }, { classId: 'b' }]
+    render(<AppShell>page</AppShell>)
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance, 2 waiting' })).toHaveAttribute('href', '/dashboard/servants/attendance')
   })
 
   it('files servant attendance under Attendance for priests', () => {

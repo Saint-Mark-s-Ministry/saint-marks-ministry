@@ -13,7 +13,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import { StudentName } from '@/components/student-history-provider'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolBirthdays, useSundaySchoolVisitations } from '@/lib/swr'
+import { useSundaySchoolBirthdays, useSundaySchoolFollowUps } from '@/lib/swr'
 import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 import { buildFollowUps, FOLLOW_UP_ABSENT_WEEKS, type FollowUpItem } from '@/lib/sunday-school-follow-up'
 import { formatBirthday } from '@/lib/sunday-school-birthdays'
@@ -73,7 +73,7 @@ function contactText(item: FollowUpItem) {
  */
 export default function SundaySchoolCarePage() {
   const { status } = useSundaySchoolGuard()
-  const { data, error, isLoading } = useSundaySchoolVisitations()
+  const { data, error, isLoading } = useSundaySchoolFollowUps()
   const { data: birthdaysData } = useSundaySchoolBirthdays()
   const response = data as SundaySchoolVisitationsResponse | undefined
   const classes = useMemo(() => response?.classes ?? [], [response])

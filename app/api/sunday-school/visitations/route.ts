@@ -9,6 +9,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { notifyPriestNoteCreated } from "@/lib/notifications"
 import { prisma } from "@/lib/prisma"
 import { getSundaySchoolAbsenceStreak } from "@/lib/sunday-school-absence-notifications"
+import { FOLLOW_UP_ABSENT_WEEKS } from "@/lib/sunday-school-follow-up"
 import {
   canServeClass,
   canViewClass,
@@ -35,6 +36,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
+    // ?view=follow-up: only children who need a call or visit, with just their
+    // latest contact and no notes. Home and Care read this; Visits & calls reads it all.
+    const followUpOnly = searchParams.get("view") === "follow-up"
     const allowedClassIds = visibleClassFilter(access)
 
     if (classId && !canViewClass(access, classId)) {
@@ -63,33 +67,47 @@ export async function GET(request: Request) {
             firstName: true,
             lastName: true,
             visitationPriority: true,
-            visitations: {
-              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
-              orderBy: [{ createdAt: "desc" }],
-              select: {
-                id: true,
-                status: true,
-                visitedAt: true,
-                notes: true,
-                createdAt: true,
-                updatedAt: true,
-                recorder: {
-                  select: { id: true, name: true },
+            visitations: followUpOnly
+              ? {
+                  where: { status: SundaySchoolVisitationStatus.DONE, ...(allowedClassIds ? { classId: { in: allowedClassIds } } : {}) },
+                  orderBy: [{ createdAt: "desc" }],
+                  take: 1,
+                  select: { id: true, status: true, visitedAt: true, createdAt: true },
+                }
+              : {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ createdAt: "desc" }],
+                  select: {
+                    id: true,
+                    status: true,
+                    visitedAt: true,
+                    notes: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    recorder: {
+                      select: { id: true, name: true },
+                    },
+                  },
                 },
-              },
-            },
-            phoneCalls: {
-              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
-              orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
-              select: {
-                id: true,
-                calledAt: true,
-                outcome: true,
-                note: true,
-                callerName: true,
-                createdAt: true,
-              },
-            },
+            phoneCalls: followUpOnly
+              ? {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
+                  take: 1,
+                  select: { id: true, calledAt: true, outcome: true },
+                }
+              : {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
+                  select: {
+                    id: true,
+                    calledAt: true,
+                    outcome: true,
+                    note: true,
+                    callerName: true,
+                    createdAt: true,
+                  },
+                },
           },
         },
       },
@@ -117,12 +135,14 @@ export async function GET(request: Request) {
       classes: classes.map((classroom) => ({
         ...classroom,
         canEdit: canServeClass(access, classroom.id),
-        children: classroom.children.map((child) => {
-          const { weeks, firstAbsenceDate } = getSundaySchoolAbsenceStreak(
-            classroom.level, marks.get(`${classroom.id}:${child.id}`) ?? [], now, since,
-          )
-          return { ...child, absentStreak: { weeks, since: firstAbsenceDate } }
-        }),
+        children: classroom.children
+          .map((child) => {
+            const { weeks, firstAbsenceDate } = getSundaySchoolAbsenceStreak(
+              classroom.level, marks.get(`${classroom.id}:${child.id}`) ?? [], now, since,
+            )
+            return { ...child, absentStreak: { weeks, since: firstAbsenceDate } }
+          })
+          .filter((child) => !followUpOnly || child.visitationPriority || child.absentStreak.weeks >= FOLLOW_UP_ABSENT_WEEKS),
       })),
       standing: {
         readOnly: access.readOnly,

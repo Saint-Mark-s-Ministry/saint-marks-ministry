@@ -56,7 +56,7 @@ export function NavList({
                 href={item.href}
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
-                aria-label={item.label}
+                aria-label={item.badge ? `${item.label}, ${item.badge} waiting` : item.label}
                 title={item.label}
                 className={cn(
                   'sidebar-item flex items-center gap-2.5 rounded-md px-2.5 whitespace-nowrap no-underline transition-colors',
@@ -66,6 +66,11 @@ export function NavList({
               >
                 <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
                 <span className="sidebar-label truncate">{item.label}</span>
+                {!!item.badge && (
+                  <span aria-hidden className="sidebar-label tabular ml-auto rounded-full bg-warn-tint px-1.5 text-[11px] leading-[18px] font-semibold text-warn">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             )
           })}

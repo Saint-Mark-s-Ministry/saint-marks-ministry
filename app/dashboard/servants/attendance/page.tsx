@@ -15,12 +15,14 @@ import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { StudentName } from '@/components/student-history-provider'
 import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
+import { RecentAttendanceDots } from '@/components/sunday-school-recent-attendance-dots'
+import type { IndividualAttendanceHistory } from '@/lib/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
 import { AttendanceHubTabs } from '@/components/sunday-school-hub-tabs'
 import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard, useSundaySchoolIndividualAttendance } from '@/lib/swr'
 import {
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
@@ -104,6 +106,14 @@ function SundaySchoolAttendanceContent() {
     () => organizeAttendanceRoster(attendance?.roster ?? [], { nameOrder, groupByGender }),
     [attendance?.roster, groupByGender, nameOrder]
   )
+
+  // The six meetings before the one on screen, per child (same request as History).
+  const { data: historyData } = useSundaySchoolIndividualAttendance(selectedClassId || undefined)
+  const recentByChild = useMemo(() => {
+    const history = historyData as IndividualAttendanceHistory | undefined
+    const dates = (history?.dates ?? []).filter(date => date < sessionDate).slice(-6)
+    return new Map((history?.children ?? []).map(child => [child.id, dates.map(date => child.attendance[date] ?? null)]))
+  }, [historyData, sessionDate])
 
   if (status === 'loading' || classesLoading) {
     return <PageLoading />
@@ -213,7 +223,10 @@ function SundaySchoolAttendanceContent() {
                             {showPhotos && <Initials name={getChildFullName(entry)} imageUrl={entry.profileImageUrl} size={32} />}
                             <span className="flex min-w-0 flex-col leading-tight">
                               <StudentName id={entry.id} name={getChildFullName(entry)} program="sunday-school" className="truncate text-[14px]" />
-                              <span className="text-xs text-ink-3">{getLevelDisplayName(entry.level)}</span>
+                              <span className="flex items-center gap-2 text-xs text-ink-3">
+                                {getLevelDisplayName(entry.level)}
+                                <RecentAttendanceDots statuses={recentByChild.get(entry.id) ?? []} />
+                              </span>
                             </span>
                           </span>
                           <AttendanceStatusButtons

@@ -84,12 +84,20 @@ export function MobileTabBar({
                 <Link
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
+                  aria-label={item.badge ? `${item.tabLabel ?? item.label}, ${item.badge} waiting` : undefined}
                   className={cn(
                     'flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium no-underline',
                     active ? 'text-accent-ink' : 'text-ink-3'
                   )}
                 >
-                  <Icon className="size-[22px]" strokeWidth={active ? 2 : 1.75} aria-hidden />
+                  <span className="relative">
+                    <Icon className="size-[22px]" strokeWidth={active ? 2 : 1.75} aria-hidden />
+                    {!!item.badge && (
+                      <span aria-hidden className="tabular absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-warn px-1 text-center text-[10px] leading-4 font-semibold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
                   {item.tabLabel ?? item.label}
                 </Link>
               </li>

@@ -19,7 +19,7 @@ vi.mock('@/lib/swr', () => ({
   useLiturgicalCalendar: () => ({ data: undefined }),
   useLiturgicalDay: () => ({ data: undefined, isLoading: true }),
   useSundaySchoolLessons: () => ({ data: { lessons: [] } }),
-  useSundaySchoolVisitations: () => ({ data: undefined }),
+  useSundaySchoolFollowUps: () => ({ data: undefined }),
   useSundaySchoolHomework: () => ({ data: undefined }),
   useSundaySchoolDashboard: () => ({
     data: mocks.dashboard,

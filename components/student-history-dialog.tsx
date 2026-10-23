@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Phone } from 'lucide-react'
+import { Phone, Star } from 'lucide-react'
+import { toast } from 'sonner'
+import { mutate as mutateCache } from 'swr'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -72,7 +74,7 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} photoUrl={data.photoUrl} />
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
-    <QuickActions target={target} data={data} />
+    <QuickActions target={target} data={data} onPriorityChange={value => void mutate({ ...data, priority: { ...data.priority!, value } }, { revalidate: false })} />
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
         <TabsTrigger value="profile">Family</TabsTrigger>
@@ -113,7 +115,11 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
 }
 
 /** The two things a servant opens a child for most: reach the family, and log that they did. */
-function QuickActions({ target, data }: { target: StudentHistoryTarget; data: StudentHistory }) {
+function QuickActions({ target, data, onPriorityChange }: {
+  target: StudentHistoryTarget
+  data: StudentHistory
+  onPriorityChange: (value: boolean) => void
+}) {
   const family = data.profile.family
   const contacts = [
     { who: 'Mother', name: family?.motherName, href: family?.motherPhone ? telHref(family.motherPhone) : null },
@@ -140,7 +146,45 @@ function QuickActions({ target, data }: { target: StudentHistoryTarget; data: St
         <Link href={`/dashboard/servants/visitations?childId=${target.id}`}>Calls &amp; visits</Link>
       </Button>}
     </div>
+    {data.priority && <PrioritySwitch childId={target.id} priority={data.priority} onChange={onPriorityChange} />}
   </div>
+}
+
+/** Star a child for a priority visit; they then lead Care › Follow up. */
+function PrioritySwitch({ childId, priority, onChange }: {
+  childId: string
+  priority: NonNullable<StudentHistory['priority']>
+  onChange: (value: boolean) => void
+}) {
+  const [saving, setSaving] = useState(false)
+  if (!priority.canEdit) {
+    return priority.value ? <p className="flex items-center gap-2 text-[13px] text-warn"><Star className="size-4 fill-warn" aria-hidden />Priority visit</p> : null
+  }
+  const toggle = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch('/api/sunday-school/visitations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId, priority: !priority.value }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Could not save the priority visit')
+      onChange(!priority.value)
+      // Care and Visits & calls read the same flag.
+      void mutateCache(key => typeof key === 'string' && key.startsWith('/api/sunday-school/visitations'))
+      toast.success(priority.value ? 'Removed from priority visits' : 'Added to priority visits')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save the priority visit')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return <Button variant="outline" aria-pressed={priority.value} disabled={saving} onClick={() => void toggle()}
+    className={priority.value ? 'w-full justify-start border-warn/40 bg-warn-tint text-warn hover:bg-warn-tint' : 'w-full justify-start'}>
+    <Star className={priority.value ? 'fill-warn text-warn' : 'text-ink-3'} aria-hidden />
+    {priority.value ? 'Priority visit · tap to remove' : 'Star for a priority visit'}
+  </Button>
 }
 
 function StudentProfile({ name, profile }: { name: string; profile: StudentHistory['profile'] }) {

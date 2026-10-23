@@ -23,7 +23,7 @@ import {
   type CalendarEvent,
 } from '@/components/ds/calendar'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolDashboard, useSundaySchoolHomework, useSundaySchoolLessons, useSundaySchoolVisitations } from '@/lib/swr'
+import { useSundaySchoolDashboard, useSundaySchoolHomework, useSundaySchoolLessons, useSundaySchoolFollowUps } from '@/lib/swr'
 import { formatUTC, cn } from '@/lib/utils'
 import {
   compareAgeGroupsByLevel,
@@ -47,6 +47,7 @@ import type {
 } from '@/types/sunday-school'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
 import { SundaySchoolLayoutIntro } from '@/components/sunday-school-layout-intro'
+import { HomeworkRecordDialog } from '@/components/sunday-school-homework-record'
 import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
@@ -121,7 +122,7 @@ export default function SundaySchoolDashboardPage() {
   const lessonsTo = utcDayKey(new Date(Math.max(new Date(month.getFullYear(), month.getMonth() + 1, 0).getTime(), Date.now() + 5 * WEEK) + WEEK))
   const lessonRange = useMemo(() => ({ from: lessonsFrom, to: lessonsTo }), [lessonsFrom, lessonsTo])
   const { data: lessonsData } = useSundaySchoolLessons(lessonRange)
-  const { data: visitationsData } = useSundaySchoolVisitations()
+  const { data: followUpData } = useSundaySchoolFollowUps()
   const scopeIds = useMemo(() => new Set(classes.map((c) => c.id)), [classes])
   const lessons = useMemo(
     () => ((lessonsData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []).filter((l) => scopeIds.has(l.classId)),
@@ -160,12 +161,12 @@ export default function SundaySchoolDashboardPage() {
   const servedTrend = (servedTrendData as SundaySchoolDashboard | undefined)?.attendanceTrend
   const homeworkClassId =
     servedClass && session?.user?.sundaySchool?.hasHomeworkAccess && getClassMeetingDay(servedClass.level) === 6 ? servedClass.id : undefined
-  const { data: homeworkData } = useSundaySchoolHomework(homeworkClassId)
+  const { data: homeworkData, mutate: refreshHomework } = useSundaySchoolHomework(homeworkClassId)
 
   const followUps = useMemo(() => {
-    const visitClasses = (visitationsData as SundaySchoolVisitationsResponse | undefined)?.classes ?? []
+    const visitClasses = (followUpData as SundaySchoolVisitationsResponse | undefined)?.classes ?? []
     return buildFollowUps(visitClasses.filter((c) => scopeIds.has(c.id)), [], today)
-  }, [scopeIds, today, visitationsData])
+  }, [scopeIds, today, followUpData])
 
   // An age-group coordinator runs several classes, so group the list by band.
   const grouped = useMemo(() => {
@@ -200,11 +201,16 @@ export default function SundaySchoolDashboardPage() {
     ? lessons.find((l) => l.classId === servedClass.id && utcDayKey(l.sundayDate) === meetingFor(servedClass))
     : undefined
   const lastMeeting = (cls: SundaySchoolClassSummary) => utcDayKey(getMostRecentClassMeetingDate(cls.level))
-  const homeworkWeek = homeworkClassId
-    ? (homeworkData as SundaySchoolHomeworkResponse | undefined)?.weeks.find(
-        (w) => w.class.id === homeworkClassId && utcDayKey(w.assignedDate) === meetingFor(servedClass!)
-      )
-    : undefined
+  const homework = homeworkClassId ? (homeworkData as SundaySchoolHomeworkResponse | undefined) : undefined
+  const homeworkWeek = homework?.weeks.find(
+    (w) => w.class.id === homeworkClassId && utcDayKey(w.assignedDate) === meetingFor(servedClass!)
+  )
+  // The homework the children bring back at this meeting: the latest one due by then.
+  const dueHomework = homework?.weeks
+    .filter((w) => w.class.id === homeworkClassId && w.homework && !w.homework.archivedAt && utcDayKey(w.dueDate) <= meetingFor(servedClass!))
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]
+  const homeworkRoster = homework?.roster.filter((child) => !child.classId || child.classId === homeworkClassId) ?? []
+  const canRecordHomework = Boolean(homework?.classes.find((c) => c.id === homeworkClassId)?.canEdit && dueHomework?.homework && homeworkRoster.length)
 
   const visibleBands = grouped
     .map(([key, band]) => [
@@ -308,11 +314,29 @@ export default function SundaySchoolDashboardPage() {
                       title="Homework"
                       done={Boolean(homeworkWeek?.homework)}
                       status={homeworkWeek?.homework ? <StatusBadge tone="ok">Published</StatusBadge> : <StatusBadge tone="neutral">Not yet</StatusBadge>}
-                      detail={homeworkWeek?.homework ? homeworkWeek.homework.title : 'Nothing published for this week'}
+                      detail={
+                        <>
+                          {homeworkWeek?.homework ? homeworkWeek.homework.title : 'Nothing published for this week'}
+                          {dueHomework?.homework && (
+                            <span className="block">
+                              Due back: {dueHomework.homework.title} · {dueHomework.homework.summary.completed + dueHomework.homework.summary.notCompleted} of {homeworkRoster.length} recorded
+                            </span>
+                          )}
+                        </>
+                      }
                       action={
-                        <Button asChild variant="outline" size="sm">
-                          <Link href="/dashboard/servants/homework">Homework</Link>
-                        </Button>
+                        <span className="flex gap-2">
+                          {canRecordHomework && dueHomework?.homework && (
+                            <HomeworkRecordDialog
+                              week={{ ...dueHomework, homework: dueHomework.homework }}
+                              roster={homeworkRoster}
+                              onSaved={() => void refreshHomework()}
+                            />
+                          )}
+                          <Button asChild variant="outline" size="sm">
+                            <Link href="/dashboard/servants/homework">Homework</Link>
+                          </Button>
+                        </span>
                       }
                     />
                   )}
