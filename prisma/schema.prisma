@@ -1794,6 +1794,9 @@ model SundaySchoolRosterLink {
   sundaySchoolYearId String
   tokenHash          String    @unique
   label              String?
+  // Contact links may only fill missing phone details on an existing child.
+  // This is stored server-side; public requests cannot switch to sign-up mode.
+  contactUpdateOnly  Boolean   @default(false)
   expiresAt          DateTime  @db.Timestamptz(3)
   maxUses            Int       @default(40)
   useCount           Int       @default(0)

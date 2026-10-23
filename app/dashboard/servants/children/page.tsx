@@ -382,7 +382,7 @@ function SundaySchoolChildrenContent() {
                   Group by gender
                 </label>
                 {canManage && (
-                  <div className="flex w-full items-center gap-2 lg:ml-auto lg:w-auto [&>*]:flex-1 lg:[&>*]:flex-none">
+                  <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto [&>*]:flex-1 lg:[&>*]:flex-none">
                     <SundaySchoolRosterImport
                       classId={selectedClassId}
                       className={selectedClass?.name ?? 'this class'}
@@ -391,6 +391,8 @@ function SundaySchoolChildrenContent() {
                       }}
                     />
                     <SundaySchoolRosterLinkDialog
+                      key={selectedClassId}
+                      contactUpdateOnly
                       classId={selectedClassId}
                       className={selectedClass?.name ?? 'this class'}
                       onSuccess={async () => {

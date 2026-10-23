@@ -289,6 +289,24 @@ created for. It is bounded by `expiresAt`, `maxUses`, and `revokedAt`, returns
 nothing about the roster, and never overwrites a field a servant filled in.
 Minting a link requires `canServeClass`, exactly like adding a child by hand.
 
+The Children page now exposes only **Contact update QR**. These links have a
+stored `contactUpdateOnly` purpose. Neither request parameters nor form fields
+can change that purpose or destination. They require an exact first name, last
+name, and existing birth date for one active child in the link's class and an
+open Sunday School year. Only missing `cellPhone` and `guardianPhone` fields
+may be filled, with blankness and identity rechecked in each update. They cannot
+create/reactivate children, change placement, edit family records, or trigger
+family matching. No-match, duplicate-match, and already-filled submissions all
+return the same acknowledgement. Name and network attempt limits supplement
+the link's expiry, use cap and revocation. Existing sign-up links retain their
+original behavior; the sign-up QR action is hidden for now.
+
+A shared class QR plus name/date of birth is **not identity verification**.
+Someone who knows a peer's details can submit a previously missing phone.
+Servants should distribute it during class and close it afterward. Corrections
+and uncertain identities go to a servant. Individual child tokens or servant
+approval would be needed for stronger identity assurance.
+
 It lives outside `app/api/sunday-school/` on purpose. If you add another public
 route, put it under `app/api/public/` too — the absence of a session should be
 visible in the path, not just in a comment.

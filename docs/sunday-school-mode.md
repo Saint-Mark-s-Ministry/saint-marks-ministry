@@ -751,3 +751,39 @@ No database migration or new environment variable is required.
 
 Local preview links are reachable only from the development computer; phone
 subscriptions require deploying these routes on the app's public HTTPS origin.
+
+
+### Class contact update QR
+
+On **Children**, select one class and use **Contact update QR**. The roster
+sign-up QR action is hidden for now. The QR opens a mobile-friendly form bound
+to that class (including its section), with no roster list or grade selector.
+Children enter their own first name, last name and birth date, plus their own
+phone and/or a parent or guardian phone. The birth date must already be on the
+roster. Ask a servant when it is missing, the identity is ambiguous, or a saved
+number needs correction.
+
+Contact links reuse the roster link lifecycle: hashed random token, eight-hour
+default expiry (one week maximum), forty submissions by default (200 maximum),
+and immediate **Close link**. Their `contactUpdateOnly` database field is the
+server-side purpose; it cannot be changed through the public request. The link's
+class and open year are checked on submission, including the atomic use claim.
+Every accepted attempt consumes a use, even if there is no unique matching
+child. No child is created or enrolled. Only null/empty child `cellPhone` and
+`guardianPhone` are filled, with guarded writes protecting concurrent servant
+edits. Family relationships, shared family details and siblings are untouched;
+family matching is not run from this flow.
+
+Responses never reveal existing child/contact data or whether an identity
+matched. Rate limiting allows five attempts per name per link per fifteen
+minutes, with a separate 100-attempt network limit per link; names and network
+addresses are hashed in limiter keys. Audit records identify changed field
+names and the child/link, without phone or birth-date values. A shared QR is
+not proof of identity: a peer who knows a child's name and birth date could fill
+a blank phone field. Share during class and close afterward; use individual
+child tokens or servant review if stronger assurance is required.
+
+Apply `20261023170000_roster_contact_update_links` alongside the other pending
+weekly-release migrations before deploying this code. See the
+[combined release checklist](releases/2026-10-19.md). Existing issued sign-up
+links retain their behavior and default to `contactUpdateOnly = false`.

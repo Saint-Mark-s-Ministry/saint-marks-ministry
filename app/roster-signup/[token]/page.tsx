@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
+import { SundaySchoolRosterContactForm } from '@/components/sunday-school-roster-contact-form'
 import { Button } from '@/components/ui/button'
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PublicFrame } from '@/components/ds/public-frame'
@@ -18,6 +19,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
  */
 
 interface LinkInfo {
+  contactUpdateOnly?: boolean
   className: string
   levelLabel: string
   label: string | null
@@ -52,12 +54,12 @@ export default function RosterSignupPage({ params }: { params: Promise<{ token: 
       const response = await fetch(`/api/public/roster-signup?token=${encodeURIComponent(token)}`)
       const body = await response.json()
       if (!response.ok) {
-        setLoadError(body.error || 'This sign-up link is not valid.')
+        setLoadError(body.error || 'This roster link is not valid.')
         return
       }
       setInfo(body as LinkInfo)
     } catch {
-      setLoadError('Could not open this sign-up link. Check your connection and try again.')
+      setLoadError('Could not open this roster link. Check your connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -90,17 +92,21 @@ export default function RosterSignupPage({ params }: { params: Promise<{ token: 
     }
   }
 
+  if (!loading && !loadError && info?.contactUpdateOnly) {
+    return <SundaySchoolRosterContactForm key={token} token={token} className={info.className} levelLabel={info.levelLabel} />
+  }
+
   return (
     <PublicFrame width="lg" className="gap-0 p-0 md:p-0 [&_[data-slot=card-title]]:font-display [&_[data-slot=card-title]]:text-[28px] [&_[data-slot=card-title]]:font-medium">
         {loading ? (
           <CardContent className="flex items-center justify-center gap-2 py-16 text-gray-500">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Opening sign-up…
+            Opening link…
           </CardContent>
         ) : loadError ? (
           <>
             <CardHeader className="space-y-3 pt-8 text-center">
-              <CardTitle className="text-2xl">Sign-up unavailable</CardTitle>
+              <CardTitle className="text-2xl">Link unavailable</CardTitle>
               <CardDescription className="text-base">{loadError}</CardDescription>
             </CardHeader>
             <CardContent className="pb-8" />
