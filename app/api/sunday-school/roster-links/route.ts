@@ -25,6 +25,7 @@ import {
 const linkSelect = {
   id: true,
   label: true,
+  contactUpdateOnly: true,
   expiresAt: true,
   maxUses: true,
   useCount: true,
@@ -37,6 +38,7 @@ const linkSelect = {
 type LinkRow = {
   id: string
   label: string | null
+  contactUpdateOnly: boolean
   expiresAt: Date
   maxUses: number
   useCount: number
@@ -52,6 +54,7 @@ function linkResponse(link: LinkRow) {
   return {
     id: link.id,
     label: link.label,
+    contactUpdateOnly: link.contactUpdateOnly,
     expiresAt: link.expiresAt,
     maxUses: link.maxUses,
     useCount: link.useCount,
@@ -72,6 +75,7 @@ async function loadServableClass(userId: string, role: UserRole, classId: string
       level: true,
       academicYearId: true,
       sundaySchoolYearId: true,
+      sundaySchoolYear: { select: { status: true } },
       status: true,
       isActive: true,
     },
@@ -93,7 +97,9 @@ async function loadServableClass(userId: string, role: UserRole, classId: string
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
-    const classId = new URL(request.url).searchParams.get('classId')?.trim() ?? ''
+    const params = new URL(request.url).searchParams
+    const classId = params.get('classId')?.trim() ?? ''
+    const contactUpdateOnly = params.get('contactUpdateOnly') === 'true'
     if (!classId) {
       return NextResponse.json({ error: 'Choose a class to view sign-up links' }, { status: 400 })
     }
@@ -101,7 +107,7 @@ export async function GET(request: Request) {
     await loadServableClass(user.id, user.role, classId)
 
     const links = await prisma.sundaySchoolRosterLink.findMany({
-      where: { classId },
+      where: { classId, contactUpdateOnly },
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: linkSelect,
@@ -121,6 +127,11 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
     const body = await request.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        (body.contactUpdateOnly !== undefined && typeof body.contactUpdateOnly !== 'boolean')) {
+      return NextResponse.json({ error: 'Invalid link settings' }, { status: 400 })
+    }
+    const contactUpdateOnly = body.contactUpdateOnly === true
 
     const classId = typeof body.classId === 'string' ? body.classId.trim() : ''
     if (!classId) {
@@ -136,6 +147,10 @@ export async function POST(request: Request) {
         { error: 'This class is not linked to the current Sunday School year' },
         { status: 409 }
       )
+    }
+
+    if (contactUpdateOnly && targetClass.sundaySchoolYear?.status !== 'OPEN') {
+      return NextResponse.json({ error: 'Contact updates require an open Sunday School year' }, { status: 409 })
     }
 
     const expiresAt = resolveRosterLinkExpiry(body.expiresInHours)
@@ -165,6 +180,7 @@ export async function POST(request: Request) {
         sundaySchoolYearId: targetClass.sundaySchoolYearId,
         tokenHash: hashRosterLinkToken(token),
         label,
+        contactUpdateOnly,
         expiresAt,
         maxUses,
         createdById: user.id,
@@ -178,7 +194,7 @@ export async function POST(request: Request) {
       entityType: 'SundaySchoolRosterLink',
       entityId: link.id,
       result: 'SUCCESS',
-      metadata: { classId, className: targetClass.name, maxUses, expiresAt: expiresAt.toISOString() },
+      metadata: { classId, contactUpdateOnly, className: targetClass.name, maxUses, expiresAt: expiresAt.toISOString() },
     })
 
     return NextResponse.json({ ...linkResponse(link), token }, { status: 201 })
