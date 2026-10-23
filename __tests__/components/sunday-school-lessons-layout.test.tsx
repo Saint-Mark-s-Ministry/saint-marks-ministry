@@ -31,6 +31,10 @@ vi.mock('@/lib/swr', () => ({
   useLiturgicalCalendar: () => ({ data: undefined }),
 }))
 
+vi.mock('@/components/sunday-school-lesson-subscribe', () => ({
+  SundaySchoolLessonSubscribe: () => null,
+}))
+
 vi.mock('@/components/sunday-school-lesson-import', () => ({
   SundaySchoolLessonImport: () => null,
 }))

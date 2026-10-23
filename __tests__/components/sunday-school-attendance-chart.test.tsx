@@ -48,9 +48,11 @@ describe('Sunday School attendance chart counts', () => {
     expect(screen.getByText('100 attended / 300 recorded')).toBeInTheDocument()
     expect(screen.getByText('4 of 12 classes with records in the latest recorded week')).toBeInTheDocument()
     expect(screen.queryByText('On roster')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current enrolled', { selector: '[data-testid=chart-line]' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/The dashed line shows/)).not.toBeInTheDocument()
     expect(chart.data).toHaveBeenLastCalledWith([
-      expect.objectContaining({ currentEnrolledCount: 774, recordedCount: 300 }),
-      expect.objectContaining({ currentEnrolledCount: 774, recordedCount: null, attendedCount: null }),
+      expect.objectContaining({ recordedCount: 300 }),
+      expect.objectContaining({ recordedCount: null, attendedCount: null }),
     ])
   })
 
@@ -72,15 +74,17 @@ describe('Sunday School attendance chart counts', () => {
     expect(screen.queryByText(/The dashed line shows/)).not.toBeInTheDocument()
   })
 
-  it('uses the same recorded-attendance labels and enrollment reference in the recent chart', () => {
+  it('keeps recorded-attendance labels without an enrollment line in the recent chart', () => {
     render(<SundaySchoolRecentAttendanceChart
       trend={makeTrend()} className="Sixth Grade" throughDate="2026-09-20"
     />)
     expect(screen.getByText('Attendance recorded')).toBeInTheDocument()
     expect(screen.queryByText('On roster')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current enrolled', { selector: '[data-testid=chart-line]' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/The dashed line shows/)).not.toBeInTheDocument()
     expect(chart.data).toHaveBeenLastCalledWith([
-      expect.objectContaining({ currentEnrolledCount: 774, recordedCount: 300 }),
-      expect.objectContaining({ currentEnrolledCount: 774, recordedCount: null }),
+      expect.objectContaining({ recordedCount: 300 }),
+      expect.objectContaining({ recordedCount: null }),
     ])
   })
 })

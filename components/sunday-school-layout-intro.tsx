@@ -62,7 +62,7 @@ export function SundaySchoolLayoutIntro() {
             Sunday School has a simpler layout
           </h2>
           <p className="text-[13px] text-ink-2">
-            Everything is still here, in five places. Pick your class once (top of the screen on a phone, <b>Viewing</b> in the sidebar on a computer) and every page follows it.
+            Everything is still here, in five places. Your class appears at the top of the screen on a phone and in the sidebar on a computer. If you have more than one class, choose it under <b>Viewing class</b> and the class pages follow your choice.
           </p>
           <ul className="grid gap-x-6 gap-y-1 text-[13px] text-ink-2 sm:grid-cols-2">
             {PLACES.map(place => (

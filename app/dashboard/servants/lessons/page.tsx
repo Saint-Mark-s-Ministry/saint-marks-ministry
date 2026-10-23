@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
+import { SundaySchoolLessonSubscribe } from '@/components/sunday-school-lesson-subscribe'
 import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
 import { getSundaySchoolTodayDateInputValue, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { EventLegend, MonthCalendar, monthGridDays, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
@@ -159,15 +160,18 @@ function LessonsContent() {
           title="Lessons"
           meta={[classId !== ALL_CLASSES ? classOptions.find(cls => cls.id === classId)?.name : null, 'Who teaches each week, and the slides and links to use']}
           actions={
-            manageableClasses.length > 0 ? (
-              <SundaySchoolLessonImport
-                classes={manageableClasses}
-                initialClassId={classId !== ALL_CLASSES ? classId : undefined}
-                onSuccess={async () => {
-                  await mutate()
-                }}
-              />
-            ) : undefined
+            <>
+              <SundaySchoolLessonSubscribe key={classId} classes={classOptions} selectedClassId={classId !== ALL_CLASSES ? classId : undefined} viewingAs={Boolean(session?.impersonating)} />
+              {manageableClasses.length > 0 && (
+                <SundaySchoolLessonImport
+                  classes={manageableClasses}
+                  initialClassId={classId !== ALL_CLASSES ? classId : undefined}
+                  onSuccess={async () => {
+                    await mutate()
+                  }}
+                />
+              )}
+            </>
           }
         />
 

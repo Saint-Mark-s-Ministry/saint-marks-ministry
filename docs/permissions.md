@@ -279,7 +279,7 @@ an omitted Prisma filter can accidentally mean unrestricted access.
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.
 
-### The one unauthenticated Sunday School route
+### Public Sunday School routes
 
 `app/api/public/roster-signup` has no session. It is reached with a temporary
 `SundaySchoolRosterLink` token and its authority comes entirely from that row:
@@ -474,3 +474,18 @@ in every View as session, including one started by a priest.
 Apply `20261016171000_add_priest_view_as_access` before deploying this code.
 No account is enabled automatically; grants are made individually on Users.
 Allowing all roles reuses this existing field and needs no additional migration.
+
+
+## Class lesson calendar feeds
+
+The signed read-only endpoint `/api/public/lesson-calendar/[token]` allows phone
+calendar apps to fetch a single class's lesson dates, titles and classroom without
+browser cookies. A signed-in user requests their own scoped URL through
+`POST /api/sunday-school/classes/[id]/lesson-calendar`. View as may not mint links.
+Both routes re-derive class authority with `getSundaySchoolAccess` and
+`canViewClass` using the class's academic year. Prep roles alone grant no access.
+The public route also reloads the owner and requires the signed auth version,
+an enabled account without a forced password change, an active class, and an
+unexpired signature. Guardian contacts, child rosters, attendance, teacher names,
+resource URLs and pastoral notes are never part of the feed. See
+[the calendar runbook](sunday-school-mode.md#class-lesson-calendar-subscriptions).

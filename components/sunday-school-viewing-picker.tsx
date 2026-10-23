@@ -36,12 +36,12 @@ function groupClassesForViewing(classes: PickerClass[], ageGroups: PickerAgeGrou
 }
 
 /**
- * The "Viewing" choice in the shell. Every Sunday School page follows it, so
+ * The class context in the shell. Every Sunday School page follows it, so
  * pages no longer ask "which class?" on their own. A servant with one class
  * sees its name; nothing to choose.
  */
 export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'appbar' }) {
-  const { data: classesData } = useSundaySchoolClasses()
+  const { data: classesData, error: classesError } = useSundaySchoolClasses()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [stored, setStored] = useViewing()
 
@@ -49,19 +49,22 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
   const ageGroups = useMemo(() => (Array.isArray(ageGroupsData) ? (ageGroupsData as PickerAgeGroup[]) : []), [ageGroupsData])
   const groups = useMemo(() => groupClassesForViewing(classes, ageGroups), [classes, ageGroups])
   const activeIds = groups.flatMap(group => group.classes.map(cls => cls.id))
-  if (activeIds.length === 0) return null
+  const loading = classesData === undefined && !classesError
+  if (activeIds.length === 0 && !loading && !classesError) return null
 
   const value = resolveViewingClassId(activeIds, stored, null, true)
   const selected = classes.find(cls => cls.id === value)
-  const title = selected ? selected.name : 'All classes'
+  const title = loading ? 'Loading classes…' : classesError && activeIds.length === 0 ? 'Classes unavailable' : selected ? selected.name : 'All classes'
   const detail = selected
     ? selected.classroom || groups.find(group => group.classes.some(cls => cls.id === selected.id))?.label || ''
-    : `${activeIds.length} classes`
+    : activeIds.length > 0 ? `${activeIds.length} classes` : ''
   const single = activeIds.length === 1
+  const label = single ? 'Your class' : activeIds.length > 1 ? 'Viewing class' : 'Class'
+  const canChoose = activeIds.length > 1
 
-  const select = !single && (
+  const select = canChoose && (
     <select
-      aria-label="Viewing"
+      aria-label="Viewing class"
       value={value}
       onChange={event => setStored(event.target.value)}
       className="absolute inset-0 cursor-pointer appearance-none opacity-0"
@@ -81,24 +84,24 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
 
   if (variant === 'appbar') {
     return (
-      <div className="relative flex h-11 min-w-0 items-center gap-1.5 rounded-md px-1.5">
+      <div role="group" aria-label={label} aria-busy={loading} className="relative flex h-11 min-w-0 items-center gap-1.5 rounded-md px-1.5">
         <span className="flex min-w-0 flex-col leading-[1.15]">
           <span className="truncate text-[15px] font-semibold text-ink">{title}</span>
-          {detail && <span className="truncate text-[11.5px] text-ink-3">{detail}</span>}
+          <span className="truncate text-[11.5px] text-ink-3">{label}{detail && ` · ${detail}`}</span>
         </span>
-        {!single && <ChevronDown className="size-4 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden />}
+        {canChoose && <ChevronDown className="size-4 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden />}
         {select}
       </div>
     )
   }
 
   return (
-    <div className="sidebar-label flex shrink-0 flex-col gap-1">
-      <span className="px-2.5 text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">Viewing</span>
+    <div role="group" aria-label={label} aria-busy={loading} className="sidebar-label flex shrink-0 flex-col gap-1">
+      <span className="px-2.5 text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">{label}</span>
       <div
         className={cn(
           'relative flex h-10 items-center gap-2 rounded-md border border-line-strong bg-surface px-2.5',
-          !single && 'hover:bg-hover focus-within:outline-2 focus-within:outline-accent-ink',
+          canChoose && 'hover:bg-hover focus-within:outline-2 focus-within:outline-accent-ink',
         )}
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full bg-accent-ink" />
@@ -106,7 +109,7 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
           <span className="truncate text-[13px] font-semibold text-ink">{title}</span>
           {detail && <span className="truncate text-[11px] text-ink-3">{detail}</span>}
         </span>
-        {!single && <ChevronDown className="size-3.5 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden />}
+        {canChoose && <ChevronDown className="size-3.5 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden />}
         {select}
       </div>
     </div>

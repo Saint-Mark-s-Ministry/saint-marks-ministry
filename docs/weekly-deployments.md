@@ -58,3 +58,10 @@ weekly master PR for a new deployment.
 When a fix cannot wait for release day, use a separately reviewed hotfix PR into
 `main`. After deployment, merge the updated `main` into the active weekly branch
 and validate the combined changes so the next weekly release retains the fix.
+
+## Current release schema checklist
+
+PR #289’s combined schema requirements, production audit, and ordered rollout
+are recorded in [the October 19–25 release checklist](releases/2026-10-19.md).
+Use `bun scripts/check-release-schema.ts` for a read-only migration/column/enum
+preflight before and after applying the committed migration bundle.

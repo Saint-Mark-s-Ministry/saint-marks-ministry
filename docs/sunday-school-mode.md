@@ -285,10 +285,15 @@ Registration requests, Servants meetings, Reports); super admins get **Admin**
 (Age groups, Servant applications, Users, Activity). Everyone else finds
 Servants meetings under **Community**, next to Ideas & feedback.
 
-### Viewing: one class choice for every page
+### Class context: one class choice for every page
 
-The sidebar (desktop) and app bar (phone) carry a **Viewing** picker
-(`components/sunday-school-viewing-picker.tsx`). Every class-scoped page reads
+The sidebar (desktop) and app bar (phone) show **Your class** for a single
+accessible class or a **Viewing class** picker for multiple classes. This context
+remains visible on shared pages, including Daily readings. The selected ministry
+is remembered per account for the browser session so shared pages and reloads
+keep the same navigation. A
+loading placeholder keeps the space visible until classes arrive. The picker
+lives in `components/sunday-school-viewing-picker.tsx`. Every class-scoped page reads
 it through `useViewingClassId()` in `lib/sunday-school-viewing.ts`, so a servant
 picks a class once instead of on each page. A link with `?classId=` wins and
 becomes the new choice once; after that the picker is in charge again. Pages
@@ -707,3 +712,32 @@ The personal reminder endpoint reloads database authorization and current direct
 assignments. It uses the active compatibility academic year and class roster,
 matching the attendance editor while Sunday School year backfills are reconciled.
 It returns class summaries only, without child or guardian information.
+
+
+### Class lesson calendar subscriptions
+
+Lessons → **Add lessons to calendar** creates a personal read-only calendar for
+one class. Choose the class, then use Apple Calendar/Outlook, Google Calendar,
+or copy the subscription URL. Google subscriptions must be added in a computer
+browser before they appear in its phone app. Calendar apps refresh on their own
+schedule; changes do not push instantly. PR #290's desktop month calendar and
+upcoming-first phone list are preserved.
+
+Events contain class name, lesson date and title, classroom, and a link back to
+the lesson. Dates are all-day UTC calendar dates because lessons have no meeting
+time field. They exclude children, attendance, family contacts, teacher names,
+and resource URLs. Stable lesson UIDs let calendar apps update existing events.
+
+`POST /api/sunday-school/classes/[id]/lesson-calendar` requires a current session
+and fresh database class authority. It rejects View as and returns a signed,
+class-scoped URL under `/api/public/lesson-calendar/[token]`. The public read
+route needs no browser cookie, but reloads the owner and class authority on every
+fetch. Disabling an account, changing its password/auth version, archiving the
+class, removing class access, or rotating NEXTAUTH_SECRET invalidates the feed.
+Links expire 31 days after the class's academic year ends. A new academic year's
+class requires a new subscription. Keep links private: possession permits
+reading the limited lesson feed while the original owner's access remains valid.
+No database migration or new environment variable is required.
+
+Local preview links are reachable only from the development computer; phone
+subscriptions require deploying these routes on the app's public HTTPS origin.

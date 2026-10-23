@@ -132,13 +132,13 @@ const SHARED_PAGES = new Set(['/settings', '/dashboard', '/dashboard/contact-boo
 
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
- * shared pages; someone with both follows the path and uses their default on
- * account settings.
+ * shared pages; someone with both keeps their selected ministry on shared pages,
+ * falling back to their default when no preference has been saved.
  */
-export function resolveMinistry(user: NavUser, pathname: string): Ministry {
+export function resolveMinistry(user: NavUser, pathname: string, preferred?: Ministry): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
-  if (SHARED_PAGES.has(pathname)) return options[0].id
+  if (SHARED_PAGES.has(pathname)) return options.find(option => option.id === preferred)?.id ?? options[0].id
   return ministryForPath(pathname)
 }
 

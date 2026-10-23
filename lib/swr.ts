@@ -3,6 +3,7 @@ import type { ContactBookResponse } from '@/lib/contact-book'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
 import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
+import useSWRMutation from 'swr/mutation'
 
 // Default fetcher for SWR
 export const fetcher = async (url: string) => {
@@ -495,5 +496,17 @@ export function useSundaySchoolMeetingHistoryDetail(viewerId?: string, meetingId
     viewerId && meetingId ? [url, viewerId] : null,
     ([endpoint]: [string, string]) => fetcher(endpoint),
     { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true }
+  )
+}
+
+/** Personal class calendar links are requested explicitly, never prefetched. */
+export function useLessonCalendarSubscription(classId: string) {
+  return useSWRMutation<{ feedUrl: string; className: string }>(
+    classId ? `/api/sunday-school/classes/${encodeURIComponent(classId)}/lesson-calendar` : null,
+    async (url: string) => {
+      const response = await fetch(url, { method: 'POST' })
+      if (!response.ok) throw new Error('Could not prepare class calendar')
+      return response.json()
+    },
   )
 }

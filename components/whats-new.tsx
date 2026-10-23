@@ -30,7 +30,7 @@ export function ReleaseNotesList({ releases }: { releases: readonly ReleaseNote[
   const sortedReleases = newestReleasesFirst(releases)
 
   return (
-    <div className="content-reveal flex min-w-0 flex-col gap-6">
+    <div className="content-reveal flex w-full min-w-0 flex-col gap-6">
       <PageHeader title="What’s new" meta="The latest features, improvements, and fixes for your ministry portal." />
 
       {sortedReleases.length === 0 ? (
@@ -42,7 +42,7 @@ export function ReleaseNotesList({ releases }: { releases: readonly ReleaseNote[
           />
         </Panel>
       ) : (
-        <div className="flex w-full max-w-4xl flex-col gap-5">
+        <div className="flex w-full min-w-0 flex-col gap-5">
           {sortedReleases.map((release, index) => (
             <article key={release.id} id={release.id} aria-labelledby={`${release.id}-title`} className="scroll-mt-6 rounded-lg border border-line bg-surface p-5 md:p-6">
               <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-3">

@@ -1,10 +1,11 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { UserRole } from '@prisma/client'
+import { SundaySchoolLevel, UserRole } from '@prisma/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
+  classes: [] as { id: string; name: string; level: SundaySchoolLevel; isActive: boolean }[],
   push: vi.fn(),
   openExams: [] as { id: string }[],
   reminders: [] as { classId: string }[],
@@ -41,7 +42,7 @@ vi.mock('@/components/annual-mentor-reminder-banner', () => ({
 vi.mock('@/lib/swr', () => ({
   useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
-  useSundaySchoolClasses: () => ({ data: [] }),
+  useSundaySchoolClasses: () => ({ data: mocks.classes }),
   useSundaySchoolAttendanceReminders: (userId?: string) => ({ data: userId ? { reminders: mocks.reminders } : undefined }),
   useSundaySchoolAgeGroups: () => ({ data: [] }),
 }))
@@ -56,6 +57,7 @@ describe('AppShell', () => {
   beforeEach(() => {
     window.localStorage.clear()
     mocks.reminders = []
+    mocks.classes = []
     window.sessionStorage.clear()
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
@@ -68,6 +70,26 @@ describe('AppShell', () => {
       profileImageUrl: null,
       sundaySchool: { hasAccess: true, isCoordinator: false },
     }
+  })
+
+  it('keeps the Sunday School class visible when opening Daily readings', () => {
+    mocks.classes = [{ id: 'tenth', name: '10th Grade', level: SundaySchoolLevel.GRADE_10, isActive: true }]
+    const { rerender } = render(<AppShell>page</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+
+    mocks.pathname = '/dashboard/readings'
+    rerender(<AppShell>readings</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+    expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard/servants')
+  })
+
+  it('restores the Sunday School context when reloading Daily readings', () => {
+    mocks.classes = [{ id: 'tenth', name: '10th Grade', level: SundaySchoolLevel.GRADE_10, isActive: true }]
+    window.sessionStorage.setItem('active-ministry:priest-1', 'sunday-school')
+    mocks.pathname = '/dashboard/readings'
+    render(<AppShell>readings</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+    expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard/servants')
   })
 
   it('collapses and expands the sidebar and remembers the choice', async () => {

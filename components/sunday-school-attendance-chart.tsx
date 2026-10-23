@@ -58,10 +58,9 @@ export function SundaySchoolAttendanceChart({
   const chartPoints = useMemo(
     () => trend.points.map(point => ({
       ...point,
-      currentEnrolledCount: trend.currentEnrolledCount,
       notRecorded: point.recordedCount === null ? 0 : null,
     })),
-    [trend.points, trend.currentEnrolledCount]
+    [trend.points]
   )
   const latest = recordedPoints.at(-1)
   const totals = recordedPoints.reduce(
@@ -188,7 +187,7 @@ export function SundaySchoolAttendanceChart({
             <div
               className="h-80 w-full"
               role="img"
-              aria-label={`Weekly ${isServantAudience ? 'servant' : 'child'} attendance and current enrollment for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
+              aria-label={`Weekly ${isServantAudience ? 'servant' : 'child'} attendance for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartPoints} margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
@@ -279,18 +278,6 @@ export function SundaySchoolAttendanceChart({
                   />
                   <Line
                     type="linear"
-                    dataKey="currentEnrolledCount"
-                    name="Current enrolled"
-                    stroke="var(--muted-foreground)"
-                    strokeDasharray="6 4"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={false}
-                    legendType={trend.currentEnrolledCount === null ? 'none' : 'line'}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="linear"
                     dataKey="notRecorded"
                     name="Not recorded"
                     stroke="transparent"
@@ -305,7 +292,6 @@ export function SundaySchoolAttendanceChart({
             </div>
             <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
               Attendance recorded counts saved marks, including absences; it can change as classes submit attendance.
-              {trend.currentEnrolledCount !== null && ' The dashed line shows today’s enrolled roster for the selected scope, not historical enrollment. '}
               Rates use recorded marks only. Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
             </p>
           </>
