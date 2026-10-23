@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { getPersonInitials } from '@/lib/person-name'
+import { comparePersonNames, getPersonInitials } from '@/lib/person-name'
+
+describe('comparePersonNames', () => {
+  const names = ['Zoe Adel', 'Mina Youssef', '  anna   Adel ', 'Mina Adel', 'Mariam']
+
+  it('alphabetizes full names without treating case or extra spaces differently', () => {
+    expect([...names].sort((a, b) => comparePersonNames(a, b, 'first'))).toEqual([
+      '  anna   Adel ', 'Mariam', 'Mina Adel', 'Mina Youssef', 'Zoe Adel',
+    ])
+  })
+
+  it('sorts by the final name, breaking ties by the full name and allowing single names', () => {
+    expect([...names].sort((a, b) => comparePersonNames(a, b, 'last'))).toEqual([
+      '  anna   Adel ', 'Mina Adel', 'Zoe Adel', 'Mariam', 'Mina Youssef',
+    ])
+    expect(comparePersonNames('Mina George Adel', 'Anna Youssef', 'last')).toBeLessThan(0)
+  })
+})
 
 describe('getPersonInitials', () => {
   it('ignores clerical titles and uses the first and last meaningful names', () => {

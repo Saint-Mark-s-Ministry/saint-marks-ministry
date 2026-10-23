@@ -116,6 +116,7 @@ export async function PATCH(
               id: true,
               name: true,
               email: true,
+              profileImageUrl: true,
             }
           },
           mentor: {
