@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
+import { blobUploadTarget } from '@/lib/blob-upload'
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -92,11 +93,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload to Vercel Blob
+    const target = blobUploadTarget(`registrations/profile-images/${Date.now()}`, file)
     const blob = await put(
-      `registrations/profile-images/${Date.now()}-${file.name}`,
+      target.pathname,
       file,
       {
         access: 'public',
+        contentType: target.contentType,
         addRandomSuffix: true,
         token: process.env.BLOB_READ_WRITE_TOKEN,
       }

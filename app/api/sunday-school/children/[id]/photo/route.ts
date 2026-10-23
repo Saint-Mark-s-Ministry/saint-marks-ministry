@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { getSundaySchoolAccess } from "@/lib/sunday-school-access"
 import { loadChildForUser } from "@/lib/sunday-school-child-access"
+import { blobUploadTarget } from "@/lib/blob-upload"
 
 // Sunday School mode: a child's photo, so servants can put names to faces.
 // Same permission as editing the child: servants of the child's class, or admins.
@@ -37,8 +38,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const previous = await prisma.sundaySchoolChild.findUnique({ where: { id }, select: { photoUrl: true } })
-    const blob = await put(`sunday-school-children/${id}.${file.type.split("/")[1]}`, file, {
+    const target = blobUploadTarget(`sunday-school-children/${id}`, file)
+    const blob = await put(target.pathname, file, {
       access: "public",
+      contentType: target.contentType,
       addRandomSuffix: true,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
