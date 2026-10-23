@@ -408,7 +408,8 @@ photo or linked account photo, independent of the roster search and sorting.
 Reveal the name, then choose **Got it!** or **Practice again** to move to the next
 child. A progress bar, recall streak, and round summary make it a small memory
 game. Review just the names that need practice or play another round with everyone.
-Shuffle changes only the remaining cards and keeps the round's progress.
+Shuffle changes only the remaining cards and keeps the round's progress. It
+always shows a different child next when at least two unreviewed cards remain.
 The reveal and card transitions animate unless reduced motion is enabled.
 Children without photos are counted and skipped; add their photos through the
 existing roster photo controls. Closing the dialog starts a fresh session next

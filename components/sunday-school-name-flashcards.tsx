@@ -54,11 +54,15 @@ export function SundaySchoolNameFlashcards({ children, classId, className }: {
   )
 }
 
-function shuffleCards(cards: Card[]) {
+function shuffleCards(cards: Card[], avoidFirstId?: string) {
   const shuffled = [...cards]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  if (shuffled.length > 1 && shuffled[0].id === avoidFirstId) {
+    const replacement = 1 + Math.floor(Math.random() * (shuffled.length - 1))
+    ;[shuffled[0], shuffled[replacement]] = [shuffled[replacement], shuffled[0]]
   }
   return shuffled
 }
@@ -95,7 +99,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
   }
 
   const startRound = (nextCards: Card[]) => {
-    setOrder(shuffleCards(nextCards))
+    setOrder(shuffleCards(nextCards, order[order.length - 1]?.id))
     setIndex(0)
     setRound(previous => previous + 1)
     setAnswers({})
@@ -108,7 +112,10 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
 
   // Shuffle only the unreviewed cards, preserving progress and the score.
   const shuffle = () => {
-    setOrder(previous => [...previous.slice(0, index), ...shuffleCards(previous.slice(index))])
+    setOrder(previous => [
+      ...previous.slice(0, index),
+      ...shuffleCards(previous.slice(index), previous[index]?.id),
+    ])
     setRevealed(false)
     setFailedPhoto(false)
     setTransition(previous => previous + 1)

@@ -108,12 +108,24 @@ describe('Sunday School name flashcards', () => {
     expect(screen.queryByText('Mary Hanna')).not.toBeInTheDocument()
   })
 
+  it('always changes the face on repeated shuffles even when randomness preserves the order', async () => {
+    const { user } = await openCards()
+    vi.spyOn(Math, 'random').mockReturnValue(0.999)
+    for (const expectedPhoto of ['/mary.jpg', '/mina.jpg', '/mary.jpg']) {
+      await user.click(screen.getByRole('button', { name: 'Reveal name' }))
+      await user.click(screen.getByRole('button', { name: 'Shuffle' }))
+      expect(screen.getByRole('img')).toHaveAttribute('src', expectedPhoto)
+      expect(screen.getByRole('button', { name: 'Reveal name' })).toHaveFocus()
+      expect(screen.getByRole('status')).toHaveTextContent('Card 1 of 2')
+    }
+  })
+
   it('preserves reviewed cards and scores when shuffling the remaining faces', async () => {
     const { user } = await openCards([
       children[0], children[1],
       { ...children[0], id: 'third', firstName: 'Third', photoUrl: '/third.jpg', user: null },
     ])
-    vi.spyOn(Math, 'random').mockReturnValue(0)
+    vi.spyOn(Math, 'random').mockReturnValue(0.999)
     await user.click(screen.getByRole('button', { name: 'Reveal name' }))
     await user.click(screen.getByRole('button', { name: 'Got it!' }))
     await user.click(screen.getByRole('button', { name: 'Shuffle' }))
