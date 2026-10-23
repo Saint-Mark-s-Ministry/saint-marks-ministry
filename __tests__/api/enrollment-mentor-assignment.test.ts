@@ -82,6 +82,21 @@ describe('admin mentor assignments with access tags', () => {
 
   for (const [operation, run] of Object.entries(operations)) {
     describe(operation, () => {
+      it('returns the student photo after saving so roster edits keep it visible', async () => {
+        const profileImageUrl = 'https://example.com/student.jpg'
+        mocks.saveEnrollment.mockImplementation(async (options) => ({
+          id: 'enrollment-1', studentId: 'student-1',
+          student: {
+            id: 'student-1',
+            ...(options.include.student.select.profileImageUrl ? { profileImageUrl } : {}),
+          },
+          mentor: null,
+        }))
+        const response = await run(null)
+        expect(response.status).toBe(operation === 'create' ? 201 : 200)
+        expect((await response.json()).student.profileImageUrl).toBe(profileImageUrl)
+      })
+
       it('accepts a Sunday School servant and enables only mentor access in the same transaction', async () => {
         const response = await run('sarah')
         expect(response.status).toBe(operation === 'create' ? 201 : 200)

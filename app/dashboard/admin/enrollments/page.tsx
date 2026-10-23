@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials, PersonCell } from '@/components/ds/person'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
+import { comparePersonNames, type PersonNameOrder } from '@/lib/person-name'
 
 const inlineSelect =
   'h-11 w-full max-w-60 cursor-pointer rounded-md border border-line-strong bg-surface px-2 text-base text-ink disabled:cursor-not-allowed disabled:opacity-60 md:h-8 md:text-[13px]'
@@ -47,6 +48,7 @@ interface Enrollment {
     id: string
     name: string
     email: string
+    profileImageUrl: string | null
   }
   mentor: {
     id: string
@@ -72,6 +74,7 @@ export default function EnrollmentsPage() {
   const [fathersOfConfession, setFathersOfConfession] = useState<FatherOfConfession[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [nameOrder, setNameOrder] = useState<PersonNameOrder>('first')
   const [filterMentor, setFilterMentor] = useState<string>('all')
   const [filterYear, setFilterYear] = useState<string>('all')
   const [filterAcademicYear, setFilterAcademicYear] = useState<string>('all')
@@ -334,7 +337,7 @@ export default function EnrollmentsPage() {
       }
     }
     return true
-  })
+  }).sort((left, right) => comparePersonNames(left.student.name, right.student.name, nameOrder))
 
   // Calculate workload per mentor
   const mentorWorkload = new Map<string, number>()
@@ -415,6 +418,15 @@ export default function EnrollmentsPage() {
           toolbar={
             <>
               <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search students" />
+              <FilterSelect
+                aria-label="Name order"
+                value={nameOrder}
+                onChange={(value) => setNameOrder(value as PersonNameOrder)}
+                options={[
+                  { value: 'first', label: 'First name A–Z' },
+                  { value: 'last', label: 'Last name A–Z' },
+                ]}
+              />
               <MentorFilterCombobox mentors={mentors} workload={mentorWorkload} value={filterMentor} onValueChange={selectMentor} />
               <FilterSelect
                 aria-label="Year level"
@@ -481,6 +493,7 @@ export default function EnrollmentsPage() {
                         <td className="px-3">
                           <PersonCell
                             name={enrollment.student.name}
+                            imageUrl={enrollment.student.profileImageUrl}
                             meta={
                               enrollment.status === 'GRADUATED' && enrollment.graduatedAcademicYear
                                 ? `Graduated ${enrollment.graduatedAcademicYear.name}`
@@ -517,6 +530,7 @@ export default function EnrollmentsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <PersonCell
                         name={enrollment.student.name}
+                        imageUrl={enrollment.student.profileImageUrl}
                         meta={`${enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${enrollment.academicYear?.name ?? '—'}`}
                         href={`/dashboard/admin/students/${enrollment.student.id}`}
                       />

@@ -12,6 +12,22 @@ const HONORIFIC_WORDS = new Set([
   'dn',
 ])
 
+export type PersonNameOrder = 'first' | 'last'
+
+const nameCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
+
+/** Prep accounts store a full name; the final word is used for last-name sorting. */
+export function comparePersonNames(left: string, right: string, order: PersonNameOrder): number {
+  const leftName = left.trim().replace(/\s+/g, ' ')
+  const rightName = right.trim().replace(/\s+/g, ' ')
+  if (order === 'last') {
+    const leftLast = leftName.split(' ').pop() ?? ''
+    const rightLast = rightName.split(' ').pop() ?? ''
+    return nameCollator.compare(leftLast, rightLast) || nameCollator.compare(leftName, rightName)
+  }
+  return nameCollator.compare(leftName, rightName)
+}
+
 function normalizeNamePart(part: string): string {
   return part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}-]+$/gu, '')
 }
