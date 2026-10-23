@@ -21,6 +21,7 @@ import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
 import { ChildPhotoField } from '@/components/sunday-school-child-photo'
+import { SundaySchoolNameFlashcards } from '@/components/sunday-school-name-flashcards'
 import { ContactLink } from '@/components/contact-link'
 import { FilterSelect } from '@/components/ui/filter-select'
 import {
@@ -342,6 +343,14 @@ function SundaySchoolChildrenContent() {
                     Follow up
                   </Link>
                 </Button>
+                {selectedClass && !isLoading && !rosterError && (
+                  <SundaySchoolNameFlashcards
+                    key={selectedClassId}
+                    classId={selectedClassId}
+                    className={selectedClass.name}
+                    children={children}
+                  />
+                )}
                 {canManage && (session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST') && (
                   <Button variant="outline" disabled={matchingFamilies} onClick={handleMatchFamilies}>
                     <Users />{matchingFamilies ? 'Matching…' : 'Match existing families'}
