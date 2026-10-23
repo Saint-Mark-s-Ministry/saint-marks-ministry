@@ -91,6 +91,7 @@
     "vitest": "^4.1.12"
   },
   "overrides": {
+    "pkg-types": "2.3.0",
     "undici": ">=6.24.0",
     "flatted": ">=3.4.0",
     "picomatch": ">=4.0.4",
@@ -105,6 +106,7 @@
     "ip-address": ">=10.7.4"
   },
   "resolutions": {
+    "pkg-types": "2.3.0",
     "undici": ">=6.24.0",
     "flatted": ">=3.4.0",
     "picomatch": ">=4.0.4",
