@@ -74,7 +74,7 @@ describe('Sunday School name flashcards', () => {
     }
     expect(screen.getByRole('status')).toHaveTextContent('You remembered 2 of 2 names.')
     expect(screen.getByText('Best streak: 2 in a row')).toBeInTheDocument()
-    expect(screen.getByText('Every face, a familiar name. Nicely done!')).toBeInTheDocument()
+    expect(screen.getByText('All names recalled.')).toBeInTheDocument()
   })
 
   it('shuffles without losing or duplicating cards and resets the answer', async () => {

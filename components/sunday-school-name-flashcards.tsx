@@ -33,7 +33,7 @@ export function SundaySchoolNameFlashcards({ children, classId, className }: {
         <DialogHeader>
           <DialogTitle>Learn names</DialogTitle>
           <DialogDescription>
-            {className} · See a face, say their name, then reveal it. How many can you remember?
+            {className} · Recall the name, then reveal it.
           </DialogDescription>
         </DialogHeader>
         {cards.length > 0 ? (
@@ -122,10 +122,10 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
           <Trophy className="size-10" aria-hidden />
         </div>
         <div role="status" className="space-y-2">
-          <h3 className="text-2xl font-semibold text-ink">Round complete!</h3>
+          <h3 className="text-2xl font-semibold text-ink">Round complete</h3>
           <p className="text-lg text-ink">You remembered {remembered} of {order.length} names.</p>
           <p className="text-sm text-ink-2">
-            {practiceCards.length === 0 ? 'Every face, a familiar name. Nicely done!' : 'Every round helps. Let’s give those names another go.'}
+            {practiceCards.length === 0 ? 'All names recalled.' : 'Review the remaining names in another round.'}
           </p>
           {bestStreak > 1 && <p className="text-sm font-medium text-accent-ink">Best streak: {bestStreak} in a row</p>}
         </div>
@@ -158,7 +158,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
         </div>
         <div className="flex min-h-5 justify-between text-xs text-ink-3">
           <span>{remembered} remembered</span>
-          {streak > 1 && <span className="flex items-center gap-1 font-medium text-accent-ink"><Flame className="size-3.5" aria-hidden />{streak} in a row!</span>}
+          {streak > 1 && <span className="flex items-center gap-1 font-medium text-accent-ink"><Flame className="size-3.5" aria-hidden />{streak} in a row</span>}
         </div>
       </div>
       <div className="name-game-stage">
@@ -172,12 +172,12 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
               <img src={card.photoUrl} alt="Whose face is this?" onError={() => setFailedPhoto(true)} className="h-[min(30dvh,16rem)] w-full rounded-lg object-contain" />
             )}
           </div>
-          <div aria-live="polite" aria-atomic="true" className="relative flex min-h-12 w-full items-center justify-center text-center">
-            {revealed ? (
+          <div aria-live="polite" aria-atomic="true" className={revealed ? "relative flex min-h-12 w-full items-center justify-center text-center" : "sr-only"}>
+            {revealed && (
               <div className="name-game-reveal">
                 <p className="break-words px-6 text-2xl font-semibold text-ink">{card.name}</p>
               </div>
-            ) : <p className="text-lg font-medium text-ink-2">Know this familiar face?</p>}
+            )}
           </div>
           {revealed ? (
             <Button type="button" variant="ghost" onClick={() => setRevealed(false)}>Hide name</Button>
@@ -195,9 +195,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
         </div>
       ) : failedPhoto ? (
         <Button type="button" variant="outline" onClick={() => advance(false)}>Skip this photo<ChevronRight aria-hidden /></Button>
-      ) : (
-        <p className="py-2 text-center text-xs text-ink-3">Say their name, then reveal it. How did you do?</p>
-      )}
+      ) : null}
     </div>
   )
 }
