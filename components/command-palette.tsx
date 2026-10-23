@@ -21,11 +21,13 @@ import {
   School,
   NotebookPen,
   Megaphone,
+  HeartHandshake,
   X,
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 import { useDigitalExams } from '@/lib/swr'
+import { DAILY_READINGS_HREF, navigationFor, type NavUser } from '@/lib/navigation'
 import { useShortcutModifier } from '@/hooks/useShortcutModifier'
 
 interface SearchUser {
@@ -46,36 +48,45 @@ interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  /** Other words people search for, such as a page's previous name. */
+  keywords?: string
 }
 
-function getNavItemsForRole(
-  role: UserRole,
-  hasSundaySchool: boolean,
-  inSundaySchoolMode: boolean,
-  hasHomeworkAccess: boolean,
-): NavItem[] {
-  if (inSundaySchoolMode && hasSundaySchool) {
-    const items: NavItem[] = [
-      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
-      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
-      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
-      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
-      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
-      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
-    ]
+/** Names Sunday School pages used to have, so searching the old name still finds them. */
+const SUNDAY_SCHOOL_KEYWORDS: Record<string, string> = {
+  '/dashboard/servants': 'dashboard this week',
+  '/dashboard/servants/attendance': 'take attendance',
+  '/dashboard/servants/roster': 'roster students kids',
+  '/dashboard/servants/care': 'follow up absent absences',
+  '/dashboard/servants/visitations': 'visitations visits phone calls',
+  '/dashboard/servants/birthdays': 'children’s birthdays',
+  '/dashboard/servants/lessons': 'schedule calendar teacher',
+  '/dashboard/servants/homework': 'elementary homework',
+  '/dashboard/servants/servant-attendance': 'servant attendance',
+  '/dashboard/servants/child-registrations': 'child registrations',
+  '/dashboard/servants/reports': 'chart trend statistics',
+}
 
-    if (hasHomeworkAccess) {
-      items.splice(2, 0, { label: 'Elementary Homework', href: '/dashboard/servants/homework', icon: NotebookPen })
-    }
+/**
+ * Sunday School search follows the menu, so the two can't drift apart, plus the
+ * tab pages inside each hub (Care, Lessons, Attendance) and My account.
+ */
+function sundaySchoolSearchItems(user: NavUser): NavItem[] {
+  const menu = navigationFor(user, 'sunday-school')
+    .flatMap(group => group.items)
+    .filter(item => item.href !== DAILY_READINGS_HREF && !item.href.endsWith('/whats-new'))
+  const coordinates = user.role === 'SUPER_ADMIN' || Boolean(user.sundaySchool?.isCoordinator)
+  const tabs: NavItem[] = [
+    { label: 'Visits & calls', href: '/dashboard/servants/visitations', icon: HeartHandshake },
+    { label: 'Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
+    ...(user.sundaySchool?.hasHomeworkAccess ? [{ label: 'Homework', href: '/dashboard/servants/homework', icon: NotebookPen }] : []),
+    ...(coordinates ? [{ label: 'Servant attendance', href: '/dashboard/servants/servant-attendance', icon: ClipboardCheck }] : []),
+    { label: 'My account', href: '/dashboard/servants/account', icon: Settings },
+  ]
+  return [...menu, ...tabs].map(item => ({ ...item, keywords: SUNDAY_SCHOOL_KEYWORDS[item.href] }))
+}
 
-    if (canManageAllUsers(role)) {
-      items.push({ label: 'Users', href: '/dashboard/servants/users', icon: Users })
-    }
-
-    items.push({ label: 'My Account', href: '/dashboard/servants/account', icon: Settings })
-    return items
-  }
-
+function getNavItemsForRole(role: UserRole, hasSundaySchool: boolean): NavItem[] {
   if (role === 'STUDENT') {
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
@@ -94,18 +105,6 @@ function getNavItemsForRole(
       { label: 'My Mentees', href: '/dashboard/mentor/my-mentees', icon: Users },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
-    ]
-  }
-
-  if (role === 'SERVANT') {
-    return [
-      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
-      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
-      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
-      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
-      { label: 'Children\'s Birthdays', href: '/dashboard/servants/birthdays', icon: Cake },
-      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
-      { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]
   }
 
@@ -247,12 +246,10 @@ export function CommandPalette() {
 
   if (!session?.user) return null
 
-  const navItems = getNavItemsForRole(
-    session.user.role,
-    session.user.sundaySchool?.hasAccess ?? false,
-    pathname.startsWith('/dashboard/servants'),
-    session.user.sundaySchool?.hasHomeworkAccess ?? false,
-  ).filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
+  const inSundaySchool = session.user.role === 'SERVANT' ||
+    (pathname.startsWith('/dashboard/servants') && Boolean(session.user.sundaySchool?.hasAccess))
+  const navItems = (inSundaySchool ? sundaySchoolSearchItems(session.user) : getNavItemsForRole(session.user.role, session.user.sundaySchool?.hasAccess ?? false))
+    .filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
   navItems.push({
     label: 'What’s new',
     href: pathname.startsWith('/dashboard/servants') || session.user.role === 'SERVANT' || session.user.role === 'PARENT'
@@ -378,7 +375,7 @@ export function CommandPalette() {
                   return (
                     <Command.Item
                       key={item.href}
-                      value={`nav ${item.label}`}
+                      value={`nav ${item.label} ${item.keywords ?? ''}`}
                       onSelect={() => go(item.href)}
                       className="flex items-center gap-3 rounded-md px-2 py-2.5 sm:py-2 text-sm cursor-pointer aria-selected:bg-gray-100 dark:aria-selected:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800"
                     >

@@ -3,8 +3,10 @@
 import { FAMILY_FIELD_LABELS } from '@/types/sunday-school-family-matching'
 import { StudentName } from '@/components/student-history-provider'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,7 +46,7 @@ import type {
   SundaySchoolFamily,
 } from '@/types/sunday-school'
 import { SundaySchoolChildGender, SundaySchoolLevel } from '@prisma/client'
-import { House, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { HeartHandshake, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
 import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
 
@@ -135,7 +137,7 @@ function SundaySchoolChildrenContent() {
     [familiesData]
   )
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedClassId] = useViewingClassId(classes, { requested: searchParams.get('classId') })
   const { data, error: rosterError, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -154,20 +156,6 @@ function SundaySchoolChildrenContent() {
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const canManage = selectedClass?.canServe ?? false
   const canLinkAccount = selectedClass?.canCoordinate ?? false
-
-  useEffect(() => {
-    if (selectedClassId || classes.length === 0) return
-    const fromQuery = searchParams.get('classId')
-    const match = fromQuery && classes.some(c => c.id === fromQuery) ? fromQuery : classes[0].id
-    setSelectedClassId(match)
-  }, [classes, searchParams, selectedClassId])
-
-  const selectClass = (classId: string) => {
-    setSelectedClassId(classId)
-    const url = new URL(window.location.href)
-    url.searchParams.set('classId', classId)
-    window.history.replaceState(window.history.state, '', url)
-  }
 
   const openCreate = () => {
     setEditingId(null)
@@ -343,18 +331,29 @@ function SundaySchoolChildrenContent() {
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Roster"
-          meta={['Children, family connections and contact details for your class']}
+          title="Children"
+          meta={[selectedClass?.name, 'Names, families and how to reach them']}
           actions={
-            canManage && classes.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST') && (
+            classes.length > 0 ? (
+              <>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/servants/care">
+                    <HeartHandshake />
+                    Follow up
+                  </Link>
+                </Button>
+                {canManage && (session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST') && (
                   <Button variant="outline" disabled={matchingFamilies} onClick={handleMatchFamilies}>
                     <Users />{matchingFamilies ? 'Matching…' : 'Match existing families'}
                   </Button>
                 )}
-                <Button onClick={openCreate}><Plus />Add child</Button>
-              </div>
+                {canManage && (
+                  <Button onClick={openCreate}>
+                    <Plus />
+                    Add child
+                  </Button>
+                )}
+              </>
             ) : undefined
           }
         />
@@ -367,17 +366,9 @@ function SundaySchoolChildrenContent() {
           <Panel
             toolbar={
               <>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={selectClass}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" />
+                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
                 <FilterSelect
+                  className="hidden md:inline-flex"
                   aria-label="Alphabetize by"
                   value={nameOrder}
                   onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
@@ -386,12 +377,12 @@ function SundaySchoolChildrenContent() {
                     { value: 'first', label: 'Sort by first name' },
                   ]}
                 />
-                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
+                <label className="hidden min-h-11 items-center gap-2 text-[13px] text-ink-2 md:flex md:min-h-8">
                   <input type="checkbox" checked={groupByGender} onChange={(event) => setGroupByGender(event.target.checked)} className="size-4 accent-brand" />
                   Group by gender
                 </label>
                 {canManage && (
-                  <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                  <div className="flex w-full items-center gap-2 lg:ml-auto lg:w-auto [&>*]:flex-1 lg:[&>*]:flex-none">
                     <SundaySchoolRosterImport
                       classId={selectedClassId}
                       className={selectedClass?.name ?? 'this class'}
@@ -678,48 +669,6 @@ function SundaySchoolChildrenContent() {
             </div>
 
             <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
-              <p className="font-medium">Child details</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="birthDate">Date of birth</Label>
-                  <Input
-                    id="birthDate"
-                    type="date"
-                    max={new Date().toISOString().slice(0, 10)}
-                    value={form.birthDate}
-                    onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cellPhone">Child&apos;s cell number</Label>
-                  <Input
-                    id="cellPhone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="Only if they have their own phone"
-                    maxLength={50}
-                    value={form.cellPhone}
-                    onChange={e => setForm(prev => ({ ...prev, cellPhone: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fatherOfConfession">Father of confession</Label>
-                <Input
-                  id="fatherOfConfession"
-                  placeholder="Name"
-                  maxLength={200}
-                  value={form.fatherOfConfession}
-                  onChange={e => setForm(prev => ({ ...prev, fatherOfConfession: e.target.value }))}
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                Date of birth also helps distinguish children with the same name during roster imports.
-              </p>
-            </div>
-
-            <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
               <p className="font-medium">Guardian contact</p>
               <p className="text-xs text-gray-500">
                 Optional designated guardian contact for this child. Shared mother and
@@ -750,143 +699,194 @@ function SundaySchoolChildrenContent() {
               </div>
             </div>
 
-            {editingId && canLinkAccount && (
-              <div className="space-y-2 rounded-lg border p-3 dark:border-gray-700">
-                <Label htmlFor="linkedUserEmail">Child account email</Label>
-                <Input
-                  id="linkedUserEmail"
-                  type="email"
-                  placeholder="student@example.com"
-                  value={form.linkedUserEmail}
-                  onChange={e => setForm(prev => ({ ...prev, linkedUserEmail: e.target.value }))}
-                />
-                <p className="text-xs text-gray-500">
-                  Link an existing active student account so this child can see class lessons.
-                  Leave blank to remove the current link.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4 rounded-lg border p-4 dark:border-gray-700">
-              <div className="flex items-center gap-2">
-                <House className="h-4 w-4 text-gray-500" />
-                <p className="font-medium">Family details</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="child-family">Family connection</Label>
-                <select
-                  id="child-family"
-                  value={form.familyId}
-                  onChange={e => handleFamilySelection(e.target.value)}
-                  className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-                >
-                  <option value="">No family record</option>
-                  <option value={NEW_FAMILY_ID}>Create a new family</option>
-                  {families.map(family => (
-                    <option key={family.id} value={family.id}>
-                      {getFamilyDisplayName(family)} —{' '}
-                      {family.children.map(child => `${child.firstName} ${child.lastName}`).join(', ')}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500">
-                  Matching parent phone numbers connect siblings automatically, even across classes. Shared details apply to every linked child.
-                </p>
-              </div>
-
-              {form.familyId && (
-                <>
+            {/* Adding a child needs a name, a class and someone to call; the rest can wait. */}
+            <details open={Boolean(editingId)} className="group rounded-lg border border-line">
+              <summary className="flex min-h-11 cursor-pointer items-center justify-between px-4 text-[14px] font-medium text-ink">
+                More details
+                <span className="text-xs font-normal text-ink-3 group-open:hidden">Birthday, father of confession, family, notes</span>
+              </summary>
+              <div className="space-y-4 border-t border-line p-4">
+                <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
+                  <p className="font-medium">Child details</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="familyName">Family name</Label>
+                      <Label htmlFor="birthDate">Date of birth</Label>
                       <Input
-                        id="familyName"
-                        placeholder={form.lastName ? `${form.lastName} Family` : 'Family name'}
-                        value={form.familyName}
-                        onChange={e => setForm(prev => ({ ...prev, familyName: e.target.value }))}
+                        id="birthDate"
+                        type="date"
+                        max={new Date().toISOString().slice(0, 10)}
+                        value={form.birthDate}
+                        onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="homeAddress">Home address</Label>
+                      <Label htmlFor="cellPhone">Child&apos;s cell number</Label>
                       <Input
-                        id="homeAddress"
-                        placeholder="Street, city, state, ZIP"
-                        value={form.homeAddress}
-                        onChange={e => setForm(prev => ({ ...prev, homeAddress: e.target.value }))}
+                        id="cellPhone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="Only if they have their own phone"
+                        maxLength={50}
+                        value={form.cellPhone}
+                        onChange={e => setForm(prev => ({ ...prev, cellPhone: e.target.value }))}
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fatherOfConfession">Father of confession</Label>
+                    <Input
+                      id="fatherOfConfession"
+                      placeholder="Name"
+                      maxLength={200}
+                      value={form.fatherOfConfession}
+                      onChange={e => setForm(prev => ({ ...prev, fatherOfConfession: e.target.value }))}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Date of birth also helps distinguish children with the same name during roster imports.
+                  </p>
+                </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-3 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
-                      <p className="text-sm font-medium">Mother</p>
-                      <Input
-                        aria-label="Mother name"
-                        placeholder="Name"
-                        value={form.motherName}
-                        onChange={e => setForm(prev => ({ ...prev, motherName: e.target.value }))}
-                      />
-                      <Input
-                        aria-label="Mother phone"
-                        placeholder="Phone"
-                        value={form.motherPhone}
-                        onChange={e => setForm(prev => ({ ...prev, motherPhone: e.target.value }))}
-                      />
-                      <Input
-                        aria-label="Mother email"
-                        type="email"
-                        placeholder="Email"
-                        value={form.motherEmail}
-                        onChange={e => setForm(prev => ({ ...prev, motherEmail: e.target.value }))}
-                      />
-                    </div>
+                {editingId && canLinkAccount && (
+                  <div className="space-y-2 rounded-lg border p-3 dark:border-gray-700">
+                    <Label htmlFor="linkedUserEmail">Child account email</Label>
+                    <Input
+                      id="linkedUserEmail"
+                      type="email"
+                      placeholder="student@example.com"
+                      value={form.linkedUserEmail}
+                      onChange={e => setForm(prev => ({ ...prev, linkedUserEmail: e.target.value }))}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Link an existing active student account so this child can see class lessons.
+                      Leave blank to remove the current link.
+                    </p>
+                  </div>
+                )}
 
-                    <div className="space-y-3 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
-                      <p className="text-sm font-medium">Father</p>
-                      <Input
-                        aria-label="Father name"
-                        placeholder="Name"
-                        value={form.fatherName}
-                        onChange={e => setForm(prev => ({ ...prev, fatherName: e.target.value }))}
-                      />
-                      <Input
-                        aria-label="Father phone"
-                        placeholder="Phone"
-                        value={form.fatherPhone}
-                        onChange={e => setForm(prev => ({ ...prev, fatherPhone: e.target.value }))}
-                      />
-                      <Input
-                        aria-label="Father email"
-                        type="email"
-                        placeholder="Email"
-                        value={form.fatherEmail}
-                        onChange={e => setForm(prev => ({ ...prev, fatherEmail: e.target.value }))}
-                      />
-                    </div>
+                <div className="space-y-4 rounded-lg border p-4 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <House className="h-4 w-4 text-gray-500" />
+                    <p className="font-medium">Family details</p>
                   </div>
 
-                  {selectedFormFamily && selectedFormFamily.children.length > 0 && (
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">Children in this family:</span>{' '}
-                      {selectedFormFamily.children
-                        .map(child => `${child.firstName} ${child.lastName}`)
-                        .join(', ')}
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="child-family">Family connection</Label>
+                    <select
+                      id="child-family"
+                      value={form.familyId}
+                      onChange={e => handleFamilySelection(e.target.value)}
+                      className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      <option value="">No family record</option>
+                      <option value={NEW_FAMILY_ID}>Create a new family</option>
+                      {families.map(family => (
+                        <option key={family.id} value={family.id}>
+                          {getFamilyDisplayName(family)} —{' '}
+                          {family.children.map(child => `${child.firstName} ${child.lastName}`).join(', ')}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">
+                      Matching parent phone numbers connect siblings automatically, even across classes. Shared details apply to every linked child.
+                    </p>
+                  </div>
+
+                  {form.familyId && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="familyName">Family name</Label>
+                          <Input
+                            id="familyName"
+                            placeholder={form.lastName ? `${form.lastName} Family` : 'Family name'}
+                            value={form.familyName}
+                            onChange={e => setForm(prev => ({ ...prev, familyName: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="homeAddress">Home address</Label>
+                          <Input
+                            id="homeAddress"
+                            placeholder="Street, city, state, ZIP"
+                            value={form.homeAddress}
+                            onChange={e => setForm(prev => ({ ...prev, homeAddress: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-3 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
+                          <p className="text-sm font-medium">Mother</p>
+                          <Input
+                            aria-label="Mother name"
+                            placeholder="Name"
+                            value={form.motherName}
+                            onChange={e => setForm(prev => ({ ...prev, motherName: e.target.value }))}
+                          />
+                          <Input
+                            aria-label="Mother phone"
+                            placeholder="Phone"
+                            value={form.motherPhone}
+                            onChange={e => setForm(prev => ({ ...prev, motherPhone: e.target.value }))}
+                          />
+                          <Input
+                            aria-label="Mother email"
+                            type="email"
+                            placeholder="Email"
+                            value={form.motherEmail}
+                            onChange={e => setForm(prev => ({ ...prev, motherEmail: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="space-y-3 rounded-md bg-gray-50 p-3 dark:bg-gray-900">
+                          <p className="text-sm font-medium">Father</p>
+                          <Input
+                            aria-label="Father name"
+                            placeholder="Name"
+                            value={form.fatherName}
+                            onChange={e => setForm(prev => ({ ...prev, fatherName: e.target.value }))}
+                          />
+                          <Input
+                            aria-label="Father phone"
+                            placeholder="Phone"
+                            value={form.fatherPhone}
+                            onChange={e => setForm(prev => ({ ...prev, fatherPhone: e.target.value }))}
+                          />
+                          <Input
+                            aria-label="Father email"
+                            type="email"
+                            placeholder="Email"
+                            value={form.fatherEmail}
+                            onChange={e => setForm(prev => ({ ...prev, fatherEmail: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      {selectedFormFamily && selectedFormFamily.children.length > 0 && (
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <span className="font-medium">Children in this family:</span>{' '}
+                          {selectedFormFamily.children
+                            .map(child => `${child.firstName} ${child.lastName}`)
+                            .join(', ')}
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                value={form.notes}
-                onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    rows={3}
+                    value={form.notes}
+                    onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </details>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>

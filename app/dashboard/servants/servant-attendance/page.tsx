@@ -7,7 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { ServantAttendanceNavigation } from '@/components/servant-attendance-navigation'
+import { AttendanceHubTabs } from '@/components/sunday-school-hub-tabs'
+import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
@@ -20,7 +22,6 @@ import { ServantContactDialog } from '@/components/servant-contact-dialog'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/ui/page-loading'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import {
@@ -33,7 +34,6 @@ import {
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
-  getTodayDateInputValue,
   sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
@@ -63,7 +63,11 @@ function ServantAttendanceContent() {
     [ageGroupsData, classesData]
   )
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedClassId, setSelectedClassId] = useViewingClassId(classes, {
+    requested: searchParams.get('classId'),
+    // With no choice yet, open a class that has servants assigned, as before.
+    preferred: classes.find(cls => cls.assignments.some(assignment => assignment.classId === cls.id))?.id,
+  })
   const [sessionDate, setSessionDate] = useState(toDateInputValue(getMostRecentSunday()))
   const [marks, setMarks] = useState<Record<string, SundaySchoolServantAttendanceStatus>>({})
   const [saving, setSaving] = useState(false)
@@ -76,16 +80,6 @@ function ServantAttendanceContent() {
       router.replace('/dashboard/servants')
     }
   }, [canOpenPage, router, status])
-
-  useEffect(() => {
-    if (selectedClassId || classes.length === 0) return
-    const fromQuery = searchParams.get('classId')
-    const match = fromQuery && classes.some(cls => cls.id === fromQuery)
-      ? fromQuery
-      : (classes.find(cls => cls.assignments.some(assignment => assignment.classId === cls.id))
-          ?? classes[0]).id
-    setSelectedClassId(match)
-  }, [classes, searchParams, selectedClassId])
 
   const {
     data: attendanceData,
@@ -172,11 +166,10 @@ function ServantAttendanceContent() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Servant attendance"
-        meta={[canEdit ? 'Record which servants served each week' : 'Recorded servant attendance across classes', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        title="Attendance"
+        meta={[selectedClass?.name, canEdit ? 'Which servants served this week' : 'Recorded servant attendance', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
       />
-
-      <ServantAttendanceNavigation active="classes" />
+      <AttendanceHubTabs showServants />
 
       {classes.length === 0 ? (
         <Panel>
@@ -187,19 +180,18 @@ function ServantAttendanceContent() {
           <Panel
             toolbar={
               <>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={setSelectedClassId}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Week of
-                  <Input type="date" aria-label="Week of" value={sessionDate} max={getTodayDateInputValue()} onChange={(e) => setSessionDate(e.target.value)} className="w-40 md:h-8" />
-                </label>
+                {classes.length > 1 && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                    Class
+                    <FilterSelect
+                      aria-label="Class"
+                      value={selectedClassId}
+                      onChange={setSelectedClassId}
+                      options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                    />
+                  </label>
+                )}
+                <MeetingDatePicker value={sessionDate} onChange={setSessionDate} />
                 {attendance && (
                   <span className="tabular text-[13px] text-ink-2 md:ml-auto">
                     <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} present

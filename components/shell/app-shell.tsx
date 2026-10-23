@@ -11,7 +11,7 @@ import {
   prepHome,
   resolveMinistry,
 } from '@/lib/navigation'
-import { useDigitalExams } from '@/lib/swr'
+import { useDigitalExams, useSundaySchoolAttendanceReminders } from '@/lib/swr'
 import { clearContactBookFilters } from '@/hooks/useContactBookFilters'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
@@ -41,6 +41,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname])
   const router = useRouter()
   const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user?.role === 'STUDENT')
+  // Same request as the reminder banner, so the Attendance count costs nothing extra.
+  const { data: attendanceReminders } = useSundaySchoolAttendanceReminders(
+    status === 'authenticated' && pathname.startsWith('/dashboard/servants') ? session?.user?.id : undefined
+  )
+  const attendanceDue = attendanceReminders?.reminders.length ?? 0
   const [rail, setRail] = useState(false)
 
   useEffect(() => {
@@ -95,12 +100,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const ministry = resolveMinistry(user, pathname)
-  const groups = navigationFor(user, ministry).map(group => ({ ...group, items: group.items.filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length) }))
+  const groups = navigationFor(user, ministry).map(group => ({
+    ...group,
+    items: group.items
+      .filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
+      .map(item => (item.href === '/dashboard/servants/attendance' && attendanceDue ? { ...item, badge: attendanceDue } : item)),
+  }))
   const page = currentNavLabel(groups, pathname)
   const roleLabel = `${getRoleDisplayName(user.role)}${user.isAsyncStudent ? ' · Async' : ''}`
   const shellUser = { name: user.name, role: user.role, roleLabel, imageUrl: user.profileImageUrl ?? user.image }
   const homeHref = ministry === 'sunday-school' ? (user.role === 'PARENT' ? '/dashboard/parent' : '/dashboard/servants') : prepHome(user.role)
   const showYear = ministry === 'prep' && user.role !== 'PARENT'
+  // The Sunday School class choice belongs to the ministry pages, not parents or shared pages.
+  const viewing = ministry === 'sunday-school' && user.role !== 'PARENT' && pathname.startsWith('/dashboard/servants')
 
   return (
     // Phones: a fixed-height column (app bar, scrolling content, tab bar) so neither
@@ -121,9 +133,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         search=""
         user={shellUser}
         rail={rail}
+        viewing={viewing}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <MobileAppBar ministry={ministry} ministries={ministries} />
+        <MobileAppBar ministry={ministry} ministries={ministries} viewing={viewing} />
         <TopBar
           ministry={ministry}
           homeHref={homeHref}

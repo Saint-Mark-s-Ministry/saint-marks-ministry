@@ -38,7 +38,7 @@ beforeEach(() => {
   })
   mocks.child.mockImplementation(async ({ select }: { select: { firstName?: boolean } }) => select.firstName ? {
     id: 'student-1', firstName: 'Mina', lastName: 'Mark', notes: 'Roster note', class: { name: 'Grade 5' },
-    level: 'GRADE_5', birthDate: new Date('2015-03-12'), gender: 'MALE', isActive: true,
+    level: 'GRADE_5', birthDate: new Date('2015-03-12'), gender: 'MALE', isActive: true, classId: 'class-1', visitationPriority: true,
     cellPhone: '555-0100', fatherOfConfession: 'Fr. Mark',
     guardianName: 'Guardian Mark', guardianPhone: '555-0101', guardianEmail: 'guardian@example.com',
     family: { name: 'Mark Family', homeAddress: '123 Main Street', motherName: 'Mary Mark', motherPhone: '555-0102', motherEmail: 'mother@example.com', fatherName: 'John Mark', fatherPhone: '555-0103', fatherEmail: 'father@example.com' },
@@ -50,6 +50,18 @@ beforeEach(() => {
   } : { id: 'student-1', classId: 'class-1', enrollments: [] })
 })
 describe('Sunday School child history', () => {
+  it('lets people who serve the class change the priority-visit star, and only them', async () => {
+    let body = await (await childHistory(request, params)).json()
+    expect(body.priority).toEqual({ value: true, canEdit: true })
+
+    mocks.access.mockResolvedValue({
+      canRead: true, isAdmin: false, readOnly: false,
+      visibleClassIds: new Set(['class-1']), servantClassIds: new Set(), coordinatorClassIds: new Set(),
+    })
+    body = await (await childHistory(request, params)).json()
+    expect(body.priority).toEqual({ value: true, canEdit: false })
+  })
+
   it('requires authentication', async () => {
     mocks.auth.mockRejectedValue(new Error('Unauthorized'))
     expect((await childHistory(request, params)).status).toBe(401)

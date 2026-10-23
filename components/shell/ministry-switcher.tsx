@@ -25,12 +25,15 @@ export function MinistrySwitcher({
   current,
   options,
   compact = false,
+  markOnly = false,
   className,
 }: {
   current: Ministry
   options: MinistryOption[]
   /** Phone app bar pill. */
   compact?: boolean
+  /** Just the logo, when the app bar needs the room for something else. */
+  markOnly?: boolean
   className?: string
 }) {
   // Controlled so it closes once the new ministry renders; the shell stays mounted
@@ -42,7 +45,7 @@ export function MinistrySwitcher({
   const label = (
     <>
       <MinistryMark ministry={current} size={compact ? 26 : 32} />
-      <span className={cn('flex min-w-0 flex-col text-left leading-[1.2]', compact ? 'leading-none' : 'sidebar-label')}>
+      <span className={cn('flex min-w-0 flex-col text-left leading-[1.2]', compact ? 'leading-none' : 'sidebar-label', markOnly && 'sr-only')}>
         <span className="truncate text-sm font-semibold text-ink">{MINISTRY_NAMES[current]}</span>
         {!compact && <span className="truncate text-[11.5px] text-ink-3">St. Mark Ministry</span>}
       </span>
@@ -63,7 +66,7 @@ export function MinistrySwitcher({
         aria-label={`Ministry: ${MINISTRY_NAMES[current]}. Switch ministry`}
       >
         {label}
-        <ChevronsUpDown className="sidebar-label ml-auto size-3.5 shrink-0 text-ink-3" aria-hidden />
+        {!markOnly && <ChevronsUpDown className="sidebar-label ml-auto size-3.5 shrink-0 text-ink-3" aria-hidden />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuLabel className="text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">

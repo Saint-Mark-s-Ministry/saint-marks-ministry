@@ -1,16 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useLiturgicalCalendar, useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
-import { formatDateUTC } from '@/lib/utils'
+import { cn, formatDateUTC } from '@/lib/utils'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
-import { StatusBadge } from '@/components/ds/status-badge'
-import { FilterSelect } from '@/components/ui/filter-select'
+import { LessonStatusBadge } from '@/components/sunday-school-lesson-status'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -19,35 +19,43 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
 import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
-import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { getSundaySchoolTodayDateInputValue, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { EventLegend, MonthCalendar, monthGridDays, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
+import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
+import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
+import { LessonsHubTabs } from '@/components/sunday-school-hub-tabs'
+import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 
 interface ResourceDraft { title: string; url: string }
 
-function dateOnly(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
 
-function statusBadge(lesson: SundaySchoolWeeklyLesson) {
-  if (lesson.status === 'READY') return <StatusBadge tone="ok">Ready</StatusBadge>
-  if (lesson.status === 'NEEDS_LINKS') return <StatusBadge tone="warn">Needs links</StatusBadge>
-  return <StatusBadge tone="neutral">Unassigned</StatusBadge>
-}
-
-export default function SundaySchoolLessonsPage() {
+function LessonsContent() {
   const { session, status } = useSundaySchoolGuard()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  // Desktop opens on the month calendar; phones always get the list.
+  const view = searchParams.get('view') === 'list' ? 'list' : 'calendar'
+  const setView = (next: 'calendar' | 'list') => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'list') params.set('view', 'list')
+    else params.delete('view')
+    router.replace(`${pathname}${params.size ? `?${params}` : ''}`, { scroll: false })
+  }
+  const [month, setMonth] = useState(() => new Date())
   const lessonFilters = useMemo(() => ({ scope: 'year' as const }), [])
   const { data, error, isLoading, mutate } = useSundaySchoolLessons(lessonFilters)
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const lessons = ((data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? [])
-  const [scope, setScope] = useState<'schedule' | 'mine' | 'past'>('schedule')
-  const [classId, setClassId] = useState('all')
+  const [scope, setScope] = useState<'upcoming' | 'mine' | 'past'>('upcoming')
+  const [shown, setShown] = useState(8)
   const [editing, setEditing] = useState<SundaySchoolWeeklyLesson | null>(null)
   const [title, setTitle] = useState('')
   const [resources, setResources] = useState<ResourceDraft[]>([])
   const [saving, setSaving] = useState(false)
-  const today = dateOnly(new Date())
+  const today = getSundaySchoolTodayDateInputValue()
 
   const classOptions = sortClassesByAgeGroup(Array.from(
     new Map(lessons.map(lesson => [lesson.class.id, lesson.class])).values()
@@ -60,14 +68,47 @@ export default function SundaySchoolLessonsPage() {
     ).values()
   ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
 
+  const [classId] = useViewingClassId(classOptions, { allowAll: true, requested: searchParams.get('classId') })
+
   const visibleLessons = lessons.filter(lesson => {
-    if (classId !== 'all' && lesson.classId !== classId) return false
+    if (classId !== ALL_CLASSES && lesson.classId !== classId) return false
     if (scope === 'mine') return lesson.ownerId === session?.user?.id && lesson.sundayDate.slice(0, 10) >= today
     if (scope === 'past') return lesson.sundayDate.slice(0, 10) < today
-    return true
+    return lesson.sundayDate.slice(0, 10) >= today
   })
+  if (scope === 'past') visibleLessons.reverse()
+  // A calendar chip links to ?lesson=<id> in the list: show that week even if it is past or far off.
+  const focusLessonId = searchParams.get('lesson')
+  const focusLesson = lessons.find(lesson => lesson.id === focusLessonId)
+  const focusDay = focusLesson?.sundayDate.slice(0, 10)
+  // Keyed on the id and date, not the object, so a refetch doesn't undo what the person did since.
+  useEffect(() => {
+    if (!focusLessonId || !focusDay) return
+    setScope(focusDay < today ? 'past' : 'upcoming')
+    setShown(Number.MAX_SAFE_INTEGER)
+    requestAnimationFrame(() => document.getElementById(`lesson-${focusLessonId}`)?.scrollIntoView({ block: 'center' }))
+  }, [focusLessonId, focusDay, today])
+
   // What the Church keeps on each Sunday shown, so the lesson can match it.
   const { data: liturgicalDays } = useLiturgicalCalendar(visibleLessons.map(lesson => lesson.sundayDate.slice(0, 10)))
+  const monthDays = useMemo(() => monthGridDays(month), [month])
+  const liturgical = useLiturgicalCalendarOverlay(monthDays)
+  const calendarLessons = lessons.filter(lesson => classId === ALL_CLASSES || lesson.classId === classId)
+  const calendarEvents: CalendarEvent[] = [
+    ...calendarLessons.map(lesson => ({
+      id: lesson.id,
+      day: utcDayKey(lesson.sundayDate),
+      type: 'sunday-lesson' as const,
+      title: classId === ALL_CLASSES && classOptions.length > 1
+        ? `${lesson.class.name}: ${lesson.title || 'no lesson yet'}`
+        : lesson.title || 'No lesson yet',
+      meta: lesson.owner ? `Teacher: ${lesson.owner.name}` : 'No teacher yet',
+      href: `/dashboard/servants/lessons?view=list&lesson=${lesson.id}`,
+      muted: lesson.status === 'UNASSIGNED',
+    })),
+    ...liturgical.events,
+  ]
+  const showHomework = Boolean(session?.user?.sundaySchool?.hasHomeworkAccess)
 
   const openEditor = (lesson: SundaySchoolWeeklyLesson) => {
     setEditing(lesson)
@@ -89,7 +130,7 @@ export default function SundaySchoolLessonsPage() {
   const assignOwner = async (lesson: SundaySchoolWeeklyLesson, ownerId: string) => {
     try {
       await patchLesson(lesson.id, { ownerId: ownerId || null })
-      toast.success(ownerId ? 'Lesson owner assigned' : 'Lesson owner removed')
+      toast.success(ownerId ? 'Teacher assigned' : 'Teacher removed')
     } catch (assignmentError) {
       toast.error(assignmentError instanceof Error ? assignmentError.message : 'Could not assign the lesson')
     }
@@ -116,12 +157,12 @@ export default function SundaySchoolLessonsPage() {
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Lessons"
-          meta={['Assign each Sunday lesson and share the slides and resources your class needs']}
+          meta={[classId !== ALL_CLASSES ? classOptions.find(cls => cls.id === classId)?.name : null, 'Who teaches each week, and the slides and links to use']}
           actions={
             manageableClasses.length > 0 ? (
               <SundaySchoolLessonImport
                 classes={manageableClasses}
-                initialClassId={classId !== 'all' ? classId : undefined}
+                initialClassId={classId !== ALL_CLASSES ? classId : undefined}
                 onSuccess={async () => {
                   await mutate()
                 }}
@@ -130,36 +171,59 @@ export default function SundaySchoolLessonsPage() {
           }
         />
 
+        <LessonsHubTabs showHomework={showHomework} />
+
+        <div className="hidden items-center gap-2 md:flex">
+          <Segmented
+            label="Lesson view"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'calendar', label: 'Calendar' },
+              { value: 'list', label: 'List' },
+            ]}
+          />
+        </div>
+
+        {view === 'calendar' && (
+          <Panel
+            className="hidden md:block"
+            title="Calendar"
+            actions={
+              <>
+                <EventLegend types={['sunday-lesson', 'feast']} fastDays />
+                <CalendarSubscribeButton variant="ghost" label="Church calendar" />
+              </>
+            }
+          >
+            <MonthCalendar month={month} events={calendarEvents} fastDays={liturgical.fastDays} onMonthChange={setMonth} />
+          </Panel>
+        )}
+
         <Panel
+          className={view === 'calendar' ? 'md:hidden' : undefined}
           toolbar={
             <>
               <Segmented
                 label="Lessons"
                 value={scope}
-                onChange={setScope}
+                onChange={(next) => { setScope(next); setShown(8) }}
                 options={[
-                  { value: 'schedule', label: 'Year schedule' },
-                  { value: 'mine', label: 'My lessons' },
+                  { value: 'upcoming', label: 'Upcoming' },
+                  { value: 'mine', label: 'I teach' },
                   { value: 'past', label: 'Past' },
                 ]}
               />
-              <FilterSelect
-                aria-label="Filter lessons by class"
-                value={classId}
-                onChange={setClassId}
-                className="md:ml-auto"
-                options={[{ value: 'all', label: 'All classes' }, ...classOptions.map((cls) => ({ value: cls.id, label: cls.name }))]}
-              />
             </>
           }
-          footer={<span className="tabular">{visibleLessons.length} lessons</span>}
+          footer={<span className="tabular">{visibleLessons.length} {visibleLessons.length === 1 ? 'lesson' : 'lessons'}</span>}
         >
           {error ? (
             <EmptyState title="Couldn’t load lessons" message="Something went wrong on our side. Try again in a moment." />
           ) : visibleLessons.length === 0 ? (
             <EmptyState
               message={
-                scope === 'mine' ? 'You have no upcoming lessons assigned.' : scope === 'past' ? 'There are no past lessons yet.' : 'No lessons scheduled. Import a schedule to start.'
+                scope === 'mine' ? 'You are not teaching any upcoming lessons.' : scope === 'past' ? 'There are no past lessons yet.' : manageableClasses.length > 0 ? 'No upcoming lessons scheduled. Upload a schedule to start.' : 'No upcoming lessons scheduled yet.'
               }
             />
           ) : (
@@ -168,24 +232,28 @@ export default function SundaySchoolLessonsPage() {
                 <span>Date</span>
                 <span>Lesson</span>
                 <span>Resources</span>
-                <span className="text-right">Status and owner</span>
+                <span className="text-right">Status and teacher</span>
               </div>
               <ul className="divide-y divide-line" aria-label="Lesson schedule">
-                {visibleLessons.map((lesson) => (
+                {visibleLessons.slice(0, shown).map((lesson) => (
                   <li
                     key={lesson.id}
-                    className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center"
+                    id={`lesson-${lesson.id}`}
+                    className={cn(
+                      'grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-hover/30 sm:grid-cols-[7rem_minmax(0,1fr)] xl:grid-cols-[7rem_minmax(12rem,1.05fr)_minmax(10rem,0.95fr)_auto] xl:items-center',
+                      lesson.id === focusLessonId && 'bg-gold-tint/60'
+                    )}
                   >
                     <span className="flex min-w-0 flex-col gap-1 text-[13px] text-ink-2">
                       {formatDateUTC(lesson.sundayDate, { year: undefined })}
-                      <span className="block text-xs text-ink-3 xl:hidden">{lesson.class.name}</span>
+                      {classOptions.length > 1 && <span className="block text-xs text-ink-3 xl:hidden">{lesson.class.name}</span>}
                       <LiturgicalDateTags day={liturgicalDays?.[lesson.sundayDate.slice(0, 10)]} />
                     </span>
                     <span className="flex min-w-0 flex-col">
                       <span className={`truncate text-[13.5px] font-medium ${lesson.title ? 'text-ink' : 'text-ink-3'}`}>{lesson.title || 'Not assigned'}</span>
                       <span className="truncate text-xs text-ink-3">
-                        <span className="hidden xl:inline">{lesson.class.name} · </span>
-                        {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No owner yet'}
+                        {classOptions.length > 1 && <span className="hidden xl:inline">{lesson.class.name} · </span>}
+                        {lesson.owner ? `Teacher: ${lesson.owner.name}` : 'No teacher yet'}
                       </span>
                     </span>
                     <span className="flex min-w-0 flex-col items-start gap-1.5 text-[13px] sm:col-start-2 xl:col-start-auto">
@@ -209,10 +277,16 @@ export default function SundaySchoolLessonsPage() {
                       )}
                     </span>
                     <span className="flex min-w-0 flex-wrap items-center gap-2 sm:col-start-2 xl:col-start-auto xl:flex-nowrap xl:justify-end">
-                      <span className="flex w-[7.25rem] shrink-0 items-center">{statusBadge(lesson)}</span>
+                      <span className="flex w-[7.25rem] shrink-0 items-center"><LessonStatusBadge status={lesson.status} /></span>
+                      {/* The common case is volunteering for an open week: one tap, no list to scan. */}
+                      {lesson.canAssignOwner && !lesson.ownerId && lesson.eligibleOwners.some(owner => owner.id === session?.user?.id) && (
+                        <Button size="sm" className="shrink-0" onClick={() => assignOwner(lesson, session!.user!.id)}>
+                          I’ll teach it
+                        </Button>
+                      )}
                       {lesson.canAssignOwner && (
                         <select
-                          aria-label={`Owner for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}
+                          aria-label={`Teacher for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}
                           value={lesson.ownerId ?? ''}
                           onChange={(event) => assignOwner(lesson, event.target.value)}
                           className="h-11 w-44 shrink-0 rounded-md border border-line-strong bg-surface px-2 text-base text-ink md:h-8 md:text-[13px]"
@@ -235,6 +309,13 @@ export default function SundaySchoolLessonsPage() {
                   </li>
                 ))}
               </ul>
+              {visibleLessons.length > shown && (
+                <div className="border-t border-line p-3">
+                  <Button variant="outline" className="w-full" onClick={() => setShown(count => count + 8)}>
+                    Show {Math.min(8, visibleLessons.length - shown)} more weeks
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </Panel>
@@ -282,5 +363,13 @@ export default function SundaySchoolLessonsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function SundaySchoolLessonsPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <LessonsContent />
+    </Suspense>
   )
 }

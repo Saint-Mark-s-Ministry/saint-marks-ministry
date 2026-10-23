@@ -240,6 +240,11 @@ export function useSundaySchoolBirthdays(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/birthdays', fetcher, { ...defaultSWRConfig, ...options })
 }
 
+/** Only the children who need a call or visit, with their latest contact (Home and Care). */
+export function useSundaySchoolFollowUps(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/visitations?view=follow-up', fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useSundaySchoolVisitations(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/visitations', fetcher, {
     ...defaultSWRConfig,

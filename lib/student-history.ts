@@ -20,6 +20,8 @@ export interface StudentHistory {
   /** Display photo resolved from the child's photo, then their linked account. */
   photoUrl?: string | null
   canReadPrivateNotes?: boolean
+  /** Sunday School only: starred for a priority visit, and whether this viewer may change it. */
+  priority?: { value: boolean; canEdit: boolean }
   profile: {
     className: string | null
     level: SundaySchoolLevel

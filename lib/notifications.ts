@@ -142,7 +142,8 @@ export async function notifySundaySchoolAbsence({
   const id = `ss-absence:${classId}:${childId}:${firstAbsenceDate}:${threshold}:${userId}`
   const title = threshold === 4 ? 'Sunday School absence escalation' : 'Sunday School follow-up needed'
   const body = `${childName} in ${className} has been absent for ${weeks} consecutive weeks (${threshold === 4 ? '4 or more weeks' : 'more than 2 weeks'}). Please follow up with this student.`
-  const url = '/dashboard/servants/visitations'
+  // Opens that child's call-or-visit form, not just the class list.
+  const url = `/dashboard/servants/visitations?childId=${encodeURIComponent(childId)}`
   const result = await prisma.notification.createMany({
     data: [{
       id, userId, type: NotificationType.ANNOUNCEMENT, title, body, url,
@@ -789,7 +790,7 @@ export async function notifyPriestNoteCreated({
     type: NotificationType.PRIEST_NOTE_CREATED,
     title: 'New confidential visitation note',
     body: 'A confidential Sunday School visitation note is ready for review.',
-    url: '/dashboard/servants/visitations',
+    url: `/dashboard/servants/visitations?childId=${encodeURIComponent(childId)}`,
     metadata: { noteId, visitationId, childId },
   })
 }

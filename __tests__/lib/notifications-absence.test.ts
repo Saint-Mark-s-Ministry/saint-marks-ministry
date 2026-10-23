@@ -25,7 +25,7 @@ describe('absence notification delivery', () => {
     expect(await notifySundaySchoolAbsence(input)).toBe(false)
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       skipDuplicates: true,
-      data: [expect.objectContaining({ id: 'ss-absence:class:child:2026-10-03:2:teacher', userId: 'teacher', url: '/dashboard/servants/visitations' })],
+      data: [expect.objectContaining({ id: 'ss-absence:class:child:2026-10-03:2:teacher', userId: 'teacher', url: '/dashboard/servants/visitations?childId=child' })],
     }))
     expect(mocks.push).toHaveBeenCalledOnce()
     expect(mocks.create.mock.calls[0][0].data[0].body).toContain('Please follow up with this student.')

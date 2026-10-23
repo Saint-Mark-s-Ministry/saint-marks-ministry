@@ -152,7 +152,7 @@ export default function SundaySchoolClassesPage() {
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Classes"
+          title="Classes & servants"
           meta={['Classes, their servants, and their rosters', `${classes.length} classes`]}
           actions={
             canManage ? (
@@ -183,12 +183,12 @@ export default function SundaySchoolClassesPage() {
                       </span>
                       <span className="break-words text-xs text-ink-3">Classroom: {cls.classroom || 'Not set'}</span>
                       <span className="text-xs text-ink-3 md:hidden">
-                        {getLevelDisplayName(cls.level)} · {cls._count?.children ?? 0} children · {cls.assignments.length} servants
+                        {getLevelDisplayName(cls.level)} · {cls._count?.children ?? 0} children · {cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}
                       </span>
                     </span>
                     <span className="hidden text-[13px] text-ink-2 md:block">{getLevelDisplayName(cls.level)}</span>
                     <span className="tabular hidden text-[13px] md:block">{cls._count?.children ?? 0} children</span>
-                    <span className="tabular hidden text-[13px] text-ink-2 md:block">{cls.assignments.length} servants</span>
+                    <span className="tabular hidden text-[13px] text-ink-2 md:block">{cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}</span>
                     <span className="flex items-center gap-1">
                       {cls.canCoordinate && (
                         <Button variant="ghost" size="icon-sm" aria-label={`Edit ${cls.name}`} onClick={() => openEditDialog(cls)}>

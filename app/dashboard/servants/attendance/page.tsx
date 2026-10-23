@@ -2,10 +2,9 @@
 
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { SundaySchoolAttendanceSaveBar } from '@/components/sunday-school-attendance-save-bar'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -16,10 +15,14 @@ import { Initials } from '@/components/ds/person'
 import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { StudentName } from '@/components/student-history-provider'
 import { SundaySchoolIndividualAttendance } from '@/components/sunday-school-individual-attendance'
+import { RecentAttendanceDots } from '@/components/sunday-school-recent-attendance-dots'
+import type { IndividualAttendanceHistory } from '@/lib/sunday-school-individual-attendance'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolAttendance } from '@/hooks/useSundaySchoolAttendance'
+import { AttendanceHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, useSundaySchoolClasses, useSundaySchoolDashboard, useSundaySchoolIndividualAttendance } from '@/lib/swr'
 import {
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
@@ -29,7 +32,6 @@ import {
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
-  getTodayDateInputValue,
   sortClassesByAgeGroup,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
@@ -38,8 +40,7 @@ import type {
   SundaySchoolDashboard,
 } from '@/types/sunday-school'
 import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
-import Link from 'next/link'
-import { Users } from 'lucide-react'
+import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
 
 function SundaySchoolAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
@@ -54,8 +55,7 @@ function SundaySchoolAttendanceContent() {
     (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   ), [ageGroupsData, classesData])
 
-  const [selectedClassId, setSelectedClassId] = useState<string>('')
-  const appliedQueryClassId = useRef<string | null>(null)
+  const [selectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
@@ -77,18 +77,6 @@ function SundaySchoolAttendanceContent() {
     'children'
   )
   const trendDashboard = trendData as SundaySchoolDashboard | undefined
-
-  // Preselect the class from the dashboard link, else the first one available
-  useEffect(() => {
-    if (classes.length === 0) return
-    if (requestedClassId && requestedClassId !== appliedQueryClassId.current && classes.some(c => c.id === requestedClassId)) {
-      appliedQueryClassId.current = requestedClassId
-      setSelectedClassId(requestedClassId)
-      return
-    }
-    if (!requestedClassId) appliedQueryClassId.current = null
-    setSelectedClassId(current => current || classes[0].id)
-  }, [classes, requestedClassId])
 
   useEffect(() => {
     if (!selectedClassLevel) return
@@ -119,6 +107,14 @@ function SundaySchoolAttendanceContent() {
     [attendance?.roster, groupByGender, nameOrder]
   )
 
+  // The six meetings before the one on screen, per child (same request as History).
+  const { data: historyData } = useSundaySchoolIndividualAttendance(selectedClassId || undefined)
+  const recentByChild = useMemo(() => {
+    const history = historyData as IndividualAttendanceHistory | undefined
+    const dates = (history?.dates ?? []).filter(date => date < sessionDate).slice(-6)
+    return new Map((history?.children ?? []).map(child => [child.id, dates.map(date => child.attendance[date] ?? null)]))
+  }, [historyData, sessionDate])
+
   if (status === 'loading' || classesLoading) {
     return <PageLoading />
   }
@@ -126,8 +122,11 @@ function SundaySchoolAttendanceContent() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Take attendance"
-        meta="Marks save automatically; Save attendance also marks anyone left unmarked absent"
+        title="Attendance"
+        meta={[
+          selectedClass?.name,
+          sessionDate ? new Date(`${sessionDate}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }) : null,
+        ]}
         actions={
           selectedClassId && (
             <div className="flex flex-wrap gap-2">
@@ -137,19 +136,13 @@ function SundaySchoolAttendanceContent() {
                 aria-controls="individual-attendance-history"
                 onClick={() => setShowHistory(value => !value)}
               >
-                {showHistory ? 'Hide individual history' : 'Individual history'}
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
-                  <Users />
-                  Roster
-                </Link>
+                {showHistory ? 'Hide history' : 'History'}
               </Button>
             </div>
           )
         }
       />
-
+      <AttendanceHubTabs showServants={Boolean(selectedClass?.canViewServantAttendance)} />
 
       {classes.length === 0 ? (
         <Panel>
@@ -166,26 +159,7 @@ function SundaySchoolAttendanceContent() {
           <Panel
             toolbar={
               <>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Class
-                  <FilterSelect
-                    aria-label="Class"
-                    value={selectedClassId}
-                    onChange={setSelectedClassId}
-                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-                  Week of
-                  <Input
-                    type="date"
-                    aria-label="Week of"
-                    value={sessionDate}
-                    max={getTodayDateInputValue()}
-                    onChange={(e) => setSessionDate(e.target.value)}
-                    className="w-40 md:h-8"
-                  />
-                </label>
+                <MeetingDatePicker value={sessionDate} onChange={setSessionDate} />
                 <div className="flex w-full flex-wrap items-center gap-3 lg:ml-auto lg:w-auto">
                   <FilterSelect
                     aria-label="Alphabetize by"
@@ -209,8 +183,22 @@ function SundaySchoolAttendanceContent() {
             }
           >
             {!canEdit && !loadingSession && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
-            <div className="border-b border-line px-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
               <AttendanceLegend showExcused={false} />
+              {canEdit && attendance && unmarkedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={editor.finalizing || loadingSession}
+                  onClick={() => {
+                    for (const entry of attendance.roster) {
+                      if (!marks[entry.id]) editor.mark(entry.id, AttendanceStatus.PRESENT)
+                    }
+                  }}
+                >
+                  Mark everyone else present
+                </Button>
+              )}
             </div>
             {loadingSession ? (
               <EmptyState message="Loading roster…" />
@@ -235,7 +223,10 @@ function SundaySchoolAttendanceContent() {
                             {showPhotos && <Initials name={getChildFullName(entry)} imageUrl={entry.profileImageUrl} size={32} />}
                             <span className="flex min-w-0 flex-col leading-tight">
                               <StudentName id={entry.id} name={getChildFullName(entry)} program="sunday-school" className="truncate text-[14px]" />
-                              <span className="text-xs text-ink-3">{getLevelDisplayName(entry.level)}</span>
+                              <span className="flex items-center gap-2 text-xs text-ink-3">
+                                {getLevelDisplayName(entry.level)}
+                                <RecentAttendanceDots statuses={recentByChild.get(entry.id) ?? []} />
+                              </span>
                             </span>
                           </span>
                           <AttendanceStatusButtons

@@ -9,7 +9,7 @@ import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from '@/lib/sunday-school-child-account'
 import { getChildPhotoUrl } from '@/lib/sunday-school-class'
-import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
+import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
 import { loadChildForUser } from '@/lib/sunday-school-child-access'
 import { calculateAttendanceFromRecords, countAttendanceStatuses } from '@/lib/attendance-utils'
 import type { StudentHistory } from '@/lib/student-history'
@@ -32,7 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       where: { id },
       select: {
         id: true, firstName: true, lastName: true, notes: true, photoUrl: true,
-        level: true, birthDate: true, gender: true, isActive: true,
+        level: true, birthDate: true, gender: true, isActive: true, classId: true, visitationPriority: true,
         cellPhone: true, fatherOfConfession: true,
         guardianName: true, guardianPhone: true, guardianEmail: true, familyDetailsOverrides: true,
         user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true, phone: true, email: true } },
@@ -66,6 +66,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       photoUrl: getChildPhotoUrl(child),
       subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
       canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
+      // Same rule as PATCH /visitations: people who serve the child's active class.
+      priority: {
+        value: child.visitationPriority,
+        canEdit: !authorization.readOnly && child.isActive && Boolean(child.classId) && canServeClass(access, child.classId!),
+      },
       // Contacts belong only to this authorized child-detail response, never summaries.
       profile: {
         className: child.class?.name ?? null,

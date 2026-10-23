@@ -13,6 +13,8 @@ import { FilterSelect } from '@/components/ui/filter-select'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
+import { LessonsHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
@@ -36,9 +38,13 @@ type LinkDraft = { title: string; url: string }
 
 export default function SundaySchoolHomeworkPage() {
   const { session, status } = useSundaySchoolGuard()
-  const [classId, setClassId] = useState('')
-  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true)
+  // The response lists every Elementary class this person has, whichever one is loaded;
+  // keep it while switching so the class choice doesn't flicker.
+  const [loadedClasses, setLoadedClasses] = useState<SundaySchoolHomeworkResponse['classes']>()
+  const [classId, setClassId] = useViewingClassId(loadedClasses)
+  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true, { keepPreviousData: true })
   const homeworkData = data as SundaySchoolHomeworkResponse | undefined
+  if (homeworkData?.classes && homeworkData.classes !== loadedClasses) setLoadedClasses(homeworkData.classes)
   const [weekId, setWeekId] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -54,10 +60,6 @@ export default function SundaySchoolHomeworkPage() {
   )
   const selectedWeek = weeks.find(week => week.weeklyLessonId === weekId) ?? null
   const selectedClass = classes.find(cls => cls.id === classId)
-
-  useEffect(() => {
-    if (!classId && classes.length > 0) setClassId(classes[0].id)
-  }, [classId, classes])
 
   useEffect(() => {
     if (weeks.length === 0) {
@@ -172,14 +174,17 @@ export default function SundaySchoolHomeworkPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Homework" meta={['Publish Elementary homework and track completion through the school year']} />
+      <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} />
+      <LessonsHubTabs showHomework />
 
       <Panel toolbar={
         <>
-          <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-            Class
-            <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
-          </label>
+          {classes.length > 1 && (
+            <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+              Class
+              <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
+            </label>
+          )}
           <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
             Assigned meeting
             <FilterSelect aria-label="Assigned meeting" value={weekId} onChange={setWeekId} options={weeks.map(week => ({ value: week.weeklyLessonId, label: formatDateUTC(week.assignedDate) }))} />

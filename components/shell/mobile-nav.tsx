@@ -10,18 +10,29 @@ import { NotificationBell } from '@/components/notifications/notification-bell'
 import { Initials } from '@/components/ds/person'
 import { Button } from '@/components/ui/button'
 import type { Ministry, MinistryOption, NavGroup } from '@/lib/navigation'
-import { isNavItemActive } from '@/lib/navigation'
+import { currentNavItem } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { MinistrySwitcher } from './ministry-switcher'
 import { NavList, openCommandPalette } from './sidebar'
 import { ThemeButton } from './theme-button'
 import { accountLinks } from './user-menu'
+import { SundaySchoolViewingPicker } from '@/components/sunday-school-viewing-picker'
 
-/** 56px phone app bar: ministry pill, search, alerts. */
-export function MobileAppBar({ ministry, ministries }: { ministry: Ministry; ministries: MinistryOption[] }) {
+/** 56px phone app bar: ministry pill (or logo + Viewing class), search, alerts. */
+export function MobileAppBar({
+  ministry,
+  ministries,
+  viewing = false,
+}: {
+  ministry: Ministry
+  ministries: MinistryOption[]
+  /** Show the Sunday School "Viewing" class next to the logo. */
+  viewing?: boolean
+}) {
   return (
     <header className="z-40 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas pr-2 pl-3 md:hidden print:hidden">
-      <MinistrySwitcher current={ministry} options={ministries} compact className="h-11 px-1.5" />
+      <MinistrySwitcher current={ministry} options={ministries} compact markOnly={viewing} className="h-11 shrink-0 px-1.5" />
+      {viewing && <SundaySchoolViewingPicker variant="appbar" />}
       <div className="ml-auto flex items-center">
         <Button variant="ghost" size="icon" aria-label="Search" onClick={openCommandPalette}>
           <Search className="size-[18px]" strokeWidth={1.75} />
@@ -54,7 +65,8 @@ export function MobileTabBar({
   const [moreOpen, setMoreOpen] = useState(false)
   const items = groups.flatMap((g) => g.items)
   const tabs = items.filter((i) => i.tab).slice(0, 4)
-  const tabActive = tabs.some((t) => isNavItemActive(t.href, pathname, search))
+  const currentHref = currentNavItem(groups, pathname, search)?.href
+  const tabActive = tabs.some((t) => t.href === currentHref)
   const close = () => setMoreOpen(false)
 
   return (
@@ -65,19 +77,27 @@ export function MobileTabBar({
       >
         <ul className="grid grid-cols-5">
           {tabs.map((item) => {
-            const active = isNavItemActive(item.href, pathname, search)
+            const active = item.href === currentHref
             const Icon = item.icon
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
+                  aria-label={item.badge ? `${item.tabLabel ?? item.label}, ${item.badge} waiting` : undefined}
                   className={cn(
                     'flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium no-underline',
                     active ? 'text-accent-ink' : 'text-ink-3'
                   )}
                 >
-                  <Icon className="size-[22px]" strokeWidth={active ? 2 : 1.75} aria-hidden />
+                  <span className="relative">
+                    <Icon className="size-[22px]" strokeWidth={active ? 2 : 1.75} aria-hidden />
+                    {!!item.badge && (
+                      <span aria-hidden className="tabular absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-warn px-1 text-center text-[10px] leading-4 font-semibold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
                   {item.tabLabel ?? item.label}
                 </Link>
               </li>
