@@ -75,8 +75,10 @@ describe('NotificationBell', () => {
     expect(icon).not.toHaveClass('-rotate-12', 'scale-110')
     expect(button).not.toHaveClass('scale-105')
     expect(screen.getByRole('dialog', { name: 'Notifications' })).toHaveClass(
-      'animate-in',
-      'fade-in-0'
+      'data-[state=open]:animate-in',
+      'data-[state=open]:fade-in-0',
+      'data-[state=closed]:animate-out',
+      'data-[state=closed]:fade-out-0'
     )
   })
 

@@ -817,3 +817,42 @@ without changing their layout. The animation measures layout dimensions, retarge
 when content changes mid-animation, retains authored dimensions and viewport caps,
 and disables motion for `prefers-reduced-motion`. Do not add per-dialog height
 constants or wrappers to animate expanding forms.
+
+## Assigned child check-ins
+
+Care → Follow up includes **Assigned check-ins** for every active child in the
+current class view. Anyone who serves that class can choose or clear one
+responsible servant from its active direct class team. **Mine**, **Unassigned**,
+and **Not called this week** filters make the shared list actionable. Priests
+can review this list but cannot change these assignments.
+
+Responsibility is stored in `SundaySchoolChild.followUpAssignmentId`, referencing
+the existing year-bound `SundaySchoolServantAssignment`. It grants no class or
+contact access. Ended assignments, disabled servants, a different class, or an
+old academic year display as unassigned; deleting the staffing record clears
+the reference. Age-group-only coordinators are not assignment candidates unless
+they also have direct class staffing. Clearing responsibility preserves call
+and visitation history. A child can have only one current check-in servant.
+
+`GET /api/sunday-school/follow-up-assignments` returns scoped active classes,
+minimal child/servant names, and the latest call attempt this week. It excludes
+contacts, call notes, and confidential notes. `PUT` checks the current database
+principal, active class/year, and target staffing, then saves the responsibility
+and an audit event transactionally. It returns 409 on a serialization conflict.
+
+A week is Monday–Sunday in America/New_York, including daylight-saving changes.
+The status uses the existing phone-call log for the child's **current class**;
+no separate weekly checkbox or reset job exists. All outcomes (including no
+answer and voicemail) count as an attempt, and the actual outcome is shown.
+**Log call** opens a dialog on Care with a dated call form and the child’s call
+history. Saving immediately refreshes the weekly status; no page change is
+needed. Selecting a child’s name opens the existing profile dialog. Its **Calls & visits**
+action opens the Care tab within that same dialog, where calls, visits, and
+optional confidential visit notes can be recorded. Tap the profile photo to
+enlarge it without leaving the profile. A new week
+starts with no call logged until a call is recorded. Focus/reconnect and a
+one-minute refresh keep the shared list current.
+
+Apply `20261023200000_child_follow_up_assignment` explicitly before deploying this
+feature. It adds a nullable column, index, and `ON DELETE SET NULL` foreign key;
+it assigns no children automatically. Code rollback can retain this addition.

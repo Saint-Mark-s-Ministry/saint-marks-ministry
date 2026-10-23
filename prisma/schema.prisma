@@ -1062,6 +1062,7 @@ model SundaySchoolServantAssignment {
   ageGroup         SundaySchoolAgeGroup? @relation(fields: [ageGroupId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
   assigner         User?                 @relation("AssignedSundaySchoolServantAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
   endedBy          User?                 @relation("EndedSundaySchoolServantAssignments", fields: [endedById], references: [id], onDelete: SetNull)
+  followUpChildren SundaySchoolChild[]   @relation("ChildFollowUpServant")
 
   @@index([userId, academicYearId])
   @@index([classId])
@@ -1099,6 +1100,8 @@ model SundaySchoolChild {
   status             SundaySchoolRecordStatus @default(ACTIVE)
   isActive           Boolean                  @default(true)
   visitationPriority Boolean                  @default(false)
+  // Responsibility uses a year-bound class staffing assignment; it grants no access.
+  followUpAssignmentId String?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 
@@ -1110,6 +1113,7 @@ model SundaySchoolChild {
   homeworkCompletions SundaySchoolHomeworkCompletion[]
   visitations         SundaySchoolVisitation[]
   phoneCalls          SundaySchoolPhoneCall[]
+  followUpAssignment  SundaySchoolServantAssignment? @relation("ChildFollowUpServant", fields: [followUpAssignmentId], references: [id], onDelete: SetNull)
   guardians           SundaySchoolChildGuardian[]      @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?        @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
@@ -1119,6 +1123,7 @@ model SundaySchoolChild {
   @@index([classId])
   @@index([familyId])
   @@index([rosterLinkId])
+  @@index([followUpAssignmentId])
   @@index([level])
   @@index([isActive])
   @@index([status])

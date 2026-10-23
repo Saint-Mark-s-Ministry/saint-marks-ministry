@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { MoreHorizontal, Search, X } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { DialogSurface } from '@/components/ui/dialog'
+import { Dialog, DialogSurface } from '@/components/ui/dialog'
 import type { UserRole } from '@prisma/client'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { Initials } from '@/components/ds/person'
@@ -124,7 +124,7 @@ export function MobileTabBar({
         </ul>
       </nav>
 
-      <DialogPrimitive.Root open={moreOpen} onOpenChange={setMoreOpen}>
+      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200 motion-reduce:animate-none md:hidden" />
           <DialogSurface
@@ -180,7 +180,7 @@ export function MobileTabBar({
             </div>
           </DialogSurface>
         </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      </Dialog>
     </>
   )
 }

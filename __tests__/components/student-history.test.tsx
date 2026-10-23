@@ -81,6 +81,36 @@ describe('Sunday School student history', () => {
     expect(screen.queryByText('Class page loading')).not.toBeInTheDocument()
   })
 
+  it('opens calls and visits within the same profile and keeps the page in place', async () => {
+    const user = userEvent.setup()
+    mocks.history.mockReturnValue({ data: { ...history(), care: { canEdit: true } }, isLoading: false, isValidating: false })
+    render(<Harness />)
+    await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Calls & visits' }))
+    expect(screen.getByRole('dialog')).toBe(dialog)
+    expect(within(dialog).getByRole('tab', { name: 'Care' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(dialog).getByLabelText('Call note')).toBeVisible()
+    await user.click(within(dialog).getByRole('button', { name: /^Visit$/ }))
+    expect(within(dialog).getByLabelText('Date visited')).toBeVisible()
+    expect(within(dialog).getByLabelText('Visit notes (optional)')).toBeVisible()
+    expect(within(dialog).queryByRole('link', { name: 'Calls & visits' })).not.toBeInTheDocument()
+  })
+
+  it('enlarges the profile photo and returns to the still-open profile', async () => {
+    const user = userEvent.setup()
+    mocks.history.mockReturnValue({ data: { ...history(), photoUrl: '/child-photo.jpg' }, isLoading: false, isValidating: false })
+    render(<Harness />)
+    await user.click(screen.getAllByRole('button', { name: 'View history for Mina Mark' })[0])
+    const photo = await screen.findByRole('button', { name: "View Mina Mark's photo" })
+    await user.click(photo)
+    expect(screen.getByRole('dialog', { name: "Mina Mark's photo" })).toBeVisible()
+    expect(screen.getByRole('img', { name: "Mina Mark's photo" })).toHaveAttribute('src', '/child-photo.jpg')
+    await user.click(screen.getByRole('button', { name: 'Close photo' }))
+    expect(screen.getByRole('dialog', { name: 'Mina Mark' })).toBeVisible()
+    await waitFor(() => expect(photo).toHaveFocus())
+  })
+
   it('opens the student profile first and provides actionable student and family contacts', async () => {
     const user = userEvent.setup()
     render(<Harness />)

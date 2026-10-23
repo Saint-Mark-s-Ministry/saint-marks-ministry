@@ -305,6 +305,7 @@
 }
 
 :root {
+  --modal-motion-duration: 200ms;
   --radius: 0.625rem;
 
   /* Light — warm neutrals, one maroon accent, gold for Sunday School,

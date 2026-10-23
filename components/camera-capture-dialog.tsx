@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Camera, RefreshCw, Upload } from 'lucide-react'
+import { useModalExit } from '@/hooks/use-modal-exit'
 import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -14,6 +15,7 @@ export function CameraCaptureDialog({ name, onCapture, onCancel, onUpload }: {
   onCancel: () => void
   onUpload: () => void
 }) {
+  const exit = useModalExit(onCancel)
   const [video, setVideo] = useState<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
@@ -109,7 +111,7 @@ export function CameraCaptureDialog({ name, onCapture, onCancel, onUpload }: {
   }
 
   return (
-    <Dialog open onOpenChange={open => { if (!open) onCancel() }}>
+    <Dialog open={!exit.closing} onOpenChange={open => { if (!open) onCancel() }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Take a photo</DialogTitle>
@@ -129,13 +131,13 @@ export function CameraCaptureDialog({ name, onCapture, onCancel, onUpload }: {
         <div className="flex flex-wrap gap-2">
           {!photo && <Button type="button" variant="outline" size="sm" disabled={!ready || capturing} onClick={() => restart(true)}><RefreshCw />Switch camera</Button>}
           {error && <Button type="button" variant="outline" size="sm" onClick={() => restart()}>Try again</Button>}
-          <Button type="button" variant="ghost" size="sm" onClick={onUpload}><Upload />Upload photo instead</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => exit.close(onUpload)}><Upload />Upload photo instead</Button>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => exit.close()}>Cancel</Button>
           {photo ? <>
             <Button type="button" variant="outline" onClick={() => restart()}>Retake</Button>
-            <Button type="button" onClick={() => onCapture(photo.blob)}>Use photo</Button>
+            <Button type="button" onClick={() => exit.close(() => onCapture(photo.blob))}>Use photo</Button>
           </> : <Button type="button" disabled={!ready || capturing || !!error} onClick={capture}><Camera />{capturing ? 'Capturing…' : 'Take photo'}</Button>}
         </DialogFooter>
       </DialogContent>

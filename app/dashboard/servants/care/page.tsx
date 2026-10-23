@@ -10,6 +10,7 @@ import { Initials } from '@/components/ds/person'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageLoading } from '@/components/ui/page-loading'
+import { SundaySchoolCheckInPanel } from '@/components/sunday-school-check-in-panel'
 import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import { StudentName } from '@/components/student-history-provider'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
@@ -116,6 +117,7 @@ export default function SundaySchoolCarePage() {
         </Panel>
       ) : (
         <>
+          <SundaySchoolCheckInPanel classId={viewing === ALL_CLASSES ? undefined : viewing} />
           <Panel
             title="Needs a call or visit"
             description={`Absent ${FOLLOW_UP_ABSENT_WEEKS}+ meetings in a row, or starred for a priority visit`}
