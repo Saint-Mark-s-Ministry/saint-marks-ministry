@@ -1079,6 +1079,9 @@ model SundaySchoolChild {
   level              SundaySchoolLevel
   classId            String?
   familyId           String?
+  // Only values that differed when family records were connected. Common details
+  // still live on SundaySchoolFamily; these preserve an individual child's record.
+  familyDetailsOverrides Json?
   userId             String?                  @unique
   // Set when this row came from a public roster sign-up link, so servants can
   // see what a given QR code let onto the roster and clean it up.
@@ -1190,6 +1193,10 @@ model SundaySchoolFamily {
   fatherName  String?
   fatherPhone String?
   fatherEmail String?
+  // Original family details, automatic fills and conflicts survive consolidation.
+  matchingHistory Json?
+  // Additional parent identities retained when connected families have different parents.
+  matchingPhones String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

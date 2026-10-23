@@ -5,10 +5,10 @@ import { prisma } from '@/lib/prisma'
 import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
 import { sundaySchoolFamilyInclude } from '@/lib/sunday-school-family'
 
-// Sunday School mode: sensitive household contact and sibling data. A viewer
+// Sunday School mode: sensitive family contact and sibling data. A viewer
 // may see a family when at least one child in it belongs to a visible class.
 // Once visible, the response includes every sibling so the roster can show the
-// connected household even when the children attend different classes.
+// connected family even when the children attend different classes.
 export async function GET() {
   try {
     const user = await requireAuth()

@@ -1,3 +1,4 @@
+import { withSundaySchoolFamilyDetails } from '@/lib/sunday-school-family'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -33,7 +34,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         id: true, firstName: true, lastName: true, notes: true, photoUrl: true,
         level: true, birthDate: true, gender: true, isActive: true,
         cellPhone: true, fatherOfConfession: true,
-        guardianName: true, guardianPhone: true, guardianEmail: true,
+        guardianName: true, guardianPhone: true, guardianEmail: true, familyDetailsOverrides: true,
         user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true, phone: true, email: true } },
         family: { select: {
           name: true, homeAddress: true,
@@ -76,7 +77,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         phone: child.cellPhone || child.user?.phone || null,
         email: child.user?.email ?? null,
         guardian: { name: child.guardianName, phone: child.guardianPhone, email: child.guardianEmail },
-        family: child.family,
+        family: withSundaySchoolFamilyDetails(child).family,
       },
       attendance: {
         kind: 'meetings', counts: countAttendanceStatuses(child.attendance), rate: calculateAttendanceFromRecords(child.attendance),

@@ -61,3 +61,23 @@ export function normalizeSundaySchoolFamilyDetails(
 export function hasSundaySchoolFamilyDetails(details: SundaySchoolFamilyDetails | null) {
   return Boolean(details && Object.values(details).some(Boolean))
 }
+
+/** A partial edit must not clear family fields omitted by the caller. */
+export function suppliedSundaySchoolFamilyDetails(value: unknown, details: SundaySchoolFamilyDetails) {
+  const input = value as Record<string, unknown>
+  return Object.fromEntries(FAMILY_DETAIL_KEYS.filter(key => Object.hasOwn(input, key)).map(key => [key, details[key]]))
+}
+
+export function familyDetailOverrides(value: unknown): Partial<SundaySchoolFamilyDetails> {
+  const details = normalizeSundaySchoolFamilyDetails(value)
+  return details ? suppliedSundaySchoolFamilyDetails(value, details) : {}
+}
+
+/** Preserve recorded differences while every common field comes from one family. */
+export function withSundaySchoolFamilyDetails<T extends {
+  family?: object | null
+  familyDetailsOverrides?: Prisma.JsonValue | null
+}>(child: T) {
+  const { familyDetailsOverrides: overrides, ...record } = child
+  return { ...record, family: (child.family ? { ...child.family, ...familyDetailOverrides(overrides) } : child.family) as T['family'] }
+}

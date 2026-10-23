@@ -272,8 +272,10 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 Roster CSV imports add new children and update matched children using supplied
 nonblank values. Supported details include gender, birth date, child phone,
 father of confession, guardian contact, notes, household name/address, and
-mother/father names, phones, and emails. Existing household links are preserved;
-imports do not infer sibling links from matching contact details. The preview
+mother/father names, phones, and emails. Parent phone numbers automatically
+connect family records and fill missing shared information. Existing shared
+values are preserved and conflicts are retained for review. See
+[family matching](sunday-school-family-matching.md). The preview
 lists unrecognized columns so they are not silently discarded. Source files are
 not synced: upload a new CSV to apply later changes. Students missing from an
 upload remain on the roster.

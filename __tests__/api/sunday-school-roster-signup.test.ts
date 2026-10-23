@@ -1,3 +1,7 @@
+vi.mock('@/lib/sunday-school-family-matching', () => ({
+  lockFamilyMatching: vi.fn(),
+  matchSundaySchoolFamilies: vi.fn().mockResolvedValue({ matchedFamilies: 0, linkedChildren: 0, filledFields: 0, conflicts: 0 }),
+}))
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { hashRosterLinkToken } from '@/lib/sunday-school-roster-link-token'
@@ -62,7 +66,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
 
 const transactionClient = {
   sundaySchoolRosterLink: { updateMany: mocks.claimUse },
-  sundaySchoolChild: { create: mocks.createChild, update: mocks.updateChild },
+  sundaySchoolChild: { create: mocks.createChild, update: mocks.updateChild, findFirst: mocks.findChild },
 }
 
 describe('public roster sign-up API', () => {

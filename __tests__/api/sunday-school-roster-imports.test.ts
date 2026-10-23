@@ -1,3 +1,10 @@
+vi.mock('@/lib/sunday-school-family-matching', () => ({
+  lockFamilyMatching: vi.fn(),
+  fillImportedFamilyDetails: vi.fn(async (tx, familyId, data) => {
+    await tx.sundaySchoolFamily.update({ where: { id: familyId }, data })
+  }),
+  matchSundaySchoolFamilies: vi.fn().mockResolvedValue({ matchedFamilies: 0, linkedChildren: 0, filledFields: 0, conflicts: 0 }),
+}))
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -55,13 +62,14 @@ const transactionClient = {
   sundaySchoolChild: {
     create: mocks.createChild,
     update: mocks.updateChild,
+    findMany: mocks.findChildren,
   },
   sundaySchoolEnrollment: {
     create: mocks.createEnrollment,
     update: mocks.updateEnrollment,
   },
   sundaySchoolClassPlacement: { create: mocks.createPlacement },
-  sundaySchoolFamily: { create: mocks.createFamily, update: mocks.updateFamily },
+  sundaySchoolFamily: { create: mocks.createFamily, update: mocks.updateFamily, findUniqueOrThrow: async () => ({}) },
 }
 
 function request(rows: Array<Record<string, unknown>>) {
