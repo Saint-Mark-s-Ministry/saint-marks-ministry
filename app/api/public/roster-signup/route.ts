@@ -1,3 +1,4 @@
+import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { handleApiError } from '@/lib/api-utils'
@@ -152,28 +153,9 @@ export async function POST(request: Request) {
     const parsedBirthDate = birthDate ? new Date(`${birthDate}T00:00:00.000Z`) : null
     const gender = normalizeRosterGender(submission.gender)
 
-    // Scoped to this class on purpose: a name that also exists in another class
-    // is a different child as far as this link is concerned, and must not be
-    // reachable from a public request.
-    const existing = await prisma.sundaySchoolChild.findFirst({
-      where: {
-        classId: link.classId,
-        firstName: { equals: submission.firstName, mode: 'insensitive' },
-        lastName: { equals: submission.lastName, mode: 'insensitive' },
-        ...(parsedBirthDate ? { OR: [{ birthDate: parsedBirthDate }, { birthDate: null }] } : {}),
-      },
-      select: {
-        id: true,
-        birthDate: true,
-        gender: true,
-        guardianName: true,
-        guardianPhone: true,
-        guardianEmail: true,
-        notes: true,
-      },
-    })
 
     const result = await prisma.$transaction(async tx => {
+      await lockFamilyMatching(tx)
       // Claim one use before writing anything. The where clause re-checks every
       // bound, so two families submitting at once cannot both take the last slot
       // and an expiry that passed mid-request is caught here.
@@ -187,6 +169,27 @@ export async function POST(request: Request) {
         data: { useCount: { increment: 1 } },
       })
       if (claimed.count === 0) return null
+
+      // Scoped to this class on purpose: a name that also exists in another class
+      // is a different child as far as this link is concerned, and must not be
+      // reachable from a public request.
+      const existing = await tx.sundaySchoolChild.findFirst({
+        where: {
+          classId: link.classId,
+          firstName: { equals: submission.firstName, mode: 'insensitive' },
+          lastName: { equals: submission.lastName, mode: 'insensitive' },
+          ...(parsedBirthDate ? { OR: [{ birthDate: parsedBirthDate }, { birthDate: null }] } : {}),
+        },
+        select: {
+          id: true,
+          birthDate: true,
+          gender: true,
+          guardianName: true,
+          guardianPhone: true,
+          guardianEmail: true,
+          notes: true,
+        },
+      })
 
       // Only ever fills blanks. Detail a servant already entered wins over a
       // public submission.
@@ -225,6 +228,7 @@ export async function POST(request: Request) {
             select: { id: true },
           })).id
 
+      await matchSundaySchoolFamilies(tx, { childIds: [childId] })
       const enrolled = await enrollChildInClass(tx, {
         childId,
         classId: link.classId,
@@ -235,7 +239,7 @@ export async function POST(request: Request) {
       })
 
       return { childId, matched: Boolean(existing), levelMismatch: enrolled === null }
-    })
+    }, { timeout: 30_000 })
 
     if (!result) {
       return NextResponse.json({ error: UNUSABLE_MESSAGES.EXHAUSTED }, { status: 410 })

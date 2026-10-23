@@ -80,6 +80,7 @@ export interface SundaySchoolFamilyChild {
 }
 
 export interface SundaySchoolFamily {
+  matchingHistory?: import('./sunday-school-family-matching').FamilyMatchingHistory | null
   id: string
   name: string | null
   homeAddress: string | null

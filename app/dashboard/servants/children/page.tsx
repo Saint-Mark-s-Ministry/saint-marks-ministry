@@ -1,5 +1,6 @@
 'use client'
 
+import { FAMILY_FIELD_LABELS } from '@/types/sunday-school-family-matching'
 import { StudentName } from '@/components/student-history-provider'
 
 import { Suspense, useMemo, useState } from 'react'
@@ -121,7 +122,7 @@ function familyFormFields(family?: SundaySchoolFamily | null) {
 }
 
 function SundaySchoolChildrenContent() {
-  const { status } = useSundaySchoolGuard()
+  const { session, status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData } = useSundaySchoolClasses()
@@ -143,7 +144,9 @@ function SundaySchoolChildrenContent() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingPhoto, setEditingPhoto] = useState<{ photoUrl: string | null; accountPhotoUrl: string | null }>({ photoUrl: null, accountPhotoUrl: null })
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
+  const [initialFamilyForm, setInitialFamilyForm] = useState<ReturnType<typeof familyFormFields> | null>(null)
   const [saving, setSaving] = useState(false)
+  const [matchingFamilies, setMatchingFamilies] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
@@ -156,6 +159,7 @@ function SundaySchoolChildrenContent() {
 
   const openCreate = () => {
     setEditingId(null)
+    setInitialFamilyForm(null)
     const cls = classes.find(c => c.id === selectedClassId)
     setForm({
       ...EMPTY_FORM,
@@ -168,6 +172,7 @@ function SundaySchoolChildrenContent() {
 
   const openEdit = (child: SundaySchoolChild) => {
     setEditingId(child.id)
+    setInitialFamilyForm(child.family ? familyFormFields(child.family) : null)
     setEditingPhoto({ photoUrl: child.photoUrl ?? null, accountPhotoUrl: child.user?.profileImageUrl ?? null })
     setForm({
       firstName: child.firstName,
@@ -191,6 +196,7 @@ function SundaySchoolChildrenContent() {
 
   const handleFamilySelection = (familyId: string) => {
     if (familyId === NEW_FAMILY_ID || !familyId) {
+      setInitialFamilyForm(null)
       setForm(prev => ({
         ...prev,
         familyId,
@@ -200,11 +206,29 @@ function SundaySchoolChildrenContent() {
     }
 
     const family = families.find(item => item.id === familyId)
+    setInitialFamilyForm(familyFormFields(family))
     setForm(prev => ({
       ...prev,
       familyId,
       ...familyFormFields(family),
     }))
+  }
+
+  const handleMatchFamilies = async () => {
+    setMatchingFamilies(true)
+    try {
+      const response = await fetch('/api/sunday-school/families/match', { method: 'POST' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not match families')
+      toast.success(`Connected ${result.linkedChildren} children and filled ${result.filledFields} missing family details`, {
+        description: result.conflicts ? 'Some details differ. Open the connected families to review them.' : undefined,
+      })
+      await Promise.all([mutate(), mutateFamilies()])
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not match families')
+    } finally {
+      setMatchingFamilies(false)
+    }
   }
 
   const handleSave = async () => {
@@ -222,6 +246,16 @@ function SundaySchoolChildrenContent() {
         fatherEmail,
         ...childFields
       } = form
+      const details = { name: familyName, homeAddress, motherName, motherPhone, motherEmail, fatherName, fatherPhone, fatherEmail }
+      const previous = initialFamilyForm ? {
+        name: initialFamilyForm.familyName, homeAddress: initialFamilyForm.homeAddress,
+        motherName: initialFamilyForm.motherName, motherPhone: initialFamilyForm.motherPhone,
+        motherEmail: initialFamilyForm.motherEmail, fatherName: initialFamilyForm.fatherName,
+        fatherPhone: initialFamilyForm.fatherPhone, fatherEmail: initialFamilyForm.fatherEmail,
+      } : null
+      const familyChanges = editingId && previous
+        ? Object.fromEntries(Object.entries(details).filter(([key, value]) => value !== previous[key as keyof typeof previous]))
+        : details
       const url = editingId
         ? `/api/sunday-school/children/${editingId}`
         : '/api/sunday-school/children'
@@ -232,18 +266,7 @@ function SundaySchoolChildrenContent() {
           ...childFields,
           classId: form.classId || null,
           familyId: familyId && familyId !== NEW_FAMILY_ID ? familyId : null,
-          family: familyId
-            ? {
-                name: familyName,
-                homeAddress,
-                motherName,
-                motherPhone,
-                motherEmail,
-                fatherName,
-                fatherPhone,
-                fatherEmail,
-              }
-            : null,
+          family: familyId ? (Object.keys(familyChanges).length ? familyChanges : undefined) : null,
           ...(!editingId || !canLinkAccount ? { linkedUserEmail: undefined } : {}),
         }),
       })
@@ -255,6 +278,9 @@ function SundaySchoolChildrenContent() {
       toast.success(editingId ? 'Child updated' : 'Child added', {
         description: new Date().toLocaleString(),
       })
+      if (body.family?.matchingHistory?.events?.some((event: { conflicts: unknown[] }) => event.conflicts.length)) {
+        toast.info('Some family details differ. Open the family to review the saved information.')
+      }
       setDialogOpen(false)
       setEditingId(null)
       setForm(EMPTY_FORM)
@@ -316,6 +342,11 @@ function SundaySchoolChildrenContent() {
                     Follow up
                   </Link>
                 </Button>
+                {canManage && (session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST') && (
+                  <Button variant="outline" disabled={matchingFamilies} onClick={handleMatchFamilies}>
+                    <Users />{matchingFamilies ? 'Matching…' : 'Match existing families'}
+                  </Button>
+                )}
                 {canManage && (
                   <Button onClick={openCreate}>
                     <Plus />
@@ -445,6 +476,12 @@ function SundaySchoolChildrenContent() {
                                         <ContactLink kind="phone" value={child.family.fatherPhone} name={child.family.fatherName} label="father's phone number" />
                                       </>
                                     )}
+                                  </span>
+                                )}
+                                {!child.family.motherName && !child.family.motherPhone && !child.family.fatherName && !child.family.fatherPhone && (child.guardianName || child.guardianPhone) && (
+                                  <span className="flex flex-wrap items-center gap-x-1">
+                                    Guardian: {child.guardianName ?? '—'}
+                                    {child.guardianPhone && <ContactLink kind="phone" value={child.guardianPhone} name={child.guardianName} label="guardian's phone number" />}
                                   </span>
                                 )}
                                 <button
@@ -634,8 +671,8 @@ function SundaySchoolChildrenContent() {
             <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
               <p className="font-medium">Guardian contact</p>
               <p className="text-xs text-gray-500">
-                Used when a child has no family record — this is what a roster CSV and a
-                sign-up QR collect.
+                Optional designated guardian contact for this child. Shared mother and
+                father details are below.
               </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <Input
@@ -731,7 +768,7 @@ function SundaySchoolChildrenContent() {
                 <div className="space-y-4 rounded-lg border p-4 dark:border-gray-700">
                   <div className="flex items-center gap-2">
                     <House className="h-4 w-4 text-gray-500" />
-                    <p className="font-medium">Family and household</p>
+                    <p className="font-medium">Family details</p>
                   </div>
 
                   <div className="space-y-2">
@@ -752,7 +789,7 @@ function SundaySchoolChildrenContent() {
                       ))}
                     </select>
                     <p className="text-xs text-gray-500">
-                      Choose an existing family to connect siblings. Shared details update for every linked child.
+                      Matching parent phone numbers connect siblings automatically, even across classes. Shared details apply to every linked child.
                     </p>
                   </div>
 
@@ -877,11 +914,30 @@ function SundaySchoolChildrenContent() {
               <DialogHeader>
                 <DialogTitle>{getFamilyDisplayName(viewingFamily)}</DialogTitle>
                 <DialogDescription>
-                  Shared household details and children connected to this family.
+                  Family contact details and children connected to this family.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-5">
+                {viewingFamily.matchingHistory?.events.some(event => event.conflicts.length > 0) && (
+                  <div className="rounded-lg border border-amber-300 p-4 text-sm">
+                    <p className="font-medium">Family details to review</p>
+                    <p className="mt-1">Existing information was kept. These values differed when the records were connected. Edit a child’s family details to make corrections.</p>
+                    <ul className="mt-2 space-y-2">
+                      {viewingFamily.matchingHistory.events.flatMap((event, eventIndex) => event.conflicts.map(conflict => (
+                        <li key={`${eventIndex}-${conflict.field}`}>
+                          <span className="font-medium">{FAMILY_FIELD_LABELS[conflict.field] ?? conflict.field}:</span>{' '}
+                          {conflict.values.join(' / ')}
+                        </li>
+                      )))}
+                    </ul>
+                  </div>
+                )}
+                {viewingFamily.matchingHistory?.events.some(event => event.filled.length > 0) && (
+                  <p className="text-sm text-ink-3">
+                    Filled from matching family records: {[...new Set(viewingFamily.matchingHistory.events.flatMap(event => event.filled.map(fill => FAMILY_FIELD_LABELS[fill.field] ?? fill.field)))].join(', ')}.
+                  </p>
+                )}
                 <div className="rounded-lg border p-4 dark:border-gray-700">
                   <div className="flex items-start gap-2">
                     <House className="mt-0.5 h-4 w-4 text-gray-500" />
