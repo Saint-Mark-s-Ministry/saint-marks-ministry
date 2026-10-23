@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 const mocks = vi.hoisted(() => ({
   children: vi.fn(() => ({ data: [], isLoading: false, mutate: vi.fn() })),
@@ -55,5 +55,19 @@ describe('roster class selection', () => {
     window.history.replaceState({}, '', '/dashboard/servants/roster?classId=unavailable')
     render(<RosterPage />)
     await waitFor(() => expect(mocks.children).toHaveBeenLastCalledWith('pre-k'))
+  })
+
+  it('opens Learn names for the shared Viewing class and closes it when that choice changes', async () => {
+    window.localStorage.setItem('sunday-school.viewing', 'grade-8')
+    render(<RosterPage />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Learn names' }))
+    expect(within(screen.getByRole('dialog')).getByText(/8th Grade/)).toBeInTheDocument()
+
+    window.localStorage.setItem('sunday-school.viewing', 'pre-k')
+    fireEvent(window, new Event('storage'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Learn names' }))
+    expect(within(screen.getByRole('dialog')).getByText(/Pre-K 1/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Class')).not.toBeInTheDocument()
   })
 })

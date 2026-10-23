@@ -400,6 +400,19 @@ Sign-ups go straight onto the roster rather than into a review queue — unlike
 coordinator to place the child. The QR is a kiosk sign-up sheet handed out by a
 servant who is in the room; the bounds above are what stand in for the review.
 
+## Learn names with flashcards
+
+On **Children**, use **Viewing class** to select a class and choose **Learn names**
+to practice matching faces to names. The deck includes every active child in that class with a roster
+photo or linked account photo, independent of the roster search and sorting.
+Reveal or hide the name, move between cards, shuffle, or start again after the
+last card. Children without photos are counted and skipped; add their photos
+through the existing roster photo controls. Closing the dialog starts a fresh
+session next time. Practice is local to the open dialog and saves no results.
+
+Flashcards reuse the authorized roster response and existing class access.
+They display only the photo and name, with no new API or database fields.
+
 ## Extending it
 
 **Adding a capability to an existing role of authority** — add a predicate to

@@ -21,6 +21,7 @@ import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
 import { ChildPhotoField } from '@/components/sunday-school-child-photo'
+import { SundaySchoolNameFlashcards } from '@/components/sunday-school-name-flashcards'
 import { ContactLink } from '@/components/contact-link'
 import { FilterSelect } from '@/components/ui/filter-select'
 import {
@@ -367,6 +368,14 @@ function SundaySchoolChildrenContent() {
             toolbar={
               <>
                 <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
+                {selectedClass && !isLoading && !rosterError && (
+                  <SundaySchoolNameFlashcards
+                    key={selectedClassId}
+                    classId={selectedClassId}
+                    className={selectedClass.name}
+                    children={children}
+                  />
+                )}
                 <FilterSelect
                   className="hidden md:inline-flex"
                   aria-label="Alphabetize by"
