@@ -46,6 +46,7 @@ import type {
   SundaySchoolWeeklyLessonsResponse,
 } from '@/types/sunday-school'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
+import { SundaySchoolLayoutIntro } from '@/components/sunday-school-layout-intro'
 import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
@@ -245,6 +246,8 @@ export default function SundaySchoolDashboardPage() {
           </>
         }
       />
+
+      <SundaySchoolLayoutIntro />
 
       {allClasses.length === 0 ? (
         <Panel>
