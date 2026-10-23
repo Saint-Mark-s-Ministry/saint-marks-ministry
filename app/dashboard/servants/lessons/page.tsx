@@ -68,7 +68,7 @@ function LessonsContent() {
     ).values()
   ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
 
-  const [classId] = useViewingClassId(classOptions, { allowAll: true })
+  const [classId] = useViewingClassId(classOptions, { allowAll: true, requested: searchParams.get('classId') })
 
   const visibleLessons = lessons.filter(lesson => {
     if (classId !== ALL_CLASSES && lesson.classId !== classId) return false

@@ -216,7 +216,7 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
   )
 }
 
-export function FeedbackBoard({ sessionStatus }: { sessionStatus: 'loading' | 'authenticated' | 'unauthenticated' }) {
+export function FeedbackBoard({ sessionStatus, pageTitle = 'Feedback' }: { sessionStatus: 'loading' | 'authenticated' | 'unauthenticated'; pageTitle?: string }) {
   const { data, error, isLoading, mutate } = useSundaySchoolFeedback('ALL', 'TOP')
   const response = data as SundaySchoolFeedbackResponse | undefined
 
@@ -500,7 +500,7 @@ export function FeedbackBoard({ sessionStatus }: { sessionStatus: 'loading' | 'a
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Feedback"
+        title={pageTitle}
         meta={['Share ideas, request improvements, or report bugs. Help shape what comes next.']}
         actions={response?.viewer.canSubmit ? (
           <Button onClick={openCreateDialog}>

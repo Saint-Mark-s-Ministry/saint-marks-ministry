@@ -38,8 +38,6 @@ import type {
   SundaySchoolDashboard,
 } from '@/types/sunday-school'
 import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
-import Link from 'next/link'
-import { Users } from 'lucide-react'
 import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
 
 function SundaySchoolAttendanceContent() {
@@ -129,12 +127,6 @@ function SundaySchoolAttendanceContent() {
                 onClick={() => setShowHistory(value => !value)}
               >
                 {showHistory ? 'Hide history' : 'History'}
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
-                  <Users />
-                  Children
-                </Link>
               </Button>
             </div>
           )

@@ -273,6 +273,11 @@ A "hub" keeps its tab pages under one menu entry: `NavItem.also` in
 `currentNavItem()` picks the most specific match. The tab row itself is
 `components/sunday-school-hub-tabs.tsx`.
 
+Search (Ctrl/⌘+K) builds its Sunday School list from the same menu, adds each
+hub's tab pages, and keeps former page names (Roster, Visitations, Take
+attendance) as search keywords. Absence and confidential-note alerts open
+Visits & calls on that child (`?childId=`).
+
 Coordinators and super admins also get a **Ministry** group (Classes & servants,
 Registration requests, Servants meetings, Reports); super admins get **Admin**
 (Age groups, Servant applications, Users, Activity). Everyone else finds
