@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { DialogSurface } from '@/components/ui/dialog'
 import { Command } from 'cmdk'
 import { Eye, EyeOff, ShieldCheck, X } from 'lucide-react'
 import { Initials } from '@/components/ds/person'
@@ -239,7 +240,7 @@ function PickerDialog({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed top-3 left-1/2 z-50 w-full max-w-[640px] -translate-x-1/2 px-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:top-[12%] sm:px-4">
+        <DialogSurface className="fixed top-3 left-1/2 z-50 w-full max-w-[640px] -translate-x-1/2 px-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:top-[12%] sm:px-4">
           <DialogPrimitive.Title className="sr-only">View as another user</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Preview the application with another user&apos;s access. All changes are blocked.
@@ -325,7 +326,7 @@ function PickerDialog({
               </span>
             </div>
           </Command>
-        </DialogPrimitive.Content>
+        </DialogSurface>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   )

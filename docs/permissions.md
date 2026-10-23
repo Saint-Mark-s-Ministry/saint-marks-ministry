@@ -298,7 +298,8 @@ may be filled, with blankness and identity rechecked in each update. They cannot
 create/reactivate children, change placement, edit family records, or trigger
 family matching. No-match, duplicate-match, and already-filled submissions all
 return the same acknowledgement. Name and network attempt limits supplement
-the link's expiry, use cap and revocation. Existing sign-up links retain their
+the link’s fixed two-hour expiry and revocation. Contact links have no total
+submission cap; their use counter is informational only. Existing sign-up links retain their
 original behavior; the sign-up QR action is hidden for now.
 
 A shared class QR plus name/date of birth is **not identity verification**.

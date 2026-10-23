@@ -5,11 +5,12 @@ import { prisma } from '@/lib/prisma'
 import { recordAuditEvent } from '@/lib/audit'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { normalizeFamilyPhone } from '@/lib/sunday-school-family-matching'
+import { ROSTER_CONTACT_LINK_HOURS } from '@/lib/sunday-school-roster-link'
 import { normalizeRosterBirthDate } from '@/lib/sunday-school-roster-csv'
 
 // PUBLIC write-only contact collection. The link row, never body fields,
 // supplies the class and purpose. No lookup results leave this function.
-type ContactLink = { id: string; classId: string; maxUses: number }
+type ContactLink = { id: string; classId: string }
 const WINDOW_MS = 15 * 60 * 1000
 const ACKNOWLEDGEMENT = { success: true }
 
@@ -61,7 +62,8 @@ export async function submitRosterContactUpdate(
     const claimed = await tx.sundaySchoolRosterLink.updateMany({
       where: {
         id: link.id, classId: link.classId, contactUpdateOnly: true,
-        revokedAt: null, expiresAt: { gt: new Date() }, useCount: { lt: link.maxUses },
+        revokedAt: null, expiresAt: { gt: new Date() },
+        createdAt: { gt: new Date(Date.now() - ROSTER_CONTACT_LINK_HOURS * 3600_000) },
         class: { isActive: true, status: 'ACTIVE' },
         sundaySchoolYear: { status: 'OPEN' },
       },

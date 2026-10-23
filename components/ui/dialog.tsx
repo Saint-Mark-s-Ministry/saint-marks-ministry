@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useAnimatedSize } from "@/hooks/use-animated-size"
 
 function Dialog({
   open,
@@ -62,7 +63,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)]",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -70,7 +71,18 @@ function DialogOverlay({
   )
 }
 
+/** Unstyled modal surface for custom dialogs; shares automatic resize motion. */
+function DialogSurface({
+  ref,
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const animatedRef = useAnimatedSize(ref)
+  return <DialogPrimitive.Content ref={animatedRef} className={cn("motion-reduce:animate-none", className)} {...props} />
+}
+
 function DialogContent({
+  ref,
   className,
   children,
   showCloseButton = true,
@@ -81,10 +93,11 @@ function DialogContent({
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
-      <DialogPrimitive.Content
+      <DialogSurface
+        ref={ref}
         data-slot="dialog-content"
         className={cn(
-          "bg-surface text-ink border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-[0_24px_60px_-20px_rgba(27,24,23,0.35)] duration-200 sm:max-w-lg",
+          "bg-surface text-ink border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid content-start w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-[0_24px_60px_-20px_rgba(27,24,23,0.35)] duration-200 motion-reduce:animate-none sm:max-w-lg",
           className
         )}
         {...props}
@@ -99,7 +112,7 @@ function DialogContent({
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
-      </DialogPrimitive.Content>
+      </DialogSurface>
     </DialogPortal>
   )
 }
@@ -157,6 +170,7 @@ export {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogSurface,
   DialogDescription,
   DialogFooter,
   DialogHeader,

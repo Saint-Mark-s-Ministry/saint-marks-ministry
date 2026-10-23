@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { MoreHorizontal, Search, X } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { DialogSurface } from '@/components/ui/dialog'
 import type { UserRole } from '@prisma/client'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { Initials } from '@/components/ds/person'
@@ -126,7 +127,7 @@ export function MobileTabBar({
       <DialogPrimitive.Root open={moreOpen} onOpenChange={setMoreOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200 motion-reduce:animate-none md:hidden" />
-          <DialogPrimitive.Content
+          <DialogSurface
             aria-describedby={undefined}
             className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col rounded-t-xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] text-ink data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=open]:duration-300 data-[state=closed]:duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none md:hidden"
           >
@@ -177,7 +178,7 @@ export function MobileTabBar({
                 Sign out
               </Button>
             </div>
-          </DialogPrimitive.Content>
+          </DialogSurface>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
     </>

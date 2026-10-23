@@ -1,5 +1,6 @@
 'use client'
 
+import { useAnimatedSize } from '@/hooks/use-animated-size'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
@@ -88,6 +89,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const animatedPanelRef = useAnimatedSize(panelRef)
 
   const { data, mutate } = useSWR<NotificationsResponse>(
     session?.user ? '/api/notifications?limit=15' : null,
@@ -261,7 +263,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
 
           {/* Panel — bottom sheet on mobile, dropdown on desktop */}
           <div
-            ref={panelRef}
+            ref={animatedPanelRef}
             id="notifications-panel"
             role="dialog"
             aria-label="Notifications"

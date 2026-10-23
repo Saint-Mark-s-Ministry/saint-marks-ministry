@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { StudentProfileLink } from '@/components/student-profile-link'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { DialogSurface } from '@/components/ui/dialog'
 import { X } from 'lucide-react'
 import { getPersonInitials } from '@/lib/person-name'
 import { cn } from '@/lib/utils'
@@ -65,7 +66,7 @@ function PhotoViewer({ name, imageUrl, children }: { name?: string | null; image
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-black/75 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 duration-200" />
-        <DialogPrimitive.Content
+        <DialogSurface
           aria-describedby={undefined}
           className="fixed top-1/2 left-1/2 z-[70] flex w-[min(86vw,360px)] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-90 data-[state=closed]:zoom-out-95 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
         >
@@ -82,7 +83,7 @@ function PhotoViewer({ name, imageUrl, children }: { name?: string | null; image
           >
             <X className="size-4" aria-hidden />
           </DialogPrimitive.Close>
-        </DialogPrimitive.Content>
+        </DialogSurface>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   )

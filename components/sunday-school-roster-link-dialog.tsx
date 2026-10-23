@@ -26,7 +26,7 @@ interface RosterLink {
   id: string
   label: string | null
   expiresAt: string
-  maxUses: number
+  maxUses: number | null
   useCount: number
   revokedAt: string | null
   createdAt: string
@@ -110,7 +110,7 @@ export function SundaySchoolRosterLinkDialog({
       const response = await fetch('/api/sunday-school/roster-links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classId, label, expiresInHours, maxUses, contactUpdateOnly }),
+        body: JSON.stringify({ classId, label, contactUpdateOnly, ...(contactUpdateOnly ? {} : { expiresInHours, maxUses }) }),
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || `Could not create a ${linkKind.toLowerCase()} link`)
@@ -231,7 +231,9 @@ export function SundaySchoolRosterLinkDialog({
                     disabled={creating}
                   />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                {contactUpdateOnly ? (
+                  <p className="text-sm text-ink-3">This QR code expires after two hours.</p>
+                ) : <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor={`${id}-expiry`}>Expires in</Label>
                     <select
@@ -260,7 +262,7 @@ export function SundaySchoolRosterLinkDialog({
                       disabled={creating}
                     />
                   </div>
-                </div>
+                </div>}
                 <Button onClick={handleCreate} disabled={creating}>
                   {creating && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   {creating ? 'Creating…' : `Create ${linkKind.toLowerCase()} link`}
@@ -306,7 +308,7 @@ export function SundaySchoolRosterLinkDialog({
                           </span>
                         </p>
                         <p className="text-xs text-gray-500">
-                          {link.useCount}/{link.maxUses} used ·{' '}
+                          {contactUpdateOnly ? `${link.useCount} submissions` : `${link.useCount}/${link.maxUses} used`} ·{' '}
                           {!contactUpdateOnly && `${link.childCount} joined · `}
                           {link.state === 'ACTIVE' ? 'expires' : 'expired'}{' '}
                           {new Date(link.expiresAt).toLocaleString()}

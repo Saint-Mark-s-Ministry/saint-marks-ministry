@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 import { X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { DialogSurface } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -91,7 +92,7 @@ export function DetailPanel({ open, recordKey, onClose, title, label, header, fo
           'fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)]',
           !replacingRecord && 'animate-in fade-in-0 duration-200 motion-reduce:animate-none'
         )} />
-        <DialogPrimitive.Content
+        <DialogSurface
           aria-describedby={undefined}
           className={cn(
             'fixed z-50 flex flex-col overflow-hidden border-line bg-surface text-ink',
@@ -103,7 +104,7 @@ export function DetailPanel({ open, recordKey, onClose, title, label, header, fo
         >
           <DialogPrimitive.Title className="sr-only">{label ?? (typeof title === 'string' ? title : 'Details')}</DialogPrimitive.Title>
           {body}
-        </DialogPrimitive.Content>
+        </DialogSurface>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   )

@@ -21,7 +21,7 @@ const token = 'Ab3-_cdefghijklmnopqrstuvwxyz0123456789XYZ'
 const link = {
   id: 'contact-link', classId: 'grade-10-a', sundaySchoolYearId: 'year', contactUpdateOnly: true,
   sundaySchoolYear: { status: 'OPEN' }, label: null, expiresAt: new Date(Date.now() + 3600_000),
-  revokedAt: null, useCount: 0, maxUses: 40,
+  createdAt: new Date(), revokedAt: null, useCount: 0, maxUses: 40,
   class: { id: 'grade-10-a', name: '10th Grade A', level: 'GRADE_10', isActive: true, status: 'ACTIVE' },
 }
 const valid = { token, firstName: 'Mina', lastName: 'Botros', birthDate: '2011-04-12', cellPhone: '201-555-0123', guardianPhone: '201-555-0199' }
@@ -106,7 +106,7 @@ describe('class contact-update QR', () => {
   })
 
   it.each([
-    { revokedAt: new Date() }, { expiresAt: new Date(0) }, { useCount: 40 },
+    { revokedAt: new Date() }, { expiresAt: new Date(0) }, { createdAt: new Date(Date.now() - 3 * 3600_000) },
     { sundaySchoolYear: { status: 'CLOSED' } }, { class: { ...link.class, isActive: false } },
   ])('refuses unusable links: %j', async overrides => {
     mocks.findLink.mockResolvedValue({ ...link, ...overrides })
@@ -114,15 +114,21 @@ describe('class contact-update QR', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('rechecks expiry, cap, revocation, stored purpose and open year atomically', async () => {
+  it('rechecks two-hour expiry, revocation, stored purpose and open year atomically', async () => {
     mocks.claim.mockResolvedValue({ count: 0 })
     expect((await POST(request())).status).toBe(410)
     expect(mocks.claim).toHaveBeenCalledWith({ where: {
       id: link.id, classId: link.classId, contactUpdateOnly: true,
-      revokedAt: null, expiresAt: { gt: expect.any(Date) }, useCount: { lt: 40 },
+      revokedAt: null, expiresAt: { gt: expect.any(Date) }, createdAt: { gt: expect.any(Date) },
       class: { isActive: true, status: 'ACTIVE' }, sundaySchoolYear: { status: 'OPEN' },
     }, data: { useCount: { increment: 1 } } })
     expect(mocks.findChildren).not.toHaveBeenCalled()
+  })
+
+  it('accepts contact submissions beyond the old total cap', async () => {
+    mocks.findLink.mockResolvedValue({ ...link, maxUses: 1, useCount: 500 })
+    expect((await POST(request())).status).toBe(200)
+    expect(mocks.claim.mock.calls[0][0].where).not.toHaveProperty('useCount')
   })
 
   it('rate limits repeated name attempts even when the birth date changes, without raw PII in keys', async () => {
@@ -147,7 +153,7 @@ describe('class contact-update QR', () => {
     const response = await GET(new NextRequest(`http://localhost/api/public/roster-signup?token=${token}&classId=grade-11`))
     expect(await response.json()).toEqual({
       className: '10th Grade A', levelLabel: '10th Grade', label: null,
-      contactUpdateOnly: true, expiresAt: link.expiresAt.toISOString(), remainingUses: 40,
+      contactUpdateOnly: true, expiresAt: link.expiresAt.toISOString(),
     })
     expect(mocks.findChildren).not.toHaveBeenCalled()
   })

@@ -11,6 +11,7 @@ import { hashRosterLinkToken } from '@/lib/sunday-school-roster-link-token'
 import {
   isRosterLinkTokenShaped,
   rosterLinkState,
+  rosterLinkExpiresAt,
 } from '@/lib/sunday-school-roster-link'
 import {
   normalizeRosterBirthDate,
@@ -61,6 +62,7 @@ async function loadLinkByToken(token: unknown) {
       sundaySchoolYearId: true,
       label: true,
       contactUpdateOnly: true,
+      createdAt: true,
       sundaySchoolYear: { select: { status: true } },
       expiresAt: true,
       maxUses: true,
@@ -107,9 +109,8 @@ export async function GET(request: Request) {
       className: link.class.name,
       levelLabel: getLevelDisplayName(link.class.level),
       label: link.label,
-      expiresAt: link.expiresAt,
-      remainingUses: link.maxUses - link.useCount,
-      ...(link.contactUpdateOnly ? { contactUpdateOnly: true } : {}),
+      expiresAt: rosterLinkExpiresAt(link),
+      ...(link.contactUpdateOnly ? { contactUpdateOnly: true } : { remainingUses: link.maxUses - link.useCount }),
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error: unknown) {
     return handleApiError(error)

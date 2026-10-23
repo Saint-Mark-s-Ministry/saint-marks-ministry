@@ -30,14 +30,24 @@ describe('contact QR link management', () => {
     expect(response.status).toBe(201)
     const data = await response.json()
     expect(data.contactUpdateOnly).toBe(true)
+    expect(data.maxUses).toBeNull()
     expect(data.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(mocks.access).toHaveBeenCalledWith({ id: 'servant', role: 'SERVANT' }, 'academic-year')
     expect(mocks.serve).toHaveBeenCalledWith(expect.anything(), 'class-10')
     const stored = mocks.create.mock.calls[0][0].data
     expect(stored).toMatchObject({ classId: 'class-10', sundaySchoolYearId: 'ss-year', contactUpdateOnly: true, maxUses: 40, createdById: 'servant' })
+    expect(stored.expiresAt.getTime() - Date.now()).toBeGreaterThan(7_190_000)
+    expect(stored.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(7_200_000)
     expect(stored.tokenHash).toMatch(/^[a-f0-9]{64}$/)
     expect(JSON.stringify(stored)).not.toContain(data.token)
   })
+  it('always uses two hours without a submission cap, regardless of old client settings', async () => {
+    await POST(request({ classId: 'class-10', contactUpdateOnly: true, expiresInHours: 168, maxUses: 1 }))
+    const stored = mocks.create.mock.calls[0][0].data
+    expect(stored.expiresAt.getTime() - Date.now()).toBeGreaterThan(7_190_000)
+    expect(stored.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(7_200_000)
+  })
+
   it('denies minting and listing for an unassigned caller even with a prep role', async () => {
     mocks.auth.mockResolvedValue({ id: 'prep-leader', role: 'SERVANT_PREP' })
     mocks.serve.mockReturnValue(false)

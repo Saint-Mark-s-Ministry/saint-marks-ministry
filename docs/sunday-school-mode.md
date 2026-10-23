@@ -763,13 +763,14 @@ phone and/or a parent or guardian phone. The birth date must already be on the
 roster. Ask a servant when it is missing, the identity is ambiguous, or a saved
 number needs correction.
 
-Contact links reuse the roster link lifecycle: hashed random token, eight-hour
-default expiry (one week maximum), forty submissions by default (200 maximum),
-and immediate **Close link**. Their `contactUpdateOnly` database field is the
+Contact links use a hashed random token, expire exactly two hours after
+creation, and have no total submission limit. **Close link** revokes them
+immediately. The server fixes this lifetime regardless of client settings and
+applies the two-hour ceiling to previously issued contact links as well. Their `contactUpdateOnly` database field is the
 server-side purpose; it cannot be changed through the public request. The link's
-class and open year are checked on submission, including the atomic use claim.
-Every accepted attempt consumes a use, even if there is no unique matching
-child. No child is created or enrolled. Only null/empty child `cellPhone` and
+class and open year are checked on submission, including the atomic expiry/revocation check.
+Submission counts are retained for servants but never exhaust a contact link,
+even when no unique child matches. No child is created or enrolled. Only null/empty child `cellPhone` and
 `guardianPhone` are filled, with guarded writes protecting concurrent servant
 edits. Family relationships, shared family details and siblings are untouched;
 family matching is not run from this flow.
@@ -787,3 +788,14 @@ Apply `20261023170000_roster_contact_update_links` alongside the other pending
 weekly-release migrations before deploying this code. See the
 [combined release checklist](releases/2026-10-19.md). Existing issued sign-up
 links retain their behavior and default to `contactUpdateOnly = false`.
+
+
+### Shared modal resizing
+
+Standard dialogs and confirmation dialogs animate intrinsic width/height changes
+through `useAnimatedSize` and `observeAnimatedSize`. Custom Radix modal layouts
+use the unstyled `DialogSurface` from `components/ui/dialog` to share this behavior
+without changing their layout. The animation measures layout dimensions, retargets
+when content changes mid-animation, retains authored dimensions and viewport caps,
+and disables motion for `prefers-reduced-motion`. Do not add per-dialog height
+constants or wrappers to animate expanding forms.

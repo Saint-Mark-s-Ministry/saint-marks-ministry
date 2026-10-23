@@ -10,6 +10,9 @@ import {
   resolveRosterLinkExpiry,
   resolveRosterLinkMaxUses,
   rosterLinkState,
+  rosterLinkExpiresAt,
+  ROSTER_CONTACT_LINK_HOURS,
+  ROSTER_LINK_DEFAULT_MAX_USES,
   ROSTER_LINK_MAX_HOURS,
   ROSTER_LINK_MAX_LABEL_LENGTH,
   ROSTER_LINK_MAX_USES,
@@ -55,8 +58,8 @@ function linkResponse(link: LinkRow) {
     id: link.id,
     label: link.label,
     contactUpdateOnly: link.contactUpdateOnly,
-    expiresAt: link.expiresAt,
-    maxUses: link.maxUses,
+    expiresAt: rosterLinkExpiresAt(link),
+    maxUses: link.contactUpdateOnly ? null : link.maxUses,
     useCount: link.useCount,
     revokedAt: link.revokedAt,
     createdAt: link.createdAt,
@@ -153,7 +156,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Contact updates require an open Sunday School year' }, { status: 409 })
     }
 
-    const expiresAt = resolveRosterLinkExpiry(body.expiresInHours)
+    const expiresAt = resolveRosterLinkExpiry(contactUpdateOnly ? ROSTER_CONTACT_LINK_HOURS : body.expiresInHours)
     if (!expiresAt) {
       return NextResponse.json(
         { error: `A sign-up link must last between 1 and ${ROSTER_LINK_MAX_HOURS} hours` },
@@ -161,7 +164,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const maxUses = resolveRosterLinkMaxUses(body.maxUses)
+    // The legacy sign-up column remains populated for compatibility, but it
+    // is ignored for contact links by state checks and submission writes.
+    const maxUses = contactUpdateOnly ? ROSTER_LINK_DEFAULT_MAX_USES : resolveRosterLinkMaxUses(body.maxUses)
     if (maxUses === null) {
       return NextResponse.json(
         { error: `A sign-up link must allow between 1 and ${ROSTER_LINK_MAX_USES} sign-ups` },
@@ -194,7 +199,7 @@ export async function POST(request: Request) {
       entityType: 'SundaySchoolRosterLink',
       entityId: link.id,
       result: 'SUCCESS',
-      metadata: { classId, contactUpdateOnly, className: targetClass.name, maxUses, expiresAt: expiresAt.toISOString() },
+      metadata: { classId, contactUpdateOnly, className: targetClass.name, maxUses: contactUpdateOnly ? null : maxUses, expiresAt: expiresAt.toISOString() },
     })
 
     return NextResponse.json({ ...linkResponse(link), token }, { status: 201 })
