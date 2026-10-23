@@ -1,3 +1,4 @@
+import { fillImportedFamilyDetails, lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { createHash } from 'node:crypto'
 import { normalizeHomeAddress } from '@/lib/address'
 import { NextResponse } from 'next/server'
@@ -251,37 +252,38 @@ export async function POST(request: Request) {
       { firstName: row.firstName, lastName: row.lastName },
     ])).values())
 
-    const existingChildren = await prisma.sundaySchoolChild.findMany({
-      where: {
-        OR: uniqueNames.map(name => ({
-          firstName: { equals: name.firstName, mode: 'insensitive' as const },
-          lastName: { equals: name.lastName, mode: 'insensitive' as const },
-        })),
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        birthDate: true,
-        familyId: true,
-        classId: true,
-        class: { select: { name: true } },
-        enrollments: {
-          where: { sundaySchoolYearId: targetClass.sundaySchoolYearId },
-          select: {
-            id: true,
-            level: true,
-            status: true,
-            placements: {
-              where: { endedAt: null },
-              select: { id: true, classId: true },
+
+    const completed = await prisma.$transaction(async tx => {
+      await lockFamilyMatching(tx)
+      const existingChildren = await tx.sundaySchoolChild.findMany({
+        where: {
+          OR: uniqueNames.map(name => ({
+            firstName: { equals: name.firstName, mode: 'insensitive' as const },
+            lastName: { equals: name.lastName, mode: 'insensitive' as const },
+          })),
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          familyId: true,
+          classId: true,
+          class: { select: { name: true } },
+          enrollments: {
+            where: { sundaySchoolYearId: targetClass.sundaySchoolYearId! },
+            select: {
+              id: true,
+              level: true,
+              status: true,
+              placements: {
+                where: { endedAt: null },
+                select: { id: true, classId: true },
+              },
             },
           },
         },
-      },
-    })
-
-    const completed = await prisma.$transaction(async tx => {
+      })
       const rosterImport = await tx.sundaySchoolRosterImport.create({
         data: {
           sundaySchoolYearId: targetClass.sundaySchoolYearId!,
@@ -296,6 +298,7 @@ export async function POST(request: Request) {
       })
 
       const resultRows: ImportResultRow[] = []
+      const matchingChildIds: string[] = []
       const seen = new Set<string>()
       let createdRows = 0
       let matchedRows = 0
@@ -324,8 +327,8 @@ export async function POST(request: Request) {
       }
 
       const importFamily = async (row: SundaySchoolRosterCsvRow, familyId?: string | null) => {
-        // Update only supplied values. Keep the child's existing household link;
-        // never infer sibling links from a shared name, address, or phone.
+        // Existing shared values win; submitted differences remain available
+        // for review. New family records are consolidated after all rows save.
         const data = {
           ...(row.familyName ? { name: row.familyName } : {}),
           ...(row.homeAddress ? { homeAddress: row.homeAddress } : {}),
@@ -338,7 +341,7 @@ export async function POST(request: Request) {
         }
         if (Object.keys(data).length === 0) return familyId
         if (familyId) {
-          await tx.sundaySchoolFamily.update({ where: { id: familyId }, data })
+          await fillImportedFamilyDetails(tx, familyId, data, user.id, { importId: rosterImport.id, rowNumber: row.rowNumber })
           return familyId
         }
         const family = await tx.sundaySchoolFamily.create({ data })
@@ -453,6 +456,7 @@ export async function POST(request: Request) {
             })
           }
 
+          matchingChildIds.push(existingChild.id)
           matchedRows += 1
           await record(row, 'MATCHED', 'Matched an existing child', existingChild.id, resolvedEnrollment.id)
           continue
@@ -496,11 +500,14 @@ export async function POST(request: Request) {
           },
         })
 
+        matchingChildIds.push(child.id)
         createdRows += 1
         await record(row, 'CREATED', null, child.id, enrollment.id)
       }
 
+      const familyMatching = await matchSundaySchoolFamilies(tx, { childIds: matchingChildIds, actorUserId: user.id })
       const summary: Prisma.InputJsonObject = {
+        familyMatching,
         className: targetClass.name,
         createdRows,
         matchedRows,
@@ -521,7 +528,7 @@ export async function POST(request: Request) {
       })
 
       return { ...updated, rows: resultRows }
-    })
+    }, { timeout: 30_000 })
 
     return NextResponse.json(importResponse(completed), { status: 201 })
   } catch (error: unknown) {

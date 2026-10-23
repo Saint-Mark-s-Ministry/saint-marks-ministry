@@ -22,11 +22,20 @@ describe('dedicated servants meeting page', () => {
     }
   })
 
-  it('opens the meeting section for ordinary Elementary servants and links both attendance pages', () => {
+  it('opens the meeting section for ordinary Elementary servants', () => {
     render(<MeetingsPage />)
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:list')
-    expect(screen.getByRole('link', { name: 'Servants meetings' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Class attendance' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance')
+  })
+
+  it('offers priests and admins a dedicated history entry point', () => {
+    mocks.dashboard.standing = { isAdmin: true, readOnly: false }
+    render(<MeetingsPage />)
+    expect(screen.getByRole('link', { name: 'Attendance history' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance/meetings/history')
+  })
+
+  it('does not offer ministry-wide history to ordinary servants', () => {
+    render(<MeetingsPage />)
+    expect(screen.queryByRole('link', { name: 'Attendance history' })).not.toBeInTheDocument()
   })
 
   it('supports direct links to a recorded session', () => {

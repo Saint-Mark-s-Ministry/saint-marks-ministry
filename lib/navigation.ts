@@ -5,8 +5,8 @@ import {
   BookOpen,
   BookOpenText,
   ContactRound,
-  Cake,
   CalendarCheck,
+  ChartLine,
   ClipboardCheck,
   ClipboardList,
   Clock,
@@ -18,8 +18,8 @@ import {
   Home,
   Inbox,
   Layers,
-  NotebookPen,
   MessageSquare,
+  Megaphone,
   Presentation,
   School,
   Settings,
@@ -61,6 +61,10 @@ export interface NavItem {
   tab?: boolean
   /** Short label for the tab bar, when the full one is too long. */
   tabLabel?: string
+  /** Other paths that belong to this destination, such as a hub's tab pages. */
+  also?: string[]
+  /** Something waiting there (e.g. classes missing attendance), shown as a count. */
+  badge?: number
 }
 
 export interface NavGroup {
@@ -128,13 +132,13 @@ const SHARED_PAGES = new Set(['/settings', '/dashboard', '/dashboard/contact-boo
 
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
- * shared pages; someone with both follows the path and uses their default on
- * account settings.
+ * shared pages; someone with both keeps their selected ministry on shared pages,
+ * falling back to their default when no preference has been saved.
  */
-export function resolveMinistry(user: NavUser, pathname: string): Ministry {
+export function resolveMinistry(user: NavUser, pathname: string, preferred?: Ministry): Ministry {
   const options = availableMinistries(user)
   if (options.length === 1) return options[0].id
-  if (SHARED_PAGES.has(pathname)) return options[0].id
+  if (SHARED_PAGES.has(pathname)) return options.find(option => option.id === preferred)?.id ?? options[0].id
   return ministryForPath(pathname)
 }
 
@@ -172,40 +176,63 @@ function prepAdminNav(role: UserRole): NavGroup[] {
 function sundaySchoolNav(user: NavUser): NavGroup[] {
   const role = user.role
   const ssAdmin = canAdministerSundaySchool(role)
+  const coordinates = ssAdmin || (user.sundaySchool?.isCoordinator ?? false)
 
-  const servants: NavItem[] = [{ href: '/dashboard/servants/classes', label: 'Classes', icon: School }]
-  if (ssAdmin) servants.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
-  if (ssAdmin || user.sundaySchool?.isCoordinator) {
-    servants.push({ href: '/dashboard/servants/child-registrations', label: 'Child registrations', icon: UserPlus })
-  }
-  servants.push({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance', icon: CalendarCheck })
+  // One destination per job. Care, Lessons and Attendance are hubs: their
+  // tab pages keep their own URLs so old links and notifications still work.
+  const main: NavItem[] = [
+    { href: '/dashboard/servants', label: 'Home', icon: Home, tab: true },
+    {
+      href: '/dashboard/servants/attendance',
+      label: 'Attendance',
+      icon: ClipboardCheck,
+      tab: true,
+      also: ['/dashboard/servants/servant-attendance'],
+    },
+    { href: '/dashboard/servants/roster', label: 'Children', icon: Users, tab: true, also: ['/dashboard/servants/children'] },
+    {
+      href: '/dashboard/servants/care',
+      label: 'Care',
+      icon: HandHeart,
+      also: ['/dashboard/servants/visitations', '/dashboard/servants/birthdays'],
+    },
+    {
+      href: '/dashboard/servants/lessons',
+      label: 'Lessons',
+      icon: Presentation,
+      tab: true,
+      also: user.sundaySchool?.hasHomeworkAccess ? ['/dashboard/servants/homework'] : undefined,
+    },
+  ]
+
+  const ministry: NavItem[] = coordinates
+    ? [
+        { href: '/dashboard/servants/classes', label: 'Classes & servants', icon: School },
+        { href: '/dashboard/servants/child-registrations', label: 'Registration requests', icon: UserPlus },
+        { href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck },
+        { href: '/dashboard/servants/reports', label: 'Reports', icon: ChartLine },
+      ]
+    : []
 
   const admin: NavItem[] = []
+  if (ssAdmin) admin.push({ href: '/dashboard/servants/age-groups', label: 'Age groups', icon: Layers })
   if (canReviewServantApplications(role)) {
     admin.push({ href: '/dashboard/servants/servant-applications', label: 'Servant applications', icon: HandHeart })
   }
   if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/users', label: 'Users', icon: UserCog })
   if (canManageAllUsers(role)) admin.push({ href: '/dashboard/servants/activity', label: 'Activity', icon: Activity })
 
-  const main: NavItem[] = [
-    { href: '/dashboard/servants', label: 'Dashboard', icon: Home, tab: true, tabLabel: 'Home' },
-    { href: '/dashboard/servants/lessons', label: 'Lessons', icon: Presentation, tab: true },
-    ...(user.sundaySchool?.hasHomeworkAccess
-      ? [{ href: '/dashboard/servants/homework', label: 'Homework', icon: NotebookPen }]
-      : []),
-    { href: '/dashboard/servants/attendance', label: 'Attendance', icon: ClipboardCheck, tab: true },
-    { href: '/dashboard/servants/roster', label: 'Roster', icon: Users, tab: true },
-    { href: '/dashboard/servants/birthdays', label: 'Birthdays', icon: Cake },
-    { href: '/dashboard/servants/visitations', label: 'Visitations', icon: HandHeart },
-  ]
-  const feedback: NavItem = { href: '/dashboard/servants/feedback', label: 'Feedback', icon: MessageSquare }
-  // Feedback is open to every servant; it sits with the admin tools only when
-  // there are admin tools, so a servant never sees an "Admin" heading.
-  if (admin.length > 0) admin.push(feedback)
-  else main.push(feedback)
-
-  const groups: NavGroup[] = [{ items: main }, { label: 'Servants', items: servants }]
+  const groups: NavGroup[] = [{ items: main }]
+  if (ministry.length > 0) groups.push({ label: 'Ministry', items: ministry })
   if (admin.length > 0) groups.push({ label: 'Admin', items: admin })
+  groups.push({
+    label: 'Community',
+    items: [
+      // Coordinators find meetings under Ministry; everyone else checks in and reviews them here.
+      ...(coordinates ? [] : [{ href: '/dashboard/servants/servant-attendance/meetings', label: 'Servants meetings', icon: CalendarCheck }]),
+      { href: '/dashboard/servants/feedback', label: 'Ideas & feedback', icon: MessageSquare },
+    ],
+  })
   return groups
 }
 
@@ -291,14 +318,28 @@ export function isNavItemActive(href: string, pathname: string, search = ''): bo
   return pathname === path || pathname.startsWith(path + '/')
 }
 
+/**
+ * The one nav item the current page belongs to: the most specific match
+ * across each item's own href and the pages listed in `also`.
+ */
+export function currentNavItem(groups: NavGroup[], pathname: string, search = ''): NavItem | null {
+  let best: NavItem | null = null
+  let bestLength = -1
+  for (const item of groups.flatMap((g) => g.items)) {
+    for (const href of [item.href, ...(item.also ?? [])]) {
+      if (!isNavItemActive(href, pathname, search)) continue
+      if (href.length > bestLength) {
+        best = item
+        bestLength = href.length
+      }
+    }
+  }
+  return best
+}
+
 /** The breadcrumb's page name for the current path, from the nav. */
 export function currentNavLabel(groups: NavGroup[], pathname: string, search = ''): string | null {
-  let best: NavItem | null = null
-  for (const item of groups.flatMap((g) => g.items)) {
-    if (!isNavItemActive(item.href, pathname, search)) continue
-    if (!best || item.href.length > best.href.length) best = item
-  }
-  return best?.label ?? null
+  return currentNavItem(groups, pathname, search)?.label ?? null
 }
 
 /** Super Admins use Users; the directory is for explicitly approved other users. */
@@ -308,5 +349,11 @@ export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }
+  const inSundaySchool = ministry === 'sunday-school' || user.role === 'SERVANT' || user.role === 'PARENT'
+  groups.push({ label: 'Updates', items: [{
+    href: inSundaySchool ? '/dashboard/servants/whats-new' : '/dashboard/whats-new',
+    label: 'What’s new',
+    icon: Megaphone,
+  }] })
   return groups
 }

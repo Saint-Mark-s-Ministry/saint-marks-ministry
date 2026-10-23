@@ -1,3 +1,5 @@
+import { withSundaySchoolFamilyDetails } from '@/lib/sunday-school-family'
+import { RoleTag, UserRole } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -8,7 +10,7 @@ import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from '@/lib/sunday-school-child-account'
 import { getChildPhotoUrl } from '@/lib/sunday-school-class'
-import { getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
+import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
 import { loadChildForUser } from '@/lib/sunday-school-child-access'
 import { calculateAttendanceFromRecords, countAttendanceStatuses } from '@/lib/attendance-utils'
 import type { StudentHistory } from '@/lib/student-history'
@@ -31,16 +33,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       where: { id },
       select: {
         id: true, firstName: true, lastName: true, notes: true, photoUrl: true,
-        level: true, birthDate: true, gender: true, isActive: true,
+        level: true, birthDate: true, gender: true, isActive: true, classId: true, visitationPriority: true,
         cellPhone: true, fatherOfConfession: true,
-        guardianName: true, guardianPhone: true, guardianEmail: true,
+        guardianName: true, guardianPhone: true, guardianEmail: true, familyDetailsOverrides: true,
         user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true, phone: true, email: true } },
         family: { select: {
           name: true, homeAddress: true,
           motherName: true, motherPhone: true, motherEmail: true,
           fatherName: true, fatherPhone: true, fatherEmail: true,
         } },
-        class: { select: { name: true } },
+        class: { select: { name: true, isActive: true, academicYear: { select: { isActive: true } } } },
         attendance: {
           where: { session: classScope },
           select: { id: true, status: true, notes: true, session: { select: { date: true, topic: true, class: { select: { name: true } } } } },
@@ -65,6 +67,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       photoUrl: getChildPhotoUrl(child),
       subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
       canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
+      care: { canEdit: !authorization.readOnly && !authorization.roleTags.has(RoleTag.PRIEST) && principal.role !== UserRole.PRIEST && child.isActive && Boolean(child.class?.isActive && child.class.academicYear.isActive && child.classId) && canServeClass(access, child.classId!) },
+      // Same rule as PATCH /visitations: people who serve the child's active class.
+      priority: {
+        value: child.visitationPriority,
+        canEdit: !authorization.readOnly && child.isActive && Boolean(child.classId) && canServeClass(access, child.classId!),
+      },
       // Contacts belong only to this authorized child-detail response, never summaries.
       profile: {
         className: child.class?.name ?? null,
@@ -76,7 +84,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         phone: child.cellPhone || child.user?.phone || null,
         email: child.user?.email ?? null,
         guardian: { name: child.guardianName, phone: child.guardianPhone, email: child.guardianEmail },
-        family: child.family,
+        family: withSundaySchoolFamilyDetails(child).family,
       },
       attendance: {
         kind: 'meetings', counts: countAttendanceStatuses(child.attendance), rate: calculateAttendanceFromRecords(child.attendance),

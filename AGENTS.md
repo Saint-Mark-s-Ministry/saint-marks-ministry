@@ -8,6 +8,7 @@ Deep references live in `docs/`:
 
 | Document | What it covers |
 |---|---|
+| [`docs/weekly-deployments.md`](docs/weekly-deployments.md) | Weekly release branches, the draft master PR, release validation, and urgent hotfixes |
 | [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
 | [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
@@ -37,6 +38,18 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 
 **Package manager: Bun.** Do not use `npm` or `yarn` — the lockfile is
 `bun.lock`.
+
+## Weekly deployment workflow
+
+Target normal feature/fix PRs at the active `release/YYYY-MM-DD` branch. Find
+that branch through the open draft weekly deployment master PR into `main`.
+Base new work on the release branch so it includes the week's accumulated
+changes, and update the master PR's tracking list when work is included.
+
+The master PR collects the week’s production release. Keep it in draft while
+collecting work; merging it into `main` is the production release step. Follow
+[`docs/weekly-deployments.md`](docs/weekly-deployments.md) for final validation,
+the next week's branch, and separately authorized urgent hotfixes.
 
 ## Commands
 
@@ -320,6 +333,11 @@ Do not add a role. Extend the assignment model — see
 
 ## Production
 
+When preparing a weekly deployment, add reviewed user-facing changes to
+`lib/release-notes.ts` in the same release. Use the actual deployment date and
+follow [`docs/release-notes.md`](docs/release-notes.md). History starts with the
+next deployment; do not infer historical deployment dates from Git commits.
+
 Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch
@@ -344,7 +362,7 @@ people. Local and preview share the production database, so elsewhere only
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 

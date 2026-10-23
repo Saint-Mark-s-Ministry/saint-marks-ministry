@@ -19,6 +19,8 @@ vi.mock('@/lib/swr', () => ({
   useLiturgicalCalendar: () => ({ data: undefined }),
   useLiturgicalDay: () => ({ data: undefined, isLoading: true }),
   useSundaySchoolLessons: () => ({ data: { lessons: [] } }),
+  useSundaySchoolFollowUps: () => ({ data: undefined }),
+  useSundaySchoolHomework: () => ({ data: undefined }),
   useSundaySchoolDashboard: () => ({
     data: mocks.dashboard,
     isLoading: false,
@@ -61,14 +63,17 @@ describe('Sunday School dashboard shortcuts', () => {
     }
   })
 
-  it('sends Take attendance straight to the only assigned class', () => {
+  it('gives a servant with one class a checklist for this week', () => {
     render(<SundaySchoolDashboardPage />)
     expect(screen.queryByRole('link', { name: 'Meeting check-in' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'This week' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute(
       'href',
       '/dashboard/servants/attendance?classId=class-8'
     )
-    expect(screen.getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
+    expect(screen.getByRole('link', { name: 'Open Care' })).toHaveAttribute('href', '/dashboard/servants/care')
+    // A servant with one class has no class list to manage.
+    expect(screen.queryByRole('heading', { name: 'Classes' })).not.toBeInTheDocument()
   })
 
   it('sends coordinators with several classes to the attendance picker and lists what is due', () => {
@@ -79,6 +84,7 @@ describe('Sunday School dashboard shortcuts', () => {
     }
     render(<SundaySchoolDashboardPage />)
     expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute('href', '/dashboard/servants/attendance')
+    expect(screen.getByRole('link', { name: 'Children in 8th Grade' })).toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
     expect(screen.getAllByRole('link', { name: 'Take' }).map((l) => l.getAttribute('href'))).toEqual([
       '/dashboard/servants/attendance?classId=class-7',
       '/dashboard/servants/attendance?classId=class-8',

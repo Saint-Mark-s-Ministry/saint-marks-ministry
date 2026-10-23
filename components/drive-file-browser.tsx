@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import type { DriveFile } from '@/lib/drive'
 import { mimeLabel, isFolder, formatSize, formatDate } from '@/lib/drive'
 import {
@@ -418,22 +419,12 @@ export default function DriveFileBrowser() {
         )}
       </div>
 
-      {/* Preview overlay */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.55)', touchAction: 'manipulation' }}
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-            style={{ height: 'min(85vh, 700px)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <PreviewPanel file={selected} onClose={() => setSelected(null)} />
-          </div>
-        </div>
-      )}
+      <Dialog open={Boolean(selected)} onOpenChange={open => { if (!open) setSelected(null) }}>
+        <DialogContent showCloseButton={false} aria-describedby={undefined} className="flex h-[min(85vh,700px)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+          <DialogTitle className="sr-only">{selected?.name ?? 'File preview'}</DialogTitle>
+          {selected && <PreviewPanel file={selected} onClose={() => setSelected(null)} />}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

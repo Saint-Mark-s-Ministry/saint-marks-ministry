@@ -80,6 +80,7 @@ export interface SundaySchoolFamilyChild {
 }
 
 export interface SundaySchoolFamily {
+  matchingHistory?: import('./sunday-school-family-matching').FamilyMatchingHistory | null
   id: string
   name: string | null
   homeAddress: string | null
@@ -254,6 +255,8 @@ export interface SundaySchoolVisitationChild {
   lastName: string
   visitations: SundaySchoolVisitationRecord[]
   phoneCalls: SundaySchoolPhoneCallRecord[]
+  /** Consecutive meetings marked absent, ending with the latest one. */
+  absentStreak?: { weeks: number; since: string | null }
 }
 
 export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
@@ -388,7 +391,8 @@ export interface SundaySchoolClassSummary {
 export interface SundaySchoolAttendanceTrendPoint {
   date: string
   attendedCount: number | null
-  rosterCount: number | null
+  recordedCount: number | null
+  recordedClassCount: number
   attendanceRate: number | null
 }
 
@@ -421,6 +425,8 @@ export interface SundaySchoolDashboard {
     coordinatesAnyAgeGroup: boolean
   }
   attendanceTrend: {
+    currentEnrolledCount: number | null
+    classCount: number
     audience: SundaySchoolAttendanceAudience
     points: SundaySchoolAttendanceTrendPoint[]
     academicYears: SundaySchoolAcademicYearOption[]

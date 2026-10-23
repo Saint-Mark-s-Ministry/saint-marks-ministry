@@ -4,6 +4,7 @@ import {
   resolveRosterLinkExpiry,
   resolveRosterLinkMaxUses,
   rosterLinkState,
+  rosterLinkExpiresAt,
   ROSTER_LINK_DEFAULT_HOURS,
   ROSTER_LINK_DEFAULT_MAX_USES,
   ROSTER_LINK_MAX_HOURS,
@@ -137,5 +138,22 @@ describe('resolveRosterLinkMaxUses', () => {
     expect(resolveRosterLinkMaxUses(ROSTER_LINK_MAX_USES + 1)).toBeNull()
     expect(resolveRosterLinkMaxUses(1.5)).toBeNull()
     expect(resolveRosterLinkMaxUses('lots')).toBeNull()
+  })
+})
+
+
+describe('contact link lifetime', () => {
+  const contact = { ...link({ maxUses: 1, useCount: 500 }), contactUpdateOnly: true, createdAt: now }
+  it('has no total submission cap', () => {
+    expect(rosterLinkState(contact, now)).toBe('ACTIVE')
+  })
+  it('expires exactly two hours after creation even for previously issued longer links', () => {
+    expect(rosterLinkExpiresAt(contact)).toEqual(new Date(now.getTime() + 2 * 3600_000))
+    expect(rosterLinkState(contact, new Date(now.getTime() + 2 * 3600_000 - 1))).toBe('ACTIVE')
+    expect(rosterLinkState(contact, new Date(now.getTime() + 2 * 3600_000))).toBe('EXPIRED')
+  })
+  it('honors earlier expiry and revocation', () => {
+    expect(rosterLinkState({ ...contact, expiresAt: now }, now)).toBe('EXPIRED')
+    expect(rosterLinkState({ ...contact, revokedAt: now }, now)).toBe('REVOKED')
   })
 })

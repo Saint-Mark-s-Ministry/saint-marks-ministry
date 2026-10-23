@@ -1,5 +1,6 @@
 'use client'
 
+import { useModalExit } from '@/hooks/use-modal-exit'
 import { Network, Phone } from 'lucide-react'
 import { ContactLink } from '@/components/contact-link'
 import { Initials } from '@/components/ds/person'
@@ -31,8 +32,9 @@ export function ServantContactDialog({
   onClose: () => void
   onViewOrganization: () => void
 }) {
+  const exit = useModalExit(onClose)
   return (
-    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+    <Dialog open={!exit.closing} onOpenChange={open => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-left">
           <div className="flex min-w-0 items-center gap-3 pr-8">
@@ -56,7 +58,7 @@ export function ServantContactDialog({
           )}
         </div>
 
-        <Button type="button" variant="outline" onClick={onViewOrganization}>
+        <Button type="button" variant="outline" onClick={() => exit.close(onViewOrganization)}>
           <Network />
           View organization
         </Button>

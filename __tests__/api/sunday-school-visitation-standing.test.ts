@@ -13,7 +13,7 @@ vi.mock('@/lib/sunday-school-access', () => ({
   canServeClass: vi.fn().mockReturnValue(true),
   canViewClass: vi.fn().mockReturnValue(true),
 }))
-vi.mock('@/lib/prisma', () => ({ prisma: { sundaySchoolClass: { findMany: mocks.classes } } }))
+vi.mock('@/lib/prisma', () => ({ prisma: { sundaySchoolClass: { findMany: mocks.classes }, sundaySchoolSession: { findMany: async () => [] } } }))
 import { GET } from '@/app/api/sunday-school/visitations/route'
 
 beforeEach(() => {

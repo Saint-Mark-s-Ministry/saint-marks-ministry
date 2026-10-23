@@ -42,7 +42,7 @@ export function SundaySchoolRecentAttendanceChart({
       .slice(-8)
       .map(point => ({
         ...point,
-        notRecorded: point.rosterCount === null ? 0 : null,
+        notRecorded: point.recordedCount === null ? 0 : null,
       })),
     [throughDate, trend?.points]
   )
@@ -85,7 +85,7 @@ export function SundaySchoolRecentAttendanceChart({
             <div
               className="h-56 w-full"
               role="img"
-              aria-label={`Recent attendance and roster for ${className}`}
+              aria-label={`Recent attendance for ${className}`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={recentPoints} margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
@@ -126,7 +126,7 @@ export function SundaySchoolRecentAttendanceChart({
                               day: 'numeric',
                             })}
                           </p>
-                          {point.rosterCount === null ? (
+                          {point.recordedCount === null ? (
                             <p className="mt-2 font-medium text-amber-600 dark:text-amber-400">
                               Attendance not recorded
                             </p>
@@ -137,8 +137,11 @@ export function SundaySchoolRecentAttendanceChart({
                                 <strong className="tabular-nums">{point.attendedCount}</strong>
                               </p>
                               <p className="flex justify-between gap-6">
-                                <span className="text-gray-500 dark:text-gray-400">On roster</span>
-                                <strong className="tabular-nums">{point.rosterCount}</strong>
+                                <span className="text-gray-500 dark:text-gray-400">Attendance recorded</span>
+                                <strong className="tabular-nums">{point.recordedCount}</strong>
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {point.recordedClassCount} of {trend?.classCount} classes with records
                               </p>
                             </div>
                           )}
@@ -159,8 +162,8 @@ export function SundaySchoolRecentAttendanceChart({
                   />
                   <Line
                     type="monotone"
-                    dataKey="rosterCount"
-                    name="On roster"
+                    dataKey="recordedCount"
+                    name="Attendance recorded"
                     stroke="var(--chart-roster)"
                     strokeWidth={2}
                     dot={false}
@@ -182,7 +185,8 @@ export function SundaySchoolRecentAttendanceChart({
               </ResponsiveContainer>
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
+              Attendance recorded counts saved marks, including absences; it can change as classes submit attendance.
+              Rates use recorded marks only. Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
             </p>
           </>
         )}

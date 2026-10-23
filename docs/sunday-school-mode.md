@@ -166,14 +166,26 @@ for the weeks before they joined. The formula itself is the app-wide
 `calculateAttendanceStats` (late counts half, excused excluded), shown as a
 plain rate with none of the graduation framing.
 
-**The dashboard trend uses each saved session as its historical roster
-snapshot.** Every mark saved for that class meeting counts toward the roster curve;
-`PRESENT` and `LATE` count toward the attended curve. Meetings with no saved
-marks stay as gaps so missing data is never presented as zero attendance. The
-reporting year begins on the first scheduled meeting strictly after September 11. Super
-admins and priests can filter the child trend to any class. The Servants chart
-is available to super admins, priests, and coordinators. Coordinators see only
-the classes they coordinate.
+**The dashboard separates enrollment from attendance recording.** The
+`Attendance recorded` curve counts saved marks (`recordedCount`), including
+absent and excused; `PRESENT` and `LATE` count toward the attended curve.
+`recordedClassCount` shows distinct classes with any saved marks that week,
+not classes with fully completed attendance. Missing marks are unknown, not
+absences; meetings with no marks stay as gaps. Trend rates divide attended
+by recorded marks, so they describe recorded attendance, not the whole ministry.
+
+For the active year’s child chart, `Current enrolled` is a dashed present-day
+reference using the same visible active classes and child counts as the top
+card, narrowed to the selected class when filtered. It remains visible when
+attendance has not been submitted. It is not historical enrollment and is
+omitted for past years and servant attendance. Current-year trends use active
+classes to match the top card; past-year trends retain inactive classes.
+The recent attendance chart uses the same labels and reference.
+
+The reporting year begins on the first scheduled meeting strictly after
+September 11. Super admins and priests can filter the child trend to any
+visible class. The Servants chart is available to super admins, priests, and
+coordinators. Coordinators see only the classes they coordinate.
 
 ## API routes
 
@@ -206,7 +218,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `servant-attendance` | GET | `SUPER_ADMIN`, direct class coordinator, or the class's age-group coordinator |
 | `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
 | `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
-| `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; priests may edit every class |
+| `visitations` | GET, POST | Read: scoped to visible classes; each child carries `absentStreak` (consecutive meetings marked absent over the last 26 weeks, same threshold as the absence notice). `?view=follow-up` returns only children who need follow-up (3+ absences in a row or starred), with just their latest call and completed visit and no notes; Home and Care use it. PATCH `{ childId, priority }` also backs the child profile's priority-visit button. Write: people who serve the child's class; priests may edit every class |
 | `phone-calls` | POST | People who serve the child's active class may log a call; priests may edit every class. Calls are returned in the scoped `visitations` GET response. |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
@@ -242,26 +254,85 @@ every write.
 
 Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 
+### Navigation: five places
+
+Everyday work lives in five places. On phones the first four are the tab bar
+(Home, Attendance, Children, Lessons) and Care sits under **More**, with a
+**Follow up** button on Children and a row on Home that lead to it.
+
+| Place | Pages (each keeps its own URL) |
+|---|---|
+| **Home** | `page.tsx` |
+| **Attendance** | `attendance/page.tsx` (Children tab) · `servant-attendance/page.tsx` (Servants tab, shown when the class allows it) |
+| **Children** | `roster/page.tsx` (the legacy `/children` URL still works) |
+| **Care** | `care/page.tsx` (Follow up) · `visitations/page.tsx` (Visits & calls) · `birthdays/page.tsx` (Birthdays) |
+| **Lessons** | `lessons/page.tsx` (Lessons) · `homework/page.tsx` (Homework, Elementary only) |
+
+A "hub" keeps its tab pages under one menu entry: `NavItem.also` in
+`lib/navigation.ts` lists the extra paths that should highlight it, and
+`currentNavItem()` picks the most specific match. The tab row itself is
+`components/sunday-school-hub-tabs.tsx`.
+
+Search (Ctrl/⌘+K) builds its Sunday School list from the same menu, adds each
+hub's tab pages, and keeps former page names (Roster, Visitations, Take
+attendance) as search keywords. Absence and confidential-note alerts open
+Visits & calls on that child (`?childId=`). The Attendance item shows a count
+of the person's classes still missing attendance for their last meeting (the
+same data as the reminder banner, so no extra request).
+
+Coordinators and super admins also get a **Ministry** group (Classes & servants,
+Registration requests, Servants meetings, Reports); super admins get **Admin**
+(Age groups, Servant applications, Users, Activity). Everyone else finds
+Servants meetings under **Community**, next to Ideas & feedback.
+
+### Class context: one class choice for every page
+
+The sidebar (desktop) and app bar (phone) show **Your class** for a single
+accessible class or a **Viewing class** picker for multiple classes. This context
+remains visible on shared pages, including Daily readings. The selected ministry
+is remembered per account for the browser session so shared pages and reloads
+keep the same navigation. A
+loading placeholder keeps the space visible until classes arrive. The picker
+lives in `components/sunday-school-viewing-picker.tsx`. Every class-scoped page reads
+it through `useViewingClassId()` in `lib/sunday-school-viewing.ts`, so a servant
+picks a class once instead of on each page. A link with `?classId=` wins and
+becomes the new choice once; after that the picker is in charge again. Pages
+that can list several classes (Home, Care, Birthdays, Lessons) also accept
+**All classes**; a one-class page (Attendance, Children, Visits & calls) opened
+on "All classes" picks a class and saves it, so the picker always names the
+class on screen. Someone with one class just sees its name. The choice is a
+display preference kept in `localStorage` (`sunday-school.viewing`), never an
+authority: every API still re-derives what the person may see and change.
+Pages do not add their own class picker, except Servant attendance and
+Homework, which list only the classes they apply to.
+
+### Pages
+
 | Page | Purpose |
 |---|---|
-| `page.tsx` | Landing: Children/Servants attendance chart, classes grouped by age group, attendance-due badges, totals |
-| `lessons/page.tsx` | Full academic-year schedule, My Lessons, past lessons, owner assignment, and multi-link editor |
+| `page.tsx` | Home. A servant with one class gets **This week**: lesson, attendance, homework (Elementary) and follow-up, each with its action, plus the class's 8-week trend. The Homework step's **Record** opens a one-tap Done / Not done list for the homework due at this meeting. Coordinators, priests and admins get **Needs you** (classes missing attendance for their last meeting, and each child needing follow-up with a Call or visit button), the class list grouped by age group, and the month calendar. Everyone gets Today in the Church and **Coming up** (lessons, feasts and fasts for four weeks). A one-time **simpler layout** note (`components/sunday-school-layout-intro.tsx`) explains the five places and the class picker; it is dismissed per person on each device and never by View as. "This week" follows each class's own meeting day (Saturday for Elementary). |
+| `reports/page.tsx` | Year totals and the Children/Servants attendance chart (moved off Home) |
+| `lessons/page.tsx` | Calendar view by default on desktop (with the church-calendar subscribe button); a list on phones, opening on upcoming weeks 8 at a time. Upcoming, I teach, and Past; teacher assignment and the multi-link editor. A calendar chip opens that week in the list (`?view=list&lesson=<id>`). **I'll teach it** volunteers for an open week in one tap. |
 | `homework/page.tsx` | Elementary-only weekly packages, named links, three-state roster tracking, and school-year history |
-| `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
-| `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
+| `attendance/page.tsx` | The core screen: previous/next meeting arrows, each child's last 6 meetings as dots (from the class history endpoint), mark each child, **Mark everyone else present**, then **Finish**, which marks anyone left unmarked absent. Marks autosave as drafts. Eight-week trend below. |
+| `servant-attendance/page.tsx` | Servants tab of Attendance for coordinators: mark Present/Absent for the week, batch save |
+| `servant-attendance/meetings/page.tsx` | Monthly servants meetings (Ministry group; servants reach check-in from Home) |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `roster/page.tsx` | Children: roster CRUD (Add child asks for the essentials; the rest is under **More details**) (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, class contact-update QR codes, and coordinator-only child-account linking. Tapping a name opens the child profile in a centered, scrollable modal with shared opening, closing and resize animations, with attendance rate, last visit and call, **Call mother/father/guardian**, a link to log a call or visit, and a priority-visit button for people who serve the class; tabs Family, Attendance, Care, Notes. |
+| `care/page.tsx` | Follow up: children absent 3+ meetings in a row (the absence-notice threshold), starred for a priority visit, or with a birthday in the next 7 days, one row per child with every reason. Built from the `visitations` response (which now includes each child's `absentStreak`) and the birthdays API; nothing is stored separately. |
 | `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
-| `visitations/page.tsx` | Per-child visitation status and separate dated phone-call follow-up history across the viewer's assigned class scope |
+| `visitations/page.tsx` | Per-child visitation status and dated phone-call history across the viewer's class scope. `?childId=` opens that child's record. |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
 Roster CSV imports add new children and update matched children using supplied
 nonblank values. Supported details include gender, birth date, child phone,
 father of confession, guardian contact, notes, household name/address, and
-mother/father names, phones, and emails. Existing household links are preserved;
-imports do not infer sibling links from matching contact details. The preview
+mother/father names, phones, and emails. Parent phone numbers automatically
+connect family records and fill missing shared information. Existing shared
+values are preserved and conflicts are retained for review. See
+[family matching](sunday-school-family-matching.md). The preview
 lists unrecognized columns so they are not silently discarded. Source files are
 not synced: upload a new CSV to apply later changes. Students missing from an
 upload remain on the roster.
@@ -281,7 +352,7 @@ legacy role is `MENTOR` or `SUPER_ADMIN`. Servants Prep servants keep Prep as
 their default. The switcher still gives access to the other ministry. A
 `SERVANT` has only one mode and sees no switcher.
 
-Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Student
+Parents see one card per child in `/dashboard/parent`: the next class's lesson and links, that child's homework and completion status, and the next few weeks. Student
 accounts use `/dashboard/student/class-lessons`. Active async prep students see
 the class explicitly linked to their active serving rotation in the active prep
 academic year; other students use their linked child record. Grade-only rotations
@@ -328,6 +399,24 @@ Sign-ups go straight onto the roster rather than into a review queue — unlike
 `ChildRegistrationRequest`, which is the *parent-account* path and still needs a
 coordinator to place the child. The QR is a kiosk sign-up sheet handed out by a
 servant who is in the room; the bounds above are what stand in for the review.
+
+## Learn names with flashcards
+
+On **Children**, use **Viewing class** to select a class and choose **Learn names**
+to practice matching faces to names. The deck includes every active child in that class with a roster
+photo or linked account photo, independent of the roster search and sorting.
+Reveal the name, then choose **Got it!** or **Practice again** to move to the next
+child. A progress bar, recall streak, and round summary make it a small memory
+game. Review just the names that need practice or play another round with everyone.
+Shuffle changes only the remaining cards and keeps the round's progress. It
+always shows a different child next when at least two unreviewed cards remain.
+The reveal and card transitions animate unless reduced motion is enabled.
+Children without photos are counted and skipped; add their photos through the
+existing roster photo controls. Closing the dialog starts a fresh session next
+time. Practice is local to the open dialog and saves no results.
+
+Flashcards reuse the authorized roster response and existing class access.
+They display only the photo and name, with no new API or database fields.
 
 ## Extending it
 
@@ -451,7 +540,29 @@ point is from [OpenStreetMap way 310223954](https://mapcarta.com/W310223954).
 Check-in does not require an external geocoder to be available. The venue is
 selected by the server, never supplied by the client; distance, position
 freshness and accuracy checks still apply.
-Coordinators retain attendance corrections without requiring location.
+Ordinary servants can only self check in, before and after their own attendance
+is recorded. Checking in never grants permission to mark another servant.
+The UI uses the explicit server-derived `canManageAttendance` permission for
+Present/Absent controls and bulk saves. Only the group's active band
+coordinators and accounts with a current Super Admin or Priest tag may manage
+meeting attendance or create sessions; class-only coordinators cannot. The API
+reloads these permissions for every write, independently of check-in status.
+Authorized managers retain attendance corrections without requiring location.
+
+Priests and super admins can open **Attendance history** from the Servants
+meetings page. `/dashboard/servants/servant-attendance/meetings/history` lists
+recorded meetings across all academic years and school groups, including
+archived groups, newest first with pagination. Selecting a meeting displays
+its saved present/absent marks and totals, including former servants. It does
+not add today's roster or count missing records as absences. This view is
+read-only and works without an active academic year or a current group assignment.
+
+`GET /api/sunday-school/servants-meetings/history` reloads current role tags
+and permits enabled priests and super admins only. `cursor` loads older pages;
+`meetingId` returns one saved meeting's attendance. Queries exclude future and
+unrecorded meetings, use explicit field selections, and return no contact
+information. Ordinary servants and coordinators retain their existing scoped
+meeting view and do not receive ministry-wide history access.
 
 `SundaySchoolServantsMeeting` and `SundaySchoolMeetingAttendance` remain the
 storage models. The roster combines active class and band assignments,
@@ -619,3 +730,129 @@ The personal reminder endpoint reloads database authorization and current direct
 assignments. It uses the active compatibility academic year and class roster,
 matching the attendance editor while Sunday School year backfills are reconciled.
 It returns class summaries only, without child or guardian information.
+
+
+### Class lesson calendar subscriptions
+
+Lessons → **Add lessons to calendar** creates a personal read-only calendar for
+one class. Choose the class, then use Apple Calendar/Outlook, Google Calendar,
+or copy the subscription URL. Google subscriptions must be added in a computer
+browser before they appear in its phone app. Calendar apps refresh on their own
+schedule; changes do not push instantly. PR #290's desktop month calendar and
+upcoming-first phone list are preserved.
+
+The **Add lessons to calendar** dialog has an unchecked **Also add the Coptic
+Orthodox calendar** option. Selecting it reveals Apple/Outlook, Google Calendar,
+Outlook.com and copy-link actions for Coptic.io’s public live subscription feed.
+These actions work independently of preparing a personal lesson URL, including
+in a local preview. Each calendar requires its own confirmation in the calendar
+app and can be shown, hidden or unsubscribed separately. The church feed never
+contains the personal lesson token or any class/user data. Refresh timing is
+controlled by the calendar provider. This option requires no schema or
+environment changes.
+
+Events contain class name, lesson date and title, classroom, and a link back to
+the lesson. Dates are all-day UTC calendar dates because lessons have no meeting
+time field. They exclude children, attendance, family contacts, teacher names,
+and resource URLs. Stable lesson UIDs let calendar apps update existing events.
+
+`POST /api/sunday-school/classes/[id]/lesson-calendar` requires a current session
+and fresh database class authority. It rejects View as and returns a signed,
+class-scoped URL under `/api/public/lesson-calendar/[token]`. The public read
+route needs no browser cookie, but reloads the owner and class authority on every
+fetch. Disabling an account, changing its password/auth version, archiving the
+class, removing class access, or rotating NEXTAUTH_SECRET invalidates the feed.
+Links expire 31 days after the class's academic year ends. A new academic year's
+class requires a new subscription. Keep links private: possession permits
+reading the limited lesson feed while the original owner's access remains valid.
+No database migration or new environment variable is required.
+
+Local preview links are reachable only from the development computer; phone
+subscriptions require deploying these routes on the app's public HTTPS origin.
+
+
+### Class contact update QR
+
+On **Children**, select one class and use **Contact update QR**. The roster
+sign-up QR action is hidden for now. The QR opens a mobile-friendly form bound
+to that class (including its section), with no roster list or grade selector.
+Children enter their own first name, last name and birth date, plus their own
+phone and/or a parent or guardian phone. The birth date must already be on the
+roster. Ask a servant when it is missing, the identity is ambiguous, or a saved
+number needs correction.
+
+Contact links use a hashed random token, expire exactly two hours after
+creation, and have no total submission limit. **Close link** revokes them
+immediately. The server fixes this lifetime regardless of client settings and
+applies the two-hour ceiling to previously issued contact links as well. Their `contactUpdateOnly` database field is the
+server-side purpose; it cannot be changed through the public request. The link's
+class and open year are checked on submission, including the atomic expiry/revocation check.
+Submission counts are retained for servants but never exhaust a contact link,
+even when no unique child matches. No child is created or enrolled. Only null/empty child `cellPhone` and
+`guardianPhone` are filled, with guarded writes protecting concurrent servant
+edits. Family relationships, shared family details and siblings are untouched;
+family matching is not run from this flow.
+
+Responses never reveal existing child/contact data or whether an identity
+matched. Rate limiting allows five attempts per name per link per fifteen
+minutes, with a separate 100-attempt network limit per link; names and network
+addresses are hashed in limiter keys. Audit records identify changed field
+names and the child/link, without phone or birth-date values. A shared QR is
+not proof of identity: a peer who knows a child's name and birth date could fill
+a blank phone field. Share during class and close afterward; use individual
+child tokens or servant review if stronger assurance is required.
+
+Apply `20261023170000_roster_contact_update_links` alongside the other pending
+weekly-release migrations before deploying this code. See the
+[combined release checklist](releases/2026-10-19.md). Existing issued sign-up
+links retain their behavior and default to `contactUpdateOnly = false`.
+
+
+### Shared modal resizing
+
+Standard dialogs and confirmation dialogs animate intrinsic width/height changes
+through `useAnimatedSize` and `observeAnimatedSize`. Custom Radix modal layouts
+use the unstyled `DialogSurface` from `components/ui/dialog` to share this behavior
+without changing their layout. The animation measures layout dimensions, retargets
+when content changes mid-animation, retains authored dimensions and viewport caps,
+and disables motion for `prefers-reduced-motion`. Do not add per-dialog height
+constants or wrappers to animate expanding forms.
+
+## Assigned child check-ins
+
+Care → Follow up includes **Assigned check-ins** for every active child in the
+current class view. Anyone who serves that class can choose or clear one
+responsible servant from its active direct class team. **Mine**, **Unassigned**,
+and **Not called this week** filters make the shared list actionable. Priests
+can review this list but cannot change these assignments.
+
+Responsibility is stored in `SundaySchoolChild.followUpAssignmentId`, referencing
+the existing year-bound `SundaySchoolServantAssignment`. It grants no class or
+contact access. Ended assignments, disabled servants, a different class, or an
+old academic year display as unassigned; deleting the staffing record clears
+the reference. Age-group-only coordinators are not assignment candidates unless
+they also have direct class staffing. Clearing responsibility preserves call
+and visitation history. A child can have only one current check-in servant.
+
+`GET /api/sunday-school/follow-up-assignments` returns scoped active classes,
+minimal child/servant names, and the latest call attempt this week. It excludes
+contacts, call notes, and confidential notes. `PUT` checks the current database
+principal, active class/year, and target staffing, then saves the responsibility
+and an audit event transactionally. It returns 409 on a serialization conflict.
+
+A week is Monday–Sunday in America/New_York, including daylight-saving changes.
+The status uses the existing phone-call log for the child's **current class**;
+no separate weekly checkbox or reset job exists. All outcomes (including no
+answer and voicemail) count as an attempt, and the actual outcome is shown.
+**Log call** opens a dialog on Care with a dated call form and the child’s call
+history. Saving immediately refreshes the weekly status; no page change is
+needed. Selecting a child’s name opens the existing profile dialog. Its **Calls & visits**
+action opens the Care tab within that same dialog, where calls, visits, and
+optional confidential visit notes can be recorded. Tap the profile photo to
+enlarge it without leaving the profile. A new week
+starts with no call logged until a call is recorded. Focus/reconnect and a
+one-minute refresh keep the shared list current.
+
+Apply `20261023200000_child_follow_up_assignment` explicitly before deploying this
+feature. It adds a nullable column, index, and `ON DELETE SET NULL` foreign key;
+it assigns no children automatically. Code rollback can retain this addition.

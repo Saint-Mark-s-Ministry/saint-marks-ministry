@@ -17,7 +17,7 @@ interface Meeting { id: string; date: string; title: string | null }
 interface MeetingData {
   meetings: Meeting[]
   meeting: Meeting | null
-  canEdit: boolean
+  canManageAttendance: boolean
   canCreate: boolean
   schedule?: string
   canCheckIn?: boolean
@@ -52,7 +52,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   const unmarked = roster.filter(person => !(marks[person.id] ?? person.status)).length
   const selectedMeeting = data?.meeting
   const canCheckIn = Boolean(data?.canCheckIn && selectedMeeting?.date.slice(0, 10) === today)
-  const canEdit = Boolean(data?.canEdit && selectedMeeting)
+  const canManageAttendance = Boolean(data?.canManageAttendance && selectedMeeting)
 
   async function checkIn() {
     if (!selectedMeeting || !data?.canCheckIn || selectedMeeting.date.slice(0, 10) !== getSundaySchoolTodayDateInputValue()) return
@@ -81,6 +81,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   }
 
   async function addMeeting() {
+    if (!data?.canCreate) return
     setBusy(true)
     try {
       const res = await fetch('/api/sunday-school/servants-meetings', {
@@ -101,7 +102,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
   }
 
   async function saveAttendance() {
-    if (!selectedMeeting || unmarked > 0) return
+    if (!canManageAttendance || !selectedMeeting || unmarked > 0) return
     setBusy(true)
     try {
       const res = await fetch('/api/sunday-school/servants-meetings', {
@@ -138,7 +139,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
       <p className="text-sm text-gray-600 dark:text-gray-400">Self check-in opens on the meeting date and requires location access within {MEETING_RADIUS_METERS} meters of {MEETING_ADDRESS}. Check-in closes at midnight New York time.</p>
       {error ? <p role="alert" className="text-sm text-red-600">Could not load meetings. <button className="underline" onClick={() => mutate()}>Try again</button></p>
         : isLoading ? <p className="text-sm text-gray-500">Loading meetings…</p> : null}
-      {adding && (
+      {adding && data?.canCreate && (
         <form className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); void addMeeting() }}>
           <div className="space-y-2"><Label htmlFor={`meeting-date-${ageGroupId}`}>Meeting date</Label>
             <Input id={`meeting-date-${ageGroupId}`} type="date" required max={getSundaySchoolTodayDateInputValue()} value={date} onChange={event => setDate(event.target.value)} disabled={busy} /></div>
@@ -173,7 +174,7 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
               const mark = marks[person.id] ?? person.status
               return <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <p className="font-medium">{person.name}</p>
-                {canEdit ? <div className="flex gap-2" role="group" aria-label={`Meeting attendance for ${person.name}`}>
+                {canManageAttendance ? <div className="flex gap-2" role="group" aria-label={`Meeting attendance for ${person.name}`}>
                   {(['PRESENT', 'ABSENT'] as const).map(value => <Button key={value} size="sm" disabled={busy}
                     variant={mark === value ? value === 'ABSENT' ? 'destructive' : 'default' : 'outline'} aria-pressed={mark === value}
                     onClick={() => setDraft({ meetingId: selectedMeeting.id, marks: { ...marks, [person.id]: value } })}>
@@ -183,10 +184,10 @@ export function SundaySchoolServantsMeetings({ ageGroupId, initialMeetingId }: {
               </div>
             })}
           </div>
-          {canEdit && roster.length > 0 && <Button onClick={saveAttendance} disabled={busy || unmarked > 0}>
+          {canManageAttendance && roster.length > 0 && <Button onClick={saveAttendance} disabled={busy || unmarked > 0}>
             <Save className="mr-1 h-4 w-4" />{busy ? 'Saving…' : 'Save meeting attendance'}
           </Button>}
-          {canEdit && unmarked > 0 && <p className="text-xs text-gray-500">Mark every servant present or absent before saving.</p>}
+          {canManageAttendance && unmarked > 0 && <p className="text-xs text-gray-500">Mark every servant present or absent before saving.</p>}
         </div>
       )}
     </section>

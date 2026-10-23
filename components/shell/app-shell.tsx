@@ -10,8 +10,9 @@ import {
   navigationFor,
   prepHome,
   resolveMinistry,
+  type Ministry,
 } from '@/lib/navigation'
-import { useDigitalExams } from '@/lib/swr'
+import { useDigitalExams, useSundaySchoolAttendanceReminders } from '@/lib/swr'
 import { clearContactBookFilters } from '@/hooks/useContactBookFilters'
 import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
@@ -40,7 +41,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (pathname !== '/dashboard/contact-book') clearContactBookFilters()
   }, [pathname])
   const router = useRouter()
-  const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user.role === 'STUDENT')
+  const { data: openExams } = useDigitalExams(status === 'authenticated' && session?.user?.role === 'STUDENT')
+  // Same request as the reminder banner, so the Attendance count costs nothing extra.
+  const { data: attendanceReminders } = useSundaySchoolAttendanceReminders(
+    status === 'authenticated' && pathname.startsWith('/dashboard/servants') ? session?.user?.id : undefined
+  )
+  const attendanceDue = attendanceReminders?.reminders.length ?? 0
   const [rail, setRail] = useState(false)
 
   useEffect(() => {
@@ -63,8 +69,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const [ministryContext, setMinistryContext] = useState<{ userId: string; ministry: Ministry } | null>(null)
   const user = session?.user
   const ministries = useMemo(() => (user ? availableMinistries(user) : []), [user])
+
+  // Shared pages such as Daily readings retain the ministry and class context.
+  // Scope the preference to this account, including when switching View as.
+  useEffect(() => {
+    if (!user) return
+    const storageKey = `active-ministry:${user.id}`
+    let preferred: Ministry | undefined
+    try {
+      const saved = window.sessionStorage.getItem(storageKey)
+      if (saved === 'prep' || saved === 'sunday-school') preferred = saved
+    } catch {
+      // Navigation still works when browser storage is unavailable.
+    }
+    const ministry = resolveMinistry(user, pathname, preferred)
+    setMinistryContext(previous => previous?.userId === user.id && previous.ministry === ministry
+      ? previous : { userId: user.id, ministry })
+    try { window.sessionStorage.setItem(storageKey, ministry) } catch { /* Storage is optional. */ }
+  }, [user, pathname])
 
   // Command+1–9 on macOS, Ctrl+1–9 elsewhere, switch ministries in menu order.
   useEffect(() => {
@@ -94,13 +119,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const ministry = resolveMinistry(user, pathname)
-  const groups = navigationFor(user, ministry).map(group => ({ ...group, items: group.items.filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length) }))
+  const ministry = resolveMinistry(user, pathname, ministryContext?.userId === user.id ? ministryContext.ministry : undefined)
+  const groups = navigationFor(user, ministry).map(group => ({
+    ...group,
+    items: group.items
+      .filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
+      .map(item => (item.href === '/dashboard/servants/attendance' && attendanceDue ? { ...item, badge: attendanceDue } : item)),
+  }))
   const page = currentNavLabel(groups, pathname)
   const roleLabel = `${getRoleDisplayName(user.role)}${user.isAsyncStudent ? ' · Async' : ''}`
   const shellUser = { name: user.name, role: user.role, roleLabel, imageUrl: user.profileImageUrl ?? user.image }
   const homeHref = ministry === 'sunday-school' ? (user.role === 'PARENT' ? '/dashboard/parent' : '/dashboard/servants') : prepHome(user.role)
   const showYear = ministry === 'prep' && user.role !== 'PARENT'
+  // Keep Sunday School class context visible on shared pages within this ministry.
+  const viewing = ministry === 'sunday-school' && user.role !== 'PARENT'
 
   return (
     // Phones: a fixed-height column (app bar, scrolling content, tab bar) so neither
@@ -121,9 +153,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         search=""
         user={shellUser}
         rail={rail}
+        viewing={viewing}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <MobileAppBar ministry={ministry} ministries={ministries} />
+        <MobileAppBar ministry={ministry} ministries={ministries} viewing={viewing} />
         <TopBar
           ministry={ministry}
           homeHref={homeHref}

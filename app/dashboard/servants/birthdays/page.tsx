@@ -24,6 +24,8 @@ import {
 } from '@/lib/sunday-school-birthdays'
 import { getChildFullName, getChildPhotoUrl, getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import type { SundaySchoolBirthdayChild, SundaySchoolClass } from '@/types/sunday-school'
+import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
+import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 
 const MONTH_OPTIONS = [
   { value: 'all', label: 'All months' },
@@ -36,7 +38,6 @@ export default function SundaySchoolBirthdaysPage() {
   const { data: classesData } = useSundaySchoolClasses()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [month, setMonth] = useState('all')
-  const [classId, setClassId] = useState('all')
 
   const classes = useMemo(
     () => sortClassesByAgeGroup(
@@ -45,6 +46,7 @@ export default function SundaySchoolBirthdaysPage() {
     ),
     [ageGroupsData, classesData]
   )
+  const [classId] = useViewingClassId(classes, { allowAll: true })
   const childrenWithBirthdays = useMemo(
     () => [...((data as SundaySchoolBirthdayChild[] | undefined) ?? [])].sort(compareBirthdays),
     [data]
@@ -53,7 +55,7 @@ export default function SundaySchoolBirthdaysPage() {
     () => childrenWithBirthdays.filter(child => {
       const birthday = child.birthDate ? getBirthdayParts(child.birthDate) : null
       return (
-        (classId === 'all' || child.classId === classId) &&
+        (classId === ALL_CLASSES || child.classId === classId) &&
         (month === 'all' || birthday?.month === Number(month))
       )
     }),
@@ -81,9 +83,10 @@ export default function SundaySchoolBirthdaysPage() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Birthdays"
+        title="Care"
         meta={['Children’s birthdays for the classes you serve']}
       />
+      <CareHubTabs />
 
       <Panel
         toolbar={
@@ -95,18 +98,6 @@ export default function SundaySchoolBirthdaysPage() {
                 value={month}
                 onChange={setMonth}
                 options={MONTH_OPTIONS}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-              Class
-              <FilterSelect
-                aria-label="Class"
-                value={classId}
-                onChange={setClassId}
-                options={[
-                  { value: 'all', label: 'All classes' },
-                  ...classes.map(classroom => ({ value: classroom.id, label: classroom.name })),
-                ]}
               />
             </label>
           </>

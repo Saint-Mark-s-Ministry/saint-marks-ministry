@@ -1,13 +1,15 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { UserRole } from '@prisma/client'
+import { SundaySchoolLevel, UserRole } from '@prisma/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   pathname: '/dashboard/servants',
+  classes: [] as { id: string; name: string; level: SundaySchoolLevel; isActive: boolean }[],
   push: vi.fn(),
   openExams: [] as { id: string }[],
-  user: {} as Record<string, unknown>,
+  reminders: [] as { classId: string }[],
+  user: {} as Record<string, unknown> | undefined,
   status: 'authenticated' as 'authenticated' | 'loading' | 'unauthenticated',
 }))
 
@@ -40,6 +42,9 @@ vi.mock('@/components/annual-mentor-reminder-banner', () => ({
 vi.mock('@/lib/swr', () => ({
   useDigitalExams: () => ({ data: { exams: mocks.openExams } }),
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
+  useSundaySchoolClasses: () => ({ data: mocks.classes }),
+  useSundaySchoolAttendanceReminders: (userId?: string) => ({ data: userId ? { reminders: mocks.reminders } : undefined }),
+  useSundaySchoolAgeGroups: () => ({ data: [] }),
 }))
 
 import { AppShell } from '@/components/shell/app-shell'
@@ -51,6 +56,8 @@ describe('AppShell', () => {
 
   beforeEach(() => {
     window.localStorage.clear()
+    mocks.reminders = []
+    mocks.classes = []
     window.sessionStorage.clear()
     mocks.pathname = '/dashboard/servants'
     mocks.status = 'authenticated'
@@ -65,6 +72,26 @@ describe('AppShell', () => {
     }
   })
 
+  it('keeps the Sunday School class visible when opening Daily readings', () => {
+    mocks.classes = [{ id: 'tenth', name: '10th Grade', level: SundaySchoolLevel.GRADE_10, isActive: true }]
+    const { rerender } = render(<AppShell>page</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+
+    mocks.pathname = '/dashboard/readings'
+    rerender(<AppShell>readings</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+    expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard/servants')
+  })
+
+  it('restores the Sunday School context when reloading Daily readings', () => {
+    mocks.classes = [{ id: 'tenth', name: '10th Grade', level: SundaySchoolLevel.GRADE_10, isActive: true }]
+    window.sessionStorage.setItem('active-ministry:priest-1', 'sunday-school')
+    mocks.pathname = '/dashboard/readings'
+    render(<AppShell>readings</AppShell>)
+    expect(within(sidebar()).getByRole('group', { name: 'Your class' })).toHaveTextContent('10th Grade')
+    expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/dashboard/servants')
+  })
+
   it('collapses and expands the sidebar and remembers the choice', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<AppShell>page</AppShell>)
@@ -74,7 +101,7 @@ describe('AppShell', () => {
     await user.click(collapse)
     expect(sidebar()).toHaveAttribute('data-rail', 'true')
     expect(window.localStorage.getItem('sidebar-rail')).toBe('1')
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toBeInTheDocument()
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toBeInTheDocument()
 
     unmount()
     render(<AppShell>page</AppShell>)
@@ -139,19 +166,24 @@ describe('AppShell', () => {
     expect(within(sidebar()).queryByRole('link', { name: 'Live Exam' })).not.toBeInTheDocument()
   })
 
-  it('offers priests servant attendance in Sunday School mode', () => {
+  it('counts classes still missing attendance on the Attendance menu item', () => {
+    mocks.user = { ...mocks.user, id: 'servant-1', role: UserRole.SERVANT, name: 'Mina Servant' }
+    mocks.reminders = [{ classId: 'a' }, { classId: 'b' }]
     render(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toHaveAttribute(
-      'href',
-      '/dashboard/servants/servant-attendance'
-    )
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance, 2 waiting' })).toHaveAttribute('href', '/dashboard/servants/attendance')
   })
 
-  it('shows servant attendance to a servant who is not a coordinator', () => {
+  it('files servant attendance under Attendance for priests', () => {
+    mocks.pathname = '/dashboard/servants/servant-attendance'
+    render(<AppShell>page</AppShell>)
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps ministry tools away from a servant who is not a coordinator', () => {
     mocks.user = { ...mocks.user, role: UserRole.SERVANT, name: 'Mina Servant' }
     render(<AppShell>page</AppShell>)
-    expect(within(sidebar()).getByRole('link', { name: 'Servant attendance' })).toBeInTheDocument()
-    expect(within(sidebar()).queryByRole('link', { name: 'Child registrations' })).not.toBeInTheDocument()
+    expect(within(sidebar()).getByRole('link', { name: 'Attendance' })).toBeInTheDocument()
+    expect(within(sidebar()).queryByRole('link', { name: 'Registration requests' })).not.toBeInTheDocument()
   })
 
   it('uses meaningful initials for long clerical names', () => {
@@ -164,8 +196,8 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/servants/roster'
     const { container } = render(<AppShell>page</AppShell>)
     expect(container.querySelector('[data-ministry]')).toHaveAttribute('data-ministry', 'sunday-school')
-    expect(within(sidebar()).getByRole('link', { name: 'Roster' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Sunday SchoolRoster')
+    expect(within(sidebar()).getByRole('link', { name: 'Children' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Sunday SchoolChildren')
   })
 
   it('lets someone in both ministries switch between them', async () => {
@@ -230,6 +262,13 @@ describe('AppShell', () => {
     render(<AppShell>page</AppShell>)
     expect(screen.queryByRole('complementary', { name: 'Main' })).not.toBeInTheDocument()
     expect(screen.getByText('page')).toBeInTheDocument()
+  })
+
+  it('does not crash on public pages when a revoked session has no user', () => {
+    mocks.pathname = '/login'
+    mocks.user = undefined
+    render(<AppShell>Sign in</AppShell>)
+    expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
   it('shows the active academic year in prep mode', () => {

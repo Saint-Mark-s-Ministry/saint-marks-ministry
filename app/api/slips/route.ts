@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { AttendanceStatus, LessonStatus, SlipType } from "@prisma/client"
 import { isAdmin, canManageData } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
+import { blobUploadTarget } from "@/lib/blob-upload"
 
 const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "application/pdf"]
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024 // Vercel's server upload limit
@@ -84,8 +85,10 @@ export async function POST(request: Request) {
 
     // Upload the photo, then write to the DB; a failed write deletes the orphaned blob
     const withUploadedFile = async <T>(write: (url: string) => Promise<T>) => {
-      const blob = await put(`slips/${type.toLowerCase()}/${studentId}-${Date.now()}-${file.name}`, file, {
+      const target = blobUploadTarget(`slips/${type.toLowerCase()}/${studentId}-${Date.now()}`, file)
+      const blob = await put(target.pathname, file, {
         access: "public",
+        contentType: target.contentType,
         addRandomSuffix: true,
         token: process.env.BLOB_READ_WRITE_TOKEN,
       })

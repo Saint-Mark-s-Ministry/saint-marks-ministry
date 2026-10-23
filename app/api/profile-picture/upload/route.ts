@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { canManageUsers, canServantPrepManageRole } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
+import { blobUploadTarget } from '@/lib/blob-upload'
 
 const ALLOWED_IMAGE_TYPES = [
   'image/png',
@@ -90,11 +91,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload to Vercel Blob
+    const target = blobUploadTarget(`profile-pictures/${targetUserId}-${Date.now()}`, file)
     const blob = await put(
-      `profile-pictures/${targetUserId}-${Date.now()}-${file.name}`,
+      target.pathname,
       file,
       {
         access: 'public',
+        contentType: target.contentType,
         addRandomSuffix: true,
         token: process.env.BLOB_READ_WRITE_TOKEN,
       }

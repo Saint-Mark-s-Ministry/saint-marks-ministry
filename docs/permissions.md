@@ -279,7 +279,7 @@ an omitted Prisma filter can accidentally mean unrestricted access.
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.
 
-### The one unauthenticated Sunday School route
+### Public Sunday School routes
 
 `app/api/public/roster-signup` has no session. It is reached with a temporary
 `SundaySchoolRosterLink` token and its authority comes entirely from that row:
@@ -288,6 +288,25 @@ from the request, so it can only ever write to the one roster the link was
 created for. It is bounded by `expiresAt`, `maxUses`, and `revokedAt`, returns
 nothing about the roster, and never overwrites a field a servant filled in.
 Minting a link requires `canServeClass`, exactly like adding a child by hand.
+
+The Children page now exposes only **Contact update QR**. These links have a
+stored `contactUpdateOnly` purpose. Neither request parameters nor form fields
+can change that purpose or destination. They require an exact first name, last
+name, and existing birth date for one active child in the link's class and an
+open Sunday School year. Only missing `cellPhone` and `guardianPhone` fields
+may be filled, with blankness and identity rechecked in each update. They cannot
+create/reactivate children, change placement, edit family records, or trigger
+family matching. No-match, duplicate-match, and already-filled submissions all
+return the same acknowledgement. Name and network attempt limits supplement
+the link’s fixed two-hour expiry and revocation. Contact links have no total
+submission cap; their use counter is informational only. Existing sign-up links retain their
+original behavior; the sign-up QR action is hidden for now.
+
+A shared class QR plus name/date of birth is **not identity verification**.
+Someone who knows a peer's details can submit a previously missing phone.
+Servants should distribute it during class and close it afterward. Corrections
+and uncertain identities go to a servant. Individual child tokens or servant
+approval would be needed for stronger identity assurance.
 
 It lives outside `app/api/sunday-school/` on purpose. If you add another public
 route, put it under `app/api/public/` too — the absence of a session should be
@@ -474,3 +493,31 @@ in every View as session, including one started by a priest.
 Apply `20261016171000_add_priest_view_as_access` before deploying this code.
 No account is enabled automatically; grants are made individually on Users.
 Allowing all roles reuses this existing field and needs no additional migration.
+
+
+## Class lesson calendar feeds
+
+The signed read-only endpoint `/api/public/lesson-calendar/[token]` allows phone
+calendar apps to fetch a single class's lesson dates, titles and classroom without
+browser cookies. A signed-in user requests their own scoped URL through
+`POST /api/sunday-school/classes/[id]/lesson-calendar`. View as may not mint links.
+Both routes re-derive class authority with `getSundaySchoolAccess` and
+`canViewClass` using the class's academic year. Prep roles alone grant no access.
+The public route also reloads the owner and requires the signed auth version,
+an enabled account without a forced password change, an active class, and an
+unexpired signature. Guardian contacts, child rosters, attendance, teacher names,
+resource URLs and pastoral notes are never part of the feed. See
+[the calendar runbook](sunday-school-mode.md#class-lesson-calendar-subscriptions).
+
+## Child check-in responsibility
+
+`/api/sunday-school/follow-up-assignments` reloads the current database principal
+and Sunday School class scope for every read/write. During compatibility it
+uses the active legacy academic-year staffing resolver. Class servants and
+coordinators may assign or clear responsibility only within their own active
+classes, and only to active direct class staffing in the same year. Super admins
+may manage every class. Priests may read this feature but may not change these
+assignments. A responsibility assignment never grants additional authority.
+Disabled accounts are denied, and guardian contacts and private notes are not
+returned. Tests cover stale JWT roles, out-of-scope classes, ended/disabled
+staffing, transfer, old-year assignments, and priest write denial.

@@ -2,377 +2,526 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardCheck, Layers } from 'lucide-react'
+import { BookOpen, CalendarCheck, Check, ClipboardCheck, HeartHandshake, NotebookPen } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
-import { KpiStrip } from '@/components/ds/kpi-strip'
 import { Panel } from '@/components/ds/panel'
 import { Segmented } from '@/components/ds/segmented'
 import { Metric } from '@/components/ds/metric'
 import { StatusBadge } from '@/components/ds/status-badge'
-import { EventLegend, MonthCalendar, monthGridDays, utcDayKey, type CalendarEvent } from '@/components/ds/calendar'
-import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendance-chart'
+import { LessonStatusBadge } from '@/components/sunday-school-lesson-status'
+import {
+  Agenda,
+  EventLegend,
+  MonthCalendar,
+  monthGridDays,
+  nextDays,
+  utcDayKey,
+  type CalendarEvent,
+} from '@/components/ds/calendar'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useLiturgicalCalendar, useSundaySchoolDashboard, useSundaySchoolLessons } from '@/lib/swr'
-import { formatUTC } from '@/lib/utils'
+import { useSundaySchoolDashboard, useSundaySchoolHomework, useSundaySchoolLessons, useSundaySchoolFollowUps } from '@/lib/swr'
+import { formatUTC, cn } from '@/lib/utils'
 import {
   compareAgeGroupsByLevel,
   compareClassesByLevelAndName,
+  getClassMeetingDay,
   getLevelDisplayName,
+  getMostRecentClassMeetingDate,
+  getNextClassMeetingDay,
+  getSundaySchoolTodayDateInputValue,
 } from '@/lib/sunday-school-class'
+import { ALL_CLASSES, useViewing, useViewingClassId } from '@/lib/sunday-school-viewing'
+import { buildFollowUps } from '@/lib/sunday-school-follow-up'
+import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import type {
-  SundaySchoolAttendanceAudience,
   SundaySchoolClassSummary,
   SundaySchoolDashboard,
+  SundaySchoolHomeworkResponse,
+  SundaySchoolVisitationsResponse,
+  SundaySchoolWeeklyLesson,
   SundaySchoolWeeklyLessonsResponse,
 } from '@/types/sunday-school'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
+import { SundaySchoolLayoutIntro } from '@/components/sunday-school-layout-intro'
+import { HomeworkRecordDialog } from '@/components/sunday-school-homework-record'
 import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-events'
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
-import { LiturgicalDateTags } from '@/components/liturgical/liturgical-date-tags'
 import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
 import { servantsMeetingGroups } from '@/lib/sunday-school-meeting-groups'
 
 const UNBANDED = '__unbanded__'
+const shortDate = (day: string) => formatUTC(day, { weekday: 'short', month: 'short', day: 'numeric' })
+
+function ChecklistRow({
+  icon: Icon,
+  title,
+  detail,
+  status,
+  done,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  detail: React.ReactNode
+  status?: React.ReactNode
+  done?: boolean
+  action?: React.ReactNode
+}) {
+  return (
+    <li className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center">
+      <span className="flex min-w-0 flex-1 items-start gap-3">
+        <span
+          className={cn(
+            'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
+            done ? 'bg-ok-tint text-ok' : 'bg-gold-tint text-gold'
+          )}
+        >
+          {done ? <Check className="size-4" strokeWidth={2.25} aria-hidden /> : <Icon className="size-4" aria-hidden />}
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-[14px] font-medium text-ink">{title}</span>
+            {status}
+          </span>
+          <span className="min-w-0 text-[13px] break-words text-ink-3">{detail}</span>
+        </span>
+      </span>
+      {action && <span className="flex shrink-0 pl-11 sm:pl-0 [&>*]:flex-1 sm:[&>*]:flex-none">{action}</span>}
+    </li>
+  )
+}
 
 export default function SundaySchoolDashboardPage() {
-  const { status } = useSundaySchoolGuard()
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>()
-  const [selectedClassId, setSelectedClassId] = useState<string>()
-  const [attendanceAudience, setAttendanceAudience] = useState<SundaySchoolAttendanceAudience>('children')
-  const { data, isLoading, isValidating } = useSundaySchoolDashboard(
-    selectedAcademicYearId,
-    selectedClassId,
-    attendanceAudience,
+  const { status, session } = useSundaySchoolGuard()
+  const [stored] = useViewing()
+  // The trend follows the class being viewed; the class list is the same either way.
+  const { data, isLoading } = useSundaySchoolDashboard(
+    undefined,
+    stored && stored !== ALL_CLASSES ? stored : undefined,
+    'children',
     { keepPreviousData: true }
   )
-
   const dashboard = data as SundaySchoolDashboard | undefined
+  const allClasses = useMemo(() => dashboard?.classes ?? [], [dashboard])
+  const [viewing] = useViewingClassId(allClasses, { allowAll: true })
+  const classes = useMemo(
+    () => (viewing === ALL_CLASSES ? allClasses : allClasses.filter((c) => c.id === viewing)),
+    [allClasses, viewing]
+  )
+
+  const today = getSundaySchoolTodayDateInputValue()
   const [month, setMonth] = useState(() => new Date())
   const [classView, setClassView] = useState<'all' | 'mine' | 'due'>('all')
-  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1)
-  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-  const { data: lessonsData } = useSundaySchoolLessons({
-    from: utcDayKey(new Date(Date.UTC(monthStart.getFullYear(), monthStart.getMonth(), 1 - 7))),
-    to: utcDayKey(new Date(Date.UTC(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate() + 7))),
-  })
-  const weeklyLessons = useMemo(() => (lessonsData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? [], [lessonsData])
+  // Lessons for the month on screen and the five weeks ahead, a week either side.
+  const WEEK = 7 * 24 * 60 * 60 * 1000
+  const lessonsFrom = utcDayKey(new Date(Math.min(new Date(month.getFullYear(), month.getMonth(), 1).getTime(), Date.now()) - WEEK))
+  const lessonsTo = utcDayKey(new Date(Math.max(new Date(month.getFullYear(), month.getMonth() + 1, 0).getTime(), Date.now() + 5 * WEEK) + WEEK))
+  const lessonRange = useMemo(() => ({ from: lessonsFrom, to: lessonsTo }), [lessonsFrom, lessonsTo])
+  const { data: lessonsData } = useSundaySchoolLessons(lessonRange)
+  const { data: followUpData } = useSundaySchoolFollowUps()
+  const scopeIds = useMemo(() => new Set(classes.map((c) => c.id)), [classes])
+  const lessons = useMemo(
+    () => ((lessonsData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []).filter((l) => scopeIds.has(l.classId)),
+    [lessonsData, scopeIds]
+  )
 
-  // Feasts and fasts for the month on screen.
-  const liturgicalDays = useMemo(() => monthGridDays(month), [month])
-  const liturgical = useLiturgicalCalendarOverlay(liturgicalDays)
+  // Feasts and fasts for the month on screen and the weeks coming up.
+  const upcomingDays = useMemo(() => nextDays(28), [])
+  const calendarDays = useMemo(() => [...new Set([...monthGridDays(month), ...upcomingDays])], [month, upcomingDays])
+  const liturgical = useLiturgicalCalendarOverlay(calendarDays)
 
-  // One calendar chip per Sunday: the lesson title when there is one class, else a count.
-  const events = useMemo<CalendarEvent[]>(() => {
-    const byDay = new Map<string, typeof weeklyLessons>()
-    for (const l of weeklyLessons) {
+  const lessonEvents = useMemo<CalendarEvent[]>(() => {
+    const byDay = new Map<string, SundaySchoolWeeklyLesson[]>()
+    for (const l of lessons) {
       const day = utcDayKey(l.sundayDate)
       byDay.set(day, [...(byDay.get(day) ?? []), l])
     }
-    const lessonEvents: CalendarEvent[] = [...byDay.entries()].map(([day, list]) => ({
+    return [...byDay.entries()].map(([day, list]) => ({
       id: `ss-${day}`,
       day,
       type: 'sunday-lesson' as const,
-      title: list.length === 1 ? list[0].title || list[0].class.name : `${list.length} class lessons`,
-      meta: `${list.filter((l) => l.status === 'READY').length} of ${list.length} ready`,
+      title: list.length === 1 ? list[0].title || `${list[0].class.name}: no lesson yet` : `${list.length} class lessons`,
+      meta:
+        list.length === 1
+          ? [list[0].class.name, list[0].owner ? `Teacher: ${list[0].owner.name}` : 'No teacher yet'].join(' · ')
+          : `${list.filter((l) => l.status === 'READY').length} of ${list.length} ready`,
       href: '/dashboard/servants/lessons',
     }))
-    return [...lessonEvents, ...liturgical.events]
-  }, [weeklyLessons, liturgical.events])
+  }, [lessons])
+  const events = [...lessonEvents, ...liturgical.events]
+
+  const servedClass = classes.length === 1 && classes[0].canServe ? classes[0] : undefined
+  // The class's own trend (its meeting day, not a generic week). Same request as above
+  // whenever that class is already the Viewing choice.
+  const { data: servedTrendData } = useSundaySchoolDashboard(undefined, servedClass?.id, 'children', { keepPreviousData: true })
+  const servedTrend = (servedTrendData as SundaySchoolDashboard | undefined)?.attendanceTrend
+  const homeworkClassId =
+    servedClass && session?.user?.sundaySchool?.hasHomeworkAccess && getClassMeetingDay(servedClass.level) === 6 ? servedClass.id : undefined
+  const { data: homeworkData, mutate: refreshHomework } = useSundaySchoolHomework(homeworkClassId)
+
+  const followUps = useMemo(() => {
+    const visitClasses = (followUpData as SundaySchoolVisitationsResponse | undefined)?.classes ?? []
+    return buildFollowUps(visitClasses.filter((c) => scopeIds.has(c.id)), [], today)
+  }, [scopeIds, today, followUpData])
 
   // An age-group coordinator runs several classes, so group the list by band.
-  // A servant with one class sees a single group and never notices.
   const grouped = useMemo(() => {
-    const classes = dashboard?.classes ?? []
     const buckets = new Map<string, { name: string; classes: SundaySchoolClassSummary[] }>()
-
     for (const cls of classes) {
       const key = cls.ageGroup?.id ?? UNBANDED
-      const name = cls.ageGroup?.name ?? 'Other classes'
-      if (!buckets.has(key)) buckets.set(key, { name, classes: [] })
+      if (!buckets.has(key)) buckets.set(key, { name: cls.ageGroup?.name ?? 'Other classes', classes: [] })
       buckets.get(key)!.classes.push(cls)
     }
-
-    for (const bucket of buckets.values()) {
-      bucket.classes.sort(compareClassesByLevelAndName)
-    }
-
-    const order = [...(dashboard?.ageGroups ?? [])]
-      .sort(compareAgeGroupsByLevel)
-      .map(group => group.id)
+    for (const bucket of buckets.values()) bucket.classes.sort(compareClassesByLevelAndName)
+    const order = [...(dashboard?.ageGroups ?? [])].sort(compareAgeGroupsByLevel).map((group) => group.id)
     return Array.from(buckets.entries()).sort((a, b) => {
       const ai = order.indexOf(a[0])
       const bi = order.indexOf(b[0])
       return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) - (bi === -1 ? Number.MAX_SAFE_INTEGER : bi)
     })
-  }, [dashboard])
-
-  // The coming Sunday's feasts and fast, from the same lessons the "This Sunday" panel lists.
-  const lessonsFrom = dashboard?.weekOf ? utcDayKey(dashboard.weekOf) : null
-  const comingSunday = lessonsFrom
-    ? (weeklyLessons.map((l) => utcDayKey(l.sundayDate)).filter((day) => day >= lessonsFrom).sort()[0] ?? null)
-    : null
-  const { data: sundayCalendar } = useLiturgicalCalendar(comingSunday ? [comingSunday] : [])
+  }, [classes, dashboard?.ageGroups])
 
   if (status === 'loading' || isLoading) {
     return <PageLoading />
   }
 
-  const totals = dashboard?.totals
   const standing = dashboard?.standing
-  const classCount = dashboard?.classes.length ?? 0
-  const singleClass = classCount === 1 ? dashboard?.classes[0] : undefined
-  const attendanceHref = singleClass
-    ? `/dashboard/servants/attendance?classId=${singleClass.id}`
-    : '/dashboard/servants/attendance'
+  const served = classes.filter((c) => c.canServe)
+  const coordinates = Boolean(standing?.isAdmin || standing?.coordinatesAnyAgeGroup || standing?.readOnly || classes.length > 1)
+  const attendanceHref = served.length === 1 ? `/dashboard/servants/attendance?classId=${served[0].id}` : '/dashboard/servants/attendance'
+  const due = classes.filter((c) => !c.attendanceTakenThisWeek)
 
-  const classes = dashboard?.classes ?? []
-  const due = classes.filter((c) => c.canServe && !c.attendanceTakenThisWeek)
-  const servants = new Set(classes.flatMap((c) => c.servants.map((sv) => sv.id))).size
-  const withSessions = classes.filter((c) => c.sessionCount > 0)
-  const totalKids = withSessions.reduce((n, c) => n + c.childCount, 0)
-  const ytd = totalKids > 0 ? withSessions.reduce((n, c) => n + c.attendancePercentage * c.childCount, 0) / totalKids : null
-  const weekOf = dashboard?.weekOf
-  const thisWeek = weekOf ? weeklyLessons.filter((l) => utcDayKey(l.sundayDate) >= utcDayKey(weekOf)).sort((a, b) => a.sundayDate.localeCompare(b.sundayDate)) : []
-  const nextSunday = thisWeek[0] ? utcDayKey(thisWeek[0].sundayDate) : null
-  const sundayLessons = nextSunday ? thisWeek.filter((l) => utcDayKey(l.sundayDate) === nextSunday) : []
+  // "This week" is the class's own meeting: Saturday for Elementary, Sunday for the rest.
+  const meetingFor = (cls: SundaySchoolClassSummary) => getNextClassMeetingDay(cls.level, today)
+  const weekLesson = servedClass
+    ? lessons.find((l) => l.classId === servedClass.id && utcDayKey(l.sundayDate) === meetingFor(servedClass))
+    : undefined
+  const lastMeeting = (cls: SundaySchoolClassSummary) => utcDayKey(getMostRecentClassMeetingDate(cls.level))
+  const homework = homeworkClassId ? (homeworkData as SundaySchoolHomeworkResponse | undefined) : undefined
+  const homeworkWeek = homework?.weeks.find(
+    (w) => w.class.id === homeworkClassId && utcDayKey(w.assignedDate) === meetingFor(servedClass!)
+  )
+  // The homework the children bring back at this meeting: the latest one due by then.
+  const dueHomework = homework?.weeks
+    .filter((w) => w.class.id === homeworkClassId && w.homework && !w.homework.archivedAt && utcDayKey(w.dueDate) <= meetingFor(servedClass!))
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]
+  const homeworkRoster = homework?.roster.filter((child) => !child.classId || child.classId === homeworkClassId) ?? []
+  const canRecordHomework = Boolean(homework?.classes.find((c) => c.id === homeworkClassId)?.canEdit && dueHomework?.homework && homeworkRoster.length)
+
   const visibleBands = grouped
     .map(([key, band]) => [
       key,
       {
         ...band,
-        classes: band.classes.filter((c) => (classView === 'mine' ? c.canServe : classView === 'due' ? c.canServe && !c.attendanceTakenThisWeek : true)),
+        classes: band.classes.filter((c) => (classView === 'mine' ? c.canServe : classView === 'due' ? !c.attendanceTakenThisWeek : true)),
       },
     ] as const)
     .filter(([, band]) => band.classes.length > 0)
 
+  const viewingClass = viewing !== ALL_CLASSES ? classes[0] : undefined
+  const meetingDays = new Set(classes.map((c) => getClassMeetingDay(c.level)))
+  const nextMeeting = classes.length ? classes.map(meetingFor).sort()[0] : null
+
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
-        title="Sunday School"
-        meta={[dashboard?.attendanceTrend?.academicYears.find((y) => y.id === dashboard.attendanceTrend.selectedAcademicYearId)?.name.replace('-', '–'), 'St. Mark Coptic Orthodox Church']}
+        title={viewingClass ? viewingClass.name : 'Sunday School'}
+        meta={[
+          viewingClass ? viewingClass.classroom || viewingClass.ageGroup?.name : allClasses.length > 1 ? `${classes.length} classes` : null,
+          nextMeeting
+            ? `Next ${meetingDays.size === 1 ? 'meeting' : 'class'} ${formatUTC(nextMeeting, { weekday: 'long', month: 'long', day: 'numeric' })}`
+            : null,
+        ]}
         actions={
           <>
-            {standing?.isAdmin && (
-              <Button asChild variant="outline">
-                <Link href="/dashboard/servants/age-groups">
-                  <Layers />
-                  Age groups
+            {servantsMeetingGroups(dashboard).map((group) => (
+              <SundaySchoolMeetingCheckInShortcut key={group.id} ageGroupId={group.id} />
+            ))}
+            {served.length > 0 && !servedClass && (
+              <Button asChild>
+                <Link href={attendanceHref}>
+                  <ClipboardCheck />
+                  Take attendance
                 </Link>
               </Button>
             )}
-            {servantsMeetingGroups(dashboard).map(group => (
-              <SundaySchoolMeetingCheckInShortcut key={group.id} ageGroupId={group.id} />
-            ))}
-            <Button asChild>
-              <Link href={attendanceHref}>
-                <ClipboardCheck />
-                Take attendance
-              </Link>
-            </Button>
           </>
         }
       />
 
-      <KpiStrip
-        items={[
-          { label: 'Classes', value: totals?.classes ?? 0, hint: `across ${dashboard?.ageGroups.length ?? 0} age groups` },
-          { label: 'Children', value: totals?.children ?? 0, hint: 'enrolled this year' },
-          {
-            label: 'Need attendance',
-            value: totals?.classesNeedingAttendance ?? 0,
-            hint: weekOf ? `classes from ${formatUTC(weekOf, { month: 'short', day: 'numeric' })}` : 'this week',
-            tone: (totals?.classesNeedingAttendance ?? 0) > 0 ? 'warn' : undefined,
-          },
-          { label: 'Attendance', value: ytd === null ? '—' : `${ytd.toFixed(0)}%`, hint: 'children, year to date' },
-          { label: 'Servants', value: servants, hint: 'assigned to classes' },
-        ]}
-      />
+      <SundaySchoolLayoutIntro />
 
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Panel
-          title="Calendar"
-          actions={
-            <>
-              <EventLegend types={['sunday-lesson', 'feast']} fastDays />
-              <CalendarSubscribeButton variant="ghost" />
-            </>
-          }
-          className="hidden md:block"
-        >
-          <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} />
-        </Panel>
-
-        {/* On desktop the calendar sets the row height; the summary scrolls within it. */}
-        <div className="relative min-w-0 xl:self-stretch">
-          <div className="flex min-w-0 flex-col gap-5 xl:absolute xl:inset-0">
-            <TodayInChurch className="shrink-0" />
-            <Panel
-              title="This Sunday"
-              className="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:[&>header]:shrink-0"
-              bodyClassName="xl:min-h-0 xl:flex-1 xl:overflow-y-auto"
-              description={
-                nextSunday ? (
-                  <span className="flex flex-col gap-1.5">
-                    {formatUTC(nextSunday, { weekday: 'long', month: 'long', day: 'numeric' })}
-                    <LiturgicalDateTags day={sundayCalendar?.[nextSunday]} />
-                  </span>
-                ) : undefined
-              }
-              actions={
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/dashboard/servants/lessons">Lessons</Link>
-                </Button>
-              }
-            >
-              {sundayLessons.length > 0 ? (
-                <ul className="divide-y divide-line">
-                  {sundayLessons.slice(0, 4).map((l) => (
-                    <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-[13.5px] font-medium text-ink">{l.title || 'Lesson not chosen yet'}</span>
-                        <span className="truncate text-xs text-ink-3">{l.class.name}</span>
-                      </span>
-                      {l.status === 'READY' ? <StatusBadge tone="ok">Ready</StatusBadge> : l.status === 'NEEDS_LINKS' ? <StatusBadge tone="warn">Needs links</StatusBadge> : <StatusBadge tone="neutral">Unassigned</StatusBadge>}
-                    </li>
-                  ))}
-                  {sundayLessons.length > 4 && <li className="px-4 py-2 text-xs text-ink-3">+{sundayLessons.length - 4} more classes</li>}
-                </ul>
-              ) : (
-                <EmptyState message="No weekly lessons scheduled yet." />
-              )}
-              {due.length > 0 && (
-                <div className="border-t border-line">
-                  <p className="px-4 pt-3 text-xs font-medium tracking-[0.06em] text-warn uppercase">
-                    Attendance still open{weekOf ? ` · ${formatUTC(weekOf, { month: 'short', day: 'numeric' })}` : ''}
-                  </p>
-                  <ul className="py-1">
-                    {due.slice(0, 6).map((c) => (
-                      <li key={c.id} className="flex items-center justify-between gap-2 px-4 py-1.5">
-                        <span className="truncate text-[13px] text-ink">
-                          {c.name} <span className="text-ink-3">· {c.ageGroup?.name ?? getLevelDisplayName(c.level)}</span>
-                        </span>
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/dashboard/servants/attendance?classId=${c.id}`}>Take</Link>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </Panel>
-          </div>
-        </div>
-      </div>
-
-      {classCount === 0 ? (
+      {allClasses.length === 0 ? (
         <Panel>
           <EmptyState
             message={
               standing?.isAdmin
-                ? 'No classes yet. Create one to start building a roster and taking attendance.'
+                ? 'No classes yet. Create one in Classes & servants to start building a roster and taking attendance.'
                 : 'You have not been assigned to a Sunday School class yet. Ask your coordinator or a super admin to add you.'
             }
           />
         </Panel>
       ) : (
-        <Panel
-          title="Classes"
-          description={`${classCount} classes · grouped by age group`}
-          actions={
-            <Segmented
-              label="Classes"
-              value={classView}
-              onChange={setClassView}
-              options={[
-                { value: 'all', label: 'All' },
-                { value: 'mine', label: 'Mine' },
-                { value: 'due', label: 'Attendance due', count: due.length },
-              ]}
-            />
-          }
-        >
-          {visibleBands.length === 0 ? (
-            <EmptyState message={classView === 'due' ? 'Every class you serve has attendance this week.' : 'No classes here.'} />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px] text-ink">
-                <thead className="bg-raised">
-                  <tr className="border-b border-line text-left text-xs text-ink-3">
-                    <th scope="col" className="h-9 px-4 font-medium">Class</th>
-                    <th scope="col" className="hidden px-3 font-medium md:table-cell">Level</th>
-                    <th scope="col" className="w-20 px-3 text-right font-medium">Children</th>
-                    <th scope="col" className="hidden px-3 font-medium lg:table-cell">Servants</th>
-                    <th scope="col" className="hidden w-40 px-3 font-medium md:table-cell">Attendance</th>
-                    <th scope="col" className="w-28 px-3 font-medium">This week</th>
-                    <th scope="col" className="w-36"><span className="sr-only">Actions</span></th>
-                  </tr>
-                </thead>
-                {visibleBands.map(([key, band]) => (
-                  <tbody key={key}>
-                    <tr className="border-b border-line bg-hover/40">
-                      <th scope="rowgroup" colSpan={7} className="px-4 py-1.5 text-left text-xs font-semibold text-ink-2">{band.name}</th>
-                    </tr>
-                    {band.classes.map((cls) => (
-                      <tr key={cls.id} className="h-11 border-b border-line last:border-0 hover:bg-hover/60">
-                        <td className="px-4">
-                          <Link href={`/dashboard/servants/classes/${cls.id}`} className="font-medium text-ink no-underline hover:underline">
-                            {cls.name}
-                          </Link>
-                          <span className="block break-words text-xs text-ink-3">Classroom: {cls.classroom || 'Not set'}</span>
-                          {cls.canCoordinate && !standing?.isAdmin && <StatusBadge tone="gold" dot={false} className="ml-2">Coordinator</StatusBadge>}
-                        </td>
-                        <td className="hidden px-3 text-ink-2 md:table-cell">{getLevelDisplayName(cls.level)}</td>
-                        <td className="tabular px-3 text-right">{cls.childCount}</td>
-                        <td className="hidden max-w-56 truncate px-3 text-ink-2 lg:table-cell" title={cls.servants.map((sv) => sv.name).join(', ')}>
-                          {cls.servants.length === 0 ? <span className="text-ink-3">None</span> : cls.servants.map((sv) => sv.name.split(' ')[0]).join(', ')}
-                        </td>
-                        <td className="hidden px-3 md:table-cell">{cls.sessionCount > 0 ? <Metric value={cls.attendancePercentage} width={48} /> : <span className="text-ink-3">—</span>}</td>
-                        <td className="px-3">
-                          {cls.attendanceTakenThisWeek ? <StatusBadge tone="ok">Taken</StatusBadge> : <StatusBadge tone="warn">Due</StatusBadge>}
-                        </td>
-                        <td className="px-3">
-                          <span className="flex justify-end gap-1">
-                            <Button asChild variant="ghost" size="sm">
-                              <Link href={`/dashboard/servants/roster?classId=${cls.id}`}>Roster</Link>
-                            </Button>
-                            {cls.canServe && (
-                              <Button asChild variant="outline" size="sm">
-                                <Link href={`/dashboard/servants/attendance?classId=${cls.id}`}>Attendance</Link>
-                              </Button>
-                            )}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                ))}
-              </table>
-            </div>
-          )}
-        </Panel>
-      )}
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {servedClass && (
+              <Panel
+                title="This week"
+                description={`${servedClass.name} · ${formatUTC(meetingFor(servedClass), { weekday: 'long', month: 'long', day: 'numeric' })}`}
+              >
+                <ul className="divide-y divide-line">
+                  <ChecklistRow
+                    icon={BookOpen}
+                    title="Lesson"
+                    done={weekLesson?.status === 'READY'}
+                    status={<LessonStatusBadge status={weekLesson?.status} />}
+                    detail={
+                      weekLesson
+                        ? `${weekLesson.title || 'No title yet'} · ${weekLesson.owner ? `Teacher: ${weekLesson.owner.name}` : 'No teacher yet'}`
+                        : 'No lesson is scheduled for this meeting.'
+                    }
+                    action={
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/dashboard/servants/lessons">Open lesson</Link>
+                      </Button>
+                    }
+                  />
+                  <ChecklistRow
+                    icon={ClipboardCheck}
+                    title="Attendance"
+                    done={servedClass.attendanceTakenThisWeek}
+                    status={servedClass.attendanceTakenThisWeek ? <StatusBadge tone="ok">Taken</StatusBadge> : <StatusBadge tone="warn">Due</StatusBadge>}
+                    detail={
+                      servedClass.attendanceTakenThisWeek
+                        ? `Saved for ${shortDate(lastMeeting(servedClass))}`
+                        : `${servedClass.childCount} children · for ${shortDate(lastMeeting(servedClass))}`
+                    }
+                    action={
+                      <Button asChild variant={servedClass.attendanceTakenThisWeek ? 'outline' : 'default'} size="sm">
+                        <Link href={`/dashboard/servants/attendance?classId=${servedClass.id}`}>
+                          {servedClass.attendanceTakenThisWeek ? 'Review' : 'Take attendance'}
+                        </Link>
+                      </Button>
+                    }
+                  />
+                  {homeworkClassId && (
+                    <ChecklistRow
+                      icon={NotebookPen}
+                      title="Homework"
+                      done={Boolean(homeworkWeek?.homework)}
+                      status={homeworkWeek?.homework ? <StatusBadge tone="ok">Published</StatusBadge> : <StatusBadge tone="neutral">Not yet</StatusBadge>}
+                      detail={
+                        <>
+                          {homeworkWeek?.homework ? homeworkWeek.homework.title : 'Nothing published for this week'}
+                          {dueHomework?.homework && (
+                            <span className="block">
+                              Due back: {dueHomework.homework.title} · {dueHomework.homework.summary.completed + dueHomework.homework.summary.notCompleted} of {homeworkRoster.length} recorded
+                            </span>
+                          )}
+                        </>
+                      }
+                      action={
+                        <span className="flex gap-2">
+                          {canRecordHomework && dueHomework?.homework && (
+                            <HomeworkRecordDialog
+                              week={{ ...dueHomework, homework: dueHomework.homework }}
+                              roster={homeworkRoster}
+                              onSaved={() => void refreshHomework()}
+                            />
+                          )}
+                          <Button asChild variant="outline" size="sm">
+                            <Link href="/dashboard/servants/homework">Homework</Link>
+                          </Button>
+                        </span>
+                      }
+                    />
+                  )}
+                  <ChecklistRow
+                    icon={HeartHandshake}
+                    title="Follow up"
+                    done={followUps.length === 0}
+                    status={followUps.length > 0 ? <StatusBadge tone="bad">{followUps.length} {followUps.length === 1 ? 'child' : 'children'}</StatusBadge> : <StatusBadge tone="ok">All clear</StatusBadge>}
+                    detail={followUps.length > 0 ? 'Absent several weeks or waiting for a visit' : 'Nobody needs a call this week'}
+                    action={
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/dashboard/servants/care">Open Care</Link>
+                      </Button>
+                    }
+                  />
+                </ul>
+              </Panel>
+            )}
 
-      {dashboard?.attendanceTrend && (
-        <SundaySchoolAttendanceChart
-          trend={dashboard.attendanceTrend}
-          selectedAcademicYearId={selectedAcademicYearId}
-          selectedClassId={selectedClassId}
-          audience={attendanceAudience}
-          onAcademicYearChange={(academicYearId) => {
-            setSelectedAcademicYearId(academicYearId)
-            setSelectedClassId(undefined)
-            setAttendanceAudience('children')
-          }}
-          onClassChange={setSelectedClassId}
-          onAudienceChange={(audience) => {
-            setAttendanceAudience(audience)
-            setSelectedClassId(undefined)
-          }}
-          isRefreshing={isValidating && !isLoading}
-        />
+            {servedClass && !coordinates && servedTrend && (
+              <SundaySchoolRecentAttendanceChart
+                trend={servedTrend}
+                className={servedClass.name}
+                throughDate={today}
+              />
+            )}
+
+            {coordinates && (
+              <Panel
+                title="Needs you"
+                description="Attendance still missing, and children absent several weeks or waiting for a visit"
+              >
+                {due.length === 0 && followUps.length === 0 ? (
+                  <EmptyState message="Every class has attendance, and nobody is waiting for follow-up." />
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {due.slice(0, 8).map((c) => (
+                      <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-[13.5px] font-medium text-ink">{c.name}</span>
+                          <span className="truncate text-xs text-ink-3">
+                            Attendance due · {shortDate(lastMeeting(c))}
+                            {c.servants.length === 0 ? ' · no servants assigned' : ''}
+                          </span>
+                        </span>
+                        {c.canServe ? (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/dashboard/servants/attendance?classId=${c.id}`}>Take</Link>
+                          </Button>
+                        ) : (
+                          <StatusBadge tone="warn">Due</StatusBadge>
+                        )}
+                      </li>
+                    ))}
+                    {due.length > 8 && <li className="px-4 py-2 text-xs text-ink-3">+{due.length - 8} more classes</li>}
+                    {followUps.slice(0, 5).map((item) => (
+                      <li key={item.childId} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-[13.5px] font-medium text-ink">{item.name}</span>
+                          <span className="truncate text-xs text-ink-3">
+                            {item.reasons.includes('absent') ? `Absent ${item.absentWeeks} weeks in a row` : 'Priority visit'} · {item.className}
+                          </span>
+                        </span>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/dashboard/servants/visitations?childId=${item.childId}`}>{item.canEdit ? 'Call or visit' : 'Open'}</Link>
+                        </Button>
+                      </li>
+                    ))}
+                    {followUps.length > 5 && (
+                      <li className="flex items-center justify-between gap-3 px-4 py-2">
+                        <span className="text-xs text-ink-3">+{followUps.length - 5} more children need follow-up</span>
+                        <Button asChild size="sm" variant="ghost">
+                          <Link href="/dashboard/servants/care">Care</Link>
+                        </Button>
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </Panel>
+            )}
+
+            {coordinates && (
+              <Panel
+                title="Classes"
+                description={`${classes.length} classes${grouped.length > 1 ? ' · grouped by age group' : ''}`}
+                actions={
+                  <Segmented
+                    label="Classes"
+                    value={classView}
+                    onChange={setClassView}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      ...(served.length > 0 && served.length < classes.length ? [{ value: 'mine' as const, label: 'Mine' }] : []),
+                      { value: 'due', label: 'Due', count: due.length },
+                    ]}
+                  />
+                }
+              >
+                {visibleBands.length === 0 ? (
+                  <EmptyState message={classView === 'due' ? 'Every class has attendance this week.' : 'No classes here.'} />
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {visibleBands.map(([key, band]) => (
+                      <li key={key}>
+                        {grouped.length > 1 && (
+                          <p className="border-b border-line bg-hover/40 px-4 py-1.5 text-xs font-semibold text-ink-2">{band.name}</p>
+                        )}
+                        <ul className="divide-y divide-line">
+                          {band.classes.map((cls) => (
+                            <li key={cls.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[minmax(0,1fr)_7rem_6rem_auto]">
+                              <span className="flex min-w-0 flex-col">
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <Link href={`/dashboard/servants/classes/${cls.id}`} className="truncate text-[13.5px] font-medium text-ink no-underline hover:underline">
+                                    {cls.name}
+                                  </Link>
+                                  {cls.canCoordinate && !standing?.isAdmin && <StatusBadge tone="gold" dot={false}>Coordinator</StatusBadge>}
+                                </span>
+                                <span className="truncate text-xs text-ink-3">
+                                  {getLevelDisplayName(cls.level)} · {cls.childCount} children ·{' '}
+                                  {cls.servants.length === 0 ? 'no servants' : cls.servants.map((sv) => sv.name.split(' ')[0]).join(', ')}
+                                </span>
+                              </span>
+                              <span className="hidden md:block">
+                                {cls.sessionCount > 0 ? <Metric value={cls.attendancePercentage} width={48} /> : <span className="text-xs text-ink-3">No meetings yet</span>}
+                              </span>
+                              <span className="hidden md:block">
+                                {cls.attendanceTakenThisWeek ? <StatusBadge tone="ok">Taken</StatusBadge> : <StatusBadge tone="warn">Due</StatusBadge>}
+                              </span>
+                              <span className="flex justify-end gap-1">
+                                <Button asChild variant="ghost" size="sm">
+                                  <Link href={`/dashboard/servants/roster?classId=${cls.id}`} aria-label={`Children in ${cls.name}`}>Children</Link>
+                                </Button>
+                                {cls.canServe && (
+                                  <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                                    <Link href={`/dashboard/servants/attendance?classId=${cls.id}`}>Attendance</Link>
+                                  </Button>
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
+
+            {coordinates && (
+              <Panel
+                title="Calendar"
+                actions={
+                  <>
+                    <EventLegend types={['sunday-lesson', 'feast']} fastDays />
+                    <CalendarSubscribeButton variant="ghost" />
+                  </>
+                }
+                className="hidden md:block"
+              >
+                <MonthCalendar month={month} events={events} fastDays={liturgical.fastDays} onMonthChange={setMonth} maxPerDay={2} />
+              </Panel>
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-5">
+            <TodayInChurch />
+            <Panel
+              title="Coming up"
+              actions={
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/dashboard/servants/lessons">
+                    <CalendarCheck />
+                    Lessons
+                  </Link>
+                </Button>
+              }
+            >
+              <Agenda
+                days={upcomingDays}
+                events={events.filter((e) => e.day >= today)}
+                emptyToday="No class today"
+              />
+            </Panel>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -34,13 +34,14 @@ import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
 import { ResourceLink } from '@/components/ds/resource-link'
-import { LEVEL_ORDER, getLevelDisplayName } from '@/lib/sunday-school-class'
+import { LEVEL_ORDER, getLevelDisplayName, getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
+import { formatUTC } from '@/lib/utils'
 import { SundaySchoolLevel } from '@prisma/client'
 import { Loader2, Plus } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
-import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
+import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import type { SundaySchoolHomeworkResponse } from '@/types/sunday-school'
-import { SundaySchoolHomeworkCards } from '@/components/sunday-school-homework-cards'
+import { HomeworkStatus } from '@/components/sunday-school-homework-cards'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface FormData {
@@ -98,7 +99,7 @@ function ParentDashboardContent() {
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="My children"
-        meta={['Your Sunday School registrations and class lessons']}
+        meta={['This week’s lessons and homework for each child']}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={setDialog}>
             <DialogTrigger asChild>
@@ -122,56 +123,17 @@ function ParentDashboardContent() {
           <EmptyState title="No children linked yet" message="Register a child and a coordinator will place them in a class." />
         </Panel>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {children.map((child: { id: string; firstName: string; lastName: string; level: SundaySchoolLevel; isActive: boolean; class: { name: string } | null }) => (
-            <Panel key={child.id} bodyClassName="flex items-center gap-3 p-4">
-              <Initials name={`${child.firstName} ${child.lastName}`} size={40} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[15px] font-semibold text-ink">
-                  {child.firstName} {child.lastName}
-                </span>
-                <span className="truncate text-xs text-ink-3">
-                  {getLevelDisplayName(child.level)} · {child.class ? child.class.name : 'Class not assigned yet'}
-                </span>
-              </div>
-              {child.isActive ? <StatusBadge tone="ok">Active</StatusBadge> : <StatusBadge tone="neutral">Inactive</StatusBadge>}
-            </Panel>
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          {children.map((child: ParentChild) => (
+            <ChildCard
+              key={child.id}
+              child={child}
+              lessons={lessons.filter((lesson) => child.class && lesson.classId === child.class.id)}
+              homework={homeworkData as SundaySchoolHomeworkResponse | undefined}
+            />
           ))}
         </div>
       )}
-
-      <TodayInChurch />
-
-      <Panel title="Upcoming lessons" description="Slides and resources shared by your children’s classes">
-        {lessons.length === 0 ? (
-          <EmptyState message="No lesson links have been shared yet." />
-        ) : (
-          <ul className="divide-y divide-line">
-            {lessons.map((lesson) => (
-              <li key={lesson.id} className="flex flex-col gap-2 px-4 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-ink-3">
-                      {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })} · {lesson.class.name}
-                    </span>
-                    <span className="font-display text-[19px] leading-tight font-medium text-ink">{lesson.title || 'Upcoming lesson'}</span>
-                  </div>
-                  {lesson.resources.length > 0 ? <StatusBadge tone="ok">Ready</StatusBadge> : <StatusBadge tone="warn">Links coming</StatusBadge>}
-                </div>
-                {lesson.resources.length > 0 && (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {lesson.resources.map((resource) => (
-                      <ResourceLink key={resource.id} title={resource.title} url={resource.url} compact />
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
-
-      <SundaySchoolHomeworkCards data={homeworkData as SundaySchoolHomeworkResponse | undefined} />
 
       <Panel title="Requests" description="Registration requests you’ve submitted">
         {pendingRequests.length === 0 ? (
@@ -192,7 +154,98 @@ function ParentDashboardContent() {
           </ul>
         )}
       </Panel>
+
+      <TodayInChurch />
     </div>
+  )
+}
+
+interface ParentChild {
+  id: string
+  firstName: string
+  lastName: string
+  isActive: boolean
+  class: { id: string; name: string; level: SundaySchoolLevel } | null
+}
+
+const dayLabel = (date: string) => formatUTC(date, { weekday: 'short', month: 'short', day: 'numeric' })
+
+/** Everything a parent needs about one child, in one place: this week's lesson, homework, and what's next. */
+function ChildCard({ child, lessons, homework }: { child: ParentChild; lessons: SundaySchoolWeeklyLesson[]; homework?: SundaySchoolHomeworkResponse }) {
+  const today = getSundaySchoolTodayDateInputValue()
+  const upcoming = lessons.filter((lesson) => lesson.sundayDate.slice(0, 10) >= today)
+  const next = upcoming[0]
+  const later = upcoming.slice(1, 4)
+  const week = homework?.weeks.find((w) => w.homework && child.class && w.class.id === child.class.id)
+  const homeworkStatus = week?.homework?.completions.find((completion) => completion.childId === child.id)?.status ?? 'NOT_RECORDED'
+  const name = `${child.firstName} ${child.lastName}`
+  return (
+    <Panel as="div" bodyClassName="flex flex-col">
+      <div className="flex items-center gap-3 border-b border-line p-4">
+        <Initials name={name} size={44} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[16px] font-semibold text-ink">{name}</span>
+          <span className="truncate text-xs text-ink-3">
+            {child.class ? `${getLevelDisplayName(child.class.level)} · ${child.class.name}` : 'Class not assigned yet'}
+          </span>
+        </div>
+        {!child.isActive && <StatusBadge tone="neutral">Inactive</StatusBadge>}
+      </div>
+
+      <section className="flex flex-col gap-2 border-b border-line p-4" aria-label={`Next class for ${child.firstName}`}>
+        <p className="text-xs font-medium tracking-[0.06em] text-ink-3 uppercase">
+          {next ? `Next class · ${dayLabel(next.sundayDate)}` : 'Next class'}
+        </p>
+        {next ? (
+          <>
+            <span className="font-display text-[20px] leading-tight font-medium text-ink">{next.title || 'Lesson to be announced'}</span>
+            {next.resources.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {next.resources.map((resource) => (
+                  <ResourceLink key={resource.id} title={resource.title} url={resource.url} compact />
+                ))}
+              </div>
+            ) : (
+              <span className="text-[13px] text-ink-3">The servants will share slides and links before class.</span>
+            )}
+          </>
+        ) : (
+          <span className="text-[13px] text-ink-3">{child.class ? 'No upcoming lessons scheduled yet.' : 'A coordinator will place your child in a class.'}</span>
+        )}
+      </section>
+
+      {week?.homework && (
+        <section className="flex flex-col gap-2 border-b border-line p-4" aria-label={`Homework for ${child.firstName}`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium tracking-[0.06em] text-ink-3 uppercase">Homework · due {dayLabel(week.dueDate)}</p>
+            <HomeworkStatus status={homeworkStatus} />
+          </div>
+          <span className="text-[15px] font-medium text-ink">{week.homework.title}</span>
+          {week.homework.instructions && <p className="text-[13px] whitespace-pre-wrap text-ink-2">{week.homework.instructions}</p>}
+          {week.homework.resources.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {week.homework.resources.map((resource) => (
+                <ResourceLink key={resource.id} title={resource.title} url={resource.url} compact />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {later.length > 0 && (
+        <section className="p-4" aria-label={`Coming up for ${child.firstName}`}>
+          <p className="mb-2 text-xs font-medium tracking-[0.06em] text-ink-3 uppercase">Coming up</p>
+          <ul className="flex flex-col gap-1.5">
+            {later.map((lesson) => (
+              <li key={lesson.id} className="flex items-baseline gap-3 text-[13px]">
+                <span className="tabular w-20 shrink-0 text-ink-3">{dayLabel(lesson.sundayDate)}</span>
+                <span className="min-w-0 truncate text-ink">{lesson.title || 'To be announced'}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </Panel>
   )
 }
 

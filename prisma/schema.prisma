@@ -1062,6 +1062,7 @@ model SundaySchoolServantAssignment {
   ageGroup         SundaySchoolAgeGroup? @relation(fields: [ageGroupId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
   assigner         User?                 @relation("AssignedSundaySchoolServantAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
   endedBy          User?                 @relation("EndedSundaySchoolServantAssignments", fields: [endedById], references: [id], onDelete: SetNull)
+  followUpChildren SundaySchoolChild[]   @relation("ChildFollowUpServant")
 
   @@index([userId, academicYearId])
   @@index([classId])
@@ -1079,6 +1080,9 @@ model SundaySchoolChild {
   level              SundaySchoolLevel
   classId            String?
   familyId           String?
+  // Only values that differed when family records were connected. Common details
+  // still live on SundaySchoolFamily; these preserve an individual child's record.
+  familyDetailsOverrides Json?
   userId             String?                  @unique
   // Set when this row came from a public roster sign-up link, so servants can
   // see what a given QR code let onto the roster and clean it up.
@@ -1096,6 +1100,8 @@ model SundaySchoolChild {
   status             SundaySchoolRecordStatus @default(ACTIVE)
   isActive           Boolean                  @default(true)
   visitationPriority Boolean                  @default(false)
+  // Responsibility uses a year-bound class staffing assignment; it grants no access.
+  followUpAssignmentId String?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 
@@ -1107,6 +1113,7 @@ model SundaySchoolChild {
   homeworkCompletions SundaySchoolHomeworkCompletion[]
   visitations         SundaySchoolVisitation[]
   phoneCalls          SundaySchoolPhoneCall[]
+  followUpAssignment  SundaySchoolServantAssignment? @relation("ChildFollowUpServant", fields: [followUpAssignmentId], references: [id], onDelete: SetNull)
   guardians           SundaySchoolChildGuardian[]      @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?        @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
@@ -1116,6 +1123,7 @@ model SundaySchoolChild {
   @@index([classId])
   @@index([familyId])
   @@index([rosterLinkId])
+  @@index([followUpAssignmentId])
   @@index([level])
   @@index([isActive])
   @@index([status])
@@ -1190,6 +1198,10 @@ model SundaySchoolFamily {
   fatherName  String?
   fatherPhone String?
   fatherEmail String?
+  // Original family details, automatic fills and conflicts survive consolidation.
+  matchingHistory Json?
+  // Additional parent identities retained when connected families have different parents.
+  matchingPhones String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1787,6 +1799,9 @@ model SundaySchoolRosterLink {
   sundaySchoolYearId String
   tokenHash          String    @unique
   label              String?
+  // Contact links may only fill missing phone details on an existing child.
+  // This is stored server-side; public requests cannot switch to sign-up mode.
+  contactUpdateOnly  Boolean   @default(false)
   expiresAt          DateTime  @db.Timestamptz(3)
   maxUses            Int       @default(40)
   useCount           Int       @default(0)

@@ -1,8 +1,10 @@
+import type { SundaySchoolCheckIns } from '@/types/sunday-school-check-ins'
 import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
 import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
+import useSWRMutation from 'swr/mutation'
 
 // Default fetcher for SWR
 export const fetcher = async (url: string) => {
@@ -240,6 +242,20 @@ export function useSundaySchoolBirthdays(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/birthdays', fetcher, { ...defaultSWRConfig, ...options })
 }
 
+/** Only the children who need a call or visit, with their latest contact (Home and Care). */
+export function useSundaySchoolFollowUps(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/visitations?view=follow-up', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolCheckIns(classId?: string) {
+  const url = classId
+    ? `/api/sunday-school/follow-up-assignments?classId=${encodeURIComponent(classId)}`
+    : '/api/sunday-school/follow-up-assignments'
+  return useSWR<SundaySchoolCheckIns>(url, fetcher, {
+    ...defaultSWRConfig, revalidateOnFocus: true, refreshInterval: 60000,
+  })
+}
+
 export function useSundaySchoolVisitations(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/visitations', fetcher, {
     ...defaultSWRConfig,
@@ -470,5 +486,37 @@ export function useStudentServingProgress(studentId?: string) {
   return useSWR<import('@/components/student-serving-history').StudentServingProgress>(
     studentId ? `/api/sunday-school/progress?studentId=${encodeURIComponent(studentId)}` : null,
     fetcher, defaultSWRConfig,
+  )
+}
+
+export function useSundaySchoolMeetingHistory(viewerId?: string, cursor?: string) {
+  const params = new URLSearchParams()
+  if (cursor) params.set('cursor', cursor)
+  const url = `/api/sunday-school/servants-meetings/history?${params}`
+  return useSWR<import('@/types/sunday-school-meeting-history').MeetingHistoryList>(
+    viewerId ? [url, viewerId] : null,
+    ([endpoint]: [string, string]) => fetcher(endpoint),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true }
+  )
+}
+
+export function useSundaySchoolMeetingHistoryDetail(viewerId?: string, meetingId?: string) {
+  const url = `/api/sunday-school/servants-meetings/history?${new URLSearchParams({ meetingId: meetingId ?? '' })}`
+  return useSWR<import('@/types/sunday-school-meeting-history').MeetingHistoryDetail>(
+    viewerId && meetingId ? [url, viewerId] : null,
+    ([endpoint]: [string, string]) => fetcher(endpoint),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true }
+  )
+}
+
+/** Personal class calendar links are requested explicitly, never prefetched. */
+export function useLessonCalendarSubscription(classId: string) {
+  return useSWRMutation<{ feedUrl: string; className: string }>(
+    classId ? `/api/sunday-school/classes/${encodeURIComponent(classId)}/lesson-calendar` : null,
+    async (url: string) => {
+      const response = await fetch(url, { method: 'POST' })
+      if (!response.ok) throw new Error('Could not prepare class calendar')
+      return response.json()
+    },
   )
 }

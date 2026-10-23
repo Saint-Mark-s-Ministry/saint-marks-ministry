@@ -3,6 +3,7 @@ import { prisma } from './prisma'
 import { notifySundaySchoolAbsence } from './notifications'
 import { getClassMeetingDay, normalizeSessionDate } from './sunday-school-class'
 import { sundaySchoolAssignableUserWhere } from './sunday-school-assignees'
+import { FOLLOW_UP_ABSENT_WEEKS } from './sunday-school-follow-up'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
@@ -100,7 +101,7 @@ export async function sendSundaySchoolAbsenceNotifications(now = new Date()) {
         (cls.sundaySchoolYear?.startDate ?? cls.createdAt).getTime(),
       ))
       const { weeks, firstAbsenceDate } = getSundaySchoolAbsenceStreak(cls.level, marks.get(child.id) ?? [], now, since)
-      if (!firstAbsenceDate || weeks <= 2) continue
+      if (!firstAbsenceDate || weeks < FOLLOW_UP_ABSENT_WEEKS) continue
       const tiers: Array<{ threshold: 2 | 4; userIds: string[] }> = [
         { threshold: 2, userIds: servants.map(a => a.userId) },
         ...(weeks >= 4 ? [{ threshold: 4 as const, userIds: escalationIds }] : []),

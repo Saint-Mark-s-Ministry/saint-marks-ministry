@@ -4,6 +4,7 @@ import { put } from '@vercel/blob'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
+import { blobUploadTarget } from '@/lib/blob-upload'
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -47,8 +48,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size exceeds 4.5 MB limit' }, { status: 400 })
     }
 
-    const blob = await put(`registrations/${application?.id ?? user.id}/${Date.now()}-${file.name}`, file, {
+    const target = blobUploadTarget(`registrations/${application?.id ?? user.id}/${Date.now()}`, file)
+    const blob = await put(target.pathname, file, {
       access: 'public',
+      contentType: target.contentType,
       addRandomSuffix: true,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })

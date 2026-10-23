@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
+import { useModalExit } from '@/hooks/use-modal-exit'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
 interface Area {
@@ -59,6 +61,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
 }
 
 export function ImageCropDialog({ imageSrc, onCropComplete, onCancel }: ImageCropDialogProps) {
+  const exit = useModalExit(onCancel)
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
@@ -81,7 +84,7 @@ export function ImageCropDialog({ imageSrc, onCropComplete, onCancel }: ImageCro
     setProcessing(true)
     try {
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels)
-      onCropComplete(croppedBlob)
+      exit.close(() => onCropComplete(croppedBlob))
     } catch {
       console.error('Failed to crop image')
     } finally {
@@ -90,13 +93,13 @@ export function ImageCropDialog({ imageSrc, onCropComplete, onCancel }: ImageCro
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-md overflow-hidden shadow-xl">
+    <Dialog open={!exit.closing} onOpenChange={open => { if (!open) onCancel() }}>
+      <DialogContent className="z-[100] gap-0 overflow-hidden p-0 sm:max-w-md">
         <div className="p-4 border-b dark:border-gray-700">
-          <h3 className="font-semibold text-lg">Crop Profile Photo</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <DialogTitle className="font-semibold text-lg">Crop Profile Photo</DialogTitle>
+          <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Adjust the frame to a close-up of your face
-          </p>
+          </DialogDescription>
         </div>
 
         <div className="relative w-full" style={{ height: '320px' }}>
@@ -127,7 +130,7 @@ export function ImageCropDialog({ imageSrc, onCropComplete, onCancel }: ImageCro
             />
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onCancel} disabled={processing}>
+            <Button variant="outline" onClick={() => exit.close()} disabled={processing}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={processing}>
@@ -135,7 +138,7 @@ export function ImageCropDialog({ imageSrc, onCropComplete, onCancel }: ImageCro
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

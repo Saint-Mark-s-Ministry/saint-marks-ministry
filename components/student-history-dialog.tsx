@@ -1,15 +1,21 @@
 'use client'
 
 import { useState } from 'react'
+import { Phone, Star } from 'lucide-react'
+import { toast } from 'sonner'
+import { mutate as mutateCache } from 'swr'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { SundaySchoolCareEditor } from '@/components/sunday-school-care-editor'
+import { Initials } from '@/components/ds/person'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { KeyValueList } from '@/components/ds/kv-list'
 import { ContactLink } from '@/components/contact-link'
 import { useStudentHistory, useStudentHistoryPrivateNotes } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
+import { telHref } from '@/lib/contact-links'
 import { getAttendanceStatusLabel } from '@/lib/attendance-utils'
 import { getLevelDisplayName } from '@/lib/sunday-school-class'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
@@ -39,10 +45,9 @@ function HistoryHeader({ target, isServantsPrepStudent = false, photoUrl }: {
   isServantsPrepStudent?: boolean
   photoUrl?: string | null
 }) {
-  return <DialogHeader>
+  return <DialogHeader className="text-left">
     <div className="flex min-w-0 items-center gap-2 pr-6">
-      {/* eslint-disable-next-line @next/next/no-img-element -- scoped user-uploaded photo */}
-      {photoUrl && <img src={photoUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full object-cover" />}
+      {photoUrl && <Initials name={target.name} imageUrl={photoUrl} size={28} />}
       <DialogTitle className="min-w-0 break-words">{target.name}</DialogTitle>
       {isServantsPrepStudent && (
         <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
@@ -68,12 +73,13 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     <HistoryHeader target={target} isServantsPrepStudent={data.isServantsPrepStudent} photoUrl={data.photoUrl} />
     <div className="space-y-4">
     <p className="text-sm text-ink-3">{data.subtitle}</p>
+    <QuickActions target={target} data={data} onOpenCare={() => setTab('visitations')} onPriorityChange={value => void mutate({ ...data, priority: { ...data.priority!, value } }, { revalidate: false })} />
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
+      <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
+        <TabsTrigger value="profile">Family</TabsTrigger>
         <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        <TabsTrigger value="visitations">Care</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
-        <TabsTrigger value="visitations">Visitations</TabsTrigger>
       </TabsList>
       <TabsContent value="profile"><StudentProfile name={data.name} profile={data.profile} /></TabsContent>
       <TabsContent value="attendance"><AttendanceHistory attendance={data.attendance} /></TabsContent>
@@ -87,6 +93,7 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
         {data.canReadPrivateNotes && <PrivateNotes childId={target.id} viewerId={viewerId} />}
       </TabsContent>
       <TabsContent value="visitations" className="space-y-4">
+          {(data.care?.canEdit ?? data.priority?.canEdit) && <SundaySchoolCareEditor childId={target.id} onSaved={() => mutate()} />}
           <h3 className="text-sm font-semibold">Visitation history</h3>
           {data.visitations.length === 0 && <Empty>No visitations recorded yet.</Empty>}
           <ul className="space-y-3">{data.visitations.map(visit => <li key={visit.id} className="rounded-lg border border-line p-4 text-sm">
@@ -105,6 +112,78 @@ function HistoryContent({ target, viewerId }: { target: StudentHistoryTarget; vi
     </Tabs>
     </div>
   </>
+}
+
+/** The two things a servant opens a child for most: reach the family, and log that they did. */
+function QuickActions({ target, data, onPriorityChange, onOpenCare }: {
+  target: StudentHistoryTarget
+  data: StudentHistory
+  onPriorityChange: (value: boolean) => void
+  onOpenCare: () => void
+}) {
+  const family = data.profile.family
+  const contacts = [
+    { who: 'Mother', name: family?.motherName, href: family?.motherPhone ? telHref(family.motherPhone) : null },
+    { who: 'Father', name: family?.fatherName, href: family?.fatherPhone ? telHref(family.fatherPhone) : null },
+    { who: 'Guardian', name: data.profile.guardian.name, href: data.profile.guardian.phone ? telHref(data.profile.guardian.phone) : null },
+  ].filter((contact): contact is { who: string; name: string | null | undefined; href: string } => Boolean(contact.href))
+  const rate = data.attendance.rate
+  const lastVisit = data.visitations.find(visit => visit.status === 'DONE')
+  return <div className="space-y-3">
+    <dl className="grid grid-cols-3 gap-2 rounded-lg border border-line p-3 text-center">
+      <div><dt className="text-xs text-ink-3">Attendance</dt><dd className="tabular mt-0.5 text-lg font-semibold">{formatRate(rate)}</dd></div>
+      <div><dt className="text-xs text-ink-3">Last visit</dt><dd className="mt-1 text-[13px] font-medium">{lastVisit ? formatDateUTC(lastVisit.visitedAt ?? lastVisit.createdAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
+      <div><dt className="text-xs text-ink-3">Last call</dt><dd className="mt-1 text-[13px] font-medium">{data.phoneCalls[0] ? formatDateUTC(data.phoneCalls[0].calledAt, { year: undefined, weekday: undefined }) : 'None'}</dd></div>
+    </dl>
+    <div className="flex flex-wrap gap-2">
+      {contacts.slice(0, 2).map(contact => <Button key={contact.who} asChild variant="outline" className="flex-1">
+        <a href={contact.href} aria-label={`Call ${contact.who.toLowerCase()}${contact.name ? `, ${contact.name}` : ''}`}>
+          <Phone aria-hidden />
+          Call {contact.who.toLowerCase()}
+        </a>
+      </Button>)}
+      {contacts.length === 0 && <p className="text-[13px] text-ink-3">No family phone number on file.</p>}
+      {target.program === 'sunday-school' && <Button className="flex-1" onClick={onOpenCare}>Calls &amp; visits</Button>}
+    </div>
+    {data.priority && <PrioritySwitch childId={target.id} priority={data.priority} onChange={onPriorityChange} />}
+  </div>
+}
+
+/** Star a child for a priority visit; they then lead Care › Follow up. */
+function PrioritySwitch({ childId, priority, onChange }: {
+  childId: string
+  priority: NonNullable<StudentHistory['priority']>
+  onChange: (value: boolean) => void
+}) {
+  const [saving, setSaving] = useState(false)
+  if (!priority.canEdit) {
+    return priority.value ? <p className="flex items-center gap-2 text-[13px] text-warn"><Star className="size-4 fill-warn" aria-hidden />Priority visit</p> : null
+  }
+  const toggle = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch('/api/sunday-school/visitations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId, priority: !priority.value }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Could not save the priority visit')
+      onChange(!priority.value)
+      // Care and Visits & calls read the same flag.
+      void mutateCache(key => typeof key === 'string' && key.startsWith('/api/sunday-school/visitations'))
+      toast.success(priority.value ? 'Removed from priority visits' : 'Added to priority visits')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save the priority visit')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return <Button variant="outline" aria-pressed={priority.value} disabled={saving} onClick={() => void toggle()}
+    className={priority.value ? 'w-full justify-start border-warn/40 bg-warn-tint text-warn hover:bg-warn-tint' : 'w-full justify-start'}>
+    <Star className={priority.value ? 'fill-warn text-warn' : 'text-ink-3'} aria-hidden />
+    {priority.value ? 'Priority visit · tap to remove' : 'Star for a priority visit'}
+  </Button>
 }
 
 function StudentProfile({ name, profile }: { name: string; profile: StudentHistory['profile'] }) {
@@ -164,7 +243,7 @@ function ContactDetails({ title, name, phone, email, contactLabel, showName = fa
 function AttendanceHistory({ attendance }: { attendance: StudentHistory['attendance'] }) {
   return <div className="space-y-4">
     <dl className="grid grid-cols-2 gap-3 rounded-lg border border-line p-4 sm:grid-cols-5">
-      {[{ label: 'Rate', value: attendance.rate === null ? '—' : `${Math.round(attendance.rate)}%` },
+      {[{ label: 'Rate', value: formatRate(attendance.rate) },
         ...Object.entries(attendance.counts).map(([label, value]) => ({ label, value }))].map(stat => <div key={stat.label}>
         <dt className="text-xs capitalize text-ink-3">{stat.label}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{stat.value}</dd>
       </div>)}
@@ -193,6 +272,8 @@ function PrivateNotes({ childId, viewerId }: { childId: string; viewerId: string
     </li>)}</ul>
   </section>
 }
+
+const formatRate = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate)}%`)
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-4 text-sm text-ink-3">{children}</p>
