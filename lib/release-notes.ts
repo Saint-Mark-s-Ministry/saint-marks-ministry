@@ -34,7 +34,7 @@ export const releaseNotes: ReleaseNote[] = [
         'Sunday School is organized around Home, Attendance, Children, Care, and Lessons. Pick your class once and every page follows it.',
         'Take children’s attendance with recent attendance dots, meeting date arrows, and a button to mark everyone else present. Finish saves the meeting and marks unmarked children absent.',
         'Prepare lessons from a calendar on a computer or an upcoming lesson list on a phone, and volunteer to teach with one tap.',
-        'Open a child’s profile to review family details, attendance, visits, calls, and notes in one place.',
+        'Open a child’s centered profile window to review family details, attendance, visits, calls, and notes in one place.',
         'Sunday School attendance charts distinguish children who attended from attendance records, and leave gaps when attendance has not been recorded.',
         'Sunday School family details are matched by complete parent phone numbers, with differing details preserved for each child.',
       ],

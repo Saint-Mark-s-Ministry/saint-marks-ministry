@@ -31,8 +31,7 @@ export default function StudentHistoryDialog({ target, onClose, onRestoreFocus }
 }) {
   const { data: session } = useSession()
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    {/* A full screen on phones; a panel from the right on larger screens, so the list stays in view. */}
-    <DialogContent className="top-0 left-0 h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none border-0 p-4 pt-5 data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:left-auto sm:right-0 sm:max-w-xl sm:border-l sm:p-6" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
+    <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
       {session?.user?.id
         ? <HistoryContent key={session.user.id} target={target} viewerId={session.user.id} />
         : <HistoryHeader target={target} />}
