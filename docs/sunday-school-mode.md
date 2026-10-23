@@ -723,6 +723,16 @@ browser before they appear in its phone app. Calendar apps refresh on their own
 schedule; changes do not push instantly. PR #290's desktop month calendar and
 upcoming-first phone list are preserved.
 
+The **Add lessons to calendar** dialog has an unchecked **Also add the Coptic
+Orthodox calendar** option. Selecting it reveals Apple/Outlook, Google Calendar,
+Outlook.com and copy-link actions for Coptic.io’s public live subscription feed.
+These actions work independently of preparing a personal lesson URL, including
+in a local preview. Each calendar requires its own confirmation in the calendar
+app and can be shown, hidden or unsubscribed separately. The church feed never
+contains the personal lesson token or any class/user data. Refresh timing is
+controlled by the calendar provider. This option requires no schema or
+environment changes.
+
 Events contain class name, lesson date and title, classroom, and a link back to
 the lesson. Dates are all-day UTC calendar dates because lessons have no meeting
 time field. They exclude children, attendance, family contacts, teacher names,

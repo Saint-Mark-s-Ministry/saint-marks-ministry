@@ -24,7 +24,7 @@ export const releaseNotes: ReleaseNote[] = [
     changes: {
       new: [
         'Create a Contact update QR from Children so your class can add missing child or parent phone numbers. Existing contacts stay protected.',
-        'Subscribe to your class’s lesson calendar from Lessons to see its schedule in Apple Calendar, Google Calendar, or Outlook.',
+        'Subscribe to your class’s lesson calendar from Lessons to see its schedule in Apple Calendar, Google Calendar, or Outlook. Optionally add Coptic.io’s church calendar for feasts, fasts, and seasons.',
         'Sunday School Home brings together your next lesson, attendance, homework where available, and children who need follow-up. Coordinators can see which classes need attention.',
         'Care brings together children who have missed several meetings, priority visits, calls, and birthdays.',
         'What’s new keeps updates for Sunday School and Servants Prep in one place.',
