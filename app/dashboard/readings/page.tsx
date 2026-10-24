@@ -12,6 +12,8 @@ import {
   isLordlyFeast,
   notableFeasts,
   type LiturgicalLanguage,
+  type ReadingCycle,
+  type ReadingCycleKind,
   type ReadingSection,
   type ReadingService,
   type SynaxariumStory,
@@ -33,6 +35,13 @@ const anyRole = () => true
 
 const SERVICE_ORDER: ReadingService[] = ['vespers', 'matins', 'liturgy', 'evening']
 
+/** The Katameros books Coptic IO doesn't carry yet (see lib/liturgical-cycle.ts). */
+const MISSING_CYCLE_NAMES: Partial<Record<ReadingCycleKind, string>> = {
+  sunday: 'the Sunday Katameros',
+  pascha: 'the Pascha readings of Holy Week',
+  holy50: 'the Katameros of the Holy 50s',
+}
+
 export default function DailyReadingsPage() {
   // useSearchParams needs a Suspense boundary to prerender.
   return (
@@ -52,6 +61,12 @@ function DailyReadings() {
     return isLiturgicalDateKey(requested) ? requested : today
   })
   const [lang, setLang] = useState<LiturgicalLanguage>('en')
+  // Annual readings shown on purpose; any change of day hides them again.
+  const [annualShown, setAnnualShown] = useState(false)
+  const goTo = (next: string) => {
+    setDate(next)
+    setAnnualShown(false)
+  }
 
   const { data, error, isLoading } = useDailyReadings(date, lang)
   const { data: day } = useLiturgicalDay(date, lang)
@@ -75,21 +90,21 @@ function DailyReadings() {
         ]}
         actions={
           <>
-            <Button variant="outline" size="icon" aria-label="Previous day" onClick={() => setDate(addDaysToDateKey(date, -1))}>
+            <Button variant="outline" size="icon" aria-label="Previous day" onClick={() => goTo(addDaysToDateKey(date, -1))}>
               <ChevronLeft />
             </Button>
             <Input
               type="date"
               aria-label="Reading date"
               value={date}
-              onChange={(event) => isLiturgicalDateKey(event.target.value) && setDate(event.target.value)}
+              onChange={(event) => isLiturgicalDateKey(event.target.value) && goTo(event.target.value)}
               className="w-auto"
             />
-            <Button variant="outline" size="icon" aria-label="Next day" onClick={() => setDate(addDaysToDateKey(date, 1))}>
+            <Button variant="outline" size="icon" aria-label="Next day" onClick={() => goTo(addDaysToDateKey(date, 1))}>
               <ChevronRight />
             </Button>
             {date !== today && (
-              <Button variant="outline" size="sm" onClick={() => setDate(today)}>
+              <Button variant="outline" size="sm" onClick={() => goTo(today)}>
                 Today
               </Button>
             )}
@@ -129,23 +144,25 @@ function DailyReadings() {
         <PageLoading />
       ) : (
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-5" dir={rtl ? 'rtl' : undefined} lang={lang}>
-            {readings.sections.length === 0 ? (
+          <div className="flex min-w-0 flex-col gap-5">
+            {readings.readingCycle && !readings.readingCycle.available ? (
+              <>
+                <MissingCycleNotice
+                  cycle={readings.readingCycle}
+                  canShowAnnual={(readings.annualSections ?? []).length > 0}
+                  annualShown={annualShown}
+                  onToggleAnnual={() => setAnnualShown(!annualShown)}
+                />
+                {annualShown && (
+                  <ReadingServices sections={readings.annualSections} rtl={rtl} lang={lang} titleSuffix={`annual readings for ${readings.readingCycle.annualDay}`} />
+                )}
+              </>
+            ) : readings.sections.length === 0 ? (
               <Panel>
                 <EmptyState message="No readings are listed for this day." />
               </Panel>
             ) : (
-              SERVICE_ORDER.map((service) => {
-                const sections = readings.sections.filter((section) => section.service === service)
-                if (sections.length === 0) return null
-                return (
-                  <Panel key={service} title={READING_SERVICE_LABELS[service]} bodyClassName="divide-y divide-line">
-                    {sections.map((section) => (
-                      <ReadingBlock key={section.key} section={section} />
-                    ))}
-                  </Panel>
-                )
-              })
+              <ReadingServices sections={readings.sections} rtl={rtl} lang={lang} />
             )}
           </div>
           <SynaxariumPanel stories={readings.synaxarium} rtl={rtl} lang={lang} />
@@ -160,6 +177,62 @@ function DailyReadings() {
         . English Scripture is the New King James Version.
       </p>
     </div>
+  )
+}
+
+function ReadingServices({ sections, rtl, lang, titleSuffix }: { sections: ReadingSection[]; rtl: boolean; lang: LiturgicalLanguage; titleSuffix?: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-5" dir={rtl ? 'rtl' : undefined} lang={lang}>
+      {SERVICE_ORDER.map((service) => {
+        const inService = sections.filter((section) => section.service === service)
+        if (inService.length === 0) return null
+        const title = titleSuffix ? `${READING_SERVICE_LABELS[service]} · ${titleSuffix}` : READING_SERVICE_LABELS[service]
+        return (
+          <Panel key={service} title={title} bodyClassName="divide-y divide-line">
+            {inService.map((section) => (
+              <ReadingBlock key={section.key} section={section} />
+            ))}
+          </Panel>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Coptic IO has no readings for this day's cycle and would return the annual
+ * readings for the Coptic date instead. Say so plainly rather than present
+ * another day's readings as this day's; the annual set stays one click away.
+ */
+function MissingCycleNotice({
+  cycle,
+  canShowAnnual,
+  annualShown,
+  onToggleAnnual,
+}: {
+  cycle: ReadingCycle
+  canShowAnnual: boolean
+  annualShown: boolean
+  onToggleAnnual: () => void
+}) {
+  const book = MISSING_CYCLE_NAMES[cycle.kind] ?? 'this cycle'
+  return (
+    <Panel>
+      <div role="status" className="flex flex-col gap-3 px-4 py-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[14px] font-semibold text-ink">Readings for {cycle.label} aren’t available yet</h2>
+          <p className="text-[13px] leading-6 text-ink-2">
+            Our calendar source, Coptic IO, doesn’t include {book} yet. It only has the annual readings for{' '}
+            {cycle.annualDay}, which are not the readings for this day.
+          </p>
+        </div>
+        {canShowAnnual && (
+          <Button variant="outline" size="sm" className="w-fit" aria-expanded={annualShown} onClick={onToggleAnnual}>
+            {annualShown ? 'Hide' : 'Show'} the annual readings for {cycle.annualDay}
+          </Button>
+        )}
+      </div>
+    </Panel>
   )
 }
 
