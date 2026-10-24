@@ -1,10 +1,12 @@
 import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageEnrollments } from '@/lib/roles'
 import { backfillAttendanceForStudents, enrollmentStatusUpdate } from '@/lib/api-utils'
+import { resetYearTwoMentors } from '@/lib/mentor-assignments'
 
 interface BulkUpdateRequest {
   enrollmentIds: string[]
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
       const currentEnrollments = updates.yearLevel !== undefined
         ? await tx.studentEnrollment.findMany({
             where: { id: { in: enrollmentIds } },
-            select: { id: true, studentId: true, yearLevel: true, isActive: true, isAsyncStudent: true },
+            select: { id: true, studentId: true, mentorId: true, yearLevel: true, isActive: true, isAsyncStudent: true },
           })
         : []
 
@@ -69,21 +71,22 @@ export async function POST(req: NextRequest) {
 
       let activeAcademicYearId: string | null = null
       let attendanceRecordsCreated = 0
+      const promotions = updates.yearLevel === 'YEAR_2'
+        ? currentEnrollments.filter(enrollment => enrollment.yearLevel !== 'YEAR_2')
+        : []
+      const promotedStudentIds = promotions.filter(enrollment => enrollment.isActive).map(enrollment => enrollment.studentId)
 
-      if (
-        updates.yearLevel === 'YEAR_2' &&
-        currentEnrollments.some(enrollment => enrollment.yearLevel === 'YEAR_1' && enrollment.isActive)
-      ) {
+      if (promotions.length) {
         const activeAcademicYear = await tx.academicYear.findFirst({
           where: { isActive: true },
           select: { id: true },
         })
 
-        if (!activeAcademicYear) {
+        if (!activeAcademicYear && promotedStudentIds.length) {
           throw new Error('No active academic year is configured for Year 2 promotion')
         }
 
-        activeAcademicYearId = activeAcademicYear.id
+        activeAcademicYearId = activeAcademicYear?.id ?? null
       }
 
       const updated = await tx.studentEnrollment.updateMany({
@@ -93,9 +96,7 @@ export async function POST(req: NextRequest) {
         data: updateData
       })
 
-      const promotedStudentIds = currentEnrollments
-        .filter(enrollment => enrollment.yearLevel === 'YEAR_1' && enrollment.isActive)
-        .map(enrollment => enrollment.studentId)
+      await resetYearTwoMentors(tx, promotions, session.user.id, activeAcademicYearId)
 
       if (activeAcademicYearId && promotedStudentIds.length > 0) {
         attendanceRecordsCreated = await backfillAttendanceForStudents(
@@ -103,16 +104,6 @@ export async function POST(req: NextRequest) {
           activeAcademicYearId,
           tx
         )
-
-        // Promotion starts a fresh Year 2 mentor confirmation. The persistent
-        // notification is generated from this missing record the next time the
-        // student's notification feed loads (including for older promotions).
-        await tx.annualMentorInformation.deleteMany({
-          where: {
-            studentId: { in: promotedStudentIds },
-            academicYearId: activeAcademicYearId,
-          },
-        })
       }
 
       return {
@@ -121,7 +112,7 @@ export async function POST(req: NextRequest) {
         activeAcademicYearId,
         attendanceRecordsCreated,
       }
-    })
+    }, { timeout: 30_000, isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
     return NextResponse.json({
       success: true,
@@ -137,6 +128,9 @@ export async function POST(req: NextRequest) {
         : null,
     })
   } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      return NextResponse.json({ error: 'Enrollments changed while saving. Refresh and try again.' }, { status: 409 })
+    }
     if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
     console.error('Bulk update error:', error)
     const message = error instanceof Error ? error.message : 'Failed to update enrollments'

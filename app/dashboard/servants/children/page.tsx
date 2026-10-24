@@ -123,7 +123,7 @@ function familyFormFields(family?: SundaySchoolFamily | null) {
 }
 
 function SundaySchoolChildrenContent() {
-  const { session, status } = useSundaySchoolGuard()
+  const { status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData } = useSundaySchoolClasses()
@@ -147,7 +147,6 @@ function SundaySchoolChildrenContent() {
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
   const [initialFamilyForm, setInitialFamilyForm] = useState<ReturnType<typeof familyFormFields> | null>(null)
   const [saving, setSaving] = useState(false)
-  const [matchingFamilies, setMatchingFamilies] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
@@ -213,23 +212,6 @@ function SundaySchoolChildrenContent() {
       familyId,
       ...familyFormFields(family),
     }))
-  }
-
-  const handleMatchFamilies = async () => {
-    setMatchingFamilies(true)
-    try {
-      const response = await fetch('/api/sunday-school/families/match', { method: 'POST' })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Could not match families')
-      toast.success(`Connected ${result.linkedChildren} children and filled ${result.filledFields} missing family details`, {
-        description: result.conflicts ? 'Some details differ. Open the connected families to review them.' : undefined,
-      })
-      await Promise.all([mutate(), mutateFamilies()])
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Could not match families')
-    } finally {
-      setMatchingFamilies(false)
-    }
   }
 
   const handleSave = async () => {
@@ -350,11 +332,6 @@ function SundaySchoolChildrenContent() {
                     className={selectedClass.name}
                     children={children}
                   />
-                )}
-                {canManage && (session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST') && (
-                  <Button variant="outline" disabled={matchingFamilies} onClick={handleMatchFamilies}>
-                    <Users />{matchingFamilies ? 'Matching…' : 'Match existing families'}
-                  </Button>
                 )}
                 {canManage && (
                   <Button onClick={openCreate}>

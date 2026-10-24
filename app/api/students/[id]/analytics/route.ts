@@ -351,6 +351,7 @@ export async function GET(
       mentorUpdateRequired: Boolean(mentorRequirement && !mentorRequirement.information?.reviewedAt),
       enrollment: {
         ...enrollment,
+        ...(mentorRequirement && !mentorRequirement.information ? { mentor: null, mentorId: null, mentorName: null, mentorPhone: null } : {}),
         mentorContact: await getStudentMentorContact(studentId, enrollment),
       },
       attendance: {

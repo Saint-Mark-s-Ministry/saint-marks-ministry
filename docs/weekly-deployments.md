@@ -7,8 +7,9 @@ merge it while preparing or testing the week's changes.
 
 ## Branches and pull requests
 
-- Name the weekly branch `release/YYYY-MM-DD`, using the Monday that starts
-  the release week. This week's branch is `release/2026-10-19` for October 19–25.
+- Name the weekly branch `release/MM-DD-YYYY` in US date format, using the
+  Monday that starts the release week. The October 26–November 1, 2026 release
+  branch is `release/10-26-2026`.
 - Open one draft master PR from that branch into `main`, using the
   [weekly release template](../.github/PULL_REQUEST_TEMPLATE/weekly-release.md).
 - Base new feature and fix branches on the weekly branch. Target their PRs at
@@ -59,7 +60,7 @@ When a fix cannot wait for release day, use a separately reviewed hotfix PR into
 `main`. After deployment, merge the updated `main` into the active weekly branch
 and validate the combined changes so the next weekly release retains the fix.
 
-## Current release schema checklist
+## Previous release schema checklist
 
 PR #289’s combined schema requirements, production audit, and ordered rollout
 are recorded in [the October 19–25 release checklist](releases/2026-10-19.md).

@@ -30,7 +30,7 @@ vi.mock('@/lib/swr', () => ({
 }))
 import RosterPage from '@/app/dashboard/servants/roster/page'
 
-describe('family matching roster controls', () => {
+describe('automatic family matching roster', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.role = 'SUPER_ADMIN'
@@ -38,20 +38,12 @@ describe('family matching roster controls', () => {
     vi.stubGlobal('fetch', mocks.fetch)
   })
   afterEach(() => vi.unstubAllGlobals())
-  it('runs the existing-roster match and refreshes children and families', async () => {
-    mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ linkedChildren: 2, filledFields: 1, conflicts: 1 }) })
+  it.each(['SUPER_ADMIN', 'PRIEST', 'SERVANT'])('needs no manual matching or page-load writes for %s', async role => {
+    mocks.role = role
     render(<RosterPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Match existing families' }))
-    await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('Connected 2 children and filled 1 missing family details', expect.anything()))
-    expect(mocks.fetch).toHaveBeenCalledWith('/api/sunday-school/families/match', { method: 'POST' })
-    expect(mocks.mutate).toHaveBeenCalledTimes(2)
-  })
-  it('shows a failed match without reporting success', async () => {
-    mocks.fetch.mockResolvedValue({ ok: false, json: async () => ({ error: 'Forbidden' }) })
-    render(<RosterPage />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Match existing families' }))
-    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Forbidden'))
-    expect(mocks.success).not.toHaveBeenCalled()
+    await screen.findByText('Henry Test')
+    expect(screen.queryByRole('button', { name: 'Match existing families' })).not.toBeInTheDocument()
+    expect(mocks.fetch).not.toHaveBeenCalled()
   })
   it('does not resend unchanged family details when saving a child', async () => {
     mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({ id: 'child' }) })
@@ -68,7 +60,7 @@ describe('family matching roster controls', () => {
     render(<RosterPage />)
     expect(screen.getByText(/Legacy Parent/)).toBeInTheDocument()
   })
-  it('hides ministry-wide matching for a servant and shows family conflicts and filled fields', async () => {
+  it('shows family conflicts and filled fields to an authorized servant', async () => {
     mocks.role = 'SERVANT'
     render(<RosterPage />)
     expect(screen.queryByRole('button', { name: 'Match existing families' })).not.toBeInTheDocument()

@@ -41,8 +41,8 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 
 ## Weekly deployment workflow
 
-Target normal feature/fix PRs at the active `release/YYYY-MM-DD` branch. Find
-that branch through the open draft weekly deployment master PR into `main`.
+Target normal feature/fix PRs at the active `release/MM-DD-YYYY` branch (US date
+format). Find that branch through the open draft weekly deployment master PR into `main`.
 Base new work on the release branch so it includes the week's accumulated
 changes, and update the master PR's tracking list when work is included.
 

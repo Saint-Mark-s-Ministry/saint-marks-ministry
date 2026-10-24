@@ -4,6 +4,11 @@ export type MentorContact = {
   phone: string | null
 }
 
+export type MentorFormState = {
+  status: 'REQUIRED' | 'PENDING_REVIEW' | 'REVIEWED'
+  submission: (MentorContact & { updatedAt: string; submittedAt: string }) | null
+}
+
 export type SubmittedMentor = {
   mentorName: string | null
   mentorEmail?: string | null
@@ -12,6 +17,9 @@ export type SubmittedMentor = {
 
 export type MentorEnrollment = SubmittedMentor & {
   mentor: { name: string; email?: string | null; phone?: string | null } | null
+  mentorId?: string | null
+  yearLevel?: 'YEAR_1' | 'YEAR_2' | null
+  isActive?: boolean
 }
 
 /** Choose an entire contact record so a new name never inherits an old email or phone. */

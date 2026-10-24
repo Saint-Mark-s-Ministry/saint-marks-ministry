@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   getAnnualMentorRequirement: vi.fn(),
+  queueAnnualMentorReview: vi.fn(),
   findApplication: vi.fn(),
   updateApplication: vi.fn(),
   findFather: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/annual-mentor-information', () => ({
   getAnnualMentorRequirement: mocks.getAnnualMentorRequirement,
+  queueAnnualMentorReview: mocks.queueAnnualMentorReview,
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -61,6 +63,7 @@ describe('post-approval application', () => {
     mocks.findFather.mockResolvedValue({ id: 'father-1' })
     mocks.updateEnrollment.mockResolvedValue({ count: 1 })
     mocks.deleteNotifications.mockResolvedValue({ count: 1 })
+    mocks.upsertAnnualMentorInformation.mockResolvedValue({ id: 'annual-1', updatedAt: new Date('2026-10-24T00:00:00Z') })
     mocks.transaction.mockImplementation(async (callback) => callback({
       fatherOfConfession: {
         findFirst: mocks.findFather,
@@ -183,8 +186,8 @@ describe('post-approval application', () => {
       complete: false,
       missingDetails: ['approvalForm', 'mentorInformation'],
       application: {
-        mentorName: 'Previous Mentor',
-        mentorPhone: '555-0100',
+        mentorName: null,
+        mentorPhone: null,
       },
     })
 
@@ -198,6 +201,9 @@ describe('post-approval application', () => {
     expect(response.status).toBe(200)
     expect(body.complete).toBe(false)
     expect(body.mentorReviewStatus).toBe("PENDING_REVIEW")
+    expect(mocks.queueAnnualMentorReview).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      studentId: 'student-1', academicYearId: 'year-2026', id: 'annual-1',
+    }))
     expect(mocks.deleteNotifications).not.toHaveBeenCalled()
     expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith({
       where: {

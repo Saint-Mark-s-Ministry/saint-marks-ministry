@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   compatibilityUser: vi.fn(),
   updateUser: vi.fn(),
   backfill: vi.fn(),
+  activeYear: vi.fn(), clearMentors: vi.fn(), activeAssignments: vi.fn(), clearAnnual: vi.fn(), clearNotifications: vi.fn(), annual: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
@@ -39,9 +40,13 @@ const tx = {
     findUniqueOrThrow: mocks.currentEnrollment,
     create: mocks.saveEnrollment,
     update: mocks.saveEnrollment,
+    updateMany: mocks.clearMentors,
   },
-  mentorAssignment: { updateMany: mocks.endAssignments, create: mocks.createAssignment },
+  mentorAssignment: { findMany: mocks.activeAssignments, updateMany: mocks.endAssignments, create: mocks.createAssignment },
   user: { findUniqueOrThrow: mocks.compatibilityUser, update: mocks.updateUser },
+  academicYear: { findFirst: mocks.activeYear },
+  annualMentorInformation: { deleteMany: mocks.clearAnnual, findFirst: mocks.annual },
+  notification: { deleteMany: mocks.clearNotifications },
 }
 
 const staffTag = { tag: RoleTag.SUNDAY_SCHOOL_SERVANT, revokedAt: null }
@@ -70,6 +75,8 @@ describe('admin mentor assignments with access tags', () => {
     mocks.candidate.mockResolvedValue({ role: UserRole.SERVANT, isDisabled: false, roleAssignments: [staffTag] })
     mocks.existingEnrollment.mockResolvedValue(null)
     mocks.currentEnrollment.mockResolvedValue({ mentorId: null })
+    mocks.activeYear.mockResolvedValue({ id: 'current-year' })
+    mocks.activeAssignments.mockResolvedValue([])
     mocks.saveEnrollment.mockResolvedValue({
       id: 'enrollment-1', studentId: 'student-1', status: 'ACTIVE',
       student: { id: 'student-1' }, mentor: { id: 'sarah', name: 'Sarah' },
@@ -82,6 +89,21 @@ describe('admin mentor assignments with access tags', () => {
 
   for (const [operation, run] of Object.entries(operations)) {
     describe(operation, () => {
+      it('returns the student photo after saving so roster edits keep it visible', async () => {
+        const profileImageUrl = 'https://example.com/student.jpg'
+        mocks.saveEnrollment.mockImplementation(async (options) => ({
+          id: 'enrollment-1', studentId: 'student-1',
+          student: {
+            id: 'student-1',
+            ...(options.include.student.select.profileImageUrl ? { profileImageUrl } : {}),
+          },
+          mentor: null,
+        }))
+        const response = await run(null)
+        expect(response.status).toBe(operation === 'create' ? 201 : 200)
+        expect((await response.json()).student.profileImageUrl).toBe(profileImageUrl)
+      })
+
       it('accepts a Sunday School servant and enables only mentor access in the same transaction', async () => {
         const response = await run('sarah')
         expect(response.status).toBe(operation === 'create' ? 201 : 200)
@@ -142,5 +164,28 @@ describe('admin mentor assignments with access tags', () => {
     expect((await operations.update(null)).status).toBe(200)
     expect(mocks.createAssignment).not.toHaveBeenCalled()
     expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'sarah' }, data: { role: UserRole.SERVANT } })
+  })
+
+  it('resets mentor details and history on single-student promotion even when the request includes the old assignment', async () => {
+    mocks.currentEnrollment.mockResolvedValue({ studentId: 'student-1', yearLevel: 'YEAR_1', isAsyncStudent: false, isActive: true, mentorId: 'sarah' })
+    mocks.activeAssignments.mockResolvedValue([{ mentorUserId: 'sarah' }])
+    mocks.compatibilityUser.mockResolvedValue({ role: UserRole.MENTOR, roleAssignments: [staffTag], mentorAssignments: [] })
+    mocks.saveEnrollment.mockResolvedValue({ id: 'enrollment-1', studentId: 'student-1', mentorId: null, mentor: null })
+    const response = await PATCH(request('PATCH', { yearLevel: 'YEAR_2', mentorId: 'sarah' }), { params: Promise.resolve({ id: 'enrollment-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.saveEnrollment).toHaveBeenCalledWith(expect.objectContaining({ data: {
+      yearLevel: 'YEAR_2', mentorId: null, mentorName: null, mentorPhone: null,
+    } }))
+    expect(mocks.clearAnnual).toHaveBeenCalledWith({ where: { studentId: { in: ['student-1'] }, academicYearId: 'current-year' } })
+    expect(mocks.createAssignment).not.toHaveBeenCalled()
+    expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'sarah' }, data: { role: 'SERVANT' } })
+  })
+
+  it('rejects assigning an active Year 2 mentor before the student submits this year form', async () => {
+    mocks.currentEnrollment.mockResolvedValue({ studentId: 'student-1', yearLevel: 'YEAR_2', isActive: true, mentorId: null })
+    mocks.annual.mockResolvedValue(null)
+    expect((await operations.update('sarah')).status).toBe(409)
+    expect(mocks.saveEnrollment).not.toHaveBeenCalled()
+    expect(mocks.createAssignment).not.toHaveBeenCalled()
   })
 })

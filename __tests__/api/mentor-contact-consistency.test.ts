@@ -42,6 +42,7 @@ describe('mentor contact API consistency', () => {
     mocks.applications.mockResolvedValue([])
     mocks.annual.mockResolvedValue([{
       studentId: 'mark', mentorName: expected.name, mentorEmail: expected.email, mentorPhone: expected.phone,
+      updatedAt: new Date('2026-10-24T00:00:00Z'), submittedAt: new Date('2026-10-24T00:00:00Z'), reviewedAt: null,
     }])
     mocks.current.mockResolvedValue(enrollment)
     mocks.update.mockResolvedValue(enrollment)

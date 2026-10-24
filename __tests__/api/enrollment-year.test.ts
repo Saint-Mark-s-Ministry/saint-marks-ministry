@@ -6,6 +6,7 @@ vi.mock('@/lib/student-mentor-contact', () => ({
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), transaction: vi.fn(), current: vi.fn(), existing: vi.fn(),
   update: vi.fn(), create: vi.fn(), activeYear: vi.fn(), backfill: vi.fn(),
+  clearMentors: vi.fn(), assignments: vi.fn(), endAssignments: vi.fn(), clearAnnual: vi.fn(), clearNotifications: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
@@ -22,7 +23,13 @@ vi.mock('@/lib/api-utils', () => ({
 import { POST } from '@/app/api/enrollments/route'
 import { PATCH } from '@/app/api/enrollments/[id]/route'
 
-const tx = { studentEnrollment: { findUniqueOrThrow: mocks.current, create: mocks.create, update: mocks.update } }
+const tx = {
+  studentEnrollment: { findUniqueOrThrow: mocks.current, create: mocks.create, update: mocks.update, updateMany: mocks.clearMentors },
+  academicYear: { findFirst: mocks.activeYear },
+  mentorAssignment: { findMany: mocks.assignments, updateMany: mocks.endAssignments },
+  annualMentorInformation: { deleteMany: mocks.clearAnnual },
+  notification: { deleteMany: mocks.clearNotifications },
+}
 const request = (body: object) => new Request('http://localhost/api/enrollments', { method: 'POST', body: JSON.stringify(body) })
 const patch = (body: object) => PATCH(request(body), { params: Promise.resolve({ id: 'enrollment' }) })
 
@@ -34,6 +41,7 @@ describe('enrollment year API', () => {
     mocks.current.mockResolvedValue({ yearLevel: 'YEAR_1', isAsyncStudent: false, mentorId: null })
     mocks.existing.mockResolvedValue(null)
     mocks.activeYear.mockResolvedValue({ id: 'academic-year' })
+    mocks.assignments.mockResolvedValue([])
     mocks.create.mockResolvedValue({ id: 'enrollment', studentId: 'student' })
     mocks.update.mockResolvedValue({ id: 'enrollment', studentId: 'student' })
   })
