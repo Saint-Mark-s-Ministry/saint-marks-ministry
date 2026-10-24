@@ -53,11 +53,16 @@ Test the migration on an isolated database and keep the normal pre-release
 backup. Rolling back the code can leave the additive columns in place; rolling
 back family links is a separate data operation using the retained history.
 
-After deployment, a priest or super administrator can choose **Match existing
-families** on the Roster page to process the existing ministry roster in one
-transaction. The endpoint is `POST /api/sunday-school/families/match`; it checks
-current database role grants and returns counts only. Normal child writes match
-only the connected components containing the children saved by that operation.
+Whenever the roster is updated by adding or editing a child, committing an
+import, accepting a roster sign-up, or approving a registration, that write also
+matches the affected children against existing family records. Matching runs in
+the same transaction and finishes before the saved roster data is returned.
+Only the connected components containing those children are reconciled; no
+button, page-load mutation, or scheduled job is required.
+
+The recovery endpoint `POST /api/sunday-school/families/match` remains available
+to priests and super administrators; it checks current database role grants.
+It is not exposed as a roster button and is not required for normal operation.
 Every participating writer takes one transaction-scoped advisory lock before
 writing contacts, so simultaneous submissions cannot create separate live
 families. Re-running matching is a no-op once those records are connected.
