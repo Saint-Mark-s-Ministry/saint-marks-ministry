@@ -1,7 +1,7 @@
 ## Release window
 
-Week: YYYY-MM-DD through YYYY-MM-DD
-Branch: `release/YYYY-MM-DD` → `main`
+Week: MM-DD-YYYY through MM-DD-YYYY
+Branch: `release/MM-DD-YYYY` → `main` (US date format; Monday of the release week)
 Release owner: TBD
 Deployment day/time: TBD
 
