@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronRight, Flame, Layers, RotateCcw, Shuffle, Trophy } from 'lucide-react'
+import { Check, ChevronRight, Flame, Layers, RotateCcw, Shuffle, Trophy, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { getChildFullName, getChildPhotoUrl } from '@/lib/sunday-school-class'
 import type { SundaySchoolChild } from '@/types/sunday-school'
 
@@ -27,12 +27,12 @@ export function SundaySchoolNameFlashcards({ children, classId, className }: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline"><Layers aria-hidden />Learn names</Button>
+        <Button type="button" variant="outline" className="min-h-11"><Layers aria-hidden />Learn names</Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent showCloseButton={false} className="max-h-[calc(100dvh-2rem)] min-w-0 gap-3 overflow-x-hidden overflow-y-auto p-4 sm:gap-4 sm:p-6">
+        <DialogHeader className="min-w-0 px-8">
           <DialogTitle>Learn names</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="[overflow-wrap:anywhere]">
             {className} · Recall the name, then reveal it.
           </DialogDescription>
         </DialogHeader>
@@ -49,6 +49,11 @@ export function SundaySchoolNameFlashcards({ children, classId, className }: {
             {missingPhotos} {missingPhotos === 1 ? 'child has' : 'children have'} no photo yet and {missingPhotos === 1 ? 'is' : 'are'} skipped.
           </p>
         )}
+        <DialogClose asChild>
+          <Button type="button" variant="ghost" size="icon" aria-label="Close" className="absolute top-1 right-1 size-11 sm:top-2 sm:right-2 md:size-11">
+            <X aria-hidden />
+          </Button>
+        </DialogClose>
       </DialogContent>
     </Dialog>
   )
@@ -166,7 +171,7 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
   if (complete) {
     const practiceCards = order.filter(item => !answers[item.id])
     return (
-      <div className="name-game-summary flex flex-col items-center gap-5 py-5 text-center">
+      <div className="name-game-summary flex min-w-0 flex-col items-center gap-4 py-3 text-center sm:gap-5 sm:py-5">
         <div className="flex size-20 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
           <Trophy className="size-10" aria-hidden />
         </div>
@@ -180,11 +185,11 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
         </div>
         <div className="flex w-full flex-col gap-2">
           {practiceCards.length > 0 && (
-            <Button ref={nextActionRef} type="button" onClick={() => startRound(practiceCards)}>
+            <Button ref={nextActionRef} type="button" className="h-auto min-h-11 whitespace-normal py-2" onClick={() => startRound(practiceCards)}>
               <RotateCcw aria-hidden />Practice {practiceCards.length} {practiceCards.length === 1 ? 'name' : 'names'} again
             </Button>
           )}
-          <Button ref={practiceCards.length ? undefined : nextActionRef} type="button" variant={practiceCards.length ? 'outline' : 'default'} onClick={() => startRound(cards)}>
+          <Button ref={practiceCards.length ? undefined : nextActionRef} type="button" className="h-auto min-h-11 whitespace-normal py-2" variant={practiceCards.length ? 'outline' : 'default'} onClick={() => startRound(cards)}>
             <Shuffle aria-hidden />Play again with everyone
           </Button>
         </div>
@@ -194,10 +199,10 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p role="status" className="text-sm text-ink-3">Round {round} · Card {index + 1} of {order.length}</p>
-        <Button type="button" variant="ghost" onClick={shuffle} disabled={shuffling || order.length - index < 2}>
+        <Button type="button" variant="ghost" className="min-h-11" onClick={shuffle} disabled={shuffling || order.length - index < 2}>
           <Shuffle aria-hidden />Shuffle
         </Button>
       </div>
@@ -205,13 +210,13 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
         <div role="progressbar" aria-label="Round progress" aria-valuemin={0} aria-valuemax={order.length} aria-valuenow={index} className="h-2 overflow-hidden rounded-full bg-hover">
           <div className="name-game-progress h-full rounded-full bg-brand" style={{ width: `${index / order.length * 100}%` }} />
         </div>
-        <div className="flex min-h-5 justify-between text-xs text-ink-3">
+        <div className="flex min-h-5 flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-ink-3">
           <span>{remembered} remembered</span>
           {streak > 1 && <span className="flex items-center gap-1 font-medium text-accent-ink"><Flame className="size-3.5" aria-hidden />{streak} in a row</span>}
         </div>
       </div>
-      <div ref={stageRef} className="name-game-stage" data-motion={motion} aria-busy={shuffling}>
-        <div key={`${card.id}-${transition}`} className="name-game-card flex flex-col items-center gap-4 rounded-xl border border-line bg-hover/40 p-4">
+      <div ref={stageRef} className="name-game-stage min-w-0" data-motion={motion} aria-busy={shuffling}>
+        <div key={`${card.id}-${transition}`} className="name-game-card flex min-w-0 flex-col items-center gap-3 rounded-xl border border-line bg-hover/40 p-3 sm:gap-4 sm:p-4">
           <div className="name-game-photo w-full" data-revealed={revealed}>
             {failedPhoto ? (
               <p className="flex h-[min(30dvh,16rem)] items-center justify-center text-sm text-ink-2">Photo unavailable. Try the next card.</p>
@@ -224,26 +229,26 @@ function FlashcardDeck({ cards }: { cards: Card[] }) {
           <div aria-live="polite" aria-atomic="true" className={revealed ? "relative flex min-h-12 w-full items-center justify-center text-center" : "sr-only"}>
             {revealed && (
               <div className="name-game-reveal">
-                <p className="break-words px-6 text-2xl font-semibold text-ink">{card.name}</p>
+                <p className="px-1 text-xl font-semibold text-ink [overflow-wrap:anywhere] sm:px-6 sm:text-2xl">{card.name}</p>
               </div>
             )}
           </div>
           {revealed ? (
-            <Button type="button" variant="ghost" disabled={shuffling} onClick={() => setRevealed(false)}>Hide name</Button>
+            <Button type="button" variant="ghost" className="min-h-11" disabled={shuffling} onClick={() => setRevealed(false)}>Hide name</Button>
           ) : (
-            <Button ref={nextActionRef} type="button" disabled={shuffling} className="w-full" onClick={() => setRevealed(true)}>
+            <Button ref={nextActionRef} type="button" disabled={shuffling} className="min-h-11 w-full" onClick={() => setRevealed(true)}>
               Reveal name
             </Button>
           )}
         </div>
       </div>
       {revealed ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" disabled={shuffling} onClick={() => advance(false)}><RotateCcw aria-hidden />Practice again</Button>
-          <Button type="button" disabled={shuffling} onClick={() => advance(true)}><Check aria-hidden />Got it!</Button>
+        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-3 py-2" disabled={shuffling} onClick={() => advance(false)}><RotateCcw aria-hidden />Practice again</Button>
+          <Button type="button" className="h-auto min-h-11 whitespace-normal px-3 py-2" disabled={shuffling} onClick={() => advance(true)}><Check aria-hidden />Got it!</Button>
         </div>
       ) : failedPhoto ? (
-        <Button type="button" variant="outline" disabled={shuffling} onClick={() => advance(false)}>Skip this photo<ChevronRight aria-hidden /></Button>
+        <Button type="button" variant="outline" className="min-h-11" disabled={shuffling} onClick={() => advance(false)}>Skip this photo<ChevronRight aria-hidden /></Button>
       ) : null}
     </div>
   )
