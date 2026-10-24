@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { ContactLink } from '@/components/contact-link'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,7 @@ import { Initials, PersonCell } from '@/components/ds/person'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { comparePersonNames, type PersonNameOrder } from '@/lib/person-name'
+import type { MentorFormState } from '@/lib/mentor-contact'
 
 const inlineSelect =
   'h-11 w-full max-w-60 cursor-pointer rounded-md border border-line-strong bg-surface px-2 text-base text-ink disabled:cursor-not-allowed disabled:opacity-60 md:h-8 md:text-[13px]'
@@ -44,6 +47,7 @@ interface Enrollment {
   isAsyncStudent: boolean
   status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
   mentorContact?: MentorContact | null
+  mentorForm?: MentorFormState | null
   student: {
     id: string
     name: string
@@ -66,8 +70,12 @@ interface Mentor {
   profileImageUrl?: string | null
 }
 
-export default function EnrollmentsPage() {
+function EnrollmentsContent() {
   const { session, status } = useAdminGuard(canAssignMentors)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedStudentId = searchParams.get('studentId')
+  const [verifyingStudentId, setVerifyingStudentId] = useState<string | null>(null)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
@@ -207,6 +215,29 @@ export default function EnrollmentsPage() {
     }
   }
 
+  const handleVerifyMentor = async (enrollment: Enrollment) => {
+    const submission = enrollment.mentorForm?.submission
+    if (!submission) return
+    setVerifyingStudentId(enrollment.student.id)
+    try {
+      const response = await fetch(`/api/students/${enrollment.student.id}/mentor-information/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updatedAt: submission.updatedAt }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not verify mentor form')
+      const refreshed = await fetch(`/api/enrollments?studentId=${encodeURIComponent(enrollment.student.id)}`)
+      if (!refreshed.ok) throw new Error('Mentor form verified. Refresh the roster to see the latest status.')
+      const current = await refreshed.json() as Enrollment[]
+      setEnrollments(previous => previous.map(row => current.find(item => item.id === row.id) ?? row))
+      toast.success('Mentor form verified')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not verify mentor form')
+    } finally {
+      setVerifyingStudentId(null)
+    }
+  }
+
   const canToggleAsync = session?.user?.role && canSetAsyncStatus(session.user.role)
 
   const openAddFatherDialog = () => {
@@ -314,6 +345,7 @@ export default function EnrollmentsPage() {
 
   // Filter enrollments
   const filteredEnrollments = enrollments.filter(enrollment => {
+    if (requestedStudentId && enrollment.student.id !== requestedStudentId) return false
     if (searchTerm && !enrollment.student.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !enrollment.student.email.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false
@@ -354,21 +386,37 @@ export default function EnrollmentsPage() {
   const activeCount = enrollments.filter((e) => e.status === 'ACTIVE').length
   const asyncCount = enrollments.filter((e) => e.status === 'ACTIVE' && e.isAsyncStudent).length
   const unassignedCount = enrollments.filter((e) => e.status === 'ACTIVE' && !e.mentor).length
-  const filtersActive = searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'ACTIVE' || filterAcademicYear !== 'all'
+  const filtersActive = requestedStudentId || searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'ACTIVE' || filterAcademicYear !== 'all'
   const statusTone = { ACTIVE: 'ok', GRADUATED: 'accent', WITHDRAWN: 'neutral' } as const
   const statusLabel = { ACTIVE: 'Active', GRADUATED: 'Graduated', WITHDRAWN: 'Withdrawn' } as const
   const maxLoad = Math.max(1, ...mentors.map((m) => mentorWorkload.get(m.id) || 0))
 
   const mentorSelect = (enrollment: Enrollment) => (
     <div className="flex flex-col gap-1">
-      <span>{enrollment.mentorContact?.name ?? 'Not provided'}</span>
+      <span>{enrollment.mentorContact?.name ?? (enrollment.isActive && enrollment.yearLevel === 'YEAR_2' ? 'Year 2 mentor form pending' : 'Not provided')}</span>
+      {enrollment.mentorForm && (
+        <div className="flex flex-col items-start gap-1.5">
+          <StatusBadge tone={enrollment.mentorForm.status === 'REVIEWED' ? 'ok' : 'warn'}>
+            {enrollment.mentorForm.status === 'REVIEWED' ? 'Verified' : enrollment.mentorForm.status === 'PENDING_REVIEW' ? 'Awaiting verification' : 'Form not submitted'}
+          </StatusBadge>
+          {enrollment.mentorForm.submission?.email && <ContactLink kind="email" value={enrollment.mentorForm.submission.email} name={enrollment.mentorForm.submission.name} className="text-xs" />}
+          {enrollment.mentorForm.submission?.phone && <ContactLink kind="phone" value={enrollment.mentorForm.submission.phone} name={enrollment.mentorForm.submission.name} className="text-xs" />}
+          {enrollment.mentorForm.status === 'PENDING_REVIEW' && canEdit && session?.user?.role !== 'PRIEST' && !session?.impersonating && (
+            <Button type="button" variant="outline" disabled={verifyingStudentId !== null}
+              aria-label={`Verify mentor form for ${enrollment.student.name}`}
+              onClick={() => handleVerifyMentor(enrollment)}>
+              {verifyingStudentId === enrollment.student.id ? 'Verifying…' : 'Verify mentor form'}
+            </Button>
+          )}
+        </div>
+      )}
       <span className="text-xs text-ink-3">Assigned account</span>
     <select
       aria-label={`Assigned mentor account for ${enrollment.student.name}`}
       className={inlineSelect}
       value={enrollment.mentor?.id || ''}
       onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
-      disabled={!canEdit}
+      disabled={!canEdit || enrollment.mentorForm?.status === 'REQUIRED'}
     >
       <option value="">Unassigned</option>
       {withCurrentOption(mentors, enrollment.mentor).map((mentor) => (
@@ -403,6 +451,11 @@ export default function EnrollmentsPage() {
           </Button>
         }
       />
+
+      {requestedStudentId && <div className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
+        Showing the student from your notification.
+        <Button variant="link" asChild><Link href="/dashboard/admin/enrollments">View full roster</Link></Button>
+      </div>}
 
       <KpiStrip
         items={[
@@ -461,6 +514,7 @@ export default function EnrollmentsPage() {
                     setFilterYear('all')
                     setFilterStatus('ACTIVE')
                     setFilterAcademicYear('all')
+                    if (requestedStudentId) router.replace('/dashboard/admin/enrollments')
                   }}
                 >
                   <X />
@@ -539,10 +593,10 @@ export default function EnrollmentsPage() {
                         <StatusBadge tone={statusTone[enrollment.status]}>{statusLabel[enrollment.status]}</StatusBadge>
                       </div>
                     </div>
-                    <label className="flex flex-col gap-1 text-xs font-medium text-ink-3">
-                      Mentor
+                    <div className="flex flex-col gap-1 text-xs font-medium text-ink-3">
+                      <span>Mentor</span>
                       {mentorSelect(enrollment)}
-                    </label>
+                    </div>
                     <label className="flex flex-col gap-1 text-xs font-medium text-ink-3">
                       Father of confession
                       {fatherSelect(enrollment)}
@@ -697,4 +751,8 @@ export default function EnrollmentsPage() {
       </Dialog>
     </div>
   )
+}
+
+export default function EnrollmentsPage() {
+  return <Suspense fallback={<PageLoading />}><EnrollmentsContent /></Suspense>
 }

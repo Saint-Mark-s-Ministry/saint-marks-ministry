@@ -10,7 +10,7 @@ import { getStudentMentorContact, withEnrollmentMentorContacts, withUserMentorCo
 
 const assigned = { id: 'old', name: 'Marcellino Boles', email: 'previous@example.com', phone: '111' }
 const enrollment = { studentId: 'mark', mentorId: 'old', mentor: assigned, mentorName: 'Mina Beshy', mentorPhone: '222' }
-const confirmed = { studentId: 'mark', mentorName: 'Mina Beshy', mentorEmail: 'mina@example.com', mentorPhone: '222' }
+const confirmed = { studentId: 'mark', mentorName: 'Mina Beshy', mentorEmail: 'mina@example.com', mentorPhone: '222', updatedAt: new Date('2026-10-24T00:00:00Z'), submittedAt: new Date('2026-10-24T00:00:00Z'), reviewedAt: null }
 const expected = { name: 'Mina Beshy', email: 'mina@example.com', phone: '222' }
 
 describe('mentor contacts across all student views', () => {
@@ -87,5 +87,20 @@ describe('mentor contacts across all student views', () => {
 
   it('returns null when no contact exists', async () => {
     expect(await getStudentMentorContact('mark', { mentor: null, mentorName: null, mentorPhone: null })).toBeNull()
+  })
+
+  it('keeps active Year 2 contacts and assignments empty without this year form', async () => {
+    mocks.applications.mockResolvedValue([{ ...confirmed, createdUserId: 'mark' }])
+    const yearTwo = { ...enrollment, yearLevel: 'YEAR_2' as const, isActive: true }
+    expect(await getStudentMentorContact('mark', yearTwo)).toBeNull()
+    const [row] = await withEnrollmentMentorContacts([yearTwo])
+    expect(row).toMatchObject({ mentor: null, mentorId: null, mentorName: null, mentorPhone: null, mentorContact: null, mentorForm: { status: 'REQUIRED', submission: null } })
+  })
+
+  it('populates active Year 2 only from its submitted form and exposes the version for review', async () => {
+    mocks.annual.mockResolvedValue([confirmed])
+    const [row] = await withEnrollmentMentorContacts([{ ...enrollment, yearLevel: 'YEAR_2' as const, isActive: true }])
+    expect(row.mentorContact).toEqual(expected)
+    expect(row.mentorForm).toMatchObject({ status: 'PENDING_REVIEW', submission: { ...expected, updatedAt: confirmed.updatedAt.toISOString() } })
   })
 })

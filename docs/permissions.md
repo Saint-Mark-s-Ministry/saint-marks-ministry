@@ -57,6 +57,16 @@ and active mentor assignments in the same transaction, including the previous
 mentor on reassignment or removal. A tagged Sunday School servant therefore
 receives limited mentor access when assigned, without becoming a Prep leader.
 
+Promoting a student to Year 2 ends their previous mentor assignments and clears
+the assigned account and mentor contact fields. Active Year 2 students need a
+submitted form for the active academic year before an app mentor account may be
+assigned. Prior application or enrollment details cannot fill in that form.
+Enabled Servants Prep servants and super admins without a Priest tag receive
+in-app review notifications and can verify the submitted version from Student
+roster. Verification does not grant the submitted contact an account or mentoring
+scope. See [Year 2 mentor renewal](year-two-mentor-renewal.md), including the
+one-time repair for older carried-over assignments.
+
 Creating a Sunday School servant assignment automatically grants the active
 `SUNDAY_SCHOOL_SERVANT` tag in the same transaction when it is missing. This
 keeps mode access and assignment scope consistent without making the tag itself

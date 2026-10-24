@@ -30,14 +30,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         where: { id: requirement.information!.id, updatedAt: requirement.information!.updatedAt },
         data: { reviewedAt: new Date(), reviewedBy: user.id },
       })
-      if (updated.count === 1) await tx.notification.deleteMany({
-        where: {
-          userId: id,
-          type: NotificationType.REGISTRATION_INCOMPLETE,
-          isPersistent: true,
-          metadata: { path: ['academicYearId'], equals: requirement.activeYear.id },
-        },
-      })
+      if (updated.count === 1) {
+        await tx.notification.deleteMany({
+          where: {
+            userId: id,
+            type: NotificationType.REGISTRATION_INCOMPLETE,
+            isPersistent: true,
+            metadata: { path: ['academicYearId'], equals: requirement.activeYear.id },
+          },
+        })
+        await tx.notification.deleteMany({ where: {
+          type: NotificationType.ANNOUNCEMENT,
+          AND: [
+            { metadata: { path: ['kind'], equals: 'annualMentorReview' } },
+            { metadata: { path: ['studentId'], equals: id } },
+            { metadata: { path: ['academicYearId'], equals: requirement.activeYear.id } },
+          ],
+        } })
+      }
       return updated
     })
     if (result.count !== 1) {

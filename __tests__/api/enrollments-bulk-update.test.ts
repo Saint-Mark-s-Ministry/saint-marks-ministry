@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   backfillAttendance: vi.fn(),
   deleteAnnualMentorInformation: vi.fn(),
   enrollmentStatusUpdate: vi.fn(),
+  assignments: vi.fn(), endAssignments: vi.fn(), clearNotifications: vi.fn(),
+  mentorUser: vi.fn(), updateUser: vi.fn(),
 }))
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }))
@@ -29,6 +31,9 @@ const transactionClient = {
   },
   academicYear: { findFirst: mocks.findActiveYear },
   annualMentorInformation: { deleteMany: mocks.deleteAnnualMentorInformation },
+  mentorAssignment: { findMany: mocks.assignments, updateMany: mocks.endAssignments },
+  notification: { deleteMany: mocks.clearNotifications },
+  user: { findUniqueOrThrow: mocks.mentorUser, update: mocks.updateUser },
 }
 
 function request(updates: Record<string, unknown>) {
@@ -53,6 +58,7 @@ describe('bulk enrollment promotion', () => {
     mocks.updateEnrollments.mockResolvedValue({ count: 2 })
     mocks.backfillAttendance.mockResolvedValue(5)
     mocks.deleteAnnualMentorInformation.mockResolvedValue({ count: 0 })
+    mocks.assignments.mockResolvedValue([])
     mocks.transaction.mockImplementation(
       async (callback: (tx: typeof transactionClient) => unknown) => callback(transactionClient)
     )
@@ -147,7 +153,28 @@ describe('bulk enrollment promotion', () => {
     await expect(response.json()).resolves.toMatchObject({
       promotion: { promotedCount: 0, attendanceRecordsCreated: 0 },
     })
-    expect(mocks.findActiveYear).not.toHaveBeenCalled()
+    expect(mocks.updateEnrollments).toHaveBeenCalledWith(expect.objectContaining({
+      data: { mentorId: null, mentorName: null, mentorPhone: null },
+    }))
     expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+  })
+
+  it('resets mentors only for newly promoted rows in a mixed Year 1/Year 2 batch', async () => {
+    mocks.findEnrollments.mockResolvedValue([
+      { id: 'enrollment-1', studentId: 'student-1', yearLevel: 'YEAR_1', isActive: true, mentorId: 'old-mentor' },
+      { id: 'enrollment-2', studentId: 'student-2', yearLevel: 'YEAR_2', isActive: true, mentorId: 'current-mentor' },
+    ])
+    mocks.assignments.mockResolvedValue([{ mentorUserId: 'old-mentor' }])
+    mocks.mentorUser.mockResolvedValue({ role: 'MENTOR', roleAssignments: [{ tag: 'SUNDAY_SCHOOL_SERVANT' }], mentorAssignments: [] })
+    expect((await POST(request({ yearLevel: 'YEAR_2' }))).status).toBe(200)
+    expect(mocks.updateEnrollments).toHaveBeenCalledWith({
+      where: { id: { in: ['enrollment-1'] } }, data: { mentorId: null, mentorName: null, mentorPhone: null },
+    })
+    expect(mocks.endAssignments).toHaveBeenCalledWith({
+      where: { studentEnrollmentId: { in: ['enrollment-1'] }, endedAt: null },
+      data: { endedAt: expect.any(Date), endedById: 'admin-1', endReason: 'Promoted to Year 2' },
+    })
+    expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'old-mentor' }, data: { role: 'SERVANT' } })
+    expect(mocks.deleteAnnualMentorInformation).toHaveBeenCalledWith({ where: { studentId: { in: ['student-1'] }, academicYearId: 'year-2026' } })
   })
 })
