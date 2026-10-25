@@ -46,7 +46,7 @@ export default function SundaySchoolBirthdaysPage() {
     ),
     [ageGroupsData, classesData]
   )
-  const [classId] = useViewingClassId(classes, { allowAll: true })
+  const [classId, , scopedClasses, hasAgeGroupScope] = useViewingClassId(classes, { allowAll: true })
   const childrenWithBirthdays = useMemo(
     () => [...((data as SundaySchoolBirthdayChild[] | undefined) ?? [])].sort(compareBirthdays),
     [data]
@@ -55,11 +55,11 @@ export default function SundaySchoolBirthdaysPage() {
     () => childrenWithBirthdays.filter(child => {
       const birthday = child.birthDate ? getBirthdayParts(child.birthDate) : null
       return (
-        (classId === ALL_CLASSES || child.classId === classId) &&
+        (classId === ALL_CLASSES ? !hasAgeGroupScope || scopedClasses.some(cls => cls.id === child.classId) : child.classId === classId) &&
         (month === 'all' || birthday?.month === Number(month))
       )
     }),
-    [childrenWithBirthdays, classId, month]
+    [childrenWithBirthdays, classId, month, scopedClasses, hasAgeGroupScope]
   )
   const groups = useMemo(() => {
     const byMonth = new Map<number, SundaySchoolBirthdayChild[]>()
