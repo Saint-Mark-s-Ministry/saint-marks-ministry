@@ -520,3 +520,23 @@ export function useLessonCalendarSubscription(classId: string) {
     },
   )
 }
+
+export function useBirthdayCalendarSubscription(classId: string) {
+  return useSWRMutation<{ feedUrl: string; className: string }>(
+    classId ? `/api/sunday-school/classes/${encodeURIComponent(classId)}/birthday-calendar` : null,
+    async (url: string) => {
+      const response = await fetch(url, { method: 'POST' })
+      if (!response.ok) throw new Error('Could not prepare class calendar')
+      return response.json()
+    },
+  )
+}
+
+/** Contact details are loaded only while a birthday action dialog is open. */
+export function useBirthdayTextContact(childId: string, viewerId?: string) {
+  return useSWR<{ cellPhone: string | null }>(
+    viewerId ? [`/api/sunday-school/children/${encodeURIComponent(childId)}`, viewerId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    { ...defaultSWRConfig, revalidateOnMount: true, revalidateOnFocus: true, dedupingInterval: 0, keepPreviousData: false },
+  )
+}

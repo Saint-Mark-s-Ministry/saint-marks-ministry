@@ -857,3 +857,36 @@ one-minute refresh keep the shared list current.
 Apply `20261023200000_child_follow_up_assignment` explicitly before deploying this
 feature. It adds a nullable column, index, and `ON DELETE SET NULL` foreign key;
 it assigns no children automatically. Code rollback can retain this addition.
+
+
+## Class birthday calendars and greetings
+
+Care → Birthdays offers a monthly calendar and the existing month-filtered list.
+The selected class applies to both views; Calendar opens on the current month.
+Click a calendar birthday or **Send birthday text** in the list to open birthday
+actions. The greeting fills the child’s first name and can be edited before
+opening the messaging app. Only the child’s recorded cell phone is used; parents’
+numbers are never substituted. Without a usable number or messaging app, use
+**Copy message**. Contact details load through the authorized child-detail route
+only when actions are opened. Nothing is sent automatically or logged as sent.
+
+**Add birthdays to calendar** creates a personal, single-class subscription for
+Apple Calendar/Outlook or Google Calendar, with a copy-link fallback. In Google
+Calendar, add the subscription URL from a desktop browser; it then syncs to the
+phone. Each feed includes active roster children with recorded birth dates, as
+all-day occurrences during the class academic year through 31 days after its end.
+Names and month/day dates are exported; birth years, ages, phones, and other
+contact details are excluded. February 29 is observed on February 28 in other
+years, matching Care follow-ups. Set reminders in the calendar app.
+
+The authenticated POST `/api/sunday-school/classes/[id]/birthday-calendar` returns
+`{ feedUrl, className }`. The signed feed `/api/public/birthday-calendar/[token]`
+checks current owner account security and class authority on each fetch, like
+lesson subscriptions, but uses a distinct signature domain. View as cannot mint
+links. Links expire 31 days after the academic year ends: subscribe to the next
+class/year from the app. Keep the URL private; anyone holding it can fetch the
+birthdays while the owner retains access. Changes, transfers, and removals appear
+when the external calendar refreshes, which can take hours. Removing access blocks
+future fetches but cannot erase copies already retained by external calendar apps.
+Calendar event links open the authenticated birthday actions; phone numbers and
+SMS drafts are never embedded in public feed URLs. No database migration is needed.

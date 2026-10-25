@@ -531,3 +531,16 @@ assignments. A responsibility assignment never grants additional authority.
 Disabled accounts are denied, and guardian contacts and private notes are not
 returned. Tests cover stale JWT roles, out-of-scope classes, ended/disabled
 staffing, transfer, old-year assignments, and priest write denial.
+
+
+## Class birthday calendar feeds
+
+Birthday subscriptions follow the class lesson feed access model described above.
+`POST /api/sunday-school/classes/[id]/birthday-calendar` denies View as and checks
+current account security and assignment-based `canViewClass` in the class’s year.
+`GET /api/public/birthday-calendar/[token]` uses a separately signed, personal
+class-scoped credential and repeats those account and scope checks on every fetch.
+Only active children’s names and birthday occurrences are exported, without birth
+years, ages, contacts, or other roster data. Birthday text actions fetch the
+existing authorized child-detail endpoint on demand and use only `cellPhone`;
+contact fields remain absent from the birthday summary and public calendar feeds.
