@@ -1,6 +1,46 @@
-import { NotificationType } from '@prisma/client'
+import { NotificationType, RoleTag, type Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requiresAnnualMentorUpdate } from '@/lib/annual-mentor-requirement'
+
+/** Persist staff review work together with the form; failures roll back both. */
+export async function queueAnnualMentorReview(
+  tx: Prisma.TransactionClient,
+  submission: { studentId: string; studentName: string; academicYearId: string; id: string; updatedAt: Date },
+) {
+  const reviewers = await tx.user.findMany({
+    where: {
+      isDisabled: false,
+      roleAssignments: {
+        some: { tag: { in: [RoleTag.SERVANTS_PREP_SERVANT, RoleTag.SUPER_ADMIN] }, revokedAt: null },
+        none: { tag: RoleTag.PRIEST, revokedAt: null },
+      },
+    },
+    select: { id: true },
+  })
+  // Replace the previous version's review task instead of accumulating stale alerts.
+  await tx.notification.deleteMany({ where: {
+    type: NotificationType.ANNOUNCEMENT,
+    AND: [
+      { metadata: { path: ['kind'], equals: 'annualMentorReview' } },
+      { metadata: { path: ['studentId'], equals: submission.studentId } },
+      { metadata: { path: ['academicYearId'], equals: submission.academicYearId } },
+    ],
+  } })
+  if (!reviewers.length) return
+  await tx.notification.createMany({
+    data: reviewers.map(reviewer => ({
+      id: `annual-mentor-review:${submission.id}:${submission.updatedAt.getTime()}:${reviewer.id}`,
+      userId: reviewer.id,
+      type: NotificationType.ANNOUNCEMENT,
+      title: 'Mentor form ready to verify',
+      body: `${submission.studentName} submitted their Year 2 mentor form. Verify it on the student roster.`,
+      url: `/dashboard/admin/enrollments?studentId=${encodeURIComponent(submission.studentId)}`,
+      isPersistent: true,
+      metadata: { kind: 'annualMentorReview', studentId: submission.studentId, academicYearId: submission.academicYearId },
+    })),
+    skipDuplicates: true,
+  })
+}
 
 /**
  * Active Year 2 students confirm their mentor contact information each year.

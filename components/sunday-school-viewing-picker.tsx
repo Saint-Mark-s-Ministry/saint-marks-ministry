@@ -1,5 +1,7 @@
 'use client'
 
+import { useSession } from 'next-auth/react'
+import { ageGroupViewingValue, viewingAgeGroups, type ViewingAgeGroup } from '@/lib/sunday-school-viewing-scope'
 import { useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { SundaySchoolLevel } from '@prisma/client'
@@ -16,11 +18,7 @@ interface PickerClass {
   classroom?: string | null
 }
 
-interface PickerAgeGroup {
-  id: string
-  name: string
-  levels: SundaySchoolLevel[]
-}
+type PickerAgeGroup = ViewingAgeGroup
 
 /** Classes grouped by the age group that owns their grade, in band order (as on Home). */
 function groupClassesForViewing(classes: PickerClass[], ageGroups: PickerAgeGroup[]) {
@@ -44,6 +42,7 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
   const { data: classesData, error: classesError } = useSundaySchoolClasses()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
   const [stored, setStored] = useViewing()
+  const { data: session } = useSession()
 
   const classes = useMemo(() => (Array.isArray(classesData) ? (classesData as PickerClass[]) : []), [classesData])
   const ageGroups = useMemo(() => (Array.isArray(ageGroupsData) ? (ageGroupsData as PickerAgeGroup[]) : []), [ageGroupsData])
@@ -52,15 +51,16 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
   const loading = classesData === undefined && !classesError
   if (activeIds.length === 0 && !loading && !classesError) return null
 
-  const value = resolveViewingClassId(activeIds, stored, null, true)
+  const selectedBands = viewingAgeGroups(stored, ageGroups, session?.user?.id)
+  const value = selectedBands ? stored! : resolveViewingClassId(activeIds, stored, null, true)
   const selected = classes.find(cls => cls.id === value)
-  const title = loading ? 'Loading classes…' : classesError && activeIds.length === 0 ? 'Classes unavailable' : selected ? selected.name : 'All classes'
+  const title = loading ? 'Loading classes…' : classesError && activeIds.length === 0 ? 'Classes unavailable' : selectedBands ? selectedBands.map(group => group.name).join(' & ') : selected ? selected.name : 'All classes'
   const detail = selected
     ? selected.classroom || groups.find(group => group.classes.some(cls => cls.id === selected.id))?.label || ''
-    : activeIds.length > 0 ? `${activeIds.length} classes` : ''
+    : activeIds.length > 0 ? `${selectedBands ? classes.filter(cls => cls.isActive && selectedBands.some(band => band.levels.includes(cls.level))).length : activeIds.length} classes` : ''
   const single = activeIds.length === 1
   const label = single ? 'Your class' : activeIds.length > 1 ? 'Viewing class' : 'Class'
-  const canChoose = activeIds.length > 1
+  const canChoose = activeIds.length > 1 || selectedBands !== null
 
   const select = canChoose && (
     <select
@@ -70,6 +70,10 @@ export function SundaySchoolViewingPicker({ variant }: { variant: 'sidebar' | 'a
       className="absolute inset-0 cursor-pointer appearance-none opacity-0"
     >
       <option value={ALL_CLASSES}>All classes</option>
+      {stored === 'my-age-groups' && <option value="my-age-groups">My age groups</option>}
+      {ageGroups.filter(group => group.isActive !== false).map(group => (
+        <option key={group.id} value={ageGroupViewingValue(group.id)}>{group.name}</option>
+      ))}
       {groups.map(group => (
         <optgroup key={group.label} label={group.label}>
           {group.classes.map(cls => (

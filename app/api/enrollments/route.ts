@@ -166,6 +166,12 @@ export async function POST(request: Request) {
     const resolvedYear = resolveEnrollmentYear({ isAsyncStudent: false, yearLevel: null }, { yearLevel, isAsyncStudent })
 
     if (mentorId) {
+      if (resolvedYear === 'YEAR_2') {
+        const submittedForm = await prisma.annualMentorInformation.findFirst({
+          where: { studentId, academicYear: { isActive: true } }, select: { id: true },
+        })
+        if (!submittedForm) return NextResponse.json({ error: 'Submit the current Year 2 mentor form before assigning a mentor' }, { status: 409 })
+      }
       const mentor = await prisma.user.findUnique({
         where: { id: mentorId },
         select: MENTOR_CANDIDATE_SELECT,
@@ -220,6 +226,7 @@ export async function POST(request: Request) {
               id: true,
               name: true,
               email: true,
+              profileImageUrl: true,
             }
           },
           mentor: {

@@ -101,16 +101,16 @@ export default function SundaySchoolDashboardPage() {
   // The trend follows the class being viewed; the class list is the same either way.
   const { data, isLoading } = useSundaySchoolDashboard(
     undefined,
-    stored && stored !== ALL_CLASSES ? stored : undefined,
+    stored && stored !== ALL_CLASSES && !stored.startsWith('age-group:') && stored !== 'my-age-groups' ? stored : undefined,
     'children',
     { keepPreviousData: true }
   )
   const dashboard = data as SundaySchoolDashboard | undefined
   const allClasses = useMemo(() => dashboard?.classes ?? [], [dashboard])
-  const [viewing] = useViewingClassId(allClasses, { allowAll: true })
+  const [viewing, , scopedClasses] = useViewingClassId(allClasses, { allowAll: true })
   const classes = useMemo(
-    () => (viewing === ALL_CLASSES ? allClasses : allClasses.filter((c) => c.id === viewing)),
-    [allClasses, viewing]
+    () => (viewing === ALL_CLASSES ? scopedClasses : allClasses.filter((c) => c.id === viewing)),
+    [allClasses, scopedClasses, viewing]
   )
 
   const today = getSundaySchoolTodayDateInputValue()

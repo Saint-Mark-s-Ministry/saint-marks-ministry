@@ -58,6 +58,12 @@ export async function POST(request: Request) {
     })
 
     if (existingEnrollment) {
+      if (existingEnrollment.isActive && existingEnrollment.yearLevel === 'YEAR_2') {
+        const submittedForm = await prisma.annualMentorInformation.findFirst({
+          where: { studentId, academicYear: { isActive: true } }, select: { id: true },
+        })
+        if (!submittedForm) return NextResponse.json({ error: 'Submit the current Year 2 mentor form before assigning a mentor' }, { status: 409 })
+      }
       // Refuse to silently steal a student who already has a different mentor.
       // Re-assignments must go through an admin so the prior mentor doesn't
       // lose their mentee without anyone noticing.

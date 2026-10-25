@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { SundaySchoolLevel } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
+  user: { id: 'servant-1', name: 'Jane Servant', role: 'SERVANT' },
   dashboard: {} as Record<string, unknown>,
   meeting: undefined as Record<string, unknown> | undefined,
 }))
@@ -10,11 +11,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/hooks/useSundaySchoolGuard', () => ({
   useSundaySchoolGuard: () => ({
     status: 'authenticated',
-    session: { user: { id: 'servant-1', name: 'Jane Servant' } },
+    session: { user: mocks.user },
   }),
 }))
 
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: mocks.user } }) }))
+
 vi.mock('@/lib/swr', () => ({
+  useSundaySchoolAgeGroups: () => ({ data: mocks.dashboard.ageGroups }),
   useSundaySchoolMeetings: () => ({ data: mocks.meeting }),
   useLiturgicalCalendar: () => ({ data: undefined }),
   useLiturgicalDay: () => ({ data: undefined, isLoading: true }),
@@ -53,6 +57,9 @@ function classSummary(id: string, name: string) {
 
 describe('Sunday School dashboard shortcuts', () => {
   beforeEach(() => {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+    mocks.user = { id: 'servant-1', name: 'Jane Servant', role: 'SERVANT' }
     mocks.meeting = undefined
     mocks.dashboard = {
       classes: [classSummary('class-8', '8th Grade')],
@@ -61,6 +68,21 @@ describe('Sunday School dashboard shortcuts', () => {
       standing: { isAdmin: false, readOnly: false, coordinatesAnyAgeGroup: false },
       attendanceTrend: null,
     }
+  })
+
+  it('opens Father Isaac’s Home with High School instead of an old Elementary selection', () => {
+    mocks.user = { id: 'isaac', name: 'Father Isaac', role: 'PRIEST' }
+    window.localStorage.setItem('sunday-school.viewing', 'elementary-class')
+    mocks.dashboard.classes = [
+      { ...classSummary('elementary-class', '1st Grade'), level: SundaySchoolLevel.GRADE_1 },
+      { ...classSummary('high-9', '9th Grade'), level: SundaySchoolLevel.GRADE_9 },
+      { ...classSummary('high-10', '10th Grade'), level: SundaySchoolLevel.GRADE_10 },
+    ]
+    mocks.dashboard.ageGroups = [{ id: 'high', name: 'High School', overseerId: 'isaac', levels: [SundaySchoolLevel.GRADE_9, SundaySchoolLevel.GRADE_10] }]
+    render(<SundaySchoolDashboardPage />)
+    expect(screen.getByRole('link', { name: 'Children in 9th Grade' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Children in 10th Grade' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Children in 1st Grade' })).not.toBeInTheDocument()
   })
 
   it('gives a servant with one class a checklist for this week', () => {

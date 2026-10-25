@@ -38,13 +38,13 @@ export function verifyLessonCalendarToken(token: string, now = Date.now()): Cale
   } catch { return null }
 }
 
-function escapeText(value: string): string {
+export function escapeText(value: string): string {
   return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
     .replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,')
 }
 
 /** RFC 5545: fold at 75 UTF-8 octets, without splitting a character. */
-function foldLine(line: string): string {
+export function foldLine(line: string): string {
   let result = ''
   let bytes = 0
   for (const character of line) {
