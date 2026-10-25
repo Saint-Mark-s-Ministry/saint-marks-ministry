@@ -78,12 +78,12 @@ export default function SundaySchoolCarePage() {
   const { data: birthdaysData } = useSundaySchoolBirthdays()
   const response = data as SundaySchoolVisitationsResponse | undefined
   const classes = useMemo(() => response?.classes ?? [], [response])
-  const [viewing] = useViewingClassId(classes, { allowAll: true })
+  const [viewing, , scopedClasses] = useViewingClassId(classes, { allowAll: true })
 
   const items = useMemo(() => {
-    const scoped = viewing === ALL_CLASSES ? classes : classes.filter(cls => cls.id === viewing)
+    const scoped = viewing === ALL_CLASSES ? scopedClasses : classes.filter(cls => cls.id === viewing)
     return buildFollowUps(scoped, (birthdaysData as SundaySchoolBirthdayChild[] | undefined) ?? [], localDayKey())
-  }, [birthdaysData, classes, viewing])
+  }, [birthdaysData, classes, scopedClasses, viewing])
 
   if (status === 'loading' || isLoading) return <PageLoading />
 
