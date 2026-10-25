@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { latestAttendanceSave, type AttendanceSaveInfo } from '@/lib/attendance-save-info'
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
@@ -27,7 +29,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { AcademicYear } from '@/lib/types'
-import { asyncPeriodStart, isAsyncPeriodLesson } from '@/lib/attendance-utils'
 
 interface Lesson {
   id: string
@@ -360,11 +361,10 @@ export default function AttendancePage() {
     }
   }
 
-  // Async students aren't on the roll call for lessons from the day they went
-  // async: their attendance is their Sunday School rotation (slips still count).
+  // Current async students are exempt from all prep lesson roll calls.
   const isAsyncForLesson = (student: Student) =>
     !!selectedLesson &&
-    student.enrollments.some((e) => isAsyncPeriodLesson(selectedLesson.scheduledDate, asyncPeriodStart(e)))
+    student.enrollments.some((e) => e.isAsyncStudent)
   const asyncOffRollCall = students.filter(isAsyncForLesson)
 
   const filteredStudents = students.filter(student => {
@@ -417,7 +417,7 @@ export default function AttendancePage() {
     .filter(l => (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
-  // Check if user can manage data (PRIEST is read-only)
+  // Check if user can manage data
   const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
 
   // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)
@@ -604,7 +604,7 @@ export default function AttendancePage() {
               {asyncOffRollCall.length > 0 && (
                 <p className="mt-1.5 text-xs text-ink-3">
                   Not on this roll call (async): {asyncOffRollCall.map((s) => s.name).join(', ')}. Their attendance comes from
-                  their Sunday School rotation; an uploaded slip still marks a lesson Present.
+                  their Sunday School rotation. Normal lessons do not count.
                 </p>
               )}
             </div>
@@ -637,7 +637,7 @@ export default function AttendancePage() {
                             <div className="flex items-center gap-2.5">
                               <Initials name={student.name} imageUrl={student.profileImageUrl} />
                               <div className="flex min-w-0 flex-col leading-[1.3]">
-                                <span className="truncate font-medium text-ink">{student.name}</span>
+                                <StudentProfileLink studentId={student.id} className="truncate">{student.name}</StudentProfileLink>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
                                   {!enrollment?.isAsyncStudent && (enrollment?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2')}
                                   {enrollment?.isAsyncStudent && <AsyncBadge className="h-[18px] px-1.5 text-[11px]" />}
@@ -708,7 +708,7 @@ export default function AttendancePage() {
                             aria-expanded={isExpanded}
                             onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
                           >
-                            <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                            <StudentProfileLink studentId={student.id} className="truncate text-[15px]">{student.name}</StudentProfileLink>
                             {isExpanded ? <ChevronDown className="size-4 shrink-0 text-ink-3" /> : <ChevronRight className="size-4 shrink-0 text-ink-3" />}
                           </button>
                         </div>

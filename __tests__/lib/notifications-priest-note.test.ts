@@ -55,6 +55,7 @@ describe('priest-note notifications', () => {
         isDisabled: false,
         roleAssignments: {
           some: { tag: RoleTag.PRIEST, revokedAt: null },
+          none: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
         },
       },
       select: { id: true },
@@ -66,7 +67,7 @@ describe('priest-note notifications', () => {
         type: NotificationType.PRIEST_NOTE_CREATED,
         title: 'New confidential visitation note',
         body: 'A confidential Sunday School visitation note is ready for review.',
-        url: '/dashboard/servants/visitations',
+        url: '/dashboard/servants/visitations?childId=child-1',
         metadata: {
           noteId: 'note-1',
           visitationId: 'visitation-1',

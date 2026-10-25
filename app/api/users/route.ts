@@ -100,8 +100,14 @@ export async function GET(request: Request) {
         },
         isDisabled: true,
         canAccessContactBook: true,
+        canUseViewAs: true,
         createdAt: true,
         updatedAt: true,
+        annualMentorInformation: {
+          where: { academicYear: { isActive: true } },
+          select: { reviewedAt: true },
+          take: 1,
+        },
         enrollments: {
           select: {
             id: true,
@@ -118,6 +124,14 @@ export async function GET(request: Request) {
                 name: true,
                 email: true,
                 phone: true,
+              }
+            },
+            fatherOfConfession: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                church: true,
               }
             }
           }

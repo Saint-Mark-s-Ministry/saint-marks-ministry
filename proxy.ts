@@ -9,6 +9,8 @@ const ALLOW_DURING_PASSWORD_CHANGE = [
   "/login",
   "/forgot-password",
   "/reset-password",
+  "/app",
+  "/support",
   "/privacy",
   "/terms",
   "/api/auth", // NextAuth: sign-in, sign-out, session, csrf

@@ -11,7 +11,7 @@ export class ExamError extends Error {
 }
 export function examPermissions(context: AuthorizationContext) {
   const staff = !context.disabled && [RoleTag.SUPER_ADMIN, RoleTag.SERVANTS_PREP_SERVANT, RoleTag.PRIEST].some(tag => context.roleTags.has(tag))
-  return { staff, manage: staff && !context.readOnly && (context.roleTags.has(RoleTag.SUPER_ADMIN) || context.roleTags.has(RoleTag.SERVANTS_PREP_SERVANT)), student: !context.disabled && !context.readOnly && context.roleTags.has(RoleTag.SERVANTS_PREP_STUDENT) }
+  return { staff, manage: staff && !context.readOnly, student: !context.disabled && !context.readOnly && context.roleTags.has(RoleTag.SERVANTS_PREP_STUDENT) }
 }
 export function validateConfiguration(counts: unknown, key: unknown): { choiceCounts: number[]; answerKey: string[] } {
   if (!Array.isArray(counts) || counts.length !== QUESTION_COUNT || !counts.every(n => Number.isInteger(n) && n >= 2 && n <= ANSWER_CHOICES.length)) throw new ExamError('Set between two and eight choices for all 50 questions.')

@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -245,7 +247,7 @@ export function AttendanceSlipsPanel({ enrollment, canEdit, onChange }: {
                     >
                       <Initials name={student.student.name} />
                       <span className="flex min-w-0 flex-col leading-tight">
-                        <span className="truncate text-[13.5px] font-medium text-ink">{student.student.name}</span>
+                        <StudentProfileLink studentId={student.studentId} className="truncate text-[13.5px]">{student.student.name}</StudentProfileLink>
                         <span className="text-xs text-ink-3">
                           {!student.isAsyncStudent ? 'No longer async' : count === 0 ? 'No slips yet' : `${count} slip${count === 1 ? '' : 's'}`}
                         </span>

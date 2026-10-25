@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react'
 import { X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Dialog, DialogSurface } from '@/components/ui/dialog'
+import { useModalExit } from '@/hooks/use-modal-exit'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +43,7 @@ interface DetailPanelProps {
  */
 export function DetailPanel({ open, recordKey, onClose, title, label, header, footer, children }: DetailPanelProps) {
   const wide = useIsWide()
+  const exit = useModalExit(onClose)
   const openDetail = useContext(OpenDetailContext)
   // A keyed record may remount while the previous panel is still present.
   // Capture that before its cleanup so replacing a record never expands again.
@@ -59,7 +62,7 @@ export function DetailPanel({ open, recordKey, onClose, title, label, header, fo
           {typeof title === 'string' ? <h2 className="text-[15px] font-semibold text-ink">{title}</h2> : title}
           {header}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close details">
+        <Button variant="ghost" size="icon-sm" onClick={() => wide ? onClose() : exit.close()} aria-label="Close details">
           <X />
         </Button>
       </div>
@@ -85,16 +88,16 @@ export function DetailPanel({ open, recordKey, onClose, title, label, header, fo
   }
 
   return (
-    <DialogPrimitive.Root open onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={!exit.closing} onOpenChange={(next) => !next && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={cn(
-          'fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)]',
+          'fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[var(--modal-motion-duration)]',
           !replacingRecord && 'animate-in fade-in-0 duration-200 motion-reduce:animate-none'
         )} />
-        <DialogPrimitive.Content
+        <DialogSurface
           aria-describedby={undefined}
           className={cn(
-            'fixed z-50 flex flex-col overflow-hidden border-line bg-surface text-ink',
+            'fixed z-50 flex flex-col overflow-hidden border-line bg-surface text-ink data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom md:data-[state=closed]:slide-out-to-right data-[state=closed]:duration-[var(--modal-motion-duration)]',
             'inset-x-0 bottom-0 max-h-[88vh] rounded-t-xl border-t pb-[env(safe-area-inset-bottom)]',
             'md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[400px] md:rounded-none md:border-t-0 md:border-l',
             // Bottom sheet on phones, side sheet on tablets
@@ -103,9 +106,9 @@ export function DetailPanel({ open, recordKey, onClose, title, label, header, fo
         >
           <DialogPrimitive.Title className="sr-only">{label ?? (typeof title === 'string' ? title : 'Details')}</DialogPrimitive.Title>
           {body}
-        </DialogPrimitive.Content>
+        </DialogSurface>
       </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </Dialog>
   )
 }
 

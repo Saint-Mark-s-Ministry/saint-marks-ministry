@@ -169,6 +169,13 @@ export function getMostRecentClassMeetingDate(
   return getMostRecentMeetingDay(getClassMeetingDay(level), date);
 }
 
+/** "YYYY-MM-DD" of the class's next meeting on or after `today` ("YYYY-MM-DD", church time). */
+export function getNextClassMeetingDay(level: SundaySchoolLevel, today: string): string {
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + ((getClassMeetingDay(level) - date.getUTCDay() + 7) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
 /** "YYYY-MM-DD" for a stored (midnight UTC) session date. */
 export function toDateInputValue(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -191,9 +198,10 @@ export function getChildFullName(child: {
 /** A photo servants added, else the child's own account photo. */
 export function getChildPhotoUrl(child: {
   photoUrl?: string | null;
+  accountPhotoUrl?: string | null;
   user?: { profileImageUrl?: string | null } | null;
 }): string | null {
-  return child.photoUrl ?? child.user?.profileImageUrl ?? null;
+  return child.photoUrl ?? child.accountPhotoUrl ?? child.user?.profileImageUrl ?? null;
 }
 
 /**

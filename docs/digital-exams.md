@@ -46,6 +46,30 @@ The student must wait for saves before final submission. Closing while changes
 are pending uses only the server's saved answers. Pending changes clear after
 submission.
 
+## Church location requirement
+
+Online original exams and approved digital retakes use the same fixed geofence
+as Sunday School servants meeting check-in: within 150 meters of 427 Westside
+Ave, Jersey City, NJ. All eligible students, including async students, must
+allow precise browser location access. HTTPS is required.
+
+The server checks location before every start/resume, answer save, and student
+submission, independently of the existing exam permissions, enrollment and
+session checks. Positions must be captured within two minutes and accurate to
+within 100 meters. Start/resume and submission request a new fix; autosaves can
+reuse a fix for up to one minute. Location is held in memory only and is not
+included in stored drafts, exam records or monitoring events.
+
+Missing, inaccurate, stale, or out-of-bounds location blocks the action. The
+church coordinates are fixed in the shared geofence helper, so external geocoder
+availability does not block exams. Pending answers stay on the device and retry;
+saved answers remain preserved. Heartbeats and activity reports continue even
+when location verification fails. Proctors can still close an exam to finalize
+already saved answers, and their management actions do not require location.
+Paper makeup exams are unchanged. Browser-reported coordinates do not prevent
+device location spoofing. Live venue lookup must be verified in deployment.
+No schema change is required for this location restriction.
+
 ## Free live dashboard alerts
 
 Without Pusher credentials the dashboard automatically refreshes every two
@@ -84,7 +108,7 @@ All state mutations lock the parent Exam row in a database transaction, includin
 sheet creation. Concurrent save/submit/close/unlock requests serialize against
 that row. Student IDs are always derived from the authenticated principal;
 server authorization resolves current role tags, disabled status, and enrollment.
-Priests stay read-only. Sunday School-only roles have no access.
+Priests may also configure and manage exams. Sunday School-only roles have no access.
 
 Endpoints:
 
@@ -129,7 +153,7 @@ prove cheating. Use activity flags for proctor review.
 
 Student navigation and direct answer sheet access are available only while an eligible exam is OPEN. Closing hides access, including submitted attempts. Released grades remain in My Progress; students never receive the answer key. Question choices can be configured from two to eight (A–B through A–H).
 
-Servants and priests can open **Exam Monitoring** from the sidebar, search by exam or academic year, filter by proctoring status, and enter each live dashboard. Priests have read-only access. **Reset test opening** returns an unreleased sheet to draft only if nobody has joined, preserving its key and every saved grade. Full exam deletion is blocked when grades or digital attempts exist.
+Servants and priests can open **Exam Monitoring** from the sidebar, search by exam or academic year, filter by proctoring status, and enter each live dashboard. Priests may set up and manage exams. **Reset test opening** returns an unreleased sheet to draft only if nobody has joined, preserving its key and every saved grade. Full exam deletion is blocked when grades or digital attempts exist.
 
 Unless a servant explicitly approves an individual retake, students with an existing score for the exam are excluded from the proctor roster and cannot start another digital attempt or see its student link. This includes zero scores and paper makeup scores. Existing digital activity remains available under Past digital activity, without putting graded students back in the proctor roster.
 

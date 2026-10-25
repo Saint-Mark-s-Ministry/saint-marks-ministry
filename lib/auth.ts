@@ -11,6 +11,9 @@ import { seesAllSundaySchoolClasses } from "./roles"
 import { recordAuditEvent } from "./audit"
 import { normalizeEmail } from "./email"
 import { classBelongsToElementaryBand } from "./sunday-school-homework"
+import { authenticatePasskey, passkeyTokenFromHeader } from "./passkeys"
+import { hasViewAsAccess } from "./view-as-access"
+import { assertPasskeyOrigin } from "./passkey-config"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   const [enrollment, roleAssignments] = await Promise.all([
@@ -101,6 +104,7 @@ async function loadAuthUser(userId: string) {
       isDisabled: true,
       mustChangePassword: true,
       canAccessContactBook: true,
+      canUseViewAs: true,
       profileImageUrl: true,
     },
   })
@@ -118,21 +122,18 @@ async function loadViewAsActor(userId: string) {
       isDisabled: true,
       mustChangePassword: true,
       canAccessContactBook: true,
+      canUseViewAs: true,
       profileImageUrl: true,
       roleAssignments: {
-        where: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
-        select: { id: true },
-        take: 1,
+        where: { revokedAt: null },
+        select: { tag: true },
       },
     },
   })
 }
 
 function canUseViewAs(actor: Awaited<ReturnType<typeof loadViewAsActor>>): actor is NonNullable<typeof actor> {
-  return !!actor &&
-    !actor.isDisabled &&
-    actor.role === UserRole.SUPER_ADMIN &&
-    actor.roleAssignments.length > 0
+  return hasViewAsAccess(actor)
 }
 
 async function applyUserToToken(
@@ -142,6 +143,7 @@ async function applyUserToToken(
 ) {
   const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(user)
   token.id = user.id
+  token.canUseViewAs = user.canUseViewAs ?? false
   token.canAccessContactBook = user.canAccessContactBook
   token.role = user.role
   token.authVersion = user.authVersion
@@ -227,6 +229,27 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: false,
     }),
     CredentialsProvider({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { response: { label: "Passkey response", type: "text" } },
+      async authorize(credentials, req) {
+        try {
+          assertPasskeyOrigin(req.headers?.origin)
+          if (!credentials?.response) return null
+          const user = await authenticatePasskey(passkeyTokenFromHeader(req.headers?.cookie, 'authenticate'), credentials.response)
+          const sessionData = await getUserSessionData(user)
+          await recordAuditEvent({
+            actorUserId: user.id, action: 'AUTH_LOGIN', entityType: 'User', entityId: user.id,
+            result: AuditEventResult.SUCCESS, metadata: { provider: 'passkey' },
+          })
+          return { ...user, ...sessionData }
+        } catch {
+          // Never expose credential IDs, account existence, or verifier errors.
+          return null
+        }
+      },
+    }),
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -306,6 +329,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           canAccessContactBook: user.canAccessContactBook,
+          canUseViewAs: user.canUseViewAs,
           authVersion: user.authVersion,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
@@ -356,8 +380,12 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, account, trigger, session }) {
+      // Set only on a real sign-in, never from client session updates or token
+      // refreshes. Older sessions must sign in again to manage passkeys.
+      if (user && account) token.authenticatedAt = Date.now()
       // Credentials sign-in: user object has all our custom fields
-      if (user && account?.provider === "credentials") {
+      if (user && (account?.provider === "credentials" || account?.provider === "passkey")) {
+        token.canUseViewAs = user.canUseViewAs ?? false
         token.canAccessContactBook = user.canAccessContactBook ?? false
         token.role = user.role
         token.id = user.id
@@ -379,6 +407,7 @@ export const authOptions: NextAuthOptions = {
         if (dbUser) {
           const { isAsyncStudent, sundaySchool, ministryMembership } = await getUserSessionData(dbUser)
           token.id = dbUser.id
+          token.canUseViewAs = dbUser.canUseViewAs
           token.canAccessContactBook = dbUser.canAccessContactBook
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
@@ -425,7 +454,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Read-only View as mode. The client may request a target, but the
-        // acting identity and current SUPER_ADMIN grant are re-derived from
+        // acting identity and current View as permission are re-derived from
         // the database before the effective session can change.
         if ('impersonate' in (session as Record<string, unknown>)) {
           const impersonateId = (session as { impersonate?: string | null }).impersonate
@@ -461,7 +490,7 @@ export const authOptions: NextAuthOptions = {
                 action: 'ADMIN_VIEW_AS_STARTED',
                 targetUserId: target?.id ?? null,
                 result: AuditEventResult.DENIED,
-                reason: 'Actor is not an active Super Admin, or the target is unavailable',
+                reason: 'Actor lacks current View as access, or the target is unavailable',
               })
             }
           } else {
@@ -478,12 +507,11 @@ export const authOptions: NextAuthOptions = {
         await restoreViewAsActor(token, 'EXPIRED')
       }
 
-      // Periodically re-check the user against the DB so that disabling an
-      // account or changing its role takes effect without waiting for the
-      // long-lived JWT to expire. While viewing as another user, validate both
-      // the real administrator and the effective target.
+      // Revalidate both actor and target on every View as session request so
+      // revoking access takes effect immediately. Other sessions refresh
+      // their navigation claims periodically.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
-      if (token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+      if (token.originalId && token.id) {
         const [actor, target] = await Promise.all([
           loadViewAsActor(token.originalId),
           loadAuthUser(token.id),
@@ -506,6 +534,7 @@ export const authOptions: NextAuthOptions = {
             isDisabled: true,
             mustChangePassword: true,
             canAccessContactBook: true,
+            canUseViewAs: true,
           }
         })
 
@@ -516,6 +545,7 @@ export const authOptions: NextAuthOptions = {
         ) {
           token.invalidated = true
         } else {
+          token.canUseViewAs = dbUser.canUseViewAs
           token.canAccessContactBook = dbUser.canAccessContactBook
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
@@ -539,7 +569,10 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (session.user) {
+        session.authenticatedAt = token.authenticatedAt
+        session.user.authVersion = token.authVersion
         session.user.canAccessContactBook = token.canAccessContactBook ?? false
+        session.user.canUseViewAs = token.canUseViewAs ?? false
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
         session.user.mustChangePassword = token.mustChangePassword as boolean

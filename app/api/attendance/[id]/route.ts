@@ -14,7 +14,7 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage attendance
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage attendance
     if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
@@ -37,6 +37,13 @@ export async function PATCH(
         { error: "Attendance record not found" },
         { status: 404 }
       )
+    }
+
+    const enrollment = await prisma.studentEnrollment.findUnique({
+      where: { studentId: record.studentId }, select: { isAsyncStudent: true },
+    })
+    if (enrollment?.isAsyncStudent) {
+      return NextResponse.json({ error: "Async students have rotation attendance; prep lesson attendance does not apply" }, { status: 400 })
     }
 
     // Validate conduct removal requires a note

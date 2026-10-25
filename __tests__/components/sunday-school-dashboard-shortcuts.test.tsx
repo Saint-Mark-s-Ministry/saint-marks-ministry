@@ -4,6 +4,7 @@ import { SundaySchoolLevel } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   dashboard: {} as Record<string, unknown>,
+  meeting: undefined as Record<string, unknown> | undefined,
 }))
 
 vi.mock('@/hooks/useSundaySchoolGuard', () => ({
@@ -14,9 +15,12 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
 }))
 
 vi.mock('@/lib/swr', () => ({
+  useSundaySchoolMeetings: () => ({ data: mocks.meeting }),
   useLiturgicalCalendar: () => ({ data: undefined }),
   useLiturgicalDay: () => ({ data: undefined, isLoading: true }),
   useSundaySchoolLessons: () => ({ data: { lessons: [] } }),
+  useSundaySchoolFollowUps: () => ({ data: undefined }),
+  useSundaySchoolHomework: () => ({ data: undefined }),
   useSundaySchoolDashboard: () => ({
     data: mocks.dashboard,
     isLoading: false,
@@ -49,6 +53,7 @@ function classSummary(id: string, name: string) {
 
 describe('Sunday School dashboard shortcuts', () => {
   beforeEach(() => {
+    mocks.meeting = undefined
     mocks.dashboard = {
       classes: [classSummary('class-8', '8th Grade')],
       ageGroups: [],
@@ -58,13 +63,17 @@ describe('Sunday School dashboard shortcuts', () => {
     }
   })
 
-  it('sends Take attendance straight to the only assigned class', () => {
+  it('gives a servant with one class a checklist for this week', () => {
     render(<SundaySchoolDashboardPage />)
+    expect(screen.queryByRole('link', { name: 'Meeting check-in' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'This week' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute(
       'href',
       '/dashboard/servants/attendance?classId=class-8'
     )
-    expect(screen.getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
+    expect(screen.getByRole('link', { name: 'Open Care' })).toHaveAttribute('href', '/dashboard/servants/care')
+    // A servant with one class has no class list to manage.
+    expect(screen.queryByRole('heading', { name: 'Classes' })).not.toBeInTheDocument()
   })
 
   it('sends coordinators with several classes to the attendance picker and lists what is due', () => {
@@ -75,16 +84,19 @@ describe('Sunday School dashboard shortcuts', () => {
     }
     render(<SundaySchoolDashboardPage />)
     expect(screen.getByRole('link', { name: 'Take attendance' })).toHaveAttribute('href', '/dashboard/servants/attendance')
+    expect(screen.getByRole('link', { name: 'Children in 8th Grade' })).toHaveAttribute('href', '/dashboard/servants/roster?classId=class-8')
     expect(screen.getAllByRole('link', { name: 'Take' }).map((l) => l.getAttribute('href'))).toEqual([
       '/dashboard/servants/attendance?classId=class-7',
       '/dashboard/servants/attendance?classId=class-8',
     ])
   })
-  it('does not put meeting attendance on the Elementary dashboard', () => {
+  it('links ordinary Elementary servants straight to self check-in without mounting the meeting roster', () => {
     mocks.dashboard.classes = [{ ...classSummary('elementary-class', '1st Grade'), level: SundaySchoolLevel.GRADE_1, ageGroup: { id: 'elementary', name: 'Elementary School' } }]
     mocks.dashboard.ageGroups = [{ id: 'elementary', name: 'Elementary School', levels: [SundaySchoolLevel.GRADE_1], canCoordinate: false }]
+    mocks.meeting = { canCheckIn: true, meeting: { id: 'today', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()) } }
     render(<SundaySchoolDashboardPage />)
-    expect(screen.queryByText(/servants meetings/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Meeting check-in' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance/meetings?ageGroupId=elementary&meetingId=today')
+    expect(screen.queryByRole('region', { name: 'Servants meetings' })).not.toBeInTheDocument()
   })
 
 })

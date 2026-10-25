@@ -8,12 +8,12 @@ export const ROLE_TAG_OPTIONS: ReadonlyArray<{
   {
     value: RoleTag.SUPER_ADMIN,
     label: 'Super Admin',
-    description: 'Full access, including user access-tag administration.',
+    description: 'Manage ministry records and user access tags; confidential notes to priests are excluded.',
   },
   {
     value: RoleTag.PRIEST,
     label: 'Priest',
-    description: 'Read-only access to every program and record.',
+    description: 'View and edit ministry records across Servants Prep and Sunday School.',
   },
   {
     value: RoleTag.SERVANTS_PREP_SERVANT,
@@ -72,7 +72,7 @@ export function roleTagForLegacyRole(role: UserRole): RoleTag | null {
  * cut over to normalized role tags. Choose the highest-impact compatibility
  * role deterministically so adding a tag also activates routes that have not
  * yet moved to the normalized authorization resolver. PRIEST is always first
- * because it is a read-only override.
+ * to preserve the priest dashboard and pastoral identity.
  */
 export function legacyRoleForTags(
   tags: Iterable<RoleTag>,

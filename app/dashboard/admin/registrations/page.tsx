@@ -1,5 +1,8 @@
 'use client'
 
+import { ReplaceStudentAccountDialog } from '@/components/replace-student-account-dialog'
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { RegistrationNameMatchWarning } from '@/components/registration-name-match-warning'
@@ -19,7 +22,7 @@ import { toast } from 'sonner'
 import { canViewRegistrations, canManageInviteCodes, canReviewRegistrations } from '@/lib/roles'
 import { useInviteCodes, useRegistrationSubmissions, useRegistrationSettings } from '@/lib/swr'
 import { Copy, Plus, Eye, CheckCircle, XCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw, Link2 } from 'lucide-react'
-import { RegistrationStatus, YearLevel, Prisma } from '@prisma/client'
+import { RegistrationStatus, UserRole, YearLevel, Prisma } from '@prisma/client'
 
 type RegistrationSubmission = Prisma.RegistrationSubmissionGetPayload<{
   include: {
@@ -260,9 +263,9 @@ function SubmissionDetail({
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [reviewNote, setReviewNote] = useState('')
-  const [yearLevel, setYearLevel] = useState<YearLevel>(YearLevel.YEAR_1)
+  const [startingClass, setStartingClass] = useState<YearLevel | 'ASYNC'>(YearLevel.YEAR_1)
 
-  const handleApprove = async () => {
+  const handleApprove = async (replaceUserId?: string, migrateHistory?: boolean) => {
     setIsApproving(true)
     try {
       const res = await fetch(`/api/registration/submissions/${submission.id}/review`, {
@@ -270,8 +273,11 @@ function SubmissionDetail({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
+          replaceUserId,
+          migrateHistory,
           note: reviewNote,
-          yearLevel,
+          yearLevel: startingClass === 'ASYNC' ? null : startingClass,
+          isAsyncStudent: startingClass === 'ASYNC',
         }),
       })
 
@@ -281,16 +287,25 @@ function SubmissionDetail({
       }
 
       const data = await res.json()
-      toast.success('Registration approved!', {
+      toast.success(data.migratedData ? 'Registration approved and SP history transferred' : data.replacedUserId ? 'Registration approved and old account deleted' : 'Registration approved!', {
         description: data.tempPassword
           ? `A set-password link is being emailed to them. If they don’t receive it, share this temporary password: ${data.tempPassword}`
           : 'Linked to their existing account. Their password is unchanged.',
         duration: 10000,
       })
+      if (data.sundaySchoolMatch?.status === 'linked') {
+        toast.success('Sunday School student roster matched automatically')
+      } else if (data.sundaySchoolMatch?.status === 'review') {
+        toast.warning('Sunday School roster match needs review', { description: data.sundaySchoolMatch.reason })
+      } else if (data.sundaySchoolMatch?.status === 'unmatched') {
+        toast.info('No matching Sunday School student roster record found')
+      }
       onUpdate()
       onClose()
+      return true
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to approve registration')
+      return false
     } finally {
       setIsApproving(false)
     }
@@ -361,7 +376,7 @@ function SubmissionDetail({
               {isRejecting ? <Loader2 className="animate-spin" /> : <XCircle />}
               Reject
             </Button>
-            <Button className="flex-1" onClick={handleApprove} disabled={isApproving || isRejecting}>
+            <Button className="flex-1" onClick={() => void handleApprove()} disabled={isApproving || isRejecting}>
               {isApproving ? <Loader2 className="animate-spin" /> : <CheckCircle />}
               Approve
             </Button>
@@ -371,6 +386,38 @@ function SubmissionDetail({
     >
       <div className="flex flex-col gap-3">
         <RegistrationNameMatchWarning matches={submission.exactNameMatches ?? []} />
+        {canReview && !isReturningApplicant && Boolean(submission.exactNameMatches?.length) && (
+          <div className="rounded-md border border-warn/30 bg-warn-tint p-3 space-y-3 text-sm">
+            <p>You can replace an old student account when approving {submission.email}.</p>
+            {submission.exactNameMatches?.map((account) => (
+              <div key={account.id} className="space-y-2">
+                <p><StudentProfileLink studentId={account.id}>{account.name}</StudentProfileLink> — {account.email}</p>
+                {canReview && !isReturningApplicant && session?.user && [UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === session.user.role) && (
+                  <ReplaceStudentAccountDialog
+                    applicant={{ name: submission.fullName, email: submission.email }}
+                    oldAccount={account} yearLevel={startingClass}
+                    busy={isApproving || isRejecting} onConfirm={handleApprove}
+                  >
+                    <div className="grid gap-1.5">
+                        <Label htmlFor={`replacement-class-${account.id}`}>Confirm starting class</Label>
+                        <Select value={startingClass} onValueChange={(value) => setStartingClass(value as YearLevel | 'ASYNC')}>
+                          <SelectTrigger id={`replacement-class-${account.id}`} className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={YearLevel.YEAR_1}>Year 1</SelectItem>
+                            <SelectItem value={YearLevel.YEAR_2}>Year 2</SelectItem>
+                            <SelectItem value="ASYNC">Async</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-ink-2">Choose the new account’s class before confirming. Async students have no cohort year.</p>
+                      </div>
+                  </ReplaceStudentAccountDialog>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         {isReturningApplicant && (
           <p className="rounded-md bg-info-tint px-3 py-2 text-[13px] text-info">
             Returning applicant — linked to the existing account for{' '}
@@ -418,14 +465,15 @@ function SubmissionDetail({
           <div className="flex flex-col gap-3 border-t border-line pt-3">
             {!isReturningApplicant && (
               <div className="grid gap-1.5">
-                <Label htmlFor="yearLevel">Starting year level</Label>
-                <Select value={yearLevel} onValueChange={(value) => setYearLevel(value as YearLevel)}>
-                  <SelectTrigger id="yearLevel" className="w-full">
+                <Label htmlFor="startingClass">Starting class</Label>
+                <Select value={startingClass} onValueChange={(value) => setStartingClass(value as YearLevel | 'ASYNC')}>
+                  <SelectTrigger id="startingClass" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={YearLevel.YEAR_1}>Year 1</SelectItem>
                     <SelectItem value={YearLevel.YEAR_2}>Year 2</SelectItem>
+                    <SelectItem value="ASYNC">Async</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

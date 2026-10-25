@@ -1,10 +1,12 @@
+import { handleApiError } from '@/lib/api-utils'
 import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
+import { getAnnualMentorRequirement } from "@/lib/annual-mentor-information"
 import { LessonStatus } from "@prisma/client"
-import { excludeAsyncPeriodRecords } from "@/lib/attendance-utils"
+import { excludeAsyncLessonRecords } from "@/lib/attendance-utils"
 import { withUserMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/students/[id]/details - Get detailed student data for editing
@@ -27,6 +29,7 @@ export async function GET(
 
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
+    const fullHistory = searchParams.get('fullHistory') === 'true'
 
     // academicYearId is now optional - if not provided, return data across all years
 
@@ -97,6 +100,7 @@ export async function GET(
         exam: examFilter
       },
       include: {
+        makeupScores: { orderBy: { takenDate: 'asc' } },
         exam: {
           include: {
             examSection: true,
@@ -117,12 +121,12 @@ export async function GET(
 
     // Get all attendance records with lesson details
     // Include isExamDay field so frontend can filter/display appropriately
-    // Async-period lessons without a slip aren't counted, so they aren't listed either
+    // Current async students have rotation attendance, not lesson attendance.
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
         lesson: lessonFilter,
-        ...excludeAsyncPeriodRecords(student.enrollments.map((e) => ({ ...e, studentId }))),
+        ...excludeAsyncLessonRecords(student.enrollments.map((e) => ({ ...e, studentId }))),
       },
       include: {
         lesson: {
@@ -155,9 +159,9 @@ export async function GET(
         ...examFilter,
         yearLevel: {
           in: student.enrollments?.[0] ?
-            applicableExamYears(student.enrollments[0].yearLevel, student.enrollments[0].isAsyncStudent) : []
+            applicableExamYears(student.enrollments[0].yearLevel, student.enrollments[0].isAsyncStudent, fullHistory) : []
         },
-        examDate: {
+        examDate: fullHistory ? undefined : {
           gte: sixMonthsAgo
         }
       },
@@ -168,7 +172,7 @@ export async function GET(
       orderBy: {
         examDate: 'desc'
       },
-      take: 50 // Limit to 50 most recent exams
+      take: fullHistory ? undefined : 50
     })
 
     // Get all lessons (to show missing attendance)
@@ -176,7 +180,7 @@ export async function GET(
     const allLessons = await prisma.lesson.findMany({
       where: {
         ...lessonFilter,
-        scheduledDate: {
+        scheduledDate: fullHistory ? undefined : {
           gte: sixMonthsAgo
         }
       },
@@ -187,20 +191,17 @@ export async function GET(
       orderBy: {
         scheduledDate: 'desc'
       },
-      take: 100 // Limit to 100 most recent lessons
+      take: fullHistory ? undefined : 100
     })
 
     return NextResponse.json({
-      student: (await withUserMentorContacts([student]))[0],
+      student: { ...(await withUserMentorContacts([student]))[0], annualMentorRequirement: await getAnnualMentorRequirement(studentId) },
       examScores,
       attendanceRecords,
       allExams,
       allLessons
     })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch student details" },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }

@@ -27,7 +27,7 @@ const mockFindMany = vi.mocked(prisma.user.findMany)
 const activeActor = {
   role: UserRole.SUPER_ADMIN,
   isDisabled: false,
-  roleAssignments: [{ id: 'grant-1' }],
+  roleAssignments: [{ tag: RoleTag.SUPER_ADMIN }],
 }
 
 describe('GET /api/admin/view-as/users', () => {
@@ -88,6 +88,20 @@ describe('GET /api/admin/view-as/users', () => {
     expect(response.status).toBe(200)
     expect(mockFindUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'admin-1' } }))
     await expect(response.json()).resolves.toHaveLength(1)
+  })
+
+  it.each([true, false])('requires the priest permission to be enabled: %s', async enabled => {
+    mockGetServerSession.mockResolvedValue({ user: { id: 'priest' } } as never)
+    mockFindUnique.mockResolvedValue({ role: UserRole.PRIEST, isDisabled: false, canUseViewAs: enabled, roleAssignments: [{ tag: RoleTag.PRIEST }] } as never)
+    mockFindMany.mockResolvedValue([])
+    expect((await GET(new Request('https://example.test/api/admin/view-as/users'))).status).toBe(enabled ? 200 : 403)
+  })
+
+  it.each(Object.values(UserRole))('allows a granted %s to load the picker without ministry tags', async role => {
+    mockGetServerSession.mockResolvedValue({ user: { id: 'account' } } as never)
+    mockFindUnique.mockResolvedValue({ role, isDisabled: false, canUseViewAs: true, roleAssignments: [] } as never)
+    mockFindMany.mockResolvedValue([])
+    expect((await GET(new Request('https://example.test/api/admin/view-as/users'))).status).toBe(200)
   })
 
   it('caps the number of returned candidates', async () => {

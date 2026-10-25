@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentProfileLink } from '@/components/student-profile-link'
+
 import { Suspense, useEffect, useState } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -36,6 +38,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { LastSaved } from '@/components/ui/last-saved'
 import type { MentorContact } from '@/lib/mentor-contact'
+import { requiresAnnualMentorUpdate } from '@/lib/annual-mentor-requirement'
 
 interface Student {
   id: string
@@ -43,6 +46,7 @@ interface Student {
   email: string
   phone?: string
   profileImageUrl?: string | null
+  annualMentorInformation?: Array<{ reviewedAt: string | null }>
   enrollments?: Array<{
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2' | null
@@ -51,11 +55,24 @@ interface Student {
     notes?: string
     isAsyncStudent?: boolean
     mentorContact?: MentorContact | null
+    fatherOfConfession?: {
+      id: string
+      name: string
+      phone: string | null
+      church: string | null
+    } | null
     mentor?: {
+      email?: string | null
+      phone?: string | null
       id: string
       name: string
     }
   }>
+}
+
+function needsMentorReview(student: Student) {
+  const enrollment = student.enrollments?.[0]
+  return requiresAnnualMentorUpdate(enrollment) && !student.annualMentorInformation?.[0]?.reviewedAt
 }
 
 interface StudentAnalytics {
@@ -240,19 +257,11 @@ function StudentsManagementContent() {
     if (searchParams.get('filter') === 'review') setFilterStatus('review')
   }, [searchParams])
 
-  // Handle URL parameter to open student details modal directly
+  // Preserve links shared before profiles had their own route.
   useEffect(() => {
     const studentId = searchParams.get('student')
-    if (studentId && students.length > 0 && !loading) {
-      // Check if the student exists
-      const student = students.find(s => s.id === studentId)
-      if (student) {
-        setPreviewId(studentId)
-        // Clear the URL parameter after opening
-        router.replace('/dashboard/admin/students', { scroll: false })
-      }
-    }
-  }, [searchParams, students, loading, router])
+    if (studentId) router.replace(`/dashboard/admin/students/${encodeURIComponent(studentId)}`)
+  }, [searchParams, router])
 
   const fetchStudents = async () => {
     try {
@@ -571,6 +580,8 @@ function StudentsManagementContent() {
   const withdrawnCount = students.filter((s) => s.enrollments?.[0]?.status === 'WITHDRAWN').length
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
   const preview = previewId ? students.find((s) => s.id === previewId) : undefined
+  const previewMentor = preview?.enrollments?.[0]?.mentor
+  const previewFather = preview?.enrollments?.[0]?.fatherOfConfession
   const previewAnalytics = preview ? analytics.find((a) => a.studentId === preview.id) : undefined
   const selectedIds = Array.from(selectedStudents)
 
@@ -716,6 +727,8 @@ function StudentsManagementContent() {
                       </th>
                       <SortableTableHeader column="name" label="Student" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
                       {!preview && <SortableTableHeader column="year" label="Year" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-24" />}
+                      {!preview && <th scope="col" className="px-3 py-2.5 text-left font-medium">Mentor</th>}
+                      {!preview && <th scope="col" className="px-3 py-2.5 text-left font-medium">Father of confession</th>}
                       {!preview && <SortableTableHeader column="year1Attendance" label="Y1 attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />}
                        <SortableTableHeader column="year2Attendance" label={preview ? 'Attendance' : 'Y2 attendance'} activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-44" />
                       <SortableTableHeader column="examAverage" label="Exam avg" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} className="w-40" />
@@ -747,7 +760,7 @@ function StudentsManagementContent() {
                               name={student.name}
                               imageUrl={student.profileImageUrl}
                               meta={student.email || 'No email on file'}
-                              onClick={() => setPreviewId(student.id)}
+                              href={`/dashboard/admin/students/${student.id}`}
                             />
                           </td>
                           {!preview && (
@@ -756,12 +769,25 @@ function StudentsManagementContent() {
                             </td>
                           )}
                           {!preview && (
+                            <>
+                              <td className="px-3">
+                                <div className="flex min-w-56 items-center justify-between gap-3">
+                                  <span className="min-w-0 truncate" title={enrollment?.mentor?.name ?? 'Not assigned'}>
+                                    {enrollment?.mentor?.name ?? <span className="text-ink-3">Not assigned</span>}
+                                  </span>
+                                  {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                                </div>
+                              </td>
+                              <td className="px-3">{enrollment?.fatherOfConfession?.name ?? <span className="text-ink-3">Not provided</span>}</td>
+                            </>
+                          )}
+                          {!preview && (
                             <td className="px-3">
                               <Metric value={a?.year1AttendancePercentage} detail={a && a.year1AttendancePercentage !== null ? `${a.year1AttendedLessons}/${a.year1TotalLessons}` : undefined} width={48} />
                             </td>
                           )}
                           <td className="px-3">
-                            <Metric value={enrollment?.isAsyncStudent ? a?.attendancePercentage : preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={!preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
+                            <Metric value={enrollment?.isAsyncStudent ? a?.attendancePercentage : preview ? (a?.year2AttendancePercentage ?? a?.year1AttendancePercentage) : a?.year2AttendancePercentage} detail={enrollment?.isAsyncStudent ? (a ? `${a.attendedLessons}/${a.totalLessons} rotation weeks` : undefined) : !preview && a && a.year2AttendancePercentage !== null ? `${a.year2AttendedLessons}/${a.year2TotalLessons}` : undefined} width={48} />
                           </td>
                           <td className="px-3">
                             <Metric value={a?.avgExamScore} detail={!preview && a && a.avgExamScore !== null ? `${a.examCount} exam${a.examCount !== 1 ? 's' : ''}` : undefined} width={48} />
@@ -794,17 +820,22 @@ function StudentsManagementContent() {
                         onChange={() => toggleStudent(student.id)}
                         className="size-5 shrink-0 accent-brand"
                       />
-                      <button type="button" onClick={() => setPreviewId(student.id)} className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
+                      <div className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
                         <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} enlarge={false} />
                         <span className="flex min-w-0 flex-col">
-                          <span className="truncate text-[15px] font-medium text-ink">{student.name}</span>
+                          <StudentProfileLink studentId={student.id} className="truncate text-[15px]">{student.name}</StudentProfileLink>
                           <span className="truncate text-xs text-ink-3">
                             {enrollment ? (enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2') : 'Not enrolled'}
                             {' · '}Att {(enrollment?.isAsyncStudent ? a?.attendancePercentage : enrollment?.yearLevel === 'YEAR_1' ? a?.year1AttendancePercentage : a?.year2AttendancePercentage)?.toFixed(0) ?? '—'}%
                             {' · '}Exam {a?.avgExamScore?.toFixed(0) ?? '—'}%
                           </span>
+                          <span className="flex min-w-0 items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-xs text-ink-3">Assigned mentor: {enrollment?.mentor?.name ?? 'Not assigned'}</span>
+                            {needsMentorReview(student) && <StatusBadge tone="warn">Update Required</StatusBadge>}
+                          </span>
+                          <span className="truncate text-xs text-ink-3">Father of confession: {enrollment?.fatherOfConfession?.name ?? 'Not provided'}</span>
                         </span>
-                      </button>
+                      </div>
                       <EligibilityBadge enrollment={enrollment} eligible={a?.graduationEligible} />
                     </li>
                   )
@@ -852,7 +883,7 @@ function StudentsManagementContent() {
               <div className="grid gap-3">
                 {[
                   ...(preview.enrollments?.[0]?.isAsyncStudent ? [
-                    { label: 'Attendance', value: previewAnalytics?.attendancePercentage, detail: previewAnalytics ? `${previewAnalytics.attendedLessons} of ${previewAnalytics.totalLessons} lessons` : undefined },
+                    { label: 'Rotation attendance', value: previewAnalytics?.attendancePercentage, detail: previewAnalytics ? `${previewAnalytics.attendedLessons} of ${previewAnalytics.totalLessons} rotation weeks` : undefined },
                   ] : [
                     { label: 'Year 1 attendance', value: previewAnalytics?.year1AttendancePercentage, detail: previewAnalytics ? `${previewAnalytics.year1AttendedLessons} of ${previewAnalytics.year1TotalLessons} lessons` : undefined },
                     { label: 'Year 2 attendance', value: previewAnalytics?.year2AttendancePercentage, detail: previewAnalytics?.year2TotalLessons ? `${previewAnalytics.year2AttendedLessons} of ${previewAnalytics.year2TotalLessons} lessons` : undefined },
@@ -869,7 +900,26 @@ function StudentsManagementContent() {
                 items={[
                   { label: 'Email', value: preview.email ? <ContactLink kind="email" value={preview.email} name={preview.name} label="student email" /> : '—' },
                   { label: 'Phone', value: preview.phone ? <ContactLink kind="phone" value={preview.phone} name={preview.name} label="student phone number" className="font-mono text-xs" /> : '—' },
-                  { label: 'Mentor', value: preview.enrollments?.[0]?.mentorContact?.name ?? <span className="text-ink-3">Not provided</span> },
+                  {
+                    label: 'Assigned mentor',
+                    value: previewMentor ? (
+                      <span className="flex flex-col gap-1">
+                        <span>{previewMentor.name}</span>
+                        {previewMentor.email && <ContactLink kind="email" value={previewMentor.email} name={previewMentor.name} label="mentor's email" className="w-fit text-xs" />}
+                        {previewMentor.phone && <ContactLink kind="phone" value={previewMentor.phone} name={previewMentor.name} label="mentor's phone number" className="w-fit text-xs" />}
+                      </span>
+                    ) : <span className="text-ink-3">Not provided</span>,
+                  },
+                  {
+                    label: 'Father of confession',
+                    value: previewFather ? (
+                      <span className="flex flex-col gap-1">
+                        <span>{previewFather.name}</span>
+                        {previewFather.church && <span className="text-xs text-ink-3">{previewFather.church}</span>}
+                        {previewFather.phone && <ContactLink kind="phone" value={previewFather.phone} name={previewFather.name} label="father of confession's phone number" className="w-fit text-xs" />}
+                      </span>
+                    ) : <span className="text-ink-3">Not provided</span>,
+                  },
                   { label: 'Program', value: preview.enrollments?.[0]?.isAsyncStudent ? 'Async' : 'In person' },
                   ...(previewAnalytics && previewAnalytics.conductDismissalCount > 0
                     ? [{ label: 'Removals', value: <span className="inline-flex items-center gap-1 text-bad"><UserX className="size-3.5" />{previewAnalytics.conductDismissalCount} from lessons</span> }]

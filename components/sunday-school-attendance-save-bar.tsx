@@ -15,7 +15,11 @@ interface SundaySchoolAttendanceSaveBarProps {
   onSave: () => void
 }
 
-/** Stack details above the action on phones; reserve space during autosaves. */
+/**
+ * Marks already save on their own; Finish is the deliberate last step that
+ * records anyone still unmarked as absent. Stack details above the action on
+ * phones; reserve space during autosaves.
+ */
 export function SundaySchoolAttendanceSaveBar({
   presentCount, rosterCount, unmarkedCount, pendingCount, saving, lastSavedBy,
   saveError, recovered, disabled, onSave,
@@ -35,8 +39,13 @@ export function SundaySchoolAttendanceSaveBar({
       <div role="status" title={saveStatus ?? undefined} className="tabular col-start-1 row-start-2 min-h-10 min-w-0 break-words text-xs leading-5 text-ink-3 sm:min-h-5 [&>p]:leading-5">
         {saveStatus ?? <AttendanceSavedBy info={lastSavedBy} />}
       </div>
-      <Button onClick={onSave} disabled={disabled} className="col-start-1 row-start-3 w-full sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:w-36">
-        {saving ? 'Saving…' : 'Save attendance'}
+      <Button
+        onClick={onSave}
+        disabled={disabled}
+        aria-label={unmarkedCount > 0 ? `Finish attendance and mark ${unmarkedCount} absent` : 'Finish attendance'}
+        className="col-start-1 row-start-3 w-full sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:w-auto sm:min-w-36"
+      >
+        {saving ? 'Saving…' : unmarkedCount > 0 ? `Finish · mark ${unmarkedCount} absent` : 'Finish'}
       </Button>
     </div>
   )

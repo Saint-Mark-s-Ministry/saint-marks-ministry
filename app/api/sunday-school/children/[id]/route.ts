@@ -1,5 +1,7 @@
+import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sundaySchoolChildAccountSelect, withServantsPrepStudentStatus } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -14,6 +16,9 @@ import {
   hasSundaySchoolFamilyDetails,
   normalizeSundaySchoolFamilyDetails,
   sundaySchoolFamilyInclude,
+  suppliedSundaySchoolFamilyDetails,
+  withSundaySchoolFamilyDetails,
+  familyDetailOverrides,
 } from "@/lib/sunday-school-family"
 import { normalizeEmail, normalizeOptionalEmail } from "@/lib/email"
 import { SundaySchoolChildGender } from "@prisma/client"
@@ -56,7 +61,7 @@ export async function GET(
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+        user: { select: sundaySchoolChildAccountSelect },
         attendance: {
           include: {
             session: { select: { id: true, date: true, topic: true } },
@@ -66,7 +71,7 @@ export async function GET(
       },
     })
 
-    return NextResponse.json(child)
+    return NextResponse.json(child ? withSundaySchoolFamilyDetails(withServantsPrepStudentStatus(child)) : null)
   } catch (error: unknown) {
     return handleApiError(error)
   }
@@ -281,14 +286,26 @@ export async function PATCH(
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      await lockFamilyMatching(tx)
+      const freshChild = await tx.sundaySchoolChild.findUniqueOrThrow({ where: { id }, select: { familyId: true, familyDetailsOverrides: true } })
       let resolvedFamilyId = requestedFamilyId === undefined
-        ? currentChild.familyId
+        ? freshChild.familyId
         : requestedFamilyId
+
+      if (requestedFamilyId !== undefined && requestedFamilyId !== freshChild.familyId) {
+        updateData.familyDetailsOverrides = {}
+      } else if (familyDetails) {
+        const overrides = familyDetailOverrides(freshChild.familyDetailsOverrides)
+        for (const key of Object.keys(suppliedSundaySchoolFamilyDetails(family, familyDetails))) {
+          delete overrides[key as keyof typeof overrides]
+        }
+        updateData.familyDetailsOverrides = overrides
+      }
 
       if (resolvedFamilyId && familyDetails) {
         await tx.sundaySchoolFamily.update({
           where: { id: resolvedFamilyId },
-          data: familyDetails,
+          data: suppliedSundaySchoolFamilyDetails(family, familyDetails),
         })
       } else if (!resolvedFamilyId && hasSundaySchoolFamilyDetails(familyDetails ?? null)) {
         const createdFamily = await tx.sundaySchoolFamily.create({ data: familyDetails! })
@@ -323,18 +340,27 @@ export async function PATCH(
         })
       }
 
-      return tx.sundaySchoolChild.update({
+      await tx.sundaySchoolChild.update({
         where: { id },
         data: updateData,
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+          user: { select: sundaySchoolChildAccountSelect },
         },
       })
-    })
+      await matchSundaySchoolFamilies(tx, { childIds: [id], actorUserId: user.id })
+      return tx.sundaySchoolChild.findUniqueOrThrow({
+        where: { id },
+        include: {
+          class: { select: { id: true, name: true, level: true } },
+          family: { include: sundaySchoolFamilyInclude },
+          user: { select: sundaySchoolChildAccountSelect },
+        },
+      })
+    }, { timeout: 30_000 })
 
-    return NextResponse.json(updated)
+    return NextResponse.json(withSundaySchoolFamilyDetails(withServantsPrepStudentStatus(updated)))
   } catch (error: unknown) {
     return handleApiError(error)
   }

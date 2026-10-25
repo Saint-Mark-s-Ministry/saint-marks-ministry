@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "./prisma"
 import { requireAuth } from "./auth-helpers"
-import { asyncPeriodStart, isAsyncPeriodLesson } from "./attendance-utils"
 
 /**
  * Standard API error response handler
@@ -200,13 +199,13 @@ export async function backfillAttendanceForStudents(
 
   if (lessonsWithAttendance.length === 0) return 0
 
-  // Async students get no default absence for lessons from the day they went
-  // async; their attendance is their Sunday School rotation.
+  // Current async students get no lesson absences, regardless of approval date.
+  // Their attendance is assessed solely through rotations.
   const asyncEnrollments = await db.studentEnrollment.findMany({
     where: { studentId: { in: uniqueStudentIds }, isAsyncStudent: true },
-    select: { studentId: true, isAsyncStudent: true, asyncApprovedAt: true },
+    select: { studentId: true },
   })
-  const asyncStart = new Map(asyncEnrollments.map(e => [e.studentId, asyncPeriodStart(e)]))
+  const asyncStudentIds = new Set(asyncEnrollments.map(e => e.studentId))
 
   // Check which student/lesson pairs already have records.
   const existingRecords = await db.attendanceRecord.findMany({
@@ -221,10 +220,9 @@ export async function backfillAttendanceForStudents(
   )
 
   // Create ABSENT records only for missing student/lesson pairs.
-  const toCreate = uniqueStudentIds.flatMap(studentId =>
+  const toCreate = uniqueStudentIds.filter(studentId => !asyncStudentIds.has(studentId)).flatMap(studentId =>
     lessonsWithAttendance
       .filter(lesson => !existingRecordKeys.has(`${studentId}:${lesson.id}`))
-      .filter(lesson => !isAsyncPeriodLesson(lesson.scheduledDate, asyncStart.get(studentId) ?? null))
       .map(lesson => ({
         lessonId: lesson.id,
         studentId,

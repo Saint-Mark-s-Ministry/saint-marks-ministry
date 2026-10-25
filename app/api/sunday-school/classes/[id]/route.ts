@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -39,6 +40,7 @@ export async function GET(
           orderBy: { createdAt: "asc" },
         },
         children: {
+          include: { user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true } } },
           orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
         },
         sessions: {
@@ -73,6 +75,11 @@ export async function GET(
 
     return NextResponse.json({
       ...sundaySchoolClass,
+      children: sundaySchoolClass.children.map(({ user, ...child }) => ({
+        ...child,
+        accountPhotoUrl: user?.profileImageUrl ?? null,
+        isServantsPrepStudent: isServantsPrepStudent(user),
+      })),
       canCoordinate: canCoordinateClass(access, id),
       canServe: canServeClass(access, id),
       canTakeServantAttendance: canTakeServantAttendance(access, id),
@@ -86,7 +93,7 @@ export async function GET(
 
 // PATCH /api/sunday-school/classes/[id] - Update a class
 // The class's coordinator, its band coordinator, or SUPER_ADMIN.
-// Body: { name?, level?, isActive? }
+// Body: { name?, level?, classroom?, isActive? }
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -119,6 +126,13 @@ export async function PATCH(
     const { name, level, isActive } = body
 
     const updateData: Record<string, unknown> = {}
+
+    if (body.classroom !== undefined) {
+      if (body.classroom !== null && (typeof body.classroom !== "string" || body.classroom.trim().length > 200)) {
+        return NextResponse.json({ error: "Classroom must be text with at most 200 characters" }, { status: 400 })
+      }
+      updateData.classroom = body.classroom?.trim() || null
+    }
 
     if (name !== undefined) {
       if (!String(name).trim()) {

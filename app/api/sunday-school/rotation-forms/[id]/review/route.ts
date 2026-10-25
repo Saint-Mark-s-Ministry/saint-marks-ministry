@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const user = await requireAuth()
     const context = await getAuthorizationContext(user.id)
-    if (!canWriteBusinessData(context) || !(context.roleTags.has(RoleTag.SUPER_ADMIN) || context.roleTags.has(RoleTag.SERVANTS_PREP_SERVANT))) {
+    if (!canWriteBusinessData(context) || !(context.roleTags.has(RoleTag.SUPER_ADMIN) || context.roleTags.has(RoleTag.SERVANTS_PREP_SERVANT) || context.roleTags.has(RoleTag.PRIEST))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const { id } = await params

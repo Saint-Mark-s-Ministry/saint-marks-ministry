@@ -1,0 +1,105 @@
+import { withSundaySchoolFamilyDetails } from '@/lib/sunday-school-family'
+import { RoleTag, UserRole } from '@prisma/client'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth-helpers'
+import { getAuthorizationContext } from '@/lib/authorization'
+import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
+import { handleApiError } from '@/lib/api-utils'
+import { prisma } from '@/lib/prisma'
+import { isServantsPrepStudent, servantsPrepStudentStatusSelect } from '@/lib/sunday-school-child-account'
+import { getChildPhotoUrl } from '@/lib/sunday-school-class'
+import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from '@/lib/sunday-school-access'
+import { loadChildForUser } from '@/lib/sunday-school-child-access'
+import { calculateAttendanceFromRecords, countAttendanceStatuses } from '@/lib/attendance-utils'
+import type { StudentHistory } from '@/lib/student-history'
+
+// Sunday School ministry only. Historical records retain their own class scope.
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireAuth()
+    const { id } = await params
+    const principal = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, role: true, isDisabled: true } })
+    if (!principal || principal.isDisabled) throw new Error('Forbidden')
+    const access = await getSundaySchoolAccess(principal)
+    if (!access.canRead) throw new Error('Forbidden')
+    await loadChildForUser(id, access, false)
+    const [authorization, session] = await Promise.all([getAuthorizationContext(user.id), getServerSession(authOptions)])
+    if (authorization.disabled) throw new Error('Forbidden')
+    const allowedClassIds = visibleClassFilter(access)
+    const classScope = allowedClassIds === undefined ? {} : { classId: { in: allowedClassIds } }
+    const child = await prisma.sundaySchoolChild.findUnique({
+      where: { id },
+      select: {
+        id: true, firstName: true, lastName: true, notes: true, photoUrl: true,
+        level: true, birthDate: true, gender: true, isActive: true, classId: true, visitationPriority: true,
+        cellPhone: true, fatherOfConfession: true,
+        guardianName: true, guardianPhone: true, guardianEmail: true, familyDetailsOverrides: true,
+        user: { select: { ...servantsPrepStudentStatusSelect, profileImageUrl: true, phone: true, email: true } },
+        family: { select: {
+          name: true, homeAddress: true,
+          motherName: true, motherPhone: true, motherEmail: true,
+          fatherName: true, fatherPhone: true, fatherEmail: true,
+        } },
+        class: { select: { name: true, isActive: true, academicYear: { select: { isActive: true } } } },
+        attendance: {
+          where: { session: classScope },
+          select: { id: true, status: true, notes: true, session: { select: { date: true, topic: true, class: { select: { name: true } } } } },
+          orderBy: [{ session: { date: 'desc' } }, { id: 'desc' }],
+        },
+        visitations: {
+          where: classScope,
+          select: { id: true, status: true, visitedAt: true, createdAt: true, notes: true, recorder: { select: { name: true } } },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        },
+        phoneCalls: {
+          where: classScope,
+          select: { id: true, calledAt: true, outcome: true, note: true, callerName: true },
+          orderBy: [{ calledAt: 'desc' }, { id: 'desc' }],
+        },
+      },
+    })
+    if (!child) throw new Error('Not found')
+    const result: StudentHistory = {
+      id: child.id, name: `${child.firstName} ${child.lastName}`, program: 'sunday-school',
+      isServantsPrepStudent: isServantsPrepStudent(child.user),
+      photoUrl: getChildPhotoUrl(child),
+      subtitle: `Sunday School · ${child.class?.name ?? 'Unassigned'}`,
+      canReadPrivateNotes: canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating)),
+      care: { canEdit: !authorization.readOnly && !authorization.roleTags.has(RoleTag.PRIEST) && principal.role !== UserRole.PRIEST && child.isActive && Boolean(child.class?.isActive && child.class.academicYear.isActive && child.classId) && canServeClass(access, child.classId!) },
+      // Same rule as PATCH /visitations: people who serve the child's active class.
+      priority: {
+        value: child.visitationPriority,
+        canEdit: !authorization.readOnly && child.isActive && Boolean(child.classId) && canServeClass(access, child.classId!),
+      },
+      // Contacts belong only to this authorized child-detail response, never summaries.
+      profile: {
+        className: child.class?.name ?? null,
+        level: child.level,
+        birthDate: child.birthDate?.toISOString() ?? null,
+        gender: child.gender,
+        isActive: child.isActive,
+        fatherOfConfession: child.fatherOfConfession,
+        phone: child.cellPhone || child.user?.phone || null,
+        email: child.user?.email ?? null,
+        guardian: { name: child.guardianName, phone: child.guardianPhone, email: child.guardianEmail },
+        family: withSundaySchoolFamilyDetails(child).family,
+      },
+      attendance: {
+        kind: 'meetings', counts: countAttendanceStatuses(child.attendance), rate: calculateAttendanceFromRecords(child.attendance),
+        records: child.attendance.map(record => ({
+          id: record.id, date: record.session.date.toISOString(), status: record.status, notes: record.notes,
+          title: [record.session.class.name, record.session.topic].filter(Boolean).join(' · '),
+        })),
+      },
+      notes: { general: child.notes, entries: [] },
+      visitations: child.visitations.map(visit => ({ ...visit, visitedAt: visit.visitedAt?.toISOString() ?? null, createdAt: visit.createdAt.toISOString() })),
+      phoneCalls: child.phoneCalls.map(call => ({ ...call, calledAt: call.calledAt.toISOString() })),
+    }
+    // Confidential notes deliberately stay behind /priest-notes' separate checks.
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
+  } catch (error: unknown) {
+    return handleApiError(error)
+  }
+}

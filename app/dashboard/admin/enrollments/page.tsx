@@ -292,7 +292,7 @@ export default function EnrollmentsPage() {
     }
   }
 
-  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+  // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
   // A mentor's count covers every student they mentor, withdrawn and graduated
@@ -486,7 +486,7 @@ export default function EnrollmentsPage() {
                                 ? `Graduated ${enrollment.graduatedAcademicYear.name}`
                                 : enrollment.academicYear?.name ?? enrollment.student.email
                             }
-                            href={`/dashboard/admin/students?student=${enrollment.student.id}`}
+                            href={`/dashboard/admin/students/${enrollment.student.id}`}
                           />
                         </td>
                         <td className="px-3 text-ink-2">{enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</td>
@@ -518,7 +518,7 @@ export default function EnrollmentsPage() {
                       <PersonCell
                         name={enrollment.student.name}
                         meta={`${enrollment.isAsyncStudent ? 'Async' : enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} · ${enrollment.academicYear?.name ?? '—'}`}
-                        href={`/dashboard/admin/students?student=${enrollment.student.id}`}
+                        href={`/dashboard/admin/students/${enrollment.student.id}`}
                       />
                       <div className="flex shrink-0 gap-1.5">
                         {enrollment.isAsyncStudent && <AsyncBadge />}

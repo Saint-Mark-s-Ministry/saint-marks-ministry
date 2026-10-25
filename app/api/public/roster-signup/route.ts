@@ -1,4 +1,6 @@
+import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from 'next/server'
+import { submitRosterContactUpdate } from '@/lib/sunday-school-contact-update'
 import { prisma } from '@/lib/prisma'
 import { handleApiError } from '@/lib/api-utils'
 import { recordAuditEvent } from '@/lib/audit'
@@ -9,6 +11,7 @@ import { hashRosterLinkToken } from '@/lib/sunday-school-roster-link-token'
 import {
   isRosterLinkTokenShaped,
   rosterLinkState,
+  rosterLinkExpiresAt,
 } from '@/lib/sunday-school-roster-link'
 import {
   normalizeRosterBirthDate,
@@ -19,7 +22,9 @@ import {
 /**
  * PUBLIC, UNAUTHENTICATED. Sunday School mode: a family adding their own child
  * to one class's roster with a temporary sign-up link (the QR code a servant
- * hands out).
+ * hands out). Contact-update links instead only collect missing phone numbers
+ * for an existing active child, requiring an exact name and birth-date match.
+ * Their stored purpose cannot be changed by the caller.
  *
  * This route is deliberately outside app/api/sunday-school/ so it is obvious at
  * a glance that it has no session behind it. The rules that keep it safe:
@@ -56,6 +61,9 @@ async function loadLinkByToken(token: unknown) {
       classId: true,
       sundaySchoolYearId: true,
       label: true,
+      contactUpdateOnly: true,
+      createdAt: true,
+      sundaySchoolYear: { select: { status: true } },
       expiresAt: true,
       maxUses: true,
       useCount: true,
@@ -89,6 +97,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: UNUSABLE_MESSAGES[state] }, { status: 410 })
     }
 
+    if (link.contactUpdateOnly && link.sundaySchoolYear.status !== 'OPEN') {
+      return NextResponse.json({ error: 'This contact update link is closed. Ask a Sunday School servant for help.' }, { status: 410 })
+    }
+
     if (!link.class.isActive || link.class.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'This class is no longer taking sign-ups.' }, { status: 410 })
     }
@@ -97,9 +109,9 @@ export async function GET(request: Request) {
       className: link.class.name,
       levelLabel: getLevelDisplayName(link.class.level),
       label: link.label,
-      expiresAt: link.expiresAt,
-      remainingUses: link.maxUses - link.useCount,
-    })
+      expiresAt: rosterLinkExpiresAt(link),
+      ...(link.contactUpdateOnly ? { contactUpdateOnly: true } : { remainingUses: link.maxUses - link.useCount }),
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error: unknown) {
     return handleApiError(error)
   }
@@ -111,6 +123,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Invalid submission.' }, { status: 400 })
+    }
     const link = await loadLinkByToken(body.token)
 
     if (!link) {
@@ -122,8 +137,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: UNUSABLE_MESSAGES[state] }, { status: 410 })
     }
 
+    if (link.contactUpdateOnly && link.sundaySchoolYear.status !== 'OPEN') {
+      return NextResponse.json({ error: 'This contact update link is closed. Ask a Sunday School servant for help.' }, { status: 410 })
+    }
+
     if (!link.class.isActive || link.class.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'This class is no longer taking sign-ups.' }, { status: 410 })
+    }
+
+    if (link.contactUpdateOnly) {
+      return await submitRosterContactUpdate(request, link, body)
     }
 
     // The same validator the roster CSV import uses, so a hand-typed sign-up and
@@ -152,28 +175,9 @@ export async function POST(request: Request) {
     const parsedBirthDate = birthDate ? new Date(`${birthDate}T00:00:00.000Z`) : null
     const gender = normalizeRosterGender(submission.gender)
 
-    // Scoped to this class on purpose: a name that also exists in another class
-    // is a different child as far as this link is concerned, and must not be
-    // reachable from a public request.
-    const existing = await prisma.sundaySchoolChild.findFirst({
-      where: {
-        classId: link.classId,
-        firstName: { equals: submission.firstName, mode: 'insensitive' },
-        lastName: { equals: submission.lastName, mode: 'insensitive' },
-        ...(parsedBirthDate ? { OR: [{ birthDate: parsedBirthDate }, { birthDate: null }] } : {}),
-      },
-      select: {
-        id: true,
-        birthDate: true,
-        gender: true,
-        guardianName: true,
-        guardianPhone: true,
-        guardianEmail: true,
-        notes: true,
-      },
-    })
 
     const result = await prisma.$transaction(async tx => {
+      await lockFamilyMatching(tx)
       // Claim one use before writing anything. The where clause re-checks every
       // bound, so two families submitting at once cannot both take the last slot
       // and an expiry that passed mid-request is caught here.
@@ -187,6 +191,27 @@ export async function POST(request: Request) {
         data: { useCount: { increment: 1 } },
       })
       if (claimed.count === 0) return null
+
+      // Scoped to this class on purpose: a name that also exists in another class
+      // is a different child as far as this link is concerned, and must not be
+      // reachable from a public request.
+      const existing = await tx.sundaySchoolChild.findFirst({
+        where: {
+          classId: link.classId,
+          firstName: { equals: submission.firstName, mode: 'insensitive' },
+          lastName: { equals: submission.lastName, mode: 'insensitive' },
+          ...(parsedBirthDate ? { OR: [{ birthDate: parsedBirthDate }, { birthDate: null }] } : {}),
+        },
+        select: {
+          id: true,
+          birthDate: true,
+          gender: true,
+          guardianName: true,
+          guardianPhone: true,
+          guardianEmail: true,
+          notes: true,
+        },
+      })
 
       // Only ever fills blanks. Detail a servant already entered wins over a
       // public submission.
@@ -225,6 +250,7 @@ export async function POST(request: Request) {
             select: { id: true },
           })).id
 
+      await matchSundaySchoolFamilies(tx, { childIds: [childId] })
       const enrolled = await enrollChildInClass(tx, {
         childId,
         classId: link.classId,
@@ -235,7 +261,7 @@ export async function POST(request: Request) {
       })
 
       return { childId, matched: Boolean(existing), levelMismatch: enrolled === null }
-    })
+    }, { timeout: 30_000 })
 
     if (!result) {
       return NextResponse.json({ error: UNUSABLE_MESSAGES.EXHAUSTED }, { status: 410 })

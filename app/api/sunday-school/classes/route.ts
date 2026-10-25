@@ -90,13 +90,17 @@ export async function GET(request: Request) {
 
 // POST /api/sunday-school/classes - Create a class
 // SUPER_ADMIN anywhere; an age-group coordinator within their own band.
-// Body: { name, level, academicYearId? }
+// Body: { name, level, classroom?, academicYearId? }
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
     const body = await request.json()
     const { name, level } = body
+    const { classroom } = body
+    if (classroom !== undefined && classroom !== null && (typeof classroom !== "string" || classroom.trim().length > 200)) {
+      return NextResponse.json({ error: "Classroom must be text with at most 200 characters" }, { status: 400 })
+    }
     let { academicYearId } = body
     let { sundaySchoolYearId } = body
 
@@ -196,6 +200,7 @@ export async function POST(request: Request) {
       const newClass = await tx.sundaySchoolClass.create({
         data: {
           name: trimmedName,
+          classroom: classroom?.trim() || null,
           level,
           academicYearId,
           sundaySchoolYearId,

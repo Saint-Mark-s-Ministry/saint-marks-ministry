@@ -165,26 +165,26 @@ describe('Role Helper Functions', () => {
   })
 
   describe('canManageData', () => {
-    it('should return true for SUPER_ADMIN and SERVANT_PREP (PRIEST is read-only)', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
       expect(canManageData(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
       expect(canManageData(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageData(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageData(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageData(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageData(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
   })
 
   describe('canAssignMentors', () => {
-    it('should return true for SUPER_ADMIN and SERVANT_PREP (PRIEST is read-only)', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
       expect(canAssignMentors(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
       expect(canAssignMentors(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canAssignMentors(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canAssignMentors(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canAssignMentors(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canAssignMentors(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -245,8 +245,8 @@ describe('Role Helper Functions', () => {
       expect(canManageCurriculum(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageCurriculum(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageCurriculum(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageCurriculum(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageCurriculum(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -258,8 +258,8 @@ describe('Role Helper Functions', () => {
       expect(canManageExams(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageExams(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageExams(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageExams(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageExams(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -271,16 +271,16 @@ describe('Role Helper Functions', () => {
       expect(canManageEnrollments(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageEnrollments(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageEnrollments(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageEnrollments(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageEnrollments(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
   })
 
   describe('isReadOnlyAdmin', () => {
-    it('should return true only for PRIEST', () => {
-      expect(isReadOnlyAdmin(UserRole.PRIEST as UserRoleType)).toBe(true)
+    it('does not mark priests read-only', () => {
+      expect(isReadOnlyAdmin(UserRole.PRIEST as UserRoleType)).toBe(false)
     })
 
     it('should return false for all other roles', () => {
@@ -297,8 +297,8 @@ describe('Role Helper Functions', () => {
       expect(canManageInviteCodes(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageInviteCodes(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageInviteCodes(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageInviteCodes(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageInviteCodes(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -310,8 +310,8 @@ describe('Role Helper Functions', () => {
       expect(canReviewRegistrations(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canReviewRegistrations(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canReviewRegistrations(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canReviewRegistrations(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canReviewRegistrations(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -345,13 +345,13 @@ describe('Role Permission Matrix', () => {
     expect(canBeMentor(role)).toBe(true)
   })
 
-  it('PRIEST should have admin view access but be fully read-only', () => {
+  it('PRIEST can edit ministry records without managing accounts', () => {
     const role = UserRole.PRIEST as UserRoleType
     expect(isAdmin(role)).toBe(true)
     expect(canManageUsers(role)).toBe(false)
     expect(canManageAllUsers(role)).toBe(false)
-    expect(canManageData(role)).toBe(false) // PRIEST is read-only
-    expect(canAssignMentors(role)).toBe(false) // PRIEST is read-only
+    expect(canManageData(role)).toBe(true)
+    expect(canAssignMentors(role)).toBe(true)
     expect(canViewStudents(role)).toBe(true)
     expect(canBeMentor(role)).toBe(true)
   })
@@ -401,10 +401,10 @@ describe('Sunday School mode permissions', () => {
   })
 
   describe('canAdministerSundaySchool', () => {
-    it('should be SUPER_ADMIN alone', () => {
+    it('should allow SUPER_ADMIN and PRIEST', () => {
       expect(canAdministerSundaySchool(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
       expect(canAdministerSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
-      expect(canAdministerSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canAdministerSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canAdministerSundaySchool(UserRole.SERVANT as UserRoleType)).toBe(false)
     })
   })
@@ -420,8 +420,8 @@ describe('Sunday School mode permissions', () => {
   })
 
   describe('isSundaySchoolReadOnly', () => {
-    it('should be PRIEST', () => {
-      expect(isSundaySchoolReadOnly(UserRole.PRIEST as UserRoleType)).toBe(true)
+    it('does not mark any role read-only', () => {
+      expect(isSundaySchoolReadOnly(UserRole.PRIEST as UserRoleType)).toBe(false)
       expect(isSundaySchoolReadOnly(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
       expect(isSundaySchoolReadOnly(UserRole.SERVANT as UserRoleType)).toBe(false)
     })
@@ -516,7 +516,7 @@ describe('Sunday School mode permissions', () => {
   })
 
   describe('canReviewServantApplications', () => {
-    it('should be SUPER_ADMIN alone', () => {
+    it('should allow SUPER_ADMIN and PRIEST', () => {
       expect(canReviewServantApplications(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
     })
 

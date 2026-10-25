@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { Check, Copy, Loader2, QrCode, Printer } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,7 +26,7 @@ interface RosterLink {
   id: string
   label: string | null
   expiresAt: string
-  maxUses: number
+  maxUses: number | null
   useCount: number
   revokedAt: string | null
   createdAt: string
@@ -53,11 +54,15 @@ export function SundaySchoolRosterLinkDialog({
   classId,
   className,
   onSuccess,
+  contactUpdateOnly = false,
 }: {
+  contactUpdateOnly?: boolean
   classId: string
   className: string
   onSuccess: () => void | Promise<void>
 }) {
+  const id = useId()
+  const linkKind = contactUpdateOnly ? 'Contact update' : 'Sign-up'
   const [open, setOpen] = useState(false)
   const [links, setLinks] = useState<RosterLink[]>([])
   const [loadingLinks, setLoadingLinks] = useState(false)
@@ -77,14 +82,14 @@ export function SundaySchoolRosterLinkDialog({
     setLoadingLinks(true)
     try {
       const response = await fetch(
-        `/api/sunday-school/roster-links?classId=${encodeURIComponent(classId)}`
+        `/api/sunday-school/roster-links?classId=${encodeURIComponent(classId)}&contactUpdateOnly=${contactUpdateOnly}`
       )
       if (!response.ok) return
       setLinks(await response.json() as RosterLink[])
     } finally {
       setLoadingLinks(false)
     }
-  }, [classId])
+  }, [classId, contactUpdateOnly])
 
   useEffect(() => {
     if (open) void loadLinks()
@@ -105,17 +110,17 @@ export function SundaySchoolRosterLinkDialog({
       const response = await fetch('/api/sunday-school/roster-links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classId, label, expiresInHours, maxUses }),
+        body: JSON.stringify({ classId, label, contactUpdateOnly, ...(contactUpdateOnly ? {} : { expiresInHours, maxUses }) }),
       })
       const body = await response.json()
-      if (!response.ok) throw new Error(body.error || 'Could not create a sign-up link')
+      if (!response.ok) throw new Error(body.error || `Could not create a ${linkKind.toLowerCase()} link`)
 
       setFreshUrl(`${window.location.origin}/roster-signup/${body.token}`)
       setCopied(false)
       await Promise.all([loadLinks(), onSuccess()])
-      toast.success('Sign-up link ready')
+      toast.success(`${linkKind} link ready`)
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Could not create a sign-up link')
+      toast.error(error instanceof Error ? error.message : `Could not create a ${linkKind.toLowerCase()} link`)
     } finally {
       setCreating(false)
     }
@@ -130,7 +135,7 @@ export function SundaySchoolRosterLinkDialog({
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || 'Could not close the link')
       await loadLinks()
-      toast.success('Sign-up link closed')
+      toast.success(`${linkKind} link closed`)
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not close the link')
     } finally {
@@ -152,16 +157,29 @@ export function SundaySchoolRosterLinkDialog({
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
         <QrCode className="mr-1 h-4 w-4" />
-        Sign-up QR
+        {linkKind} QR
       </Button>
+
+      {freshUrl && createPortal(
+        <div data-roster-qr-print className="hidden bg-white p-8 text-center text-black print:block">
+          <style>{`@media print { body > :not([data-roster-qr-print]) { display: none !important; } }`}</style>
+          <h1 className="mb-2 text-2xl font-semibold">{className}</h1>
+          <p className="mb-6 text-lg">{linkKind}</p>
+          <div className="inline-block">
+            <QRCodeSVG value={freshUrl} size={280} level="M" title={`${className} · ${linkKind}`} />
+          </div>
+        </div>,
+        document.body
+      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Roster sign-up QR</DialogTitle>
+            <DialogTitle>{contactUpdateOnly ? 'Contact update QR' : 'Roster sign-up QR'}</DialogTitle>
             <DialogDescription>
-              A temporary link that lets families add a child to {className} themselves.
-              It can only ever add to this class.
+              {contactUpdateOnly
+                ? `Let children in ${className} add missing phone numbers using their name and birth date. Other classes cannot be reached, and existing details are never shown or replaced.`
+                : `A temporary link that lets families add a child to ${className} themselves. It can only ever add to this class.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -169,7 +187,9 @@ export function SundaySchoolRosterLinkDialog({
             {freshUrl ? (
               <div className="space-y-4 rounded-lg border p-4 text-center dark:border-gray-700">
                 <div className="mx-auto inline-block rounded-lg bg-white p-4">
-                  <QRCodeSVG value={freshUrl} size={208} level="M" />
+                  <QRCodeSVG value={freshUrl} size={208} level="M" title={`${className} · ${linkKind}`} />
+                  <p className="mt-2 text-sm font-medium text-gray-900">{className}</p>
+                  <p className="text-xs text-gray-600">{linkKind}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="break-all text-xs text-gray-600 dark:text-gray-400">{freshUrl}</p>
@@ -191,29 +211,33 @@ export function SundaySchoolRosterLinkDialog({
                     </Button>
                   </div>
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    Save or print this now — the link cannot be shown again. Anyone who has it can
-                    add a child to this class until it expires.
+                    Save or print this now — the link cannot be shown again.{' '}
+                    {contactUpdateOnly
+                      ? 'Anyone with the link and a child’s name and birth date can fill that child’s missing phone numbers in this class. Share it during class and close it afterward.'
+                      : 'Anyone who has it can add a child to this class until it expires.'}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-4 rounded-lg border p-4 dark:border-gray-700">
                 <div className="space-y-2">
-                  <Label htmlFor="link-label">Label (optional)</Label>
+                  <Label htmlFor={`${id}-label`}>Label (optional)</Label>
                   <Input
-                    id="link-label"
+                    id={`${id}-label`}
                     maxLength={80}
-                    placeholder="Sunday sign-up table"
+                    placeholder={contactUpdateOnly ? 'Sunday contact update' : 'Sunday sign-up table'}
                     value={label}
                     onChange={e => setLabel(e.target.value)}
                     disabled={creating}
                   />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                {contactUpdateOnly ? (
+                  <p className="text-sm text-ink-3">This QR code expires after two hours.</p>
+                ) : <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="link-expiry">Expires in</Label>
+                    <Label htmlFor={`${id}-expiry`}>Expires in</Label>
                     <select
-                      id="link-expiry"
+                      id={`${id}-expiry`}
                       value={expiresInHours}
                       onChange={e => setExpiresInHours(Number(e.target.value))}
                       disabled={creating}
@@ -227,9 +251,9 @@ export function SundaySchoolRosterLinkDialog({
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="link-max-uses">Sign-up limit</Label>
+                    <Label htmlFor={`${id}-max-uses`}>{contactUpdateOnly ? 'Submission limit' : 'Sign-up limit'}</Label>
                     <Input
-                      id="link-max-uses"
+                      id={`${id}-max-uses`}
                       type="number"
                       min={1}
                       max={200}
@@ -238,19 +262,19 @@ export function SundaySchoolRosterLinkDialog({
                       disabled={creating}
                     />
                   </div>
-                </div>
+                </div>}
                 <Button onClick={handleCreate} disabled={creating}>
                   {creating && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  {creating ? 'Creating…' : 'Create sign-up link'}
+                  {creating ? 'Creating…' : `Create ${linkKind.toLowerCase()} link`}
                 </Button>
               </div>
             )}
 
             <div className="space-y-3 border-t pt-5 dark:border-gray-700">
               <div>
-                <p className="text-sm font-medium">Sign-up links for this class</p>
+                <p className="text-sm font-medium">{linkKind} links for this class</p>
                 <p className="text-xs text-gray-500">
-                  Closing a link stops new sign-ups. Children already added stay on the roster.
+                  {contactUpdateOnly ? 'Closing a link stops new contact submissions. Saved phone details stay on the roster.' : 'Closing a link stops new sign-ups. Children already added stay on the roster.'}
                 </p>
               </div>
 
@@ -261,7 +285,7 @@ export function SundaySchoolRosterLinkDialog({
                 </div>
               ) : links.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-3 text-sm text-gray-500 dark:border-gray-700">
-                  No sign-up links for this class yet.
+                  No {linkKind.toLowerCase()} links for this class yet.
                 </p>
               ) : (
                 <div className="divide-y overflow-hidden rounded-lg border dark:divide-gray-700 dark:border-gray-700">
@@ -272,7 +296,7 @@ export function SundaySchoolRosterLinkDialog({
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
-                          {link.label || 'Sign-up link'}
+                          {link.label || `${linkKind} link`}
                           <span
                             className={`ml-2 text-xs font-normal ${
                               link.state === 'ACTIVE'
@@ -284,7 +308,8 @@ export function SundaySchoolRosterLinkDialog({
                           </span>
                         </p>
                         <p className="text-xs text-gray-500">
-                          {link.useCount}/{link.maxUses} used · {link.childCount} joined ·{' '}
+                          {contactUpdateOnly ? `${link.useCount} submissions` : `${link.useCount}/${link.maxUses} used`} ·{' '}
+                          {!contactUpdateOnly && `${link.childCount} joined · `}
                           {link.state === 'ACTIVE' ? 'expires' : 'expired'}{' '}
                           {new Date(link.expiresAt).toLocaleString()}
                         </p>

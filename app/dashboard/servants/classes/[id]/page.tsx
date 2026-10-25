@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -242,18 +244,9 @@ export default function SundaySchoolClassDetailPage() {
         <PageHeader
           back={{ href: '/dashboard/servants/classes', label: 'All classes' }}
           title={detail.name}
-          meta={[getLevelDisplayName(detail.level), `${detail.children.length} children`]}
+          meta={[getLevelDisplayName(detail.level), `Classroom: ${detail.classroom || 'Not set'}`, `${detail.children.length} children`]}
           actions={
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline">
-                <Link href="/dashboard/servants/lessons">Lessons</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>
-                  <ClipboardList />
-                  Roster
-                </Link>
-              </Button>
               {detail.canServe && (
                 <Button asChild>
                   <Link href={`/dashboard/servants/attendance?classId=${detail.id}`}>
@@ -261,19 +254,15 @@ export default function SundaySchoolClassDetailPage() {
                   </Link>
                 </Button>
               )}
-              {detail.canViewServantAttendance && (
-                <Button asChild variant="outline">
-                  <Link href={`/dashboard/servants/servant-attendance?classId=${detail.id}`}>
-                    Servant attendance
-                  </Link>
-                </Button>
-              )}
-              {detail.canDelete && (
-                <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-                  <Trash2 />
-                  Delete class
-                </Button>
-              )}
+              <Button asChild variant="outline">
+                <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>
+                  <ClipboardList />
+                  Children
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/dashboard/servants/lessons?classId=${detail.id}`}>Lessons</Link>
+              </Button>
             </div>
           }
         />
@@ -483,10 +472,10 @@ export default function SundaySchoolClassDetailPage() {
 
         <div className="flex min-w-0 flex-col gap-5 xl:order-1">
         <Panel
-          title="Roster"
+          title="Children"
           actions={
             <Button asChild variant="ghost" size="sm">
-              <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>Open roster</Link>
+              <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>Open</Link>
             </Button>
           }
           bodyClassName="px-4 py-2"
@@ -498,9 +487,16 @@ export default function SundaySchoolClassDetailPage() {
                 {detail.children.map(child => (
                   <li key={child.id} className="flex items-center gap-2.5 border-b border-line py-2">
                     <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
-                    <span className={`truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
-                      {getChildFullName(child)}
-                    </span>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className={`min-w-0 truncate text-[13.5px] ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                        <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
+                      </span>
+                      {child.isServantsPrepStudent && (
+                        <StatusBadge tone="accent" dot={false}>
+                          SP Student
+                        </StatusBadge>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -544,6 +540,15 @@ export default function SundaySchoolClassDetailPage() {
         </Panel>
         </div>
         </div>
+        {detail.canDelete && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-4 py-3">
+            <p className="text-[13px] text-ink-3">Deleting a class keeps its children; they move to Unassigned.</p>
+            <Button variant="outline" className="text-bad" onClick={() => setDeleteDialogOpen(true)}>
+              <Trash2 />
+              Delete class
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

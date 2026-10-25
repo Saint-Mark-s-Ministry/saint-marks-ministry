@@ -8,6 +8,7 @@ import {
   LEVEL_ORDER,
   getClassMeetingDayName,
   getChildFullName,
+  getChildPhotoUrl,
   getLevelDisplayName,
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
@@ -20,6 +21,14 @@ import {
 } from '@/lib/sunday-school-class'
 
 describe('Sunday School class helpers', () => {
+  it('keeps a child photo ahead of linked account photos and handles missing photos', () => {
+    const child = { photoUrl: 'child.jpg', accountPhotoUrl: 'account.jpg', user: { profileImageUrl: 'user.jpg' } }
+    expect(getChildPhotoUrl(child)).toBe('child.jpg')
+    expect(getChildPhotoUrl({ ...child, photoUrl: null })).toBe('account.jpg')
+    expect(getChildPhotoUrl({ user: child.user })).toBe('user.jpg')
+    expect(getChildPhotoUrl({})).toBeNull()
+  })
+
   describe('LEVEL_ORDER', () => {
     it('runs Pre-K through one combined College & Grad level', () => {
       expect(LEVEL_ORDER).toHaveLength(16)

@@ -18,9 +18,12 @@ export interface MinistryMembership {
 
 declare module "next-auth" {
   interface Session {
+    authenticatedAt?: number
     user: {
+      authVersion?: number
       id: string
       role: UserRole
+      canUseViewAs?: boolean
       canAccessContactBook: boolean
       mustChangePassword: boolean
       isAsyncStudent: boolean
@@ -29,7 +32,7 @@ declare module "next-auth" {
       profileImageUrl?: string | null
     } & DefaultSession["user"]
     // Read-only View as mode. user.* is the effective identity while this
-    // object preserves the real Super Admin actor.
+    // object preserves the real authorized actor.
     impersonating?: {
       originalId: string
       originalName: string | null
@@ -41,6 +44,7 @@ declare module "next-auth" {
 
   interface User {
     role: UserRole
+    canUseViewAs?: boolean
     canAccessContactBook?: boolean
     authVersion: number
     mustChangePassword: boolean
@@ -53,7 +57,9 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
+    authenticatedAt?: number
     role: UserRole
+    canUseViewAs?: boolean
     canAccessContactBook?: boolean
     id: string
     authVersion?: number

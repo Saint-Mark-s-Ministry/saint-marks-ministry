@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { ContactLink } from '@/components/contact-link'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -14,12 +14,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import { Edit, Check, X, Trash2, Send, Camera, Plane, Plus, CalendarClock } from 'lucide-react'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName, isAdmin, canManageUsers, canManageData } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageData } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
 import { StudentProgramEditor, type EditableStudent } from '@/components/student-program-editor'
 import { ConfessionTracker } from '@/components/admin/confession-tracker'
 import { AttendanceSlipsPanel } from '@/components/admin/attendance-slips-panel'
 import { AsyncBadge } from '@/components/async-badge'
+import { StudentServingHistory } from '@/components/student-serving-history'
 
 interface StudentNote {
   id: string
@@ -38,6 +39,7 @@ interface ExamScore {
   score: number
   percentage: number
   notes?: string
+  makeupScores?: Array<{ id: string; version: number; percentage: number; takenDate: string; notes: string | null }>
   exam: {
     id: string
     examDate: string | Date
@@ -119,7 +121,7 @@ interface ExpectedAbsence {
   creator?: { id: string; name: string } | null
 }
 
-interface StudentDetailsModalProps {
+export interface StudentDetailsModalProps {
   studentId: string | null
   studentName: string // shown until details load
   student?: EditableStudent
@@ -130,6 +132,34 @@ interface StudentDetailsModalProps {
   loading: boolean
   onClose: () => void
   onRefresh: () => void
+  readOnly?: boolean
+  showNotes?: boolean
+  loadError?: string
+  onRetry?: () => void
+  onRestoreFocus?: () => void
+}
+
+export type StudentDetailsData = Pick<StudentDetailsModalProps, 'examScores' | 'attendanceRecords' | 'allExams' | 'allLessons'> & {
+  student: EditableStudent
+}
+
+function StudentDetailsFrame({ studentId, title, onClose, onRestoreFocus, children }: {
+  onRestoreFocus?: () => void
+  studentId: string | null
+  title: ReactNode
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    <Dialog open={!!studentId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => {
+        if (onRestoreFocus) { event.preventDefault(); onRestoreFocus() }
+      }}>
+        <DialogHeader><DialogTitle className="flex items-center justify-between pr-8">{title}</DialogTitle></DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 export function StudentDetailsModal({
@@ -141,10 +171,15 @@ export function StudentDetailsModal({
   allExams = [],
   loading,
   onClose,
-  onRefresh
+  onRefresh,
+  readOnly = false,
+  showNotes = false,
+  loadError,
+  onRetry,
+  onRestoreFocus
 }: StudentDetailsModalProps) {
   const { data: session } = useSession()
-  const canEditData = session?.user?.role ? canManageData(session.user.role as UserRole) : false
+  const canEditData = !readOnly && session?.user?.role ? canManageData(session.user.role as UserRole) : false
   const enrollment = student?.enrollments?.[0]
   const studentName = student?.name ?? listName
   const studentEmail = student?.email ?? ''
@@ -153,6 +188,7 @@ export function StudentDetailsModal({
   const enrollmentId = enrollment?.id
   const attendanceStartDate = enrollment?.attendanceStartDate
   const isAsyncStudent = !!enrollment?.isAsyncStudent
+  const [activeTab, setActiveTab] = useState('profile')
   // Scoped to this student so the slip and confession panels don't refetch the enrollment
   const scopedEnrollment = useMemo(
     () => (student && enrollment ? { ...enrollment, student: { id: student.id, name: student.name } } : undefined),
@@ -194,14 +230,14 @@ export function StudentDetailsModal({
   // Fetch notes when student changes
   useEffect(() => {
     if (studentId) {
-      fetchNotes()
+      if (showNotes) fetchNotes()
       fetchExpectedAbsences()
     } else {
       setNotes([])
       setExpectedAbsences([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  }, [studentId, showNotes])
 
   // Sync the late-start date input with the current enrollment value
   useEffect(() => {
@@ -578,35 +614,37 @@ export function StudentDetailsModal({
     : 0
 
   return (
-    <Dialog open={!!studentId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between pr-8">
+    <StudentDetailsFrame studentId={studentId} onClose={onClose} onRestoreFocus={onRestoreFocus} title={<>
             <span>{studentName} - Details</span>
             <div className="flex items-center gap-2 text-sm font-normal">
               {isAsyncStudent && <AsyncBadge />}
               {enrollment && !isAsyncStudent && (
                 <Badge variant="outline">{enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</Badge>
               )}
-              {enrollment?.mentorContact && (
+              {enrollment && (
                 <div className="text-gray-600">
-                  Mentor: <span className="font-medium">{enrollment.mentorContact.name}</span>
+                  Assigned mentor: <span className="font-medium">{enrollment.mentor?.name ?? "Not assigned"}</span>
                 </div>
               )}
             </div>
-          </DialogTitle>
-        </DialogHeader>
+    </>}>
 
-        {loading ? (
+        {loadError ? (
+          <div role="alert" className="space-y-3 py-6">
+            <p>{loadError}</p>
+            {onRetry && <Button variant="outline" onClick={onRetry}>Try again</Button>}
+          </div>
+        ) : loading ? (
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 [&>button]:px-1 [&>button]:text-xs sm:[&>button]:text-sm">
+          <Tabs value={(activeTab === 'serving' && !isAsyncStudent) || (activeTab === 'notes' && !showNotes) ? 'profile' : activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 [&>button]:flex-1 [&>button]:px-3 [&>button]:py-2 [&>button]:text-xs sm:[&>button]:text-sm">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
+              {showNotes && <TabsTrigger value="notes">Notes</TabsTrigger>}
               <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
               <TabsTrigger value="confession">Confession</TabsTrigger>
+              {isAsyncStudent && <TabsTrigger value="serving">Serving</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-4">
@@ -649,7 +687,7 @@ export function StudentDetailsModal({
                       )}
                     </div>
                     <h3 className="font-semibold flex-1">Student Information</h3>
-                    {!editingProfile ? (
+                    {canEditData && (!editingProfile ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -684,7 +722,7 @@ export function StudentDetailsModal({
                           {savingProfile ? 'Saving...' : 'Save'}
                         </Button>
                       </div>
-                    )}
+                    ))}
                   </div>
 
                   {editingProfile ? (
@@ -737,12 +775,12 @@ export function StudentDetailsModal({
                   )}
                 </CardContent>
               </Card>
-              {student && <StudentProgramEditor student={student} onRefresh={onRefresh} />}
+              {student && <StudentProgramEditor student={student} onRefresh={onRefresh} readOnly={readOnly} />}
             </TabsContent>
 
-            <TabsContent value="notes" className="space-y-4">
+            {showNotes && <TabsContent value="notes" className="space-y-4">
               {/* Add New Note */}
-              <Card>
+              {canEditData && <Card>
                 <CardContent className="pt-6">
                   <h3 className="font-semibold mb-3">Add a Note</h3>
                   <div className="flex gap-2">
@@ -762,7 +800,7 @@ export function StudentDetailsModal({
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+              </Card>}
 
               {/* Notes List */}
               <Card>
@@ -773,11 +811,11 @@ export function StudentDetailsModal({
                   {notesLoading ? (
                     <div className="py-4 text-center text-gray-500">Loading notes...</div>
                   ) : notes.length === 0 ? (
-                    <div className="py-4 text-center text-gray-500">No notes yet. Add the first one!</div>
+                    <div className="py-4 text-center text-gray-500">No notes yet.{canEditData && ' Add the first one!'}</div>
                   ) : (
                     <div className="space-y-3 max-h-80 overflow-y-auto">
                       {notes.map((note) => {
-                        const isAuthor = session?.user?.id === note.author.id
+                        const isAuthor = canEditData && session?.user?.id === note.author.id
                         const isEditing = editingNoteId === note.id
 
                         return (
@@ -832,7 +870,7 @@ export function StudentDetailsModal({
                                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
                                 )}
                               </div>
-                              {!isEditing && (isAuthor || (session?.user?.role && isAdmin(session.user.role as UserRole))) && (
+                              {!isEditing && canEditData && (
                                 <div className="flex gap-1">
                                   {isAuthor && (
                                     <Button
@@ -865,7 +903,7 @@ export function StudentDetailsModal({
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             <TabsContent value="scores" className="space-y-4">
               {/* Score Summary */}
@@ -874,8 +912,8 @@ export function StudentDetailsModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-gray-500">Average Score</div>
-                      <div className={`text-2xl font-bold ${avgScore >= 75 ? 'text-green-700' : avgScore >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {avgScore.toFixed(2)}%
+                      <div className={`text-2xl font-bold ${examScores.length === 0 ? 'text-muted-foreground' : avgScore >= 75 ? 'text-green-700' : avgScore >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {examScores.length ? `${avgScore.toFixed(2)}%` : 'No scores'}
                       </div>
                     </div>
                     <div>
@@ -912,6 +950,10 @@ export function StudentDetailsModal({
                                     })}
                                     {score.grader && ` • Graded by ${score.grader.name}`}
                                   </div>
+                                  {score.makeupScores?.map(makeup => <div key={makeup.id} className="mt-1 text-xs text-muted-foreground">
+                                    Makeup {makeup.version}: {makeup.percentage.toFixed(1)}% · {formatDateUTC(makeup.takenDate)}
+                                    {makeup.notes && <p className="whitespace-pre-wrap">{makeup.notes}</p>}
+                                  </div>)}
                                   {!editingScoreId && score.notes && (
                                     <div className="text-xs text-gray-600 mt-1 italic">{score.notes}</div>
                                   )}
@@ -958,7 +1000,7 @@ export function StudentDetailsModal({
                                           {score.score} / {score.exam.totalPoints}
                                         </div>
                                       </div>
-                                      <Button
+                                      {canEditData && <Button
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => {
@@ -969,7 +1011,7 @@ export function StudentDetailsModal({
                                         className="h-8 w-8 p-0"
                                       >
                                         <Edit className="h-4 w-4" />
-                                      </Button>
+                                      </Button>}
                                     </>
                                   )}
                                 </div>
@@ -1029,6 +1071,13 @@ export function StudentDetailsModal({
             </TabsContent>
 
             <TabsContent value="attendance" className="space-y-4">
+              {isAsyncStudent ? (
+                <div className="py-8 text-center text-gray-500">
+                  Attendance is based solely on rotation weeks. Normal lessons do not count.
+                  View rotation progress under Async students.
+                </div>
+              ) : (
+                <>
               {scopedEnrollment && (
                 <AttendanceSlipsPanel enrollment={scopedEnrollment} canEdit={canEditData} onChange={onRefresh} />
               )}
@@ -1176,8 +1225,8 @@ export function StudentDetailsModal({
                   <div className={`grid grid-cols-2 gap-4 ${naCount > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                     <div>
                       <div className="text-sm text-gray-500">Rate</div>
-                      <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {attendanceRate.toFixed(1)}%
+                      <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${effectiveTotal === 0 ? 'text-muted-foreground' : attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {effectiveTotal > 0 ? `${attendanceRate.toFixed(1)}%` : 'No records'}
                       </div>
                     </div>
                     <div>
@@ -1361,14 +1410,14 @@ export function StudentDetailsModal({
                                 )}
                               </>
                             )}
-                            <Button
+                            {canEditData && <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => setEditingAttendanceId(record.id)}
                               className="h-8 w-8 p-0"
                             >
                               <Edit className="h-4 w-4" />
-                            </Button>
+                            </Button>}
                           </>
                         )}
                       </div>
@@ -1376,15 +1425,21 @@ export function StudentDetailsModal({
                   ))}
                 </div>
               )}
+                </>
+              )}
             </TabsContent>
             <TabsContent value="confession" className="space-y-4">
               {scopedEnrollment
                 ? <ConfessionTracker enrollment={scopedEnrollment} canEdit={canEditData} />
                 : <div className="py-8 text-center text-gray-500">Not enrolled in the program.</div>}
             </TabsContent>
+            {isAsyncStudent && studentId && (
+              <TabsContent value="serving" className="space-y-4">
+                <StudentServingHistory studentId={studentId} />
+              </TabsContent>
+            )}
           </Tabs>
         )}
-      </DialogContent>
-    </Dialog>
+    </StudentDetailsFrame>
   )
 }

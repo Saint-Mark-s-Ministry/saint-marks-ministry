@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { asyncPeriodStart, excludeAsyncPeriodRecords, isAsyncPeriodLesson } from "@/lib/attendance-utils"
+import { excludeAsyncLessonRecords } from "@/lib/attendance-utils"
 
 // GET /api/students/[id]/lessons - Get lessons for a student with their attendance
 export async function GET(
@@ -28,8 +28,7 @@ export async function GET(
       select: {
         yearLevel: true,
         isActive: true,
-        isAsyncStudent: true,
-        asyncApprovedAt: true
+        isAsyncStudent: true
       }
     })
 
@@ -89,8 +88,8 @@ export async function GET(
         attendanceRecords: {
           where: {
             studentId: studentId,
-            // Async-period lessons without a slip aren't counted, so show no record
-            ...excludeAsyncPeriodRecords([{ ...enrollment, studentId }]),
+            // Async enrollment exempts all prep lessons, including historical records and slips.
+            ...excludeAsyncLessonRecords([{ ...enrollment, studentId }]),
           },
           select: {
             id: true,
@@ -109,8 +108,6 @@ export async function GET(
       take: 100 // Limit to recent 100 lessons
     })
 
-    const asyncStart = asyncPeriodStart(enrollment)
-
     // Transform the data to include attendance status
     const lessonsWithAttendance = lessons.map(lesson => ({
       id: lesson.id,
@@ -125,9 +122,9 @@ export async function GET(
       examSection: lesson.examSection,
       academicYear: lesson.academicYear,
       resources: lesson.resources,
-      attendance: lesson.attendanceRecords[0] || null, // Student can only have one attendance record per lesson
-      // Async period: counted through the Sunday School rotation unless a slip covered it
-      asyncPeriod: isAsyncPeriodLesson(lesson.scheduledDate, asyncStart),
+      attendance: enrollment.isAsyncStudent ? null : lesson.attendanceRecords[0] || null, // Student can only have one attendance record per lesson
+      // Keep the existing response field; current async status applies to every lesson.
+      asyncPeriod: enrollment.isAsyncStudent,
     }))
 
     return NextResponse.json(lessonsWithAttendance)

@@ -1,5 +1,7 @@
 'use client'
 
+import { StudentName } from '@/components/student-history-provider'
+
 import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink, NotebookPen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +13,8 @@ import { FilterSelect } from '@/components/ui/filter-select'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ds/page-header'
+import { LessonsHubTabs } from '@/components/sunday-school-hub-tabs'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
 import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
@@ -34,9 +38,13 @@ type LinkDraft = { title: string; url: string }
 
 export default function SundaySchoolHomeworkPage() {
   const { session, status } = useSundaySchoolGuard()
-  const [classId, setClassId] = useState('')
-  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true)
+  // The response lists every Elementary class this person has, whichever one is loaded;
+  // keep it while switching so the class choice doesn't flicker.
+  const [loadedClasses, setLoadedClasses] = useState<SundaySchoolHomeworkResponse['classes']>()
+  const [classId, setClassId] = useViewingClassId(loadedClasses)
+  const { data, isLoading, mutate } = useSundaySchoolHomework(classId || undefined, true, { keepPreviousData: true })
   const homeworkData = data as SundaySchoolHomeworkResponse | undefined
+  if (homeworkData?.classes && homeworkData.classes !== loadedClasses) setLoadedClasses(homeworkData.classes)
   const [weekId, setWeekId] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -52,10 +60,6 @@ export default function SundaySchoolHomeworkPage() {
   )
   const selectedWeek = weeks.find(week => week.weeklyLessonId === weekId) ?? null
   const selectedClass = classes.find(cls => cls.id === classId)
-
-  useEffect(() => {
-    if (!classId && classes.length > 0) setClassId(classes[0].id)
-  }, [classId, classes])
 
   useEffect(() => {
     if (weeks.length === 0) {
@@ -170,14 +174,17 @@ export default function SundaySchoolHomeworkPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Homework" meta={['Publish Elementary homework and track completion through the school year']} />
+      <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} />
+      <LessonsHubTabs showHomework />
 
       <Panel toolbar={
         <>
-          <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
-            Class
-            <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
-          </label>
+          {classes.length > 1 && (
+            <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+              Class
+              <FilterSelect aria-label="Class" value={classId} onChange={setClassId} options={classes.map(cls => ({ value: cls.id, label: cls.name }))} />
+            </label>
+          )}
           <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
             Assigned meeting
             <FilterSelect aria-label="Assigned meeting" value={weekId} onChange={setWeekId} options={weeks.map(week => ({ value: week.weeklyLessonId, label: formatDateUTC(week.assignedDate) }))} />
@@ -212,12 +219,12 @@ export default function SundaySchoolHomeworkPage() {
       </Panel>
 
       {selectedWeek?.homework && <Panel title="Completion roster" description="Only assigned servants can change the official record">
-        {(homeworkData.roster ?? []).length === 0 ? <EmptyState message="No children are currently assigned to this class." /> : <ul className="divide-y divide-line">{homeworkData.roster.map(child => <li key={child.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><span className="flex items-center gap-2.5"><Initials name={`${child.firstName} ${child.lastName}`} size={32} /><span className="font-medium text-ink">{child.firstName} {child.lastName}</span></span><div className="flex flex-wrap items-center gap-1"><Button size="sm" variant={marks[child.id] === 'COMPLETED' ? 'default' : 'outline'} disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'COMPLETED' }))}>Completed</Button><Button size="sm" variant={marks[child.id] === 'NOT_COMPLETED' ? 'destructive' : 'outline'} disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'NOT_COMPLETED' }))}>Not completed</Button><Button size="sm" variant="ghost" disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'NOT_RECORDED' }))}>Clear</Button></div></li>)}</ul>}
+        {(homeworkData.roster ?? []).length === 0 ? <EmptyState message="No children are currently assigned to this class." /> : <ul className="divide-y divide-line">{homeworkData.roster.map(child => <li key={child.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><span className="flex items-center gap-2.5"><Initials name={`${child.firstName} ${child.lastName}`} size={32} /><span className="font-medium text-ink"><StudentName id={child.id} name={`${child.firstName} ${child.lastName}`} program="sunday-school" /></span></span><div className="flex flex-wrap items-center gap-1"><Button size="sm" variant={marks[child.id] === 'COMPLETED' ? 'default' : 'outline'} disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'COMPLETED' }))}>Completed</Button><Button size="sm" variant={marks[child.id] === 'NOT_COMPLETED' ? 'destructive' : 'outline'} disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'NOT_COMPLETED' }))}>Not completed</Button><Button size="sm" variant="ghost" disabled={!selectedClass?.canEdit} onClick={() => setMarks(current => ({ ...current, [child.id]: 'NOT_RECORDED' }))}>Clear</Button></div></li>)}</ul>}
         {selectedClass?.canEdit && homeworkData.roster.length > 0 && <div className="flex justify-end border-t border-line p-3"><Button disabled={saving} onClick={saveMarks}>{saving ? 'Saving…' : 'Save completion'}</Button></div>}
       </Panel>}
 
       <Panel title="School-year history" description="Completion rate excludes weeks that have not been recorded">
-        {history.length === 0 ? <EmptyState message="No children are currently assigned to this class." /> : <ul className="divide-y divide-line">{history.map(child => <li key={child.id} className="flex items-center justify-between gap-3 px-4 py-3"><span className="font-medium text-ink">{child.firstName} {child.lastName}</span><span className="flex flex-wrap items-center justify-end gap-2 text-xs text-ink-3"><span>{child.completed} completed</span><span>· {child.notCompleted} not completed</span><span>· {child.notRecorded} not recorded</span><strong className="text-ink">{child.rate === null ? '—' : `${child.rate}%`}</strong></span></li>)}</ul>}
+        {history.length === 0 ? <EmptyState message="No children are currently assigned to this class." /> : <ul className="divide-y divide-line">{history.map(child => <li key={child.id} className="flex items-center justify-between gap-3 px-4 py-3"><span className="font-medium text-ink"><StudentName id={child.id} name={`${child.firstName} ${child.lastName}`} program="sunday-school" /></span><span className="flex flex-wrap items-center justify-end gap-2 text-xs text-ink-3"><span>{child.completed} completed</span><span>· {child.notCompleted} not completed</span><span>· {child.notRecorded} not recorded</span><strong className="text-ink">{child.rate === null ? '—' : `${child.rate}%`}</strong></span></li>)}</ul>}
       </Panel>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>

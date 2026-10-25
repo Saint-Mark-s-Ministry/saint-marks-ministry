@@ -1,3 +1,4 @@
+import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
@@ -126,6 +127,7 @@ export async function POST(
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        await lockFamilyMatching(tx)
         const child = await tx.sundaySchoolChild.create({
           data: {
             firstName: registrationRequest.firstName,
@@ -221,8 +223,10 @@ export async function POST(
           },
         })
 
-        return { child, enrollment, request: updatedRequest }
-      })
+        await matchSundaySchoolFamilies(tx, { childIds: [child.id], actorUserId: user.id })
+        const matchedChild = await tx.sundaySchoolChild.findUniqueOrThrow({ where: { id: child.id } })
+        return { child: matchedChild, enrollment, request: updatedRequest }
+      }, { timeout: 30_000 })
 
       notifyChildRegistrationReviewed({
         userId: registrationRequest.submittedByUserId,

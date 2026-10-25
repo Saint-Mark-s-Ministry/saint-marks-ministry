@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { UserRole } from '@prisma/client'
+import { RoleTag, UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
@@ -20,30 +20,30 @@ describe('GET /api/mentor-options', () => {
     mocks.findMany.mockResolvedValue([])
   })
 
-  it('includes active priests in the mentor candidate query', async () => {
+  it('queries active staff tags, including Sunday School servants, with a legacy fallback', async () => {
     const response = await GET()
 
     expect(response.status).toBe(200)
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        role: {
-          in: expect.arrayContaining([
-            UserRole.PRIEST,
-            UserRole.MENTOR,
-            UserRole.SERVANT_PREP,
-          ]),
-        },
         isDisabled: false,
+        OR: [
+          { roleAssignments: { some: {
+            tag: { in: [RoleTag.SUPER_ADMIN, RoleTag.PRIEST, RoleTag.SERVANTS_PREP_SERVANT, RoleTag.SUNDAY_SCHOOL_SERVANT] },
+            revokedAt: null,
+          } } },
+          { roleAssignments: { none: {} }, role: { in: [UserRole.SUPER_ADMIN, UserRole.PRIEST, UserRole.SERVANT_PREP, UserRole.MENTOR] } },
+        ],
       },
     }))
   })
 
-  it('does not expose mentor candidates to read-only priests', async () => {
+  it('allows priests to select mentor candidates', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: UserRole.PRIEST })
 
     const response = await GET()
 
-    expect(response.status).toBe(403)
-    expect(mocks.findMany).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(mocks.findMany).toHaveBeenCalled()
   })
 })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { RoleTag, UserRole } from '@prisma/client'
+import { hasViewAsAccess } from '@/lib/view-as-access'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
@@ -17,21 +17,17 @@ export async function GET(request: Request) {
     where: { id: actorId },
     select: {
       role: true,
+      canUseViewAs: true,
+      mustChangePassword: true,
       isDisabled: true,
       roleAssignments: {
-        where: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
-        select: { id: true },
-        take: 1,
+        where: { revokedAt: null },
+        select: { tag: true },
       },
     },
   })
 
-  if (
-    !actor ||
-    actor.isDisabled ||
-    actor.role !== UserRole.SUPER_ADMIN ||
-    actor.roleAssignments.length === 0
-  ) {
+  if (!hasViewAsAccess(actor)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

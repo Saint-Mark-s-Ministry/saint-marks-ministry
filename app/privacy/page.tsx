@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { LegalPage } from '@/components/legal-page'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | St. Mark Church Ministry Portal',
-  description: 'How the St. Mark Church Ministry Portal collects, uses, shares, and protects information.',
+  title: "Privacy Policy | Saint Mark's Ministry",
+  description: "How Saint Mark's Ministry handles information in the web portal and associated mobile app.",
 }
 
 export function PrivacyPageContent() {
@@ -11,18 +11,19 @@ export function PrivacyPageContent() {
     <LegalPage
       eyebrow="Privacy"
       title="Privacy Policy"
-      description="This policy explains how information is handled when families, students, servants, mentors, clergy, and administrators use the ministry portal."
-      lastUpdated="September 20, 2026"
+      description="This policy explains how information is handled when families, students, servants, mentors, clergy, and administrators use the ministry portal and associated mobile app."
+      lastUpdated="October 14, 2026"
       sections={[
         {
           title: 'Who operates the portal and what this policy covers',
           content: (
             <>
               <p>
-                The St. Mark Church Ministry Portal is operated for the Coptic Orthodox Church of Saint Mark
+                Saint Mark&apos;s Ministry, also called the St. Mark Church Ministry Portal, is operated for the Coptic Orthodox Church of Saint Mark
                 in Jersey City, New Jersey. It supports the church&apos;s Sunday School and Servants Preparation
-                ministries. This policy applies to the portal, its registration forms, and the ministry records
-                maintained through it. It does not govern unrelated church websites or third-party sites.
+                ministries. This policy applies to the web portal, the associated mobile app that accesses its
+                services, registration forms, and ministry records maintained through them. Features may vary
+                between the web portal and mobile app. It does not govern unrelated church websites or third-party sites.
               </p>
               <p>
                 In this policy, &quot;the church,&quot; &quot;we,&quot; and &quot;us&quot; refer to the Coptic Orthodox Church of Saint
@@ -143,8 +144,9 @@ export function PrivacyPageContent() {
               <p>
                 We use service providers to operate the portal, including Vercel for application hosting, file
                 storage, performance measurement, and privacy-focused web analytics; Neon for managed database
-                hosting; Google for optional sign-in and linked ministry resources; and browser or device push
-                services when you enable notifications. These providers may process information only as needed
+                hosting; Google for optional sign-in and linked ministry resources; Resend for account and ministry
+                emails when email delivery is enabled; Pusher for live exam-dashboard updates when configured;
+                and browser or device push services when you enable notifications. These providers may process information only as needed
                 to provide their services and under their own terms and privacy notices.
               </p>
               <p>
@@ -172,6 +174,27 @@ export function PrivacyPageContent() {
                 its standard web analytics as aggregated and not tied to a person or persistent cross-site
                 identifier. We do not intentionally send names, contact details, ministry notes, or record contents
                 as analytics events.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Digital exams and activity monitoring',
+          content: (
+            <>
+              <p>
+                When you take a digital exam, we record your answers, submissions, attempt status, and activity
+                such as saved-answer changes, connection interruptions, leaving the answer page, and reported
+                page-visibility or focus changes. Exam activity may include timestamps and a limited ministry
+                portal path when navigating within the website. Pending answers and activity reports may be
+                stored on your device and retried after an interruption.
+              </p>
+              <p>
+                Authorized proctors use this information to supervise exams and review interruptions. These
+                signals do not reveal another app&apos;s or website&apos;s contents or prove misconduct. Students
+                acknowledge monitoring before starting a digital exam. The available signals can vary by
+                browser or device. When Pusher is configured, live messages identify the exam for a dashboard
+                refresh; they do not include student names, answers, grades, or answer keys.
               </p>
             </>
           ),
@@ -279,7 +302,11 @@ export function PrivacyPageContent() {
           title: 'Contact us',
           content: (
             <p>
-              For privacy questions or requests, contact church administration at Coptic Orthodox Church of Saint
+              For privacy questions or requests, email{' '}
+              <a href="mailto:developer@copticchurch.net" className="font-medium text-accent-ink underline underline-offset-2">
+                developer@copticchurch.net
+              </a>
+              {' '}or contact church administration at Coptic Orthodox Church of Saint
               Mark, 427 West Side Avenue, Jersey City, NJ 07304; call (201) 333-0004; or use the official church
               website at{' '}
               <a

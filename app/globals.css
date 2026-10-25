@@ -305,6 +305,7 @@
 }
 
 :root {
+  --modal-motion-duration: 200ms;
   --radius: 0.625rem;
 
   /* Light — warm neutrals, one maroon accent, gold for Sunday School,
@@ -1166,4 +1167,62 @@
   .hover\:text-maroon-700:hover {
     @apply dark:text-maroon-300;
   }
+}
+
+/* Face and name practice game. Motion is optional, never needed to play. */
+.name-game-stage {
+  perspective: 1000px;
+}
+
+.name-game-card {
+  transform-origin: center;
+}
+
+.name-game-stage[data-motion='shuffle'] > .name-game-card {
+  animation: none;
+}
+
+.name-game-photo {
+  transform: scale(1);
+}
+
+.name-game-reveal {
+  position: relative;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .name-game-card {
+    animation: name-game-deal 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .name-game-photo {
+    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .name-game-photo[data-revealed='true'] {
+    transform: scale(0.96) rotate(-1deg);
+  }
+
+  .name-game-reveal {
+    animation: name-game-reveal 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .name-game-summary {
+    animation: name-game-reveal 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .name-game-progress {
+    transition: width 350ms ease-out;
+  }
+}
+
+@keyframes name-game-deal {
+  from { opacity: 0; transform: translateX(36px) rotateY(-12deg) scale(0.97); }
+  to { opacity: 1; transform: translateX(0) rotateY(0) scale(1); }
+}
+
+@keyframes name-game-reveal {
+  from { opacity: 0; transform: translateY(12px) scale(0.8) rotate(-3deg); }
+  to { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
 }

@@ -7,6 +7,10 @@ const identity = vi.hoisted(() => ({ id: '', tag: 'SERVANTS_PREP_STUDENT', readO
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: async () => ({ id: identity.id }) }))
 vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: async () => ({ disabled: false, readOnly: identity.readOnly, roleTags: new Set([identity.tag]) }) }))
 vi.mock('@/lib/exam-realtime', () => ({ publishExamChange: vi.fn(), examPusher: () => null }))
+vi.mock('@/lib/meeting-geofence', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/meeting-geofence')>(),
+  meetingVenue: async () => ({ latitude: 40.72, longitude: -74.09 }),
+}))
 import { examScoreTransaction } from '@/lib/exam-score-service'
 import { effectiveExamResult } from '@/lib/makeup-scores'
 import { mutateExam } from '@/lib/digital-exam-service'
@@ -23,7 +27,7 @@ const fixture = { studentId: '', otherId: '', examId: '', yearId: '' }
 const token = randomUUID()
 const staff = { user: { id: 'test-proctor' }, staff: true, manage: true, student: false } as Parameters<typeof mutateExam>[2]
 const student = () => ({ user: { id: fixture.studentId }, staff: false, manage: false, student: true }) as Parameters<typeof mutateExam>[2]
-const act = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, sessionToken: token, ...extra }, student())
+const act = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, sessionToken: token, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() }, ...extra }, student())
 const admin = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, ...extra }, staff)
 const get = () => GET(new Request('http://localhost'), { params: Promise.resolve({ id: fixture.examId }) })
 
@@ -84,6 +88,13 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     if (ids.length) { await db.userRoleAssignment.deleteMany({ where: { userId: { in: ids } } }); await db.user.deleteMany({ where: { id: { in: ids } } }) }
     if (fixture.yearId) await db.academicYear.delete({ where: { id: fixture.yearId } })
     await db.$disconnect()
+  }, 30000)
+  it('does not create an attempt or save answers outside the church', async () => {
+    await expect(act('start', { position: { latitude: 40.73, longitude: -74.09, accuracy: 10, timestamp: Date.now() } })).rejects.toMatchObject({ status: 403 })
+    expect(await db.digitalExamAttempt.count({ where: { examId: fixture.examId } })).toBe(0)
+    await act('start')
+    await expect(act('save', { question: 0, answer: 'E', revision: 0, position: undefined })).rejects.toMatchObject({ status: 400 })
+    expect((await db.digitalExamAttempt.findFirstOrThrow({ where: { examId: fixture.examId } })).answers.every(answer => answer === '')).toBe(true)
   }, 30000)
   it('lists and starts a Year 2 exam for a yearless async student', async () => {
     await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { isAsyncStudent: true, yearLevel: null } })
@@ -247,7 +258,7 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(attempt.state).toBe('SUBMITTED'); expect(attempt.correctCount).toBe(attempt.answers[0] === 'E' ? 1 : 0)
     await expect(act('save', { question: 0, answer: 'A', revision: attempt.revision })).rejects.toThrow('already been submitted')
   }, 30000)
-  it('protects configuration, eligibility, read-only priests, and other attempts', async () => {
+  it('protects configuration, eligibility, denied managers, and other attempts', async () => {
     await expect(admin('configure', { choiceCounts: Array(50).fill(4), answerKey: Array(50).fill('A') })).rejects.toThrow('locked after opening')
     await expect(mutateExam(fixture.examId, { action: 'close' }, { ...staff, manage: false })).rejects.toThrow('Forbidden')
     await db.studentEnrollment.update({ where: { studentId: fixture.studentId }, data: { yearLevel: 'YEAR_2' } })

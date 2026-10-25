@@ -133,7 +133,7 @@ describe('Sunday School homework API', () => {
     expect(mocks.homeworkCreate).not.toHaveBeenCalled()
   })
 
-  it('keeps priests read-only', async () => {
+  it('denies publishing from an explicitly read-only class context', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
     mocks.weekFindUnique.mockResolvedValue({
       id: 'week-1', classId: 'class-1', homework: null,

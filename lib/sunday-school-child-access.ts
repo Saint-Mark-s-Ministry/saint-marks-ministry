@@ -5,8 +5,7 @@ import { canServeClass, canViewClass, type SundaySchoolAccess } from "@/lib/sund
  * You may only touch children in classes your assignments cover. Returns the
  * child's current classId, or throws Forbidden / Not found.
  *
- * `write` distinguishes reading a child's record from changing it, so PRIEST
- * can look without being able to edit.
+ * `write` distinguishes viewing authority from serving authority.
  */
 export async function loadChildForUser(
   childId: string,

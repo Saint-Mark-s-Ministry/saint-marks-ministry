@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
-    // Serving this class is what grants this — PRIEST reads but never writes
+    // Serving this class is what grants this — Priests have ministry editing access
     const access = await getSundaySchoolAccess(user, session.class.academicYearId)
     if (!canServeClass(access, session.classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })

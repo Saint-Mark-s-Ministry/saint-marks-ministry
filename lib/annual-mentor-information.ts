@@ -1,8 +1,9 @@
-import { NotificationType, YearLevel } from '@prisma/client'
+import { NotificationType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { requiresAnnualMentorUpdate } from '@/lib/annual-mentor-requirement'
 
 /**
- * Year 2 and async students confirm their mentor contact information each year.
+ * Active Year 2 students confirm their mentor contact information each year.
  * Looking this up from current state (rather than only at promotion time)
  * also covers students promoted before this feature was deployed.
  */
@@ -21,15 +22,13 @@ export async function getAnnualMentorRequirement(userId: string) {
         yearLevel: true,
         mentorName: true,
         mentorPhone: true,
+        approvalFormUrl: true,
+        approvalFormFilename: true,
       },
     }),
   ])
 
-  if (
-    !activeYear ||
-    !enrollment?.isActive ||
-    (!enrollment.isAsyncStudent && enrollment.yearLevel !== YearLevel.YEAR_2)
-  ) {
+  if (!activeYear || !enrollment || !requiresAnnualMentorUpdate(enrollment)) {
     return null
   }
 
@@ -47,7 +46,19 @@ export async function getAnnualMentorRequirement(userId: string) {
 
 export async function ensureAnnualMentorReminder(userId: string) {
   const requirement = await getAnnualMentorRequirement(userId)
-  if (!requirement || requirement.information) return
+  if (!requirement || requirement.information?.reviewedAt) {
+    // Reconcile reminders created under the former async-student rule. Keep
+    // admission and approval-form reminders, which use the same notification type.
+    await prisma.notification.deleteMany({
+      where: {
+        userId,
+        type: NotificationType.REGISTRATION_INCOMPLETE,
+        isPersistent: true,
+        metadata: { path: ['kind'], equals: 'annualMentorInformation' },
+      },
+    })
+    return
+  }
 
   const existingReminder = await prisma.notification.findFirst({
     where: {

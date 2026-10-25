@@ -1,6 +1,8 @@
-import { AuditEventResult, SundaySchoolPhoneCallOutcome } from '@prisma/client'
+import { AuditEventResult, RoleTag, SundaySchoolPhoneCallOutcome, UserRole } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { handleApiError } from '@/lib/api-utils'
+import { getAuthorizationContext } from '@/lib/authorization'
+import { getCheckInWeek } from '@/lib/sunday-school-check-ins'
 import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { canServeClass, getSundaySchoolAccess } from '@/lib/sunday-school-access'
@@ -9,6 +11,12 @@ import { canServeClass, getSundaySchoolAccess } from '@/lib/sunday-school-access
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
+    const authorization = await getAuthorizationContext(user.id)
+    const principal = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, role: true, name: true } })
+    if (!principal) throw new Error('Unauthorized')
+    if (authorization.disabled || authorization.readOnly || authorization.roleTags.has(RoleTag.PRIEST) || principal.role === UserRole.PRIEST) {
+      throw new Error('Forbidden')
+    }
     const body: unknown = await request.json()
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return NextResponse.json({ error: 'Enter the call details' }, { status: 400 })
@@ -25,7 +33,7 @@ export async function POST(request: Request) {
     if (Number.isNaN(callDate.getTime()) || callDate.toISOString().slice(0, 10) !== calledAt) {
       return NextResponse.json({ error: 'Enter a valid call date' }, { status: 400 })
     }
-    if (calledAt > new Date().toISOString().slice(0, 10)) {
+    if (calledAt > getCheckInWeek().today.toISOString().slice(0, 10)) {
       return NextResponse.json({ error: 'A call cannot be dated in the future' }, { status: 400 })
     }
     if (!Object.values(SundaySchoolPhoneCallOutcome).includes(outcome as SundaySchoolPhoneCallOutcome)) {
@@ -59,7 +67,7 @@ export async function POST(request: Request) {
     }
     const classId = child.classId
 
-    const access = await getSundaySchoolAccess(user, child.class.academicYearId)
+    const access = await getSundaySchoolAccess(principal, child.class.academicYearId)
     if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -70,7 +78,7 @@ export async function POST(request: Request) {
           childId: child.id,
           classId,
           callerId: user.id,
-          callerName: user.name?.trim() || 'Unknown servant',
+          callerName: principal.name?.trim() || 'Unknown servant',
           calledAt: callDate,
           outcome: outcome as SundaySchoolPhoneCallOutcome,
           note: noteText,

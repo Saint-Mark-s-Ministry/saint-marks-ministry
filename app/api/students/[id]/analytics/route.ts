@@ -1,3 +1,4 @@
+import { getAnnualMentorRequirement } from "@/lib/annual-mentor-information"
 import { getStudentMentorContact } from "@/lib/student-mentor-contact"
 import { applicableExamYears } from '@/lib/enrollment-year'
 import { NextResponse } from "next/server"
@@ -11,9 +12,9 @@ import {
   calculateAttendancePercentage,
   meetsAttendanceRequirement,
   isGraduationEligible,
-  excludeAsyncPeriodRecords,
+  excludeAsyncLessonRecords,
 } from "@/lib/attendance-utils"
-import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet, rotationAttendancePercentage } from "@/lib/sunday-school-utils"
+import { getAssignmentWeeks, rotationAttendanceToDate, rotationRequirementMet, rotationAttendanceSummary } from "@/lib/sunday-school-utils"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -132,12 +133,12 @@ export async function GET(
 
     // Get attendance records - only fetch needed fields for performance
     // Excludes exam day lessons
-    // Async students: lessons from the day they went async count only if a slip covered them
+    // Async students are assessed solely on rotation attendance.
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
         lesson: lessonFilter,
-        ...excludeAsyncPeriodRecords([enrollment]),
+        AND: [excludeAsyncLessonRecords([enrollment])],
       },
       select: {
         status: true,
@@ -172,9 +173,7 @@ export async function GET(
     const studentTotalLessons = presentCount + lateCount + absentCount + excusedCount
     const effectivePresent = presentCount + (lateCount / 2)
     const effectiveTotalLessons = studentTotalLessons - excusedCount
-    const attendancePercentage = calculateAttendancePercentage(attendanceCounts)
-    // If no attendance data, treat as "met" (not penalized) until data exists
-    const attendanceMet = attendancePercentage === null ? true : meetsAttendanceRequirement(attendancePercentage)
+    const lessonAttendancePercentage = calculateAttendancePercentage(attendanceCounts)
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
     // Year 2 and async students need exams from both curriculum years
@@ -337,14 +336,19 @@ export async function GET(
     // Graduation eligibility (includes Sunday School for async students)
     // An async student's rotation is their attendance, so it counts as evidence
     // even when no lessons are on record (async from the start, no slips).
-    const rotationPercentage = rotationAttendancePercentage(sundaySchool?.assignments ?? [])
+    const rotation = rotationAttendanceSummary(sundaySchool?.assignments ?? [])
+    const attendancePercentage = enrollment.isAsyncStudent ? rotation.percentage : lessonAttendancePercentage
+    const attendanceMet = attendancePercentage === null || meetsAttendanceRequirement(attendancePercentage)
     const graduationEligible = isGraduationEligible({
-      attendancePercentage: attendancePercentage ?? rotationPercentage,
+      attendancePercentage,
       examAverage: overallAverage,
       requirementsMet: [attendanceMet, overallAverageMet, allSectionsPassing, sundaySchoolMet],
     })
 
+    const mentorRequirement = await getAnnualMentorRequirement(studentId)
+
     return NextResponse.json({
+      mentorUpdateRequired: Boolean(mentorRequirement && !mentorRequirement.information?.reviewedAt),
       enrollment: {
         ...enrollment,
         mentorContact: await getStudentMentorContact(studentId, enrollment),
@@ -363,6 +367,17 @@ export async function GET(
         met: attendanceMet,
         required: 75,
         conductDismissalCount,
+        ...(enrollment.isAsyncStudent ? {
+          totalLessons: rotation.effectiveTotal,
+          allLessons: rotation.effectiveTotal + rotation.excused,
+          presentCount: rotation.present,
+          effectivePresent: rotation.present,
+          absentCount: rotation.absent,
+          excusedCount: rotation.excused,
+          lateCount: 0,
+          notEnrolledYetCount: 0,
+          expectedAbsenceNACount: 0,
+        } : {}),
       },
       exams: {
         sectionAverages,

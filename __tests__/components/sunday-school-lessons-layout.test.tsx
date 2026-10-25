@@ -14,6 +14,12 @@ vi.mock('@/hooks/useSundaySchoolGuard', () => ({
   }),
 }))
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  usePathname: () => '/dashboard/servants/lessons',
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 vi.mock('@/lib/swr', () => ({
   useSundaySchoolLessons: () => ({
     data: { lessons: mocks.lessons },
@@ -23,6 +29,10 @@ vi.mock('@/lib/swr', () => ({
   }),
   useSundaySchoolAgeGroups: () => ({ data: [] }),
   useLiturgicalCalendar: () => ({ data: undefined }),
+}))
+
+vi.mock('@/components/sunday-school-lesson-subscribe', () => ({
+  SundaySchoolLessonSubscribe: () => null,
 }))
 
 vi.mock('@/components/sunday-school-lesson-import', () => ({
@@ -35,7 +45,7 @@ function lesson(overrides: Record<string, unknown> = {}) {
   return {
     id: 'lesson-1',
     classId: 'class-1',
-    sundayDate: '2026-09-26T00:00:00.000Z',
+    sundayDate: '2099-09-26T00:00:00.000Z',
     title: 'The feast of the Cross',
     ownerId: 'servant-1',
     assignedById: 'servant-1',
@@ -88,7 +98,7 @@ describe('Sunday School lesson schedule layout', () => {
     expect(within(readyActions as HTMLElement).getByRole('button', { name: 'Edit lesson' })).toHaveClass('w-32')
     expect(screen.getByText('Ready').parentElement).toHaveClass('w-[7.25rem]')
 
-    for (const ownerSelect of screen.getAllByRole('combobox', { name: /^Owner for/ })) {
+    for (const ownerSelect of screen.getAllByRole('combobox', { name: /^Teacher for/ })) {
       expect(ownerSelect).toHaveClass('w-44')
     }
   })

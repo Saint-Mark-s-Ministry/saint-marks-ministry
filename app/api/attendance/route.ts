@@ -30,7 +30,10 @@ export async function GET(request: Request) {
     }
 
     const records = await prisma.attendanceRecord.findMany({
-      where,
+      where: {
+        ...where,
+        AND: [{ student: { enrollments: { none: { isAsyncStudent: true } } } }],
+      },
       include: {
         student: {
           select: {
@@ -68,12 +71,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/attendance - Create attendance record (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/attendance - Create attendance record (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user can manage data (PRIEST is read-only)
+    // Check if user can manage data
     if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
@@ -89,6 +92,13 @@ export async function POST(request: Request) {
         { error: "Missing required fields" },
         { status: 400 }
       )
+    }
+
+    const enrollment = await prisma.studentEnrollment.findUnique({
+      where: { studentId }, select: { isAsyncStudent: true },
+    })
+    if (enrollment?.isAsyncStudent) {
+      return NextResponse.json({ error: "Async students have rotation attendance; prep lesson attendance does not apply" }, { status: 400 })
     }
 
     // Check if record already exists

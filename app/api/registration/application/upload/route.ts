@@ -4,6 +4,7 @@ import { put } from '@vercel/blob'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
+import { blobUploadTarget } from '@/lib/blob-upload'
 
 const ALLOWED_FILE_TYPES = [
   'image/png',
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       getAnnualMentorRequirement(user.id),
     ])
 
-    if (!application) {
+    if (!application && !annualMentorRequirement) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
@@ -47,25 +48,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size exceeds 4.5 MB limit' }, { status: 400 })
     }
 
-    const blob = await put(`registrations/${application.id}/${Date.now()}-${file.name}`, file, {
+    const target = blobUploadTarget(`registrations/${application?.id ?? user.id}/${Date.now()}`, file)
+    const blob = await put(target.pathname, file, {
       access: 'public',
+      contentType: target.contentType,
       addRandomSuffix: true,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
     const complete = Boolean(
-      application.fatherOfConfessionName &&
-      application.mentorName &&
-      application.mentorPhone &&
-      application.mentorEmail &&
-      (!annualMentorRequirement || annualMentorRequirement.information)
+      (!application || application.fatherOfConfessionName) &&
+      (!application || application.mentorName) &&
+      (!application || application.mentorPhone) &&
+      (!application || application.mentorEmail) &&
+      (!annualMentorRequirement || annualMentorRequirement.information?.reviewedAt)
     )
 
     await prisma.$transaction(async (tx) => {
-      await tx.registrationSubmission.update({
-        where: { id: application.id },
-        data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
-      })
+      if (application) {
+        await tx.registrationSubmission.update({
+          where: { id: application.id },
+          data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
+        })
+      } else {
+        await tx.studentEnrollment.update({
+          where: { studentId: user.id },
+          data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
+        })
+      }
 
       if (complete) {
         await tx.notification.deleteMany({

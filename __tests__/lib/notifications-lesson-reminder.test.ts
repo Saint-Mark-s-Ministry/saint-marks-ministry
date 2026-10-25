@@ -36,3 +36,34 @@ describe('lesson reminder delivery', () => {
     expect(await notifySundaySchoolLessonReminder(input)).toBe(true)
   })
 })
+
+
+describe('attendance reminder delivery', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'public')
+    vi.stubEnv('VAPID_PRIVATE_KEY', 'private')
+    mocks.subscriptions.mockResolvedValue([{ endpoint: 'https://push.test', p256dh: 'key', auth: 'auth' }])
+    mocks.push.mockResolvedValue({})
+  })
+  const input = { classId: 'class', userId: 'servant', className: 'Class', sessionDate: '2026-10-18', reminderDate: '2026-10-20', url: '/dashboard/servants/attendance?classId=class&date=2026-10-18' }
+  it('atomically suppresses retries and allows a distinct Thursday reminder', async () => {
+    const { notifySundaySchoolAttendanceReminder } = await import('@/lib/notifications')
+    mocks.create.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 })
+    expect(await notifySundaySchoolAttendanceReminder(input)).toBe(true)
+    expect(await notifySundaySchoolAttendanceReminder(input)).toBe(false)
+    expect(await notifySundaySchoolAttendanceReminder({ ...input, reminderDate: '2026-10-22' })).toBe(true)
+    expect(mocks.push).toHaveBeenCalledTimes(2)
+    expect(mocks.create.mock.calls[0][0]).toMatchObject({ skipDuplicates: true, data: [{
+      id: 'ss-attendance-reminder:class:2026-10-18:2026-10-20:servant', url: input.url,
+    }] })
+    expect(mocks.create.mock.calls[2][0].data[0].id).toBe('ss-attendance-reminder:class:2026-10-18:2026-10-22:servant')
+  })
+  it('preserves in-app delivery when push fails', async () => {
+    const { notifySundaySchoolAttendanceReminder } = await import('@/lib/notifications')
+    mocks.create.mockResolvedValue({ count: 1 })
+    mocks.push.mockRejectedValue(new Error('offline'))
+    expect(await notifySundaySchoolAttendanceReminder(input)).toBe(true)
+  })
+})

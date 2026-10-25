@@ -5,7 +5,8 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import { isAdmin, canManageEnrollments } from "@/lib/roles"
 import { backfillAttendanceForStudent } from "@/lib/api-utils"
-import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
+import { isEligibleMentorAccount, MENTOR_CANDIDATE_SELECT } from "@/lib/mentor-eligibility"
+import { syncMentorCompatibilityRoles } from "@/lib/mentor-assignments"
 import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // GET /api/enrollments - List enrollments
@@ -139,12 +140,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/enrollments - Create a new enrollment (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
+// POST /api/enrollments - Create a new enrollment (SUPER_ADMIN, PRIEST, and SERVANT_PREP)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+    // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
     if (!canManageEnrollments(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     if (mentorId) {
       const mentor = await prisma.user.findUnique({
         where: { id: mentorId },
-        select: { role: true, isDisabled: true },
+        select: MENTOR_CANDIDATE_SELECT,
       })
       if (!isEligibleMentorAccount(mentor)) {
         return NextResponse.json(
@@ -246,6 +247,7 @@ export async function POST(request: Request) {
             assignedById: user.id,
           },
         })
+        await syncMentorCompatibilityRoles(tx, [mentorId])
       }
 
       // Backfill attendance records for all past lessons in this academic year

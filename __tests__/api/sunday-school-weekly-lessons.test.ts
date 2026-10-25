@@ -146,7 +146,7 @@ describe('weekly lesson API permissions and saves', () => {
   it('lets an active yearless async student see the explicit serving class and read-only lesson resources', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT', isAsyncStudent: false })
     mocks.enrollmentFindUnique.mockResolvedValue({ isActive: true, isAsyncStudent: true })
-    const cls = { id: 'kindergarten-2', name: 'Kindergarten - 2', level: 'KINDERGARTEN' }
+    const cls = { id: 'kindergarten-2', name: 'Kindergarten - 2', classroom: 'Room 203', level: 'KINDERGARTEN' }
     mocks.rotationFindMany.mockResolvedValue([{ class: cls }])
     mocks.lessonFindMany.mockResolvedValue([{
       id: 'lesson-1', classId: cls.id, title: 'The Good Shepherd',
@@ -170,6 +170,7 @@ describe('weekly lesson API permissions and saves', () => {
         studentId: 'student-1', isActive: true, academicYear: { isActive: true }, classId: { not: null },
         class: expect.objectContaining({ isActive: true, status: 'ACTIVE' }),
       }),
+      select: { class: { select: { id: true, name: true, classroom: true, level: true } } },
     }))
     expect(mocks.lessonFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ classId: { in: [cls.id] } }),

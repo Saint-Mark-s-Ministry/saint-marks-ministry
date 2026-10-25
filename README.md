@@ -38,6 +38,24 @@ TestFlight, App Store requirements, and the server-first rollout.
 | [`docs/async-student-year-migration.md`](docs/async-student-year-migration.md) | Yearless async enrollments and their migration requirements |
 | [`docs/makeup-exams.md`](docs/makeup-exams.md) | Student makeup bookings and score entry |
 | [`docs/digital-exams.md`](docs/digital-exams.md) | Digital exams, answer sheets, and proctor monitoring |
+| [`docs/app-store-website-plan.md`](docs/app-store-website-plan.md) | Public app overview, support, and App Store submission preparation |
+
+### Public app information
+
+The public overview is at `/app`, with app help and the support email at
+`/support`. Both are available without an account, including when a signed-in
+user must change their password. The root URL keeps its existing sign-in and
+dashboard behavior.
+
+After deployment, use `https://www.stmarkministry.app/support` as the App Store
+Connect Support URL, `https://www.stmarkministry.app/privacy` as the Privacy Policy
+URL, and `https://www.stmarkministry.app/app` as the optional Marketing URL.
+The iOS download link can be added once the App Store listing is available.
+
+Before submission, verify the release build's in-app privacy link, account
+deletion flow if it supports account creation, and data disclosures against the
+actual enabled mobile services. Public help pages alone do not implement account
+deletion in the mobile app.
 
 ## Features
 
@@ -113,6 +131,8 @@ for device testing and store setup still required.
 
 ### Shared experience and branding
 
+- **What’s new** — weekly deployment notes for both ministries, available in
+  the sidebar, phone More menu, and search. See [the release-note workflow](docs/release-notes.md).
 - **Responsive mobile web experience** using the same features and permissions
   as the desktop application
 - **Compact SP / SS mode switcher** for eligible users, with an animated
@@ -290,7 +310,7 @@ changes a database. Run schema updates as an explicit deployment step.
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
 | Super Admin | Full | Full, every class | All users |
-| Priest | Full, read-only | Reads every class | None |
+| Priest | View and edit | View and edit every class and age group | None |
 | Servants Prep Servant | Full | Only if personally assigned | Students, Mentors |
 | Mentor | Own mentees, read-only | Only if personally assigned | None |
 | Student | Own progress, lessons, forms, and permitted self-service | Scoped class lessons; no ministry management | None |

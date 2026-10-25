@@ -8,6 +8,7 @@ Deep references live in `docs/`:
 
 | Document | What it covers |
 |---|---|
+| [`docs/weekly-deployments.md`](docs/weekly-deployments.md) | Weekly release branches, the draft master PR, release validation, and urgent hotfixes |
 | [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
 | [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
@@ -38,6 +39,18 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 
 **Package manager: Bun.** Do not use `npm` or `yarn` — the lockfile is
 `bun.lock`.
+
+## Weekly deployment workflow
+
+Target normal feature/fix PRs at the active `release/YYYY-MM-DD` branch. Find
+that branch through the open draft weekly deployment master PR into `main`.
+Base new work on the release branch so it includes the week's accumulated
+changes, and update the master PR's tracking list when work is included.
+
+The master PR collects the week’s production release. Keep it in draft while
+collecting work; merging it into `main` is the production release step. Follow
+[`docs/weekly-deployments.md`](docs/weekly-deployments.md) for final validation,
+the next week's branch, and separately authorized urgent hotfixes.
 
 ## Commands
 
@@ -91,6 +104,10 @@ SP_DATABASE_URL_UNPOOLED="postgresql://..." # Direct connection, for migrations
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="<openssl rand -base64 32>"
 ```
+
+Optional passkey login requires `PASSKEY_RP_ID` and `PASSKEY_ORIGIN`. Read
+[`docs/passkeys.md`](docs/passkeys.md) before configuring or changing them;
+the RP ID determines whether existing passkeys survive a domain change.
 
 Never commit a `.env`. Never log or echo these values.
 
@@ -196,7 +213,8 @@ Rules that are not negotiable:
 - **Never grant Sunday School power to a prep role.** A `SERVANT_PREP` who also
   serves Sunday School gets in by being *assigned*, as an individual. This is
   what lets one person wear both hats, given `User.role` holds a single value.
-- **`PRIEST` is read-only everywhere**, in both modes.
+- **`PRIEST` may edit ministry records in both modes.** Account administration,
+  access tags, MCP tokens, and feedback moderation remain separately restricted.
 - **Guardian contact for children is sensitive.** It is returned only by
   `/api/sunday-school/children*`, only to people who serve that child's class
   and to admins. Keep it out of summary endpoints and the command palette.
@@ -262,9 +280,12 @@ database; keep new logic in that shape where you can.
 
 **Graduation** requires all four:
 
-1. Attendance ≥ 75%, computed as `(present + lates/2) / (total_lessons - excused)`.
+1. In-person attendance ≥ 75%, computed as `(present + lates/2) / (total_lessons - excused)`.
    Two lates equal one absence; `EXCUSED` is excluded from both sides; lessons
-   flagged `isExamDay` are excluded entirely.
+   flagged `isExamDay` are excluded entirely. Current async students are exempt
+   from every prep lesson, regardless of approval date or historical slips; their
+   attendance comes solely from elapsed rotation weeks. Never backfill lesson
+   absences or show lesson absence badges for an async enrollment.
 2. Overall exam average ≥ 75% across all sections.
 3. At least 60% in every individual exam section.
 4. Both curriculum years completed. Async students have no cohort year; their serving requirement is ten approved four-week grade rotations. See `docs/async-serving-rotations.md`. See `docs/async-student-year-migration.md` for the database invariant and release workflow.
@@ -328,6 +349,11 @@ Do not add a role. Extend the assignment model — see
 
 ## Production
 
+When preparing a weekly deployment, add reviewed user-facing changes to
+`lib/release-notes.ts` in the same release. Use the actual deployment date and
+follow [`docs/release-notes.md`](docs/release-notes.md). History starts with the
+next deployment; do not infer historical deployment dates from Git commits.
+
 Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch
@@ -352,7 +378,7 @@ people. Local and preview share the production database, so elsewhere only
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 

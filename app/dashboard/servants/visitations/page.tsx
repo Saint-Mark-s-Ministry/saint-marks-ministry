@@ -1,6 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { StudentName } from '@/components/student-history-provider'
+
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
 import {
@@ -16,7 +19,6 @@ import { Segmented } from '@/components/ds/segmented'
 import { SearchField } from '@/components/ds/search-field'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Initials } from '@/components/ds/person'
-import { FilterSelect } from '@/components/ui/filter-select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,9 +35,11 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Textarea } from '@/components/ui/textarea'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { getLevelDisplayName, sortClassesByAgeGroup } from '@/lib/sunday-school-class'
+import { sortClassesByAgeGroup } from '@/lib/sunday-school-class'
 import { useSundaySchoolAgeGroups, useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
+import { useViewingClassId } from '@/lib/sunday-school-viewing'
+import { CareHubTabs } from '@/components/sunday-school-hub-tabs'
 import type {
   SundaySchoolPriestNote,
   SundaySchoolVisitationChild,
@@ -50,7 +54,9 @@ const CALL_OUTCOME_LABELS: Record<SundaySchoolPhoneCallOutcome, string> = {
   OTHER: 'Other',
 }
 
-export default function SundaySchoolVisitationsPage() {
+function VisitationsContent() {
+  const searchParams = useSearchParams()
+  const requestedChildId = searchParams.get('childId')
   const { status } = useSundaySchoolGuard()
   const { data, error, isLoading, mutate } = useSundaySchoolVisitations()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
@@ -60,7 +66,11 @@ export default function SundaySchoolVisitationsPage() {
     (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? []
   ), [ageGroupsData, response])
 
-  const [selectedClassId, setSelectedClassId] = useState('')
+  // A link from Follow up (?childId=) opens that child's class and record.
+  const requestedClassId = requestedChildId
+    ? classes.find(classroom => classroom.children.some(child => child.id === requestedChildId))?.id
+    : searchParams.get('classId')
+  const [selectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [search, setSearch] = useState('')
   const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done' | 'priority'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
@@ -81,12 +91,7 @@ export default function SundaySchoolVisitationsPage() {
   const [confidentialNote, setConfidentialNote] = useState('')
   const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
   const isPriest = response?.standing.isPriest ?? false
-
-  useEffect(() => {
-    if (!selectedClassId && classes.length > 0) {
-      setSelectedClassId(classes[0].id)
-    }
-  }, [classes, selectedClassId])
+  const canReadPrivateNotes = response?.standing.canReadPrivateNotes ?? false
 
   const selectedClass = classes.find(classroom => classroom.id === selectedClassId) ?? classes[0]
   const selectedChild = classes
@@ -119,6 +124,16 @@ export default function SundaySchoolVisitationsPage() {
     setConfidentialNote('')
   }
 
+  // Open the linked child once per link, including when a new link arrives while the page is open.
+  const openedRequestedChild = useRef<string | null>(null)
+  useEffect(() => {
+    if (!requestedChildId || openedRequestedChild.current === requestedChildId) return
+    const child = classes.flatMap(classroom => classroom.children).find(item => item.id === requestedChildId)
+    if (!child) return
+    openedRequestedChild.current = requestedChildId
+    openChild(child)
+  }, [classes, requestedChildId])
+
   const loadPriestNotes = useCallback(async (childId: string) => {
     setLoadingPriestNotes(true)
     try {
@@ -139,12 +154,12 @@ export default function SundaySchoolVisitationsPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedChildId || (!isPriest && !selectedClass?.canEdit)) {
+    if (!selectedChildId || !canReadPrivateNotes || (!isPriest && !selectedClass?.canEdit)) {
       setPriestNotes([])
       return
     }
     void loadPriestNotes(selectedChildId)
-  }, [isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
+  }, [canReadPrivateNotes, isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
 
   const togglePriority = async (child: SundaySchoolVisitationChild) => {
     setSavingPriority(child.id)
@@ -189,7 +204,7 @@ export default function SundaySchoolVisitationsPage() {
 
       const savedPrivateNote = confidentialNote.trim().length > 0
       await mutate()
-      if (savedPrivateNote) {
+      if (savedPrivateNote && canReadPrivateNotes) {
         await loadPriestNotes(selectedChild.id)
       }
       setNotes('')
@@ -244,7 +259,8 @@ export default function SundaySchoolVisitationsPage() {
   return (
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
-        <PageHeader title="Visitations" meta={['Visits and phone call follow-up for every child in your classes']} />
+        <PageHeader title="Care" meta={[selectedClass?.name, 'Visits and phone calls for each child']} />
+        <CareHubTabs />
 
         {response?.standing.readOnly && (
           <div role="status" className="rounded-lg bg-info-tint px-4 py-2.5 text-[13px] text-info">
@@ -286,15 +302,6 @@ export default function SundaySchoolVisitationsPage() {
                     ]}
                   />
                   <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
-                    <FilterSelect
-                      aria-label="Class"
-                      value={selectedClass?.id ?? ''}
-                      onChange={(v) => {
-                        setSelectedClassId(v)
-                        setSelectedChildId(null)
-                      }}
-                      options={classes.map((c) => ({ value: c.id, label: `${c.name} — ${getLevelDisplayName(c.level)}` }))}
-                    />
                     <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
                   </div>
                 </>
@@ -314,7 +321,10 @@ export default function SundaySchoolVisitationsPage() {
                           {selectedClass?.canEdit ? <Button variant="ghost" size="icon" disabled={savingPriority !== null} aria-pressed={child.visitationPriority} aria-label={`${child.visitationPriority ? 'Remove' : 'Add'} ${name} ${child.visitationPriority ? 'from' : 'to'} priority visits`} onClick={() => void togglePriority(child)}><Star className={child.visitationPriority ? 'fill-warn text-warn' : 'text-ink-3'} /></Button> : child.visitationPriority ? <Star aria-label="Priority visit" className="h-4 w-4 fill-warn text-warn" /> : null}
                           <Initials name={name} />
                           <span className="flex min-w-0 flex-col leading-tight">
-                            <span className="truncate text-[13.5px] font-medium text-ink">{name}</span>
+                            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="truncate text-[13.5px] font-medium text-ink"><StudentName id={child.id} name={name} program="sunday-school" /></span>
+                              {child.visitationPriority && <StatusBadge tone="warn">Priority visit</StatusBadge>}
+                            </span>
                             <span className="truncate text-xs text-ink-3">
                               {latest?.notes || (child.visitations.length > 0 ? `${child.visitations.length} ${child.visitations.length === 1 ? 'visit' : 'visits'}` : 'No visits recorded yet')}
                             </span>
@@ -470,8 +480,8 @@ export default function SundaySchoolVisitationsPage() {
                           Private note to priests <span className="font-normal">(optional)</span>
                         </Label>
                         <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                          Attached to this visitation. Only you and users with an active Priest
-                          access tag can read it.
+                          Attached to this visitation. Priests and the author can read it.
+                          Super Admins cannot read confidential notes.
                         </p>
                       </div>
                     </div>
@@ -539,7 +549,7 @@ export default function SundaySchoolVisitationsPage() {
                 )}
               </div>
 
-              {(isPriest || selectedClass?.canEdit) && (
+              {canReadPrivateNotes && (isPriest || selectedClass?.canEdit) && (
                 <div className="space-y-4 rounded-lg border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
                   <div className="flex items-start gap-3">
                     <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
@@ -549,8 +559,8 @@ export default function SundaySchoolVisitationsPage() {
                       </h3>
                       <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
                         {isPriest
-                          ? 'Confidential. These notes are available only to users with an active Priest access tag and never appear in the shared visitation history.'
-                          : 'Private notes saved with your visitation entries are visible only to you and users with an active Priest access tag.'}
+                          ? 'Confidential. These notes are available to priests and their author. Super Admins cannot read them, including in View as mode.'
+                          : 'Private notes saved with your visitation entries are visible to you and priests. Super Admins cannot read them, including in View as mode.'}
                       </p>
                     </div>
                   </div>
@@ -612,5 +622,13 @@ export default function SundaySchoolVisitationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function SundaySchoolVisitationsPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <VisitationsContent />
+    </Suspense>
   )
 }

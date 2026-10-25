@@ -22,11 +22,20 @@ describe('dedicated servants meeting page', () => {
     }
   })
 
-  it('opens the meeting section for ordinary Elementary servants and links both attendance pages', () => {
+  it('opens the meeting section for ordinary Elementary servants', () => {
     render(<MeetingsPage />)
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:list')
-    expect(screen.getByRole('link', { name: 'Servants meetings' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Class attendance' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance')
+  })
+
+  it('offers priests and admins a dedicated history entry point', () => {
+    mocks.dashboard.standing = { isAdmin: true, readOnly: false }
+    render(<MeetingsPage />)
+    expect(screen.getByRole('link', { name: 'Attendance history' })).toHaveAttribute('href', '/dashboard/servants/servant-attendance/meetings/history')
+  })
+
+  it('does not offer ministry-wide history to ordinary servants', () => {
+    render(<MeetingsPage />)
+    expect(screen.queryByRole('link', { name: 'Attendance history' })).not.toBeInTheDocument()
   })
 
   it('supports direct links to a recorded session', () => {
@@ -35,12 +44,11 @@ describe('dedicated servants meeting page', () => {
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:october-3')
   })
 
-  it('does not mount an Elementary roster for a servant assigned only to another school', () => {
+  it('opens the assigned Sunday school group without exposing Elementary', () => {
     mocks.dashboard.classes = [{ id: 'middle-class', ageGroup: { id: 'middle' } }]
     mocks.params = 'ageGroupId=elementary'
     render(<MeetingsPage />)
-    expect(screen.queryByTestId('meeting-roster')).not.toBeInTheDocument()
-    expect(screen.getByText(/available to Elementary school servants/)).toBeInTheDocument()
+    expect(screen.getByTestId('meeting-roster')).toHaveTextContent('middle:list')
   })
 
   it('allows a band coordinator before the group has any classes', () => {
@@ -50,7 +58,7 @@ describe('dedicated servants meeting page', () => {
     expect(screen.getByTestId('meeting-roster')).toHaveTextContent('elementary:list')
   })
 
-  it('keeps the page available for priests with read-only dashboard scope', () => {
+  it('keeps the page available for an explicitly read-only dashboard scope', () => {
     mocks.dashboard.classes = []
     mocks.dashboard.standing = { isAdmin: false, readOnly: true }
     render(<MeetingsPage />)

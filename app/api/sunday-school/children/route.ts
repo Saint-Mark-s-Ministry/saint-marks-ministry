@@ -1,5 +1,7 @@
+import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sundaySchoolChildAccountSelect, withServantsPrepStudentStatus } from "@/lib/sunday-school-child-account"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -14,6 +16,8 @@ import {
   hasSundaySchoolFamilyDetails,
   normalizeSundaySchoolFamilyDetails,
   sundaySchoolFamilyInclude,
+  suppliedSundaySchoolFamilyDetails,
+  withSundaySchoolFamilyDetails,
 } from "@/lib/sunday-school-family"
 import { SundaySchoolChildGender, SundaySchoolLevel } from "@prisma/client"
 import { normalizeOptionalEmail } from "@/lib/email"
@@ -80,12 +84,12 @@ export async function GET(request: Request) {
       include: {
         class: { select: { id: true, name: true, level: true } },
         family: { include: sundaySchoolFamilyInclude },
-        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+        user: { select: sundaySchoolChildAccountSelect },
       },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     })
 
-    return NextResponse.json(children)
+    return NextResponse.json(children.map(child => withSundaySchoolFamilyDetails(withServantsPrepStudentStatus(child))))
   } catch (error: unknown) {
     return handleApiError(error)
   }
@@ -207,12 +211,13 @@ export async function POST(request: Request) {
     }
 
     const child = await prisma.$transaction(async (tx) => {
+      await lockFamilyMatching(tx)
       let resolvedFamilyId = requestedFamilyId
 
       if (resolvedFamilyId && familyDetails) {
         await tx.sundaySchoolFamily.update({
           where: { id: resolvedFamilyId },
-          data: familyDetails,
+          data: suppliedSundaySchoolFamilyDetails(family, familyDetails),
         })
       } else if (!resolvedFamilyId && hasSundaySchoolFamilyDetails(familyDetails)) {
         const createdFamily = await tx.sundaySchoolFamily.create({ data: familyDetails! })
@@ -238,7 +243,7 @@ export async function POST(request: Request) {
         include: {
           class: { select: { id: true, name: true, level: true } },
           family: { include: sundaySchoolFamilyInclude },
-          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+          user: { select: sundaySchoolChildAccountSelect },
         },
       })
 
@@ -258,10 +263,18 @@ export async function POST(request: Request) {
         })
       }
 
-      return created
-    })
+      await matchSundaySchoolFamilies(tx, { childIds: [created.id], actorUserId: user.id })
+      return tx.sundaySchoolChild.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          class: { select: { id: true, name: true, level: true } },
+          family: { include: sundaySchoolFamilyInclude },
+          user: { select: sundaySchoolChildAccountSelect },
+        },
+      })
+    }, { timeout: 30_000 })
 
-    return NextResponse.json(child, { status: 201 })
+    return NextResponse.json(withSundaySchoolFamilyDetails(withServantsPrepStudentStatus(child)), { status: 201 })
   } catch (error: unknown) {
     return handleApiError(error)
   }

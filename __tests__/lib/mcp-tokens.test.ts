@@ -82,6 +82,14 @@ describe('authenticateMcpToken', () => {
     expect(await authenticateMcpToken(header)).toMatchObject({ ok: false, status: 403 })
   })
 
+  it('rejects a priest token despite global Sunday School editing access', async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: 't', revokedAt: null, expiresAt: null, user: { ...admin, role: 'PRIEST' },
+    })
+    expect(await authenticateMcpToken(header)).toMatchObject({ ok: false, status: 403 })
+    expect(mocks.getSundaySchoolAccess).not.toHaveBeenCalled()
+  })
+
   it('rejects disabled administrators before deriving access', async () => {
     mocks.findUnique.mockResolvedValue({
       id: 't', revokedAt: null, expiresAt: null, user: { ...admin, isDisabled: true },

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'crypto'
 import { prisma } from '@/lib/prisma'
-import { canAdministerSundaySchool } from '@/lib/roles'
+import { isSuperAdmin } from '@/lib/roles'
 import {
   getSundaySchoolAccess,
   type SundaySchoolAccess,
@@ -70,7 +70,7 @@ export async function authenticateMcpToken(header: string | null): Promise<McpAu
   }
 
   // Re-derive authority from the current role, never from when the token was made.
-  if (record.user.isDisabled || !canAdministerSundaySchool(record.user.role)) {
+  if (record.user.isDisabled || !isSuperAdmin(record.user.role)) {
     return { ok: false, status: 403, error: 'Token owner is no longer an administrator' }
   }
   const access = await getSundaySchoolAccess(record.user)

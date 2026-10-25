@@ -144,6 +144,44 @@ describe('Sunday School class detail API', () => {
     })
   })
 
+  it('creates a class with a trimmed classroom location', async () => {
+    const response = await POST(new Request('http://localhost/api/sunday-school/classes', {
+      method: 'POST', body: JSON.stringify({ name: 'Third Grade Girls', level: 'GRADE_3', classroom: '  Room 203  ' }),
+    }))
+    expect(response.status).toBe(201)
+    expect(mocks.createClass).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ classroom: 'Room 203' }) }))
+  })
+
+  it.each(['  Upstairs room 2  ', '', null])('updates or clears the classroom (%s)', async classroom => {
+    const response = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.updateClass).toHaveBeenCalledWith(expect.objectContaining({ data: { classroom: classroom?.trim() || null } }))
+  })
+
+  it.each([123, {}, 'x'.repeat(201)])('rejects invalid classroom values on create and update', async classroom => {
+    const response = await POST(new Request('http://localhost/api/sunday-school/classes', {
+      method: 'POST', body: JSON.stringify({ name: 'Third Grade Girls', level: 'GRADE_3', classroom }),
+    }))
+    const updated = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(400)
+    expect(updated.status).toBe(400)
+    expect(mocks.createClass).not.toHaveBeenCalled()
+    expect(mocks.updateClass).not.toHaveBeenCalled()
+  })
+
+  it('does not let a non-coordinator change the classroom', async () => {
+    mocks.canCoordinateClass.mockReturnValue(false)
+    const response = await PATCH(new Request('http://localhost/api/sunday-school/classes/class-1', {
+      method: 'PATCH', body: JSON.stringify({ classroom: 'Room 203' }),
+    }), { params: Promise.resolve({ id: 'class-1' }) })
+    expect(response.status).toBe(403)
+    expect(mocks.updateClass).not.toHaveBeenCalled()
+  })
+
   it('returns only active servant assignments after one is removed', async () => {
     const response = await GET(
       new Request('http://localhost/api/sunday-school/classes/class-1'),
@@ -175,6 +213,64 @@ describe('Sunday School class detail API', () => {
         }),
       }),
     }))
+  })
+
+  it.each([
+    [null, false],
+    [{ isDisabled: false, enrollments: [] }, false],
+    [{ isDisabled: true, enrollments: [{ id: 'prep-enrollment' }] }, false],
+    [{ isDisabled: false, enrollments: [{ id: 'prep-enrollment' }] }, true],
+  ])('returns only the Prep display flag for each class child: %o', async (user, expected) => {
+    mocks.findClass.mockResolvedValue({
+      id: 'class-1', academicYearId: 'year-1', level: 'GRADE_11',
+      children: [{ id: 'child-1', firstName: 'Mina', lastName: 'Mark', user }],
+    })
+    const response = await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data.children[0].isServantsPrepStudent).toBe(expected)
+    expect(data.children[0]).not.toHaveProperty('user')
+    expect(JSON.stringify(data)).not.toContain('prep-enrollment')
+    expect(mocks.findClass).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({ children: expect.objectContaining({
+        include: { user: { select: {
+          isDisabled: true,
+          profileImageUrl: true,
+          enrollments: { where: { isActive: true, status: 'ACTIVE' }, select: { id: true }, take: 1 },
+        } } },
+      }) }),
+    }))
+  })
+
+  it('reads the current account photo without replacing the child photo or exposing account details', async () => {
+    const child = {
+      id: 'child-1', firstName: 'Mina', lastName: 'Mark', photoUrl: 'https://example.test/child.jpg',
+      user: { isDisabled: false, enrollments: [{ id: 'prep-enrollment' }], profileImageUrl: 'https://example.test/prep.jpg' },
+    }
+    mocks.findClass.mockImplementation(async () => ({ id: 'class-1', academicYearId: 'year-1', children: [child] }))
+    const load = async () => (await (await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })).json()).children[0]
+    const first = await load()
+    expect(first.photoUrl).toBe('https://example.test/child.jpg')
+    expect(first.accountPhotoUrl).toBe('https://example.test/prep.jpg')
+    expect(first).not.toHaveProperty('user')
+    child.user.profileImageUrl = 'https://example.test/new-prep.jpg'
+    const refreshed = await load()
+    expect(refreshed.photoUrl).toBe(first.photoUrl)
+    expect(refreshed.accountPhotoUrl).toBe('https://example.test/new-prep.jpg')
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('does not expose the class roster or Prep status outside the viewer scope', async () => {
+    mocks.canViewClass.mockReturnValue(false)
+    const response = await GET(new Request('http://localhost/api/sunday-school/classes/class-1'), {
+      params: Promise.resolve({ id: 'class-1' }),
+    })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Forbidden' })
   })
 
   it('trims and updates a class name for a coordinator', async () => {

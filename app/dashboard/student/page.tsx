@@ -22,6 +22,7 @@ import { BookOpen, Check, ClipboardCheck, Printer, X } from 'lucide-react'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
 
 interface Analytics {
+  mentorUpdateRequired?: boolean
   enrollment: {
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2' | null
@@ -140,18 +141,22 @@ export default function StudentDashboard() {
   const { enrollment, attendance: att, exams, graduation } = analytics
   const isAsync = enrollment.isAsyncStudent
   const firstName = (enrollment.student.name || session?.user?.name || '').split(' ')[0]
-  const att2 = getAttendanceGuidance(att)
+  const att2 = isAsync ? {
+    status: att.percentage === null ? 'no-data' : att.met ? 'on-track' : 'failing',
+    message: analytics.sundaySchool?.needsRotation ? 'Ask a servant to assign your rotation' : 'Attend your rotation and upload the signed four-week form',
+    detail: 'Your attendance is based solely on rotation weeks.',
+  } : getAttendanceGuidance(att)
   const ex2 = getExamGuidance(exams)
   const na = (att.notEnrolledYetCount ?? 0) + (att.expectedAbsenceNACount ?? 0)
   const guidanceTone = (status: string) =>
     status === 'failing' ? 'bg-bad-tint text-bad' : status === 'at-risk' ? 'bg-warn-tint text-warn' : status === 'on-track' ? 'bg-ok-tint text-ok' : 'bg-hover text-ink-2'
   const requirements = [
-    { label: 'Attendance ≥ 75%', met: graduation.attendanceMet },
+    { label: isAsync ? 'Rotation attendance ≥ 75%' : 'Attendance ≥ 75%', met: graduation.attendanceMet },
     { label: 'Exam avg ≥ 75%', met: graduation.overallAverageMet },
     { label: 'All sections ≥ 60%', met: graduation.allSectionsPassing },
     ...(isAsync && graduation.sundaySchoolMet !== undefined
       ? [{
-          label: analytics.sundaySchool?.needsRotation ? 'Sunday School rotation · not assigned yet' : 'Sunday School rotation ≥ 75%',
+          label: analytics.sundaySchool?.needsRotation ? 'Sunday School rotation · not assigned yet' : 'All ten four-week rotations approved',
           met: graduation.sundaySchoolMet,
         }]
       : []),
@@ -193,7 +198,7 @@ export default function StudentDashboard() {
             actions={graduation.eligible ? <StatusBadge tone="ok">On track</StatusBadge> : <StatusBadge tone="bad">Needs attention</StatusBadge>}
           >
             <div className="grid gap-5 px-4 py-4 sm:grid-cols-2">
-              <GoalBar label="Attendance" value={att.percentage} detail={`${att.effectivePresent.toFixed(1)} of ${att.totalLessons} lessons`} goal={att.required} />
+              <GoalBar label={isAsync ? "Rotation attendance" : "Attendance"} value={att.percentage} detail={`${att.effectivePresent.toFixed(1)} of ${att.totalLessons} ${isAsync ? "rotation weeks" : "lessons"}`} goal={att.required} />
               <GoalBar
                 label="Exam average"
                 value={exams.overallAverage}
@@ -227,7 +232,7 @@ export default function StudentDashboard() {
             </div>
           </Panel>
 
-          <Panel title="Attendance" description="Late counts as half · two lates equal one absence · excused days don’t count against you">
+          <Panel title={isAsync ? "Rotation attendance" : "Attendance"} description={isAsync ? "Attendance is based solely on rotation weeks. Normal lessons do not count." : "Late counts as half · two lates equal one absence · excused days don’t count against you"}>
             <dl className="tabular grid grid-cols-3 gap-px bg-line sm:grid-cols-6">
               {[
                 ['Present', att.presentCount, 'text-ok'],
@@ -283,16 +288,20 @@ export default function StudentDashboard() {
               <KeyValueList
                 items={[
                   {
-                    label: 'Mentor',
-                    value: enrollment.mentorContact ? (
-                      <span className="flex flex-col">
-                        {enrollment.mentorContact.name}
-                        {enrollment.mentorContact.email && <ContactLink kind="email" value={enrollment.mentorContact.email} name={enrollment.mentorContact.name} label="mentor's email" className="w-fit text-xs" />}
-                        {enrollment.mentorContact.phone && <ContactLink kind="phone" value={enrollment.mentorContact.phone} name={enrollment.mentorContact.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                    label: 'Assigned mentor',
+                    value: <span className="flex min-w-0 flex-col gap-1">
+                      <span className="flex min-w-0 items-center justify-between gap-3">
+                        <span className="min-w-0 truncate" title={enrollment.mentor?.name ?? 'Not assigned'}>{enrollment.mentor?.name ?? 'Not assigned'}</span>
+                        {analytics.mentorUpdateRequired && <StatusBadge tone="warn">Update Required</StatusBadge>}
                       </span>
-                    ) : (
-                      <span className="text-ink-3">Not assigned yet</span>
-                    ),
+                      {analytics.mentorUpdateRequired && <Link href="/dashboard/student/application" className="text-xs underline">Update mentor information</Link>}
+                      {enrollment.mentor && (
+                        <span className="flex flex-col">
+                          {enrollment.mentor.email && <ContactLink kind="email" value={enrollment.mentor.email} name={enrollment.mentor.name} label="mentor's email" className="w-fit text-xs" />}
+                          {enrollment.mentor.phone && <ContactLink kind="phone" value={enrollment.mentor.phone} name={enrollment.mentor.name} label="mentor's phone number" className="w-fit font-mono text-xs" />}
+                        </span>
+                      )}
+                    </span>,
                   },
                   {
                     label: 'Father of confession',
@@ -320,7 +329,7 @@ export default function StudentDashboard() {
           {isAsync && (
             <Panel
               title="Sunday School serving"
-              description="Async students serve six weeks in Sunday School"
+              description="Complete ten four-week rotations with approved signed forms"
               actions={
                 <Button asChild variant="outline" size="sm">
                   <Link href="/dashboard/student/sunday-school">

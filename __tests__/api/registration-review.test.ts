@@ -4,6 +4,9 @@ import { RegistrationStatus, UserRole } from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
+  autoLink: vi.fn(),
+  deleteUser: vi.fn(),
+  countOtherRoles: vi.fn(),
   transaction: vi.fn(),
   findSubmission: vi.fn(),
   updateSubmission: vi.fn(),
@@ -27,6 +30,19 @@ const mocks = vi.hoisted(() => ({
   emailApproved: vi.fn(),
   emailNotApproved: vi.fn(),
   deleteBlob: vi.fn(),
+  migrate: vi.fn(),
+  audit: vi.fn(),
+}))
+
+vi.mock('@/lib/student-prep-migration', () => ({ migrateStudentPrepData: mocks.migrate }))
+vi.mock('@/lib/user-deletion', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/user-deletion')>(),
+  deleteUserWithRelations: mocks.deleteUser,
+}))
+
+vi.mock('@/lib/prep-roster-auto-link', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/prep-roster-auto-link')>(),
+  autoLinkPrepStudentToRoster: mocks.autoLink,
 }))
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }))
@@ -44,7 +60,9 @@ import { POST } from '@/app/api/registration/submissions/[id]/review/route'
 
 describe('registration approval follow-up', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
+    mocks.migrate.mockResolvedValue({ enrollments: 1, attendance: 12, exams: 5 })
+    mocks.autoLink.mockResolvedValue({ status: 'not_applicable', reason: 'Outside matching scope' })
     mocks.getServerSession.mockResolvedValue({
       user: { id: 'admin-1', role: UserRole.SUPER_ADMIN },
     })
@@ -63,6 +81,7 @@ describe('registration approval follow-up', () => {
       mentorPhone: null,
       mentorEmail: null,
     })
+    mocks.countOtherRoles.mockResolvedValue(0)
     mocks.findUser.mockResolvedValue(null)
     mocks.findRoleAssignment.mockResolvedValue(null)
     mocks.createRoleAssignment.mockResolvedValue({ id: 'role-assignment-1' })
@@ -95,6 +114,7 @@ describe('registration approval follow-up', () => {
         update: mocks.updateUser,
       },
       userRoleAssignment: {
+        count: mocks.countOtherRoles,
         findFirst: mocks.findRoleAssignment,
         create: mocks.createRoleAssignment,
       },
@@ -108,11 +128,160 @@ describe('registration approval follow-up', () => {
         findUnique: mocks.findEnrollment,
         update: mocks.updateEnrollment,
       },
+      auditEvent: { create: mocks.audit },
       notification: {
         create: mocks.createNotification,
         deleteMany: mocks.deleteNotifications,
       },
     }))
+  })
+
+  const replaceRequest = (options: object = { migrateHistory: false }) => new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'approve', replaceUserId: 'old-student', ...options }),
+  })
+
+  it('approves and deletes the selected exact-name account in the same serializable transaction', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN, isDisabled: false }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).replacedUserId).toBe('old-student')
+    expect(mocks.deleteUser).toHaveBeenCalledWith(expect.anything(), 'old-student')
+    expect(mocks.createUser).toHaveBeenCalled()
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable', timeout: 30000 })
+  })
+
+  it('requires an explicit migration choice before replacing an account', async () => {
+    const response = await POST(replaceRequest({}), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it.each(['yes', 1, null])('rejects an invalid migration choice: %s', async migrateHistory => {
+    const response = await POST(replaceRequest({ migrateHistory }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('transfers records before deletion, reuses the old enrollment, and records the decision', async () => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'prep-reviewer', role: UserRole.SERVANT_PREP } })
+    mocks.findUser.mockResolvedValueOnce({ id: 'prep-reviewer', role: UserRole.SERVANT_PREP }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    const response = await POST(replaceRequest({ migrateHistory: true, yearLevel: 'YEAR_2' }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).migratedData).toMatchObject({ attendance: 12, exams: 5 })
+    expect(mocks.migrate).toHaveBeenCalledWith(expect.anything(), 'old-student', 'student-1')
+    expect(mocks.createEnrollment).not.toHaveBeenCalled()
+    expect(mocks.updateEnrollment).toHaveBeenCalledWith({ where: { studentId: 'student-1' }, data: expect.objectContaining({ yearLevel: 'YEAR_2', isAsyncStudent: false }) })
+    expect(mocks.migrate.mock.invocationCallOrder[0]).toBeLessThan(mocks.deleteUser.mock.invocationCallOrder[0])
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+    expect(mocks.audit).toHaveBeenCalledWith({ data: expect.objectContaining({ actorUserId: 'prep-reviewer', metadata: expect.objectContaining({ migrateHistory: true, oldUserId: 'old-student', newUserId: 'student-1' }) }) })
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable', timeout: 30000 })
+  })
+
+  it('creates an enrollment if the old account has no enrollment to transfer', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.migrate.mockResolvedValueOnce({ enrollments: 0, attendance: 2, exams: 1 })
+    const response = await POST(replaceRequest({ migrateHistory: true }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.createEnrollment).toHaveBeenCalledOnce()
+    expect(mocks.deleteUser).toHaveBeenCalledOnce()
+  })
+
+  it('does not delete the old account or approve if a transfer fails', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.migrate.mockRejectedValueOnce(new Error('Transfer failed'))
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const response = await POST(replaceRequest({ migrateHistory: true }), { params: Promise.resolve({ id: 'registration-1' }) })
+    errorLog.mockRestore()
+    expect(response.status).toBe(500)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+    expect(mocks.updateSubmission).not.toHaveBeenCalled()
+    expect(mocks.notifyReviewed).not.toHaveBeenCalled()
+  })
+
+  it.each([UserRole.SERVANT, UserRole.MENTOR, UserRole.STUDENT])('does not allow %s to migrate an account', async role => {
+    mocks.getServerSession.mockResolvedValue({ user: { id: 'viewer', role } })
+    const response = await POST(replaceRequest({ migrateHistory: true }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects a target that no longer matches without deleting or approving', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.findUser.mockReset().mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Different Name', role: UserRole.STUDENT })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+    expect(mocks.createUser).not.toHaveBeenCalled()
+  })
+
+  it('rejects a reviewer whose database permission was revoked', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.PRIEST })
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('prevents prep reviewers from removing accounts with other ministry roles', async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SERVANT_PREP }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.countOtherRoles.mockResolvedValue(1)
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+  })
+
+  it('does not approve when old-account deletion has protected records', async () => {
+    const { UserDeletionConflictError } = await import('@/lib/user-deletion')
+    mocks.findUser.mockResolvedValueOnce({ id: 'admin-1', role: UserRole.SUPER_ADMIN }).mockResolvedValueOnce({ id: 'old-student', name: 'Student Name', role: UserRole.STUDENT })
+    mocks.deleteUser.mockRejectedValueOnce(new UserDeletionConflictError('Protected history'))
+    const response = await POST(replaceRequest(), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.createUser).not.toHaveBeenCalled()
+    expect(mocks.updateSubmission).not.toHaveBeenCalled()
+  })
+
+  it.each([null, { user: { id: 'student-1', role: UserRole.STUDENT } }])('does not run matching for an unauthorized reviewer', async session => {
+    mocks.getServerSession.mockResolvedValue(session)
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect([401, 403]).toContain(response.status)
+    expect(mocks.autoLink).not.toHaveBeenCalled()
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('runs matching after approval inside the same serializable transaction and returns a safe result', async () => {
+    mocks.autoLink.mockResolvedValue({ status: 'linked', reason: 'Verified roster match' })
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).sundaySchoolMatch).toEqual({ status: 'linked', reason: 'Verified roster match' })
+    expect(mocks.autoLink).toHaveBeenCalledWith(expect.anything(), 'student-1', 'admin-1', 'registration-1')
+    expect(mocks.updateSubmission.mock.invocationCallOrder[0]).toBeLessThan(mocks.autoLink.mock.invocationCallOrder[0])
+    expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' })
+  })
+
+  it('returns a retryable conflict and sends no approval notifications if a roster link changes', async () => {
+    const { PrepRosterLinkConflictError } = await import('@/lib/prep-roster-auto-link')
+    mocks.autoLink.mockRejectedValueOnce(new PrepRosterLinkConflictError())
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(409)
+    expect(mocks.emailApproved).not.toHaveBeenCalled()
+    expect(mocks.notifyReviewed).not.toHaveBeenCalled()
+  })
+
+  it('still approves registrations when matching needs manual review', async () => {
+    mocks.autoLink.mockResolvedValue({ status: 'review', reason: 'Birth dates differ' })
+    const response = await POST(new NextRequest('http://localhost/review', {
+      method: 'POST', body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'registration-1' }) })
+    expect(response.status).toBe(200)
+    expect((await response.json()).sundaySchoolMatch.status).toBe('review')
+    expect(mocks.emailApproved).toHaveBeenCalledOnce()
   })
 
   it('creates a persistent reminder for the post-approval application', async () => {
@@ -155,6 +324,68 @@ describe('registration approval follow-up', () => {
         },
       }),
     })
+  })
+
+  it.each([false, true])('starts an async registration without a cohort year or lesson absences (existing account: %s)', async existingAccount => {
+    if (existingAccount) {
+      mocks.findUser.mockResolvedValue({ id: 'student-1', role: UserRole.STUDENT })
+      mocks.findEnrollment.mockResolvedValue(null)
+    }
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: null, isAsyncStudent: true }),
+    })
+    const response = await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })
+
+    expect(response.status).toBe(200)
+    expect(mocks.createEnrollment).toHaveBeenCalledWith({ data: expect.objectContaining({
+      studentId: 'student-1', yearLevel: null, isAsyncStudent: true,
+      asyncApprovedAt: expect.any(Date), asyncApprovedBy: 'admin-1',
+    }) })
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, 'YEAR_1', 'YEAR_2'])('preserves in-person approval and attendance backfill for %s', async yearLevel => {
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(200)
+    expect(mocks.createEnrollment).toHaveBeenCalledWith({ data: expect.objectContaining({
+      yearLevel: yearLevel ?? 'YEAR_1', isAsyncStudent: false,
+      asyncApprovedAt: null, asyncApprovedBy: null,
+    }) })
+    expect(mocks.backfillAttendance).toHaveBeenCalledWith('student-1', 'year-1', expect.anything())
+  })
+
+  it.each([
+    { isAsyncStudent: 'true' },
+    { yearLevel: 'ASYNC' },
+    { isAsyncStudent: true, yearLevel: 'YEAR_1' },
+    { isAsyncStudent: false, yearLevel: null },
+  ])('rejects an invalid starting class before creating any records: %o', async startingProgram => {
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', ...startingProgram }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(mocks.emailApproved).not.toHaveBeenCalled()
+  })
+
+  it('preserves the program of a returning async student and skips lesson backfill', async () => {
+    mocks.findUser.mockResolvedValue({ id: 'student-1', role: UserRole.STUDENT })
+    mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', isActive: true, isAsyncStudent: true })
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: 'YEAR_1', isAsyncStudent: false }),
+    })
+    expect((await POST(request, { params: Promise.resolve({ id: 'registration-1' }) })).status).toBe(200)
+    expect(mocks.createEnrollment).not.toHaveBeenCalled()
+    expect(mocks.updateEnrollment.mock.calls[0][0].data).not.toHaveProperty('yearLevel')
+    expect(mocks.updateEnrollment.mock.calls[0][0].data).not.toHaveProperty('isAsyncStudent')
+    expect(mocks.backfillAttendance).not.toHaveBeenCalled()
   })
 
   it('approves a returning applicant by updating their existing account', async () => {

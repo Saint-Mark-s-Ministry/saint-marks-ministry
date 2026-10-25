@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   SundaySchoolFeedbackStatus,
@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAdminGuard', () => ({
+  useAdminGuard: () => ({ status: 'authenticated', session: { user: { id: 'prep-servant', role: 'SERVANT_PREP', sundaySchool: { hasAccess: false } } } }),
+}))
+
 vi.mock('@/hooks/useSundaySchoolGuard', () => ({
   useSundaySchoolGuard: () => ({ status: 'authenticated', session: { user: { id: 'viewer-1' } } }),
 }))
@@ -26,6 +30,7 @@ vi.mock('sonner', () => ({
 }))
 
 import SundaySchoolFeedbackPage from '@/app/dashboard/servants/feedback/page'
+import PrepFeedbackPage from '@/app/dashboard/admin/feedback/page'
 
 function makeResponse(
   overrides: Partial<SundaySchoolFeedbackResponse> = {}
@@ -74,6 +79,13 @@ describe('Sunday School feedback page', () => {
       isLoading: false,
       mutate: mocks.mutate,
     }))
+  })
+
+  it('renders the same board from the Servants Prep entry point without Sunday School standing', () => {
+    render(<PrepFeedbackPage />)
+    expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()
+    expect(screen.getByText('Add lesson reminders')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Post feedback' })).toBeInTheDocument()
   })
 
   it('renders attributed feedback with a Reddit-style score and bug-report guidance', () => {
@@ -275,5 +287,77 @@ describe('Sunday School feedback page', () => {
   it('does not offer a reply action to non-moderators', () => {
     render(<SundaySchoolFeedbackPage />)
     expect(screen.queryByRole('button', { name: 'Reply' })).not.toBeInTheDocument()
+  })
+
+  it('combines search, category, status, and sorting, and can clear filters', async () => {
+    const response = makeResponse()
+    response.ideas.push(
+      { ...response.ideas[0], id: 'bug-1', type: SundaySchoolFeedbackType.PROBLEM, title: 'Calendar does not load', description: 'The schedule stays blank.', status: SundaySchoolFeedbackStatus.PLANNED },
+      { ...response.ideas[0], id: 'bug-2', type: SundaySchoolFeedbackType.PROBLEM, title: 'Schedule export fails', description: 'Calendar export is empty.', status: SundaySchoolFeedbackStatus.PLANNED, createdAt: '2026-09-03T12:00:00.000Z', upvotes: 1 }
+    )
+    mocks.useSundaySchoolFeedback.mockReturnValue({ data: response, error: null, isLoading: false, mutate: mocks.mutate })
+    const user = userEvent.setup()
+    render(<SundaySchoolFeedbackPage />)
+
+    await user.selectOptions(screen.getByLabelText('Filter feedback type'), 'PROBLEM')
+    await user.selectOptions(screen.getByLabelText('Filter feedback status'), 'PLANNED')
+    await user.type(screen.getByLabelText('Search feedback'), ' CALENDAR ')
+    expect(screen.queryByRole('heading', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Calendar does not load')
+
+    await user.selectOptions(screen.getByLabelText('Sort feedback'), 'NEWEST')
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Schedule export fails')
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(screen.getByLabelText('Search feedback')).toHaveValue('')
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
+  it('shows roadmap requests in their stage and ignores the board status filter', async () => {
+    const response = makeResponse()
+    response.ideas.push(...[
+      SundaySchoolFeedbackStatus.PLANNED,
+      SundaySchoolFeedbackStatus.IN_PROGRESS,
+      SundaySchoolFeedbackStatus.COMPLETED,
+      SundaySchoolFeedbackStatus.DECLINED,
+    ].map(status => ({ ...response.ideas[0], id: status, title: `Request ${status}`, status, canVote: status !== 'COMPLETED' && status !== 'DECLINED' })))
+    mocks.useSundaySchoolFeedback.mockReturnValue({ data: response, error: null, isLoading: false, mutate: mocks.mutate })
+    const user = userEvent.setup()
+    render(<SundaySchoolFeedbackPage />)
+
+    await user.selectOptions(screen.getByLabelText('Filter feedback status'), 'OPEN')
+    await user.click(screen.getByRole('button', { name: 'Roadmap' }))
+    for (const [label, status] of [['Planned', 'PLANNED'], ['In progress', 'IN_PROGRESS'], ['Completed', 'COMPLETED']]) {
+      expect(within(screen.getByRole('region', { name: `${label} feedback` })).getByRole('heading', { name: `Request ${status}` })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('heading', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Request DECLINED' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upvote Request COMPLETED' })).toBeDisabled()
+
+    await user.selectOptions(screen.getByLabelText('Filter feedback type'), 'PROBLEM')
+    expect(screen.queryByRole('heading', { name: 'Request PLANNED' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('No matching feedback in this stage.')).toHaveLength(3)
+  })
+
+  it('shows complete messages inline with a plain title and no detail popup', () => {
+    const response = makeResponse()
+    response.ideas[0].teamResponse = 'We are reviewing this request.'
+    mocks.useSundaySchoolFeedback.mockReturnValue({ data: response, error: null, isLoading: false, mutate: mocks.mutate })
+    render(<SundaySchoolFeedbackPage />)
+
+    expect(screen.getByRole('heading', { name: 'Add lesson reminders' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add lesson reminders' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Send a reminder before class.')).not.toHaveClass('line-clamp-2')
+    expect(screen.getByText('We are reviewing this request.')).not.toHaveClass('line-clamp-2')
+    expect(screen.getByRole('button', { name: 'Upvote Add lesson reminders' })).toBeEnabled()
+  })
+
+  it('offers a retry when feedback fails to load', async () => {
+    mocks.useSundaySchoolFeedback.mockReturnValue({ data: undefined, error: new Error('Failed'), isLoading: false, mutate: mocks.mutate })
+    const user = userEvent.setup()
+    render(<SundaySchoolFeedbackPage />)
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(mocks.mutate).toHaveBeenCalledWith()
+    expect(screen.queryByRole('button', { name: 'Post feedback' })).not.toBeInTheDocument()
   })
 })

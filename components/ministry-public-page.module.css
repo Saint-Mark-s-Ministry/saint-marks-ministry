@@ -1,0 +1,81 @@
+.page a,
+.page summary,
+.page [data-ministry-panel] {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.page a:focus-visible,
+.page summary:focus-visible {
+  outline: 2px solid var(--ds-accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.page [data-ministry-mark] {
+  background: radial-gradient(ellipse at 50% 0%, var(--ds-accent-tint), transparent 75%), var(--ds-surface);
+}
+
+.page [data-ministry-panel]:hover {
+  border-color: var(--ds-border-strong);
+}
+
+.page summary {
+  list-style: none;
+}
+
+.page summary::-webkit-details-marker {
+  display: none;
+}
+
+.page details[open] summary {
+  color: var(--ds-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page [data-ministry-panel] {
+    transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+  }
+
+  .page [data-ministry-panel]:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px -16px var(--ds-border-strong);
+  }
+
+  .page a svg,
+  .page summary svg {
+    transition: transform 200ms ease;
+  }
+
+  .page a:hover [data-arrow] {
+    transform: translateX(3px);
+  }
+
+  .page details[open] summary svg {
+    transform: rotate(180deg);
+  }
+
+  .page details[open] [data-answer] {
+    animation: answer-in 220ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .page [data-ministry-panel]:hover,
+  .page button:hover,
+  .page a:hover svg {
+    transform: none;
+  }
+}
+
+@keyframes answer-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

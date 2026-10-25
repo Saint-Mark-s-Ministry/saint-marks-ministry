@@ -16,6 +16,8 @@
 
 /** 8 hours: long enough for one Sunday, short enough that a photo of the QR goes stale. */
 export const ROSTER_LINK_DEFAULT_HOURS = 8
+/** Contact QR codes always expire after two hours and have no total-use cap. */
+export const ROSTER_CONTACT_LINK_HOURS = 2
 /** A week. Anything longer should be a fresh link, not a standing one. */
 export const ROSTER_LINK_MAX_HOURS = 24 * 7
 export const ROSTER_LINK_DEFAULT_MAX_USES = 40
@@ -32,13 +34,21 @@ export function isRosterLinkTokenShaped(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{32,64}$/.test(value)
 }
 
+export function rosterLinkExpiresAt(link: { expiresAt: Date | string; createdAt?: Date | string; contactUpdateOnly?: boolean }): Date {
+  const stored = new Date(link.expiresAt).getTime()
+  const deadline = link.contactUpdateOnly && link.createdAt
+    ? new Date(link.createdAt).getTime() + ROSTER_CONTACT_LINK_HOURS * 3600_000
+    : stored
+  return new Date(Math.min(stored, deadline))
+}
+
 export function rosterLinkState(
-  link: { expiresAt: Date | string; maxUses: number; useCount: number; revokedAt: Date | string | null },
+  link: { expiresAt: Date | string; createdAt?: Date | string; contactUpdateOnly?: boolean; maxUses: number; useCount: number; revokedAt: Date | string | null },
   now: Date = new Date()
 ): RosterLinkState {
   if (link.revokedAt) return 'REVOKED'
-  if (new Date(link.expiresAt).getTime() <= now.getTime()) return 'EXPIRED'
-  if (link.useCount >= link.maxUses) return 'EXHAUSTED'
+  if (rosterLinkExpiresAt(link).getTime() <= now.getTime()) return 'EXPIRED'
+  if (!link.contactUpdateOnly && link.useCount >= link.maxUses) return 'EXHAUSTED'
   return 'ACTIVE'
 }
 

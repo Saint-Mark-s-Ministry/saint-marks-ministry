@@ -10,6 +10,9 @@ import {
   resolveRosterLinkExpiry,
   resolveRosterLinkMaxUses,
   rosterLinkState,
+  rosterLinkExpiresAt,
+  ROSTER_CONTACT_LINK_HOURS,
+  ROSTER_LINK_DEFAULT_MAX_USES,
   ROSTER_LINK_MAX_HOURS,
   ROSTER_LINK_MAX_LABEL_LENGTH,
   ROSTER_LINK_MAX_USES,
@@ -25,6 +28,7 @@ import {
 const linkSelect = {
   id: true,
   label: true,
+  contactUpdateOnly: true,
   expiresAt: true,
   maxUses: true,
   useCount: true,
@@ -37,6 +41,7 @@ const linkSelect = {
 type LinkRow = {
   id: string
   label: string | null
+  contactUpdateOnly: boolean
   expiresAt: Date
   maxUses: number
   useCount: number
@@ -52,8 +57,9 @@ function linkResponse(link: LinkRow) {
   return {
     id: link.id,
     label: link.label,
-    expiresAt: link.expiresAt,
-    maxUses: link.maxUses,
+    contactUpdateOnly: link.contactUpdateOnly,
+    expiresAt: rosterLinkExpiresAt(link),
+    maxUses: link.contactUpdateOnly ? null : link.maxUses,
     useCount: link.useCount,
     revokedAt: link.revokedAt,
     createdAt: link.createdAt,
@@ -72,6 +78,7 @@ async function loadServableClass(userId: string, role: UserRole, classId: string
       level: true,
       academicYearId: true,
       sundaySchoolYearId: true,
+      sundaySchoolYear: { select: { status: true } },
       status: true,
       isActive: true,
     },
@@ -93,7 +100,9 @@ async function loadServableClass(userId: string, role: UserRole, classId: string
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
-    const classId = new URL(request.url).searchParams.get('classId')?.trim() ?? ''
+    const params = new URL(request.url).searchParams
+    const classId = params.get('classId')?.trim() ?? ''
+    const contactUpdateOnly = params.get('contactUpdateOnly') === 'true'
     if (!classId) {
       return NextResponse.json({ error: 'Choose a class to view sign-up links' }, { status: 400 })
     }
@@ -101,7 +110,7 @@ export async function GET(request: Request) {
     await loadServableClass(user.id, user.role, classId)
 
     const links = await prisma.sundaySchoolRosterLink.findMany({
-      where: { classId },
+      where: { classId, contactUpdateOnly },
       orderBy: { createdAt: 'desc' },
       take: 20,
       select: linkSelect,
@@ -121,6 +130,11 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
     const body = await request.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        (body.contactUpdateOnly !== undefined && typeof body.contactUpdateOnly !== 'boolean')) {
+      return NextResponse.json({ error: 'Invalid link settings' }, { status: 400 })
+    }
+    const contactUpdateOnly = body.contactUpdateOnly === true
 
     const classId = typeof body.classId === 'string' ? body.classId.trim() : ''
     if (!classId) {
@@ -138,7 +152,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const expiresAt = resolveRosterLinkExpiry(body.expiresInHours)
+    if (contactUpdateOnly && targetClass.sundaySchoolYear?.status !== 'OPEN') {
+      return NextResponse.json({ error: 'Contact updates require an open Sunday School year' }, { status: 409 })
+    }
+
+    const expiresAt = resolveRosterLinkExpiry(contactUpdateOnly ? ROSTER_CONTACT_LINK_HOURS : body.expiresInHours)
     if (!expiresAt) {
       return NextResponse.json(
         { error: `A sign-up link must last between 1 and ${ROSTER_LINK_MAX_HOURS} hours` },
@@ -146,7 +164,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const maxUses = resolveRosterLinkMaxUses(body.maxUses)
+    // The legacy sign-up column remains populated for compatibility, but it
+    // is ignored for contact links by state checks and submission writes.
+    const maxUses = contactUpdateOnly ? ROSTER_LINK_DEFAULT_MAX_USES : resolveRosterLinkMaxUses(body.maxUses)
     if (maxUses === null) {
       return NextResponse.json(
         { error: `A sign-up link must allow between 1 and ${ROSTER_LINK_MAX_USES} sign-ups` },
@@ -165,6 +185,7 @@ export async function POST(request: Request) {
         sundaySchoolYearId: targetClass.sundaySchoolYearId,
         tokenHash: hashRosterLinkToken(token),
         label,
+        contactUpdateOnly,
         expiresAt,
         maxUses,
         createdById: user.id,
@@ -178,7 +199,7 @@ export async function POST(request: Request) {
       entityType: 'SundaySchoolRosterLink',
       entityId: link.id,
       result: 'SUCCESS',
-      metadata: { classId, className: targetClass.name, maxUses, expiresAt: expiresAt.toISOString() },
+      metadata: { classId, contactUpdateOnly, className: targetClass.name, maxUses: contactUpdateOnly ? null : maxUses, expiresAt: expiresAt.toISOString() },
     })
 
     return NextResponse.json({ ...linkResponse(link), token }, { status: 201 })

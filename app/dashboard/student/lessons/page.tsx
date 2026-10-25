@@ -26,7 +26,7 @@ interface LessonResource {
 
 interface Lesson {
   id: string
-  /** On or after the day the student went async (no roll call). */
+  /** Current async enrollment: all prep lessons are exempt from attendance. */
   asyncPeriod?: boolean
   title: string
   subtitle: string | null
@@ -104,8 +104,9 @@ export default function StudentLessonsPage() {
     }
 
     if (filterAttendance !== 'all') {
+      if (lesson.asyncPeriod) return false
       if (filterAttendance === 'present' && lesson.attendance?.status !== 'PRESENT') return false
-      if (filterAttendance === 'absent' && (!lesson.attendance || lesson.attendance.status === 'ABSENT')) return false
+      if (filterAttendance === 'absent' && lesson.attendance && lesson.attendance.status !== 'ABSENT') return false
       if (filterAttendance === 'late' && lesson.attendance?.status !== 'LATE') return false
     }
 
@@ -117,14 +118,15 @@ export default function StudentLessonsPage() {
   const viewLessons = filteredLessons.filter((l) => (view === 'all' ? true : view === 'upcoming' ? isUpcoming(l) : !isUpcoming(l)))
   const ordered = view === 'upcoming' ? [...viewLessons].sort((a, b) => +new Date(a.scheduledDate) - +new Date(b.scheduledDate)) : [...viewLessons].sort((a, b) => +new Date(b.scheduledDate) - +new Date(a.scheduledDate))
   const thisYear = lessons.filter((l) => l.academicYear.isActive)
-  const counted = thisYear.filter((l) => l.attendance && !l.attendance.notEnrolledYet && !l.attendance.expectedAbsenceNA)
+  const isAsync = lessons.some((l) => l.asyncPeriod)
+  const counted = thisYear.filter((l) => !l.asyncPeriod && l.attendance && !l.attendance.notEnrolledYet && !l.attendance.expectedAbsenceNA)
   const attended = counted.filter((l) => l.attendance?.status === 'PRESENT' || l.attendance?.status === 'LATE').length
   const next = [...lessons].filter(isUpcoming).sort((a, b) => +new Date(a.scheduledDate) - +new Date(b.scheduledDate))[0]
   const selected = lessons.find((l) => l.id === expandedLesson) ?? null
 
   const attendanceBadge = (lesson: Lesson) => {
     const a = lesson.attendance
-    if (lesson.asyncPeriod && !a) {
+    if (lesson.asyncPeriod) {
       return isUpcoming(lesson)
         ? <StatusBadge tone="neutral" dot={false}>Async</StatusBadge>
         : <StatusBadge tone="neutral" dot={false}>Async · rotation</StatusBadge>
@@ -143,12 +145,12 @@ export default function StudentLessonsPage() {
 
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
-      <PageHeader title="My lessons" meta={['Your lessons, resources and attendance']} />
+      <PageHeader title="My lessons" meta={[isAsync ? 'Lesson resources · attendance is based solely on rotations' : 'Your lessons, resources and attendance']} />
 
       <KpiStrip
         items={[
           { label: 'Total lessons', value: thisYear.length, hint: `${thisYear.filter((l) => l.status === 'COMPLETED').length} completed` },
-          { label: 'Attended', value: <>{attended}<span className="font-normal text-ink-3"> / {counted.length}</span></>, hint: 'this year' },
+          { label: 'Attended', value: isAsync ? 'N/A' : <>{attended}<span className="font-normal text-ink-3"> / {counted.length}</span></>, hint: isAsync ? 'Attendance comes from rotations' : 'this year' },
           {
             label: 'Next',
             value: <span className="text-[22px]">{next ? formatUTC(next.scheduledDate, { month: 'short', day: 'numeric' }) : '—'}</span>,

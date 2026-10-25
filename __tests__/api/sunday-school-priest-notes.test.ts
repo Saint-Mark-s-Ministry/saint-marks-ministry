@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
   getAuthorizationContext: vi.fn(),
   findChild: vi.fn(),
   findNotes: vi.fn(),
+  session: vi.fn(),
 }))
+
+vi.mock('next-auth', () => ({ getServerSession: mocks.session }))
+vi.mock('@/lib/auth', () => ({ authOptions: {} }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/authorization', () => ({
@@ -24,6 +28,7 @@ import { GET } from '@/app/api/sunday-school/priest-notes/route'
 describe('Sunday School priest-note reads', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.session.mockResolvedValue({})
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
     mocks.getAuthorizationContext.mockResolvedValue({
       disabled: false,
@@ -31,6 +36,22 @@ describe('Sunday School priest-note reads', () => {
     })
     mocks.findChild.mockResolvedValue({ id: 'child-1' })
     mocks.findNotes.mockResolvedValue([])
+  })
+
+  it.each([{ tags: [RoleTag.SUPER_ADMIN] }, { tags: [RoleTag.SUPER_ADMIN, RoleTag.PRIEST] }])('denies Super Admin access regardless of authorship or additional tags: %j', async ({ tags }) => {
+    mocks.requireAuth.mockResolvedValue({ id: 'admin', role: 'SUPER_ADMIN' })
+    mocks.getAuthorizationContext.mockResolvedValue({ disabled: false, roleTags: new Set(tags) })
+    const response = await GET(new Request('http://localhost/api/sunday-school/priest-notes?childId=child-1'))
+    expect(response.status).toBe(403)
+    expect(mocks.findChild).not.toHaveBeenCalled()
+    expect(mocks.findNotes).not.toHaveBeenCalled()
+  })
+
+  it('denies a Super Admin viewing as a priest', async () => {
+    mocks.session.mockResolvedValue({ impersonating: { originalId: 'admin' } })
+    const response = await GET(new Request('http://localhost/api/sunday-school/priest-notes?childId=child-1'))
+    expect(response.status).toBe(403)
+    expect(mocks.findNotes).not.toHaveBeenCalled()
   })
 
   it('restricts a non-priest to notes they personally authored', async () => {

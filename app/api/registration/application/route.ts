@@ -1,3 +1,4 @@
+import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
 import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
@@ -19,20 +20,22 @@ type MentorDetails = {
   mentorName: string | null
   mentorPhone: string | null
   mentorEmail: string | null
+  reviewedAt?: Date | null
 }
 
 function getMissingDetails(
   application: ApplicationDetails | null,
   annualMentorRequired: boolean,
-  annualMentorInformation: MentorDetails | null
+  annualMentorInformation: MentorDetails | null,
+  approvalForm: { approvalFormUrl: string | null; approvalFormFilename: string | null } | null = application
 ) {
   return [
     application && !application.fatherOfConfessionName ? 'fatherOfConfession' : null,
-    application && (!application.approvalFormUrl || !application.approvalFormFilename)
+    (application || annualMentorRequired) && (!approvalForm?.approvalFormUrl || !approvalForm?.approvalFormFilename)
       ? 'approvalForm'
       : null,
     annualMentorRequired
-      ? !annualMentorInformation ? 'mentorInformation' : null
+      ? !annualMentorInformation?.reviewedAt ? 'mentorInformation' : null
       : application && (!application.mentorName || !application.mentorPhone || !application.mentorEmail)
         ? 'mentorInformation'
         : null,
@@ -72,7 +75,8 @@ async function getApplicationState(userId: string) {
   const missingDetails = getMissingDetails(
     application,
     Boolean(annualRequirement),
-    annualInformation
+    annualInformation,
+    application ?? annualRequirement?.enrollment ?? null
   )
 
   return {
@@ -81,8 +85,8 @@ async function getApplicationState(userId: string) {
     missingDetails,
     details: {
       fatherOfConfessionName: application?.fatherOfConfessionName ?? null,
-      approvalFormUrl: application?.approvalFormUrl ?? null,
-      approvalFormFilename: application?.approvalFormFilename ?? null,
+      approvalFormUrl: application?.approvalFormUrl ?? annualRequirement?.enrollment.approvalFormUrl ?? null,
+      approvalFormFilename: application?.approvalFormFilename ?? annualRequirement?.enrollment.approvalFormFilename ?? null,
       mentorName: mentorDetails.mentorName,
       mentorPhone: mentorDetails.mentorPhone,
       mentorEmail: mentorDetails.mentorEmail,
@@ -102,7 +106,8 @@ export async function GET() {
     return NextResponse.json({
       application: state.details,
       showChurchInformation: Boolean(state.application),
-      showApprovalForm: Boolean(state.application),
+      showApprovalForm: true,
+      mentorReviewStatus: state.annualRequirement ? (state.annualRequirement.information?.reviewedAt ? "REVIEWED" : state.annualRequirement.information ? "PENDING_REVIEW" : "UPDATE_REQUIRED") : null,
       annualMentorRequired: Boolean(state.annualRequirement),
       academicYear: state.annualRequirement?.activeYear ?? null,
       missingDetails: state.missingDetails,
@@ -153,15 +158,7 @@ export async function PATCH(request: NextRequest) {
       let updatedApplication = state.application
 
       if (state.application) {
-        let fatherOfConfession = await tx.fatherOfConfession.findFirst({
-          where: { name: { equals: fatherOfConfessionName, mode: 'insensitive' } },
-          select: { id: true },
-        })
-
-        fatherOfConfession ??= await tx.fatherOfConfession.create({
-          data: { name: fatherOfConfessionName, isActive: true },
-          select: { id: true },
-        })
+        const { father: fatherOfConfession } = await findOrCreateFatherOfConfession(tx, { name: fatherOfConfessionName })
         fatherOfConfessionId = fatherOfConfession.id
 
         updatedApplication = await tx.registrationSubmission.update({
@@ -203,26 +200,14 @@ export async function PATCH(request: NextRequest) {
             mentorPhone,
             mentorEmail,
           },
-          update: { mentorName, mentorPhone, mentorEmail, submittedAt: new Date() },
-        })
-
-        await tx.notification.deleteMany({
-          where: {
-            userId: user.id,
-            type: NotificationType.REGISTRATION_INCOMPLETE,
-            isPersistent: true,
-            metadata: {
-              path: ['academicYearId'],
-              equals: state.annualRequirement.activeYear.id,
-            },
-          },
+          update: { mentorName, mentorPhone, mentorEmail, submittedAt: new Date(), reviewedAt: null, reviewedBy: null },
         })
       }
 
       const details = {
         fatherOfConfessionName: updatedApplication?.fatherOfConfessionName ?? null,
-        approvalFormUrl: updatedApplication?.approvalFormUrl ?? null,
-        approvalFormFilename: updatedApplication?.approvalFormFilename ?? null,
+        approvalFormUrl: updatedApplication?.approvalFormUrl ?? state.details.approvalFormUrl,
+        approvalFormFilename: updatedApplication?.approvalFormFilename ?? state.details.approvalFormFilename,
         mentorName,
         mentorPhone,
         mentorEmail,
@@ -230,7 +215,8 @@ export async function PATCH(request: NextRequest) {
       const missingDetails = getMissingDetails(
         updatedApplication,
         Boolean(state.annualRequirement),
-        state.annualRequirement ? { mentorName, mentorPhone, mentorEmail } : null
+        state.annualRequirement ? { mentorName, mentorPhone, mentorEmail } : null,
+        details
       )
 
       if (missingDetails.length === 0) {
@@ -249,7 +235,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       application: result.details,
       showChurchInformation: Boolean(state.application),
-      showApprovalForm: Boolean(state.application),
+      showApprovalForm: true,
+      mentorReviewStatus: state.annualRequirement ? "PENDING_REVIEW" : null,
       annualMentorRequired: Boolean(state.annualRequirement),
       academicYear: state.annualRequirement?.activeYear ?? null,
       missingDetails: result.missingDetails,

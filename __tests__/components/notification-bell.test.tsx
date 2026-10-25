@@ -74,8 +74,12 @@ describe('NotificationBell', () => {
     expect(icon).toHaveClass('size-[17px]')
     expect(icon).not.toHaveClass('-rotate-12', 'scale-110')
     expect(button).not.toHaveClass('scale-105')
-    const panel = screen.getByRole('dialog', { name: 'Notifications' })
-    expect(panel).toHaveClass('animate-in', 'fade-in-0')
+    expect(screen.getByRole('dialog', { name: 'Notifications' })).toHaveClass(
+      'data-[state=open]:animate-in',
+      'data-[state=open]:fade-in-0',
+      'data-[state=closed]:animate-out',
+      'data-[state=closed]:fade-out-0'
+    )
   })
 
   it('portals the panel out of the navbar and closes on Escape', async () => {

@@ -123,6 +123,8 @@ export async function GET(request: Request) {
     let attendanceTrendEnd: Date | null = null
     let attendanceTrendClasses: Array<{ id: string; name: string }> = []
     let selectedTrendClassId: string | null = null
+    let currentEnrolledCount: number | null = null
+    let trendClassCount = 0
     let attendanceTrendMeetingDayLabel = "week"
     let canSelectTrendClass = false
     let canViewServantAttendance = false
@@ -143,6 +145,7 @@ export async function GET(request: Request) {
         ? await prisma.sundaySchoolClass.findMany({
             where: {
               academicYearId: selectedAcademicYear.id,
+              ...(selectedAcademicYear.id === activeYear?.id ? { isActive: true } : {}),
               ...(allowedTrendClassIds ? { id: { in: allowedTrendClassIds } } : {}),
             },
             select: { id: true, name: true, level: true },
@@ -174,6 +177,14 @@ export async function GET(request: Request) {
       const trendClassIds = selectedTrendClassId
         ? [selectedTrendClassId]
         : trendClasses.map(cls => cls.id)
+      // Use the same current class roster as the top card. This is a present-day
+      // reference, not a reconstructed historical enrollment count.
+      if (requestedAudience === "children" && selectedAcademicYear.id === activeYear?.id) {
+        currentEnrolledCount = classes
+          .filter(cls => !selectedTrendClassId || cls.id === selectedTrendClassId)
+          .reduce((sum, cls) => sum + cls._count.children, 0)
+      }
+      trendClassCount = trendClassIds.length
       const range = getSundaySchoolReportingRange(
         selectedAcademicYear.startDate,
         selectedAcademicYear.isActive,
@@ -194,11 +205,13 @@ export async function GET(request: Request) {
                 date: { gte: queryStart, lte: range.end },
               },
               select: {
+                classId: true,
                 date: true,
                 servantAttendance: { select: { status: true } },
               },
               orderBy: { date: "asc" },
             })).map(session => ({
+              classId: session.classId,
               date: session.date,
               attendance: session.servantAttendance,
             }))
@@ -208,6 +221,7 @@ export async function GET(request: Request) {
                 date: { gte: queryStart, lte: range.end },
               },
               select: {
+                classId: true,
                 date: true,
                 attendance: { select: { status: true } },
               },
@@ -243,6 +257,7 @@ export async function GET(request: Request) {
       return {
         id: cls.id,
         name: cls.name,
+        classroom: cls.classroom,
         level: cls.level,
         ageGroup: band ? { id: band.id, name: band.name } : null,
         childCount: cls._count.children,
@@ -288,6 +303,8 @@ export async function GET(request: Request) {
         coordinatesAnyAgeGroup: access.coordinatorAgeGroupIds.size > 0,
       },
       attendanceTrend: {
+        currentEnrolledCount,
+        classCount: trendClassCount,
         audience: requestedAudience,
         points: attendanceTrendPoints,
         academicYears: academicYears.map(year => ({ id: year.id, name: year.name })),

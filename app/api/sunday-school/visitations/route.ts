@@ -1,10 +1,15 @@
-import { AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { canReadPrivatePriestNotes } from '@/lib/priest-notes-access'
+import { AttendanceStatus, AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { getAuthorizationContext } from "@/lib/authorization"
 import { handleApiError } from "@/lib/api-utils"
 import { requireAuth } from "@/lib/auth-helpers"
 import { notifyPriestNoteCreated } from "@/lib/notifications"
 import { prisma } from "@/lib/prisma"
+import { getSundaySchoolAbsenceStreak } from "@/lib/sunday-school-absence-notifications"
+import { FOLLOW_UP_ABSENT_WEEKS } from "@/lib/sunday-school-follow-up"
 import {
   canServeClass,
   canViewClass,
@@ -22,6 +27,8 @@ export async function GET(request: Request) {
     const user = await requireAuth()
     const access = await getSundaySchoolAccess(user)
     const authorization = await getAuthorizationContext(user.id)
+    const session = await getServerSession(authOptions)
+    const canReadPrivateNotes = canReadPrivatePriestNotes(authorization, Boolean(session?.impersonating))
 
     if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -29,6 +36,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
+    // ?view=follow-up: only children who need a call or visit, with just their
+    // latest contact and no notes. Home and Care read this; Visits & calls reads it all.
+    const followUpOnly = searchParams.get("view") === "follow-up"
     const allowedClassIds = visibleClassFilter(access)
 
     if (classId && !canViewClass(access, classId)) {
@@ -57,48 +67,88 @@ export async function GET(request: Request) {
             firstName: true,
             lastName: true,
             visitationPriority: true,
-            visitations: {
-              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
-              orderBy: [{ createdAt: "desc" }],
-              select: {
-                id: true,
-                status: true,
-                visitedAt: true,
-                notes: true,
-                createdAt: true,
-                updatedAt: true,
-                recorder: {
-                  select: { id: true, name: true },
+            visitations: followUpOnly
+              ? {
+                  where: { status: SundaySchoolVisitationStatus.DONE, ...(allowedClassIds ? { classId: { in: allowedClassIds } } : {}) },
+                  orderBy: [{ createdAt: "desc" }],
+                  take: 1,
+                  select: { id: true, status: true, visitedAt: true, createdAt: true },
+                }
+              : {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ createdAt: "desc" }],
+                  select: {
+                    id: true,
+                    status: true,
+                    visitedAt: true,
+                    notes: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    recorder: {
+                      select: { id: true, name: true },
+                    },
+                  },
                 },
-              },
-            },
-            phoneCalls: {
-              ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
-              orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
-              select: {
-                id: true,
-                calledAt: true,
-                outcome: true,
-                note: true,
-                callerName: true,
-                createdAt: true,
-              },
-            },
+            phoneCalls: followUpOnly
+              ? {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
+                  take: 1,
+                  select: { id: true, calledAt: true, outcome: true },
+                }
+              : {
+                  ...(allowedClassIds ? { where: { classId: { in: allowedClassIds } } } : {}),
+                  orderBy: [{ calledAt: "desc" }, { createdAt: "desc" }],
+                  select: {
+                    id: true,
+                    calledAt: true,
+                    outcome: true,
+                    note: true,
+                    callerName: true,
+                    createdAt: true,
+                  },
+                },
           },
         },
       },
       orderBy: [{ level: "asc" }, { name: "asc" }],
     })
 
+    // Consecutive weeks each child was marked absent, for the Care follow-up list.
+    const now = new Date()
+    // Half a year is far longer than any streak worth acting on, and keeps the scan small.
+    const since = new Date(now.getTime() - 26 * 7 * 24 * 60 * 60 * 1000)
+    // Only absences matter: any other mark, or no mark, ends a streak.
+    const sessions = classes.length === 0 ? [] : await prisma.sundaySchoolSession.findMany({
+      where: { classId: { in: classes.map(classroom => classroom.id) }, date: { gte: since } },
+      select: { classId: true, date: true, attendance: { where: { status: AttendanceStatus.ABSENT }, select: { childId: true } } },
+    })
+    const marks = new Map<string, Array<{ date: Date; status: AttendanceStatus }>>()
+    for (const session of sessions) for (const record of session.attendance) {
+      const key = `${session.classId}:${record.childId}`
+      let history = marks.get(key)
+      if (!history) marks.set(key, history = [])
+      history.push({ date: session.date, status: AttendanceStatus.ABSENT })
+    }
+
     return NextResponse.json({
       classes: classes.map((classroom) => ({
         ...classroom,
         canEdit: canServeClass(access, classroom.id),
+        children: classroom.children
+          .map((child) => {
+            const { weeks, firstAbsenceDate } = getSundaySchoolAbsenceStreak(
+              classroom.level, marks.get(`${classroom.id}:${child.id}`) ?? [], now, since,
+            )
+            return { ...child, absentStreak: { weeks, since: firstAbsenceDate } }
+          })
+          .filter((child) => !followUpOnly || child.visitationPriority || child.absentStreak.weeks >= FOLLOW_UP_ABSENT_WEEKS),
       })),
       standing: {
         readOnly: access.readOnly,
         isAdmin: access.isAdmin,
-        isPriest: authorization.roleTags.has(RoleTag.PRIEST),
+        isPriest: canReadPrivateNotes && authorization.roleTags.has(RoleTag.PRIEST),
+        canReadPrivateNotes,
       },
     })
   } catch (error: unknown) {

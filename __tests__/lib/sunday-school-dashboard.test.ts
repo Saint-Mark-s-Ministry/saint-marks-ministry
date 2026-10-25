@@ -46,6 +46,7 @@ describe('Sunday School dashboard attendance trend', () => {
     const points = buildSundaySchoolAttendanceTrend(
       [
         {
+          classId: 'class-a',
           date: new Date('2025-09-14T00:00:00.000Z'),
           attendance: [
             { status: AttendanceStatus.PRESENT },
@@ -55,6 +56,7 @@ describe('Sunday School dashboard attendance trend', () => {
           ],
         },
         {
+          classId: 'class-b',
           date: new Date('2025-09-14T00:00:00.000Z'),
           attendance: [
             { status: AttendanceStatus.PRESENT },
@@ -62,10 +64,12 @@ describe('Sunday School dashboard attendance trend', () => {
           ],
         },
         {
+          classId: 'class-a',
           date: new Date('2025-09-21T00:00:00.000Z'),
           attendance: [],
         },
         {
+          classId: 'class-a',
           date: new Date('2025-09-28T00:00:00.000Z'),
           attendance: [{ status: AttendanceStatus.PRESENT }],
         },
@@ -78,19 +82,22 @@ describe('Sunday School dashboard attendance trend', () => {
       {
         date: '2025-09-14',
         attendedCount: 3,
-        rosterCount: 6,
+        recordedCount: 6,
+        recordedClassCount: 2,
         attendanceRate: 50,
       },
       {
         date: '2025-09-21',
         attendedCount: null,
-        rosterCount: null,
+        recordedCount: null,
+        recordedClassCount: 0,
         attendanceRate: null,
       },
       {
         date: '2025-09-28',
         attendedCount: 1,
-        rosterCount: 1,
+        recordedCount: 1,
+        recordedClassCount: 1,
         attendanceRate: 100,
       },
     ])
@@ -109,6 +116,7 @@ describe('Sunday School dashboard attendance trend', () => {
   it('plots Elementary attendance on Saturdays', () => {
     const points = buildSundaySchoolAttendanceTrend(
       [{
+        classId: 'class-a',
         date: new Date('2025-09-13T00:00:00.000Z'),
         attendance: [{ status: AttendanceStatus.PRESENT }],
       }],
@@ -125,6 +133,7 @@ describe('Sunday School dashboard attendance trend', () => {
     const points = buildSundaySchoolAttendanceTrend(
       [
         {
+          classId: 'class-a',
           date: new Date('2025-09-14T00:00:00.000Z'),
           attendance: [
             { status: SundaySchoolServantAttendanceStatus.PRESENT },
@@ -132,6 +141,7 @@ describe('Sunday School dashboard attendance trend', () => {
           ],
         },
         {
+          classId: 'class-a',
           date: new Date('2025-09-21T00:00:00.000Z'),
           attendance: [],
         },
@@ -144,13 +154,15 @@ describe('Sunday School dashboard attendance trend', () => {
       {
         date: '2025-09-14',
         attendedCount: 1,
-        rosterCount: 2,
+        recordedCount: 2,
+        recordedClassCount: 1,
         attendanceRate: 50,
       },
       {
         date: '2025-09-21',
         attendedCount: null,
-        rosterCount: null,
+        recordedCount: null,
+        recordedClassCount: 0,
         attendanceRate: null,
       },
     ])

@@ -1,3 +1,8 @@
+import { migrateStudentPrepData, type StudentPrepMigrationSummary } from '@/lib/student-prep-migration'
+import { autoLinkPrepStudentToRoster, PrepRosterLinkConflictError } from '@/lib/prep-roster-auto-link'
+import { deleteUserWithRelations, UserDeletionConflictError } from '@/lib/user-deletion'
+import { findOrCreateFatherOfConfession } from '@/lib/father-of-confession'
+import { EnrollmentYearError, resolveEnrollmentYear } from '@/lib/enrollment-year'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -5,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { canReviewRegistrations } from '@/lib/roles'
 import {
   NotificationType,
+  Prisma,
   RegistrationStatus,
   RoleGrantSource,
   RoleTag,
@@ -40,7 +46,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { action, note, yearLevel, academicYearId } = body
+    const { action, note, yearLevel, academicYearId, isAsyncStudent, replaceUserId, migrateHistory } = body
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json(
@@ -49,7 +55,27 @@ export async function POST(
       )
     }
 
+    if (replaceUserId !== undefined && (typeof replaceUserId !== 'string' || !replaceUserId || action !== 'approve')) {
+      return NextResponse.json({ error: 'Replacement requires approval and an old account ID' }, { status: 400 })
+    }
+
+    if ((replaceUserId && typeof migrateHistory !== 'boolean') ||
+        (migrateHistory !== undefined && (!replaceUserId || typeof migrateHistory !== 'boolean'))) {
+      return NextResponse.json({ error: 'Choose whether to transfer the old account’s SP history before replacing it' }, { status: 400 })
+    }
+
     if (action === 'approve') {
+      const startingYearLevel = resolveEnrollmentYear(
+        { isAsyncStudent: false, yearLevel: YearLevel.YEAR_1 },
+        { yearLevel, isAsyncStudent },
+      )
+      const startingIsAsync = isAsyncStudent === true
+      const startingProgram = {
+        yearLevel: startingYearLevel,
+        isAsyncStudent: startingIsAsync,
+        asyncApprovedAt: startingIsAsync ? new Date() : null,
+        asyncApprovedBy: startingIsAsync ? session.user.id : null,
+      }
       // Approval logic - create User and Enrollment
       const result = await prisma.$transaction(async (tx) => {
         // Fetch submission
@@ -65,11 +91,37 @@ export async function POST(
           throw new Error('Only pending submissions can be reviewed')
         }
 
+        if (replaceUserId) {
+          // Re-read the actor and target inside the transaction; never trust the
+          // warning or a stale JWT to authorize destructive account replacement.
+          const actor = await tx.user.findUnique({ where: { id: session.user.id } })
+          if (!actor || actor.isDisabled || ![UserRole.SUPER_ADMIN, UserRole.SERVANT_PREP].some(role => role === actor.role)) {
+            throw new UserDeletionConflictError('You no longer have permission to replace accounts')
+          }
+          const target = await tx.user.findUnique({ where: { id: replaceUserId } })
+          const isExactDuplicate = !submission.createdUserId && target?.name === submission.fullName && target?.role === UserRole.STUDENT
+          if (replaceUserId === actor.id || !isExactDuplicate) {
+            throw new UserDeletionConflictError('The selected account is no longer an exact-name duplicate student account. Refresh and review again.')
+          }
+          // Prep reviewers must not remove an account with additional ministry roles.
+          if (actor.role !== UserRole.SUPER_ADMIN) {
+            const otherRoles = await tx.userRoleAssignment.count({
+              where: { userId: replaceUserId, revokedAt: null, tag: { not: 'SERVANTS_PREP_STUDENT' } },
+            })
+            if (otherRoles > 0) throw new UserDeletionConflictError('Only a super admin can replace an account with additional ministry roles')
+          }
+          if (!migrateHistory) await deleteUserWithRelations(tx, replaceUserId)
+        }
+
         // Returning applicants are linked to their account at submission.
         // Fall back to the email in case the account was created afterwards.
         const existingUser = submission.createdUserId
           ? await tx.user.findUnique({ where: { id: submission.createdUserId } })
           : await tx.user.findUnique({ where: { email: submission.email } })
+
+        if (replaceUserId && existingUser) {
+          throw new UserDeletionConflictError('This registration already has an account. Review it without deleting another account.')
+        }
 
         // Get or create active academic year if not specified
         let targetAcademicYearId = academicYearId
@@ -85,32 +137,15 @@ export async function POST(
         // Find or create Father of Confession
         let fatherOfConfessionId: string | null = null
         if (submission.fatherOfConfessionName) {
-          const existingFoC = await tx.fatherOfConfession.findFirst({
-            where: {
-              name: {
-                equals: submission.fatherOfConfessionName,
-                mode: 'insensitive',
-              },
-            },
-          })
-
-          if (existingFoC) {
-            fatherOfConfessionId = existingFoC.id
-          } else {
-            const newFoC = await tx.fatherOfConfession.create({
-              data: {
-                name: submission.fatherOfConfessionName,
-                isActive: true,
-              },
-            })
-            fatherOfConfessionId = newFoC.id
-          }
+          const { father } = await findOrCreateFatherOfConfession(tx, { name: submission.fatherOfConfessionName })
+          fatherOfConfessionId = father.id
         }
 
         let userId: string
+        let migratedData: StudentPrepMigrationSummary | null = null
         let tempPassword: string | null = null
         let newAccount: { id: string; authVersion: number } | null = null
-        let shouldBackfillAttendance = true
+        let shouldBackfillAttendance = !startingIsAsync
 
         if (existingUser) {
           // Preserve compatibility with a pending legacy submission that was
@@ -147,7 +182,7 @@ export async function POST(
 
           const enrollment = await tx.studentEnrollment.findUnique({
             where: { studentId: existingUser.id },
-            select: { id: true, isActive: true },
+            select: { id: true, isActive: true, isAsyncStudent: true },
           })
 
           if (enrollment) {
@@ -160,12 +195,12 @@ export async function POST(
                 ...(submission.mentorPhone ? { mentorPhone: submission.mentorPhone } : {}),
               },
             })
-            shouldBackfillAttendance = enrollment.isActive
+            shouldBackfillAttendance = enrollment.isActive && !enrollment.isAsyncStudent
           } else if (existingUser.role === UserRole.STUDENT) {
             await tx.studentEnrollment.create({
               data: {
                 studentId: existingUser.id,
-                yearLevel: (yearLevel as YearLevel) || YearLevel.YEAR_1,
+                ...startingProgram,
                 academicYearId: targetAcademicYearId || null,
                 fatherOfConfessionId,
                 mentorName: submission.mentorName,
@@ -215,11 +250,25 @@ export async function POST(
           userId = newUser.id
           newAccount = { id: newUser.id, authVersion: newUser.authVersion }
 
-          // Create StudentEnrollment
-          await tx.studentEnrollment.create({
+          if (replaceUserId && migrateHistory) {
+            migratedData = await migrateStudentPrepData(tx, replaceUserId, userId)
+          }
+          if (migratedData?.enrollments) {
+            await tx.studentEnrollment.update({
+              where: { studentId: userId },
+              data: {
+                ...startingProgram,
+                ...(fatherOfConfessionId ? { fatherOfConfessionId } : {}),
+                ...(submission.mentorName ? { mentorName: submission.mentorName } : {}),
+                ...(submission.mentorPhone ? { mentorPhone: submission.mentorPhone } : {}),
+              },
+            })
+            // Transferred attendance must not acquire new lesson absences.
+            shouldBackfillAttendance = false
+          } else await tx.studentEnrollment.create({
             data: {
               studentId: newUser.id,
-              yearLevel: (yearLevel as YearLevel) || YearLevel.YEAR_1,
+              ...startingProgram,
               academicYearId: targetAcademicYearId || null,
               fatherOfConfessionId,
               mentorName: submission.mentorName,
@@ -228,6 +277,15 @@ export async function POST(
               notes: `Registered via invite code on ${new Date().toLocaleDateString()}`,
             },
           })
+        }
+
+        if (replaceUserId && migrateHistory) await deleteUserWithRelations(tx, replaceUserId)
+        if (replaceUserId) {
+          await tx.auditEvent.create({ data: {
+            actorUserId: session.user.id, action: 'registration.replace_account',
+            entityType: 'User', entityId: userId, result: 'SUCCESS',
+            metadata: { registrationId: id, oldUserId: replaceUserId, newUserId: userId, migrateHistory, migratedData },
+          } })
         }
 
         const hasMentorInformation = Boolean(
@@ -257,7 +315,7 @@ export async function POST(
           })
         }
 
-        // Backfill attendance records for all past lessons in this academic year
+        // Async enrollments use rotation attendance and must not gain lesson absences.
         if (shouldBackfillAttendance) {
           await backfillAttendanceForStudent(userId, targetAcademicYearId || null, tx)
         }
@@ -296,13 +354,20 @@ export async function POST(
           },
         })
 
+        // The newly approved registration is visible to the matcher in this transaction.
+        // Matching links student identities only; it grants no servant authority.
+        const sundaySchoolMatch = await autoLinkPrepStudentToRoster(tx, userId, session.user.id, id)
+
         return {
+          sundaySchoolMatch,
           submission: updatedSubmission,
           tempPassword,
           linkedExistingUser: Boolean(existingUser),
+          replacedUserId: replaceUserId || null,
+          migratedData,
           newAccount,
         }
-      })
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, ...(replaceUserId ? { timeout: 30000 } : {}) })
 
       const recipient = { email: result.submission.email, name: result.submission.fullName }
       emailRegistrationApproved(
@@ -321,8 +386,11 @@ export async function POST(
 
       return NextResponse.json({
         submission: result.submission,
+        sundaySchoolMatch: result.sundaySchoolMatch,
         tempPassword: result.tempPassword,
         linkedExistingUser: result.linkedExistingUser,
+        replacedUserId: result.replacedUserId,
+        migratedData: result.migratedData,
         message: result.linkedExistingUser
           ? 'Registration approved and linked to the existing account'
           : 'Registration approved successfully',
@@ -394,9 +462,15 @@ export async function POST(
       })
     }
   } catch (error: unknown) {
+    if (error instanceof UserDeletionConflictError || error instanceof PrepRosterLinkConflictError ||
+        (error instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2003', 'P2034'].includes(error.code))) {
+      return NextResponse.json({ error: error instanceof UserDeletionConflictError || error instanceof PrepRosterLinkConflictError ? error.message : 'The accounts changed or have protected records. Refresh and review again.' }, { status: 409 })
+    }
     console.error('Error reviewing registration submission:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
-    const status = message.includes('not found')
+    const status = error instanceof EnrollmentYearError
+      ? 400
+      : message.includes('not found')
       ? 404
       : message.includes('pending') || message.includes('already exists')
       ? 400

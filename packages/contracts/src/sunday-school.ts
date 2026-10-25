@@ -52,6 +52,7 @@ export interface SundaySchoolAgeGroup {
 export interface SundaySchoolClassRef {
   id: string;
   name: string;
+  classroom?: string | null;
   level: SundaySchoolLevel;
 }
 
@@ -79,7 +80,23 @@ export interface SundaySchoolFamilyChild {
   class?: SundaySchoolClassRef | null;
 }
 
+export interface FamilyMatchingEvent {
+  at: string;
+  actorUserId: string | null;
+  childIds: string[];
+  previousFamilyIds: Record<string, string | null>;
+  origin?: { type: 'roster-import'; importId: string; rowNumber: number };
+  sources: Array<{ familyId: string; details: Record<string, string | null> }>;
+  filled: Array<{ field: string; sourceFamilyId: string }>;
+  conflicts: Array<{ field: string; values: string[] }>;
+}
+
+export interface FamilyMatchingHistory {
+  events: FamilyMatchingEvent[];
+}
+
 export interface SundaySchoolFamily {
+  matchingHistory?: FamilyMatchingHistory | null;
   id: string;
   name: string | null;
   homeAddress: string | null;
@@ -93,6 +110,8 @@ export interface SundaySchoolFamily {
 }
 
 export interface SundaySchoolChild {
+  /** Current Prep enrollment of the linked account; display only, grants no access. */
+  isServantsPrepStudent?: boolean;
   id: string;
   familyId: string | null;
   userId: string | null;
@@ -104,6 +123,8 @@ export interface SundaySchoolChild {
   gender: SundaySchoolChildGender | null;
   /** Photo a servant added (most children have no account). */
   photoUrl?: string | null;
+  /** Live photo from the linked account; used only when no child photo exists. */
+  accountPhotoUrl?: string | null;
   guardianName: string | null;
   guardianPhone: string | null;
   guardianEmail: string | null;
@@ -277,12 +298,14 @@ export interface SundaySchoolPriestNote {
 }
 
 export interface SundaySchoolVisitationChild {
-  visitationPriority?: boolean;
+  visitationPriority: boolean;
   id: string;
   firstName: string;
   lastName: string;
   visitations: SundaySchoolVisitationRecord[];
   phoneCalls: SundaySchoolPhoneCallRecord[];
+  /** Consecutive meetings marked absent, ending with the latest one. */
+  absentStreak?: { weeks: number; since: string | null };
 }
 
 export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
@@ -296,6 +319,7 @@ export interface SundaySchoolVisitationsResponse {
     readOnly: boolean;
     isAdmin: boolean;
     isPriest: boolean;
+    canReadPrivateNotes: boolean;
   };
 }
 
@@ -405,6 +429,7 @@ export type SundaySchoolAttendanceAudience = "children" | "servants";
 export interface SundaySchoolClassSummary {
   id: string;
   name: string;
+  classroom?: string | null;
   level: SundaySchoolLevel;
   ageGroup: { id: string; name: string } | null;
   childCount: number;
@@ -425,7 +450,8 @@ export interface SundaySchoolClassSummary {
 export interface SundaySchoolAttendanceTrendPoint {
   date: string;
   attendedCount: number | null;
-  rosterCount: number | null;
+  recordedCount: number | null;
+  recordedClassCount: number;
   attendanceRate: number | null;
 }
 
@@ -459,6 +485,8 @@ export interface SundaySchoolDashboard {
     coordinatesAnyAgeGroup: boolean;
   };
   attendanceTrend: {
+    currentEnrolledCount: number | null;
+    classCount: number;
     audience: SundaySchoolAttendanceAudience;
     points: SundaySchoolAttendanceTrendPoint[];
     academicYears: SundaySchoolAcademicYearOption[];

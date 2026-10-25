@@ -22,8 +22,8 @@ describe('Async Student Permission Helpers', () => {
       expect(canManageSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canManageSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canManageSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageSundaySchool(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageSundaySchool(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -36,7 +36,7 @@ describe('Async Student Permission Helpers', () => {
     })
 
     it('should return false for other roles', () => {
-      expect(canManageSundaySchoolAttendance(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canManageSundaySchoolAttendance(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageSundaySchoolAttendance(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageSundaySchoolAttendance(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -48,8 +48,8 @@ describe('Async Student Permission Helpers', () => {
       expect(canSetAsyncStatus(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canSetAsyncStatus(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('allows priests while denying mentors and students', () => {
+      expect(canSetAsyncStatus(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canSetAsyncStatus(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canSetAsyncStatus(UserRole.STUDENT as UserRoleType)).toBe(false)
     })

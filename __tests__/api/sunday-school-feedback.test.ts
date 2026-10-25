@@ -8,7 +8,10 @@ import {
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   getSundaySchoolAccess: vi.fn(),
+  currentAccount: vi.fn(),
   findUnique: vi.fn(),
+  findMany: vi.fn(),
+  groupBy: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   deleteIdea: vi.fn(),
@@ -24,7 +27,10 @@ vi.mock('@/lib/sunday-school-access', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    user: { findUnique: mocks.currentAccount },
     sundaySchoolFeedbackIdea: {
+      findMany: mocks.findMany,
+      groupBy: mocks.groupBy,
       findUnique: mocks.findUnique,
       create: mocks.create,
       update: mocks.update,
@@ -42,7 +48,7 @@ vi.mock('@/lib/sunday-school-feedback-server', () => ({
   serializeFeedbackIdeas: mocks.serializeFeedbackIdeas,
 }))
 
-import { POST } from '@/app/api/sunday-school/feedback/route'
+import { GET, POST } from '@/app/api/sunday-school/feedback/route'
 import {
   DELETE,
   PATCH,
@@ -71,6 +77,9 @@ describe('Sunday School feedback API permissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'viewer-1', role: 'SERVANT' })
+    mocks.currentAccount.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      id: where.id, role: (await mocks.requireAuth()).role, isDisabled: false,
+    }))
     mocks.getSundaySchoolAccess.mockResolvedValue(participantAccess)
     mocks.loadFeedbackIdeaForViewer.mockResolvedValue({ id: 'idea-1' })
     mocks.serializeFeedbackIdeas.mockResolvedValue([{ id: 'idea-1' }])
@@ -82,6 +91,52 @@ describe('Sunday School feedback API permissions', () => {
       submittedById: 'author-1',
       status: SundaySchoolFeedbackStatus.OPEN,
     })
+  })
+
+  it('loads the shared board for prep staff without Sunday School standing', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'prep-servant', role: 'SERVANT_PREP' })
+    mocks.getSundaySchoolAccess.mockResolvedValue({ ...participantAccess, canRead: false })
+    mocks.findMany.mockResolvedValue([])
+    mocks.groupBy.mockResolvedValue([])
+    const response = await GET(new Request('http://localhost/api/sunday-school/feedback'))
+    expect(response.status).toBe(200)
+    expect((await response.json()).viewer).toMatchObject({ canSubmit: true, canModerate: false })
+  })
+
+  it('allows prep staff without Sunday School standing to submit and vote on shared feedback', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'prep-servant', role: 'SERVANT_PREP' })
+    mocks.getSundaySchoolAccess.mockResolvedValue({ ...participantAccess, canRead: false })
+    mocks.create.mockResolvedValue({ id: 'idea-1' })
+    const response = await POST(new Request('http://localhost/api/sunday-school/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Improve prep attendance' }),
+    }))
+    expect(response.status).toBe(201)
+    const vote = await PUT(new Request('http://localhost/idea-1/vote', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vote: SundaySchoolFeedbackVoteType.UP }),
+    }), routeContext)
+    expect(vote.status).toBe(200)
+  })
+
+  it('does not let prep staff moderate another person’s feedback', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'prep-servant', role: 'SERVANT_PREP' })
+    mocks.getSundaySchoolAccess.mockResolvedValue({ ...participantAccess, canRead: false })
+    const response = await PATCH(new Request('http://localhost/idea-1', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: SundaySchoolFeedbackStatus.PLANNED }),
+    }), routeContext)
+    expect(response.status).toBe(403)
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a disabled prep account even with an authenticated session', async () => {
+    mocks.currentAccount.mockResolvedValue({ id: 'viewer-1', role: 'SERVANT_PREP', isDisabled: true })
+    const response = await POST(new Request('http://localhost/api/sunday-school/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'A useful idea' }),
+    }))
+    expect(response.status).toBe(403)
+    expect(mocks.create).not.toHaveBeenCalled()
   })
 
   it('allows a PRIEST to submit an idea', async () => {
@@ -225,6 +280,7 @@ describe('Sunday School feedback API permissions', () => {
   it('lets only SUPER_ADMIN remove a team response', async () => {
     const request = new Request('http://localhost/idea-1/response', { method: 'DELETE' })
     expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(403)
+    mocks.requireAuth.mockResolvedValue({ id: 'admin-1', role: 'SUPER_ADMIN' })
     mocks.getSundaySchoolAccess.mockResolvedValue(adminAccess)
     expect((await DELETE_RESPONSE(request, routeContext)).status).toBe(200)
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
