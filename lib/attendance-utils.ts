@@ -1,4 +1,5 @@
 import { AttendanceStatus } from "@prisma/client"
+import type { AttendanceCounts } from "@stmark/contracts"
 
 /**
  * Attendance calculation utility functions
@@ -11,12 +12,7 @@ import { AttendanceStatus } from "@prisma/client"
  * - Cancelled lessons are excluded from attendance calculations (filtered before calling these functions)
  */
 
-export interface AttendanceCounts {
-  present: number
-  late: number
-  absent: number
-  excused: number
-}
+export type { AttendanceCounts }
 
 /**
  * Calculate attendance percentage from counts

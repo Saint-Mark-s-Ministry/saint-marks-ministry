@@ -6,6 +6,7 @@ import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import type { SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { StudentHistoryButton } from "@/components/student-history-parts";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -158,23 +159,29 @@ function VisitationsScreen() {
                 const pill = tone === "done" ? { color: colors.success, soft: colors.successSoft, label: "Done" } : { color: colors.warning, soft: colors.warningSoft, label: "Not done" };
                 return (
                   <View key={row.child.id}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${row.child.firstName} ${row.child.lastName}, ${pill.label}`}
-                      onPress={() => router.push({ pathname: "/visitation/[childId]", params: { childId: row.child.id, classId: row.classId } })}
-                      style={({ pressed }) => [
-                        { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 62 },
-                        { backgroundColor: pressed ? colors.primarySoft : "transparent" },
-                      ]}
-                    >
-                      <InitialsAvatar name={`${row.child.firstName} ${row.child.lastName}`} size={36} variant="accent" />
-                      <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
-                        <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{row.child.firstName} {row.child.lastName}</Copy>
-                        <Copy kind="caption" numberOfLines={1}>{rowSubtitle(row.child, row.className)}</Copy>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${row.child.firstName} ${row.child.lastName}, ${pill.label}`}
+                        onPress={() => router.push({ pathname: "/visitation/[childId]", params: { childId: row.child.id, classId: row.classId } })}
+                        style={({ pressed }) => [
+                          { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingVertical: 10, minHeight: 62 },
+                          { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                        ]}
+                      >
+                        <InitialsAvatar name={`${row.child.firstName} ${row.child.lastName}`} size={36} variant="accent" />
+                        <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
+                          <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{row.child.firstName} {row.child.lastName}</Copy>
+                          <Copy kind="caption" numberOfLines={1}>{rowSubtitle(row.child, row.className)}</Copy>
+                        </View>
+                        <StatusPill label={pill.label} color={pill.color} soft={pill.soft} />
+                        <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
+                      </Pressable>
+                      {/* Its own control beside the row: the row opens visitations, this opens history. */}
+                      <View style={{ paddingHorizontal: 8 }}>
+                        <StudentHistoryButton childId={row.child.id} name={`${row.child.firstName} ${row.child.lastName}`} />
                       </View>
-                      <StatusPill label={pill.label} color={pill.color} soft={pill.soft} />
-                      <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
-                    </Pressable>
+                    </View>
                     {index < arr.length - 1 && <View style={{ height: 0.5, marginLeft: 64, backgroundColor: colors.border }} />}
                   </View>
                 );

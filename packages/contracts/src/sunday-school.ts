@@ -576,3 +576,94 @@ export interface SundaySchoolRegistrationDetail
   extends Omit<SundaySchoolRegistrationSummary, "hasGuardianEmail"> {
   guardianEmail: string | null;
 }
+
+// ── Student history (GET /api/sunday-school/children/[id]/history) ───────────
+//
+// A read-only view of one saved child: attendance, notes, visitations and phone
+// calls. Only the Sunday School program has a history endpoint. Records are
+// identified by program and ID, never by the name shown.
+
+export type StudentHistoryProgram = "sunday-school";
+
+export interface StudentHistoryTarget {
+  id: string;
+  name: string;
+  program: StudentHistoryProgram;
+}
+
+export interface AttendanceCounts {
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+}
+
+export interface SundaySchoolFamilyDetails {
+  name: string | null;
+  homeAddress: string | null;
+  motherName: string | null;
+  motherPhone: string | null;
+  motherEmail: string | null;
+  fatherName: string | null;
+  fatherPhone: string | null;
+  fatherEmail: string | null;
+}
+
+/** Read-only child details, available only after the Sunday School class check. */
+export interface StudentHistory {
+  id: string;
+  name: string;
+  program: StudentHistoryProgram;
+  subtitle: string;
+  /** Display-only enrollment status for linked Sunday School accounts. */
+  isServantsPrepStudent?: boolean;
+  /** Display photo resolved from the child's photo, then their linked account. */
+  photoUrl?: string | null;
+  canReadPrivateNotes?: boolean;
+  care?: { canEdit: boolean };
+  /** Starred for a priority visit, and whether this viewer may change it. */
+  priority?: { value: boolean; canEdit: boolean };
+  profile: {
+    className: string | null;
+    level: SundaySchoolLevel;
+    birthDate: string | null;
+    gender: SundaySchoolChildGender | null;
+    isActive: boolean;
+    fatherOfConfession: string | null;
+    phone: string | null;
+    email: string | null;
+    guardian: { name: string | null; phone: string | null; email: string | null };
+    family: SundaySchoolFamilyDetails | null;
+  };
+  attendance: {
+    kind: "meetings";
+    counts: AttendanceCounts;
+    rate: number | null;
+    records: Array<{
+      id: string;
+      date: string;
+      title: string;
+      status: AttendanceStatus;
+      notes: string | null;
+    }>;
+  };
+  notes: {
+    general: string | null;
+    entries: Array<{ id: string; content: string; createdAt: string; author: { name: string } }>;
+  };
+  visitations: Array<{
+    id: string;
+    status: SundaySchoolVisitationStatus;
+    visitedAt: string | null;
+    createdAt: string;
+    notes: string | null;
+    recorder: { name: string } | null;
+  }>;
+  phoneCalls: Array<{
+    id: string;
+    calledAt: string;
+    outcome: SundaySchoolPhoneCallOutcome;
+    note: string;
+    callerName: string;
+  }>;
+}

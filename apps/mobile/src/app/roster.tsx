@@ -8,6 +8,7 @@ import type { SundaySchoolChild, SundaySchoolDashboard } from "@stmark/contracts
 import { compareAgeGroupsByLevel } from "@stmark/domain";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { StudentHistoryButton } from "@/components/student-history-parts";
 import { apiOrigin } from "@/data/auth-provider";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -173,26 +174,36 @@ export default function Roster() {
                 .filter(Boolean)
                 .join(" · ");
               return (
-                <Pressable
+                <View
                   key={child.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
-                  onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
-                  style={({ pressed }) => [
-                    { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 62 },
+                  style={[
+                    { flexDirection: "row", alignItems: "center", minHeight: 62 },
                     index < arr.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
-                    { backgroundColor: pressed ? colors.primarySoft : "transparent" },
                   ]}
                 >
-                  <InitialsAvatar name={`${child.firstName} ${child.lastName}`} variant="accent" />
-                  <View style={{ flex: 1, gap: 1, justifyContent: "center" }}>
-                    <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
-                    {/* An empty caption still renders a blank line, taller than the name alone —
-                        that extra height is what pushed the name up off-center against the avatar. */}
-                    {!!subtitle && <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
+                    onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
+                    style={({ pressed }) => [
+                      { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingVertical: 10, minHeight: 62 },
+                      { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                    ]}
+                  >
+                    <InitialsAvatar name={`${child.firstName} ${child.lastName}`} variant="accent" />
+                    <View style={{ flex: 1, gap: 1, justifyContent: "center" }}>
+                      <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
+                      {/* An empty caption still renders a blank line, taller than the name alone —
+                          that extra height is what pushed the name up off-center against the avatar. */}
+                      {!!subtitle && <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>}
+                    </View>
+                    <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
+                  </Pressable>
+                  {/* Its own control beside the row: the row opens the profile, this opens history. */}
+                  <View style={{ paddingHorizontal: 8 }}>
+                    <StudentHistoryButton childId={child.id} name={`${child.firstName} ${child.lastName}`} />
                   </View>
-                  <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
-                </Pressable>
+                </View>
               );
             })}
           </ListSurface>

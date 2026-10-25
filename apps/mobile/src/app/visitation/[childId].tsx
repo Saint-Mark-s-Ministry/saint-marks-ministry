@@ -10,6 +10,7 @@ import { useAuth } from "@/data/auth-provider";
 import { shortMonthDay } from "@/data/sunday-school-classes";
 import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
 import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
+import { StudentHistoryLink } from "@/components/student-history-parts";
 import { VisitationEntrySheet } from "@/components/visitation-entry-sheet";
 import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
 import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
@@ -79,6 +80,7 @@ function VisitationChildScreen() {
                 {child.firstName} {child.lastName}
               </Copy>
               <Copy kind="caption">{cls?.name}</Copy>
+              <StudentHistoryLink childId={child.id} name={`${child.firstName} ${child.lastName}`} />
               {latest && (
                 <StatusPill
                   label={latest.status === "DONE" && latest.visitedAt ? `Visited ${shortMonthDay(latest.visitedAt)}` : "Not done"}

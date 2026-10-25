@@ -59,6 +59,7 @@ export const authenticatedRoutes = [
   "reports",
   "roster",
   "servant-attendance",
+  "student-history/[id]",
   "sunday-birthdays",
   "switch-ministry",
   "visitation/[childId]",

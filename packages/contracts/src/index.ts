@@ -8,6 +8,7 @@ export type {
   SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
   SundaySchoolPhoneCallOutcome,
+  SundaySchoolVisitationStatus,
   SundaySchoolHomeworkCompletionStatus,
   UserRole,
   RoleTag,

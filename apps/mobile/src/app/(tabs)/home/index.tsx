@@ -21,6 +21,7 @@ import {
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { TodayInChurchCard } from "@/components/today-in-church-card";
+import { StudentNameButton } from "@/components/student-history-parts";
 import { LiturgicalTags } from "@/components/liturgical-parts";
 import { useLiturgicalCalendar } from "@/data/use-liturgical";
 import { useAuth } from "@/data/auth-provider";
@@ -182,7 +183,7 @@ export default function Home() {
                     index < all.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
                   ]}
                 >
-                  <Copy style={{ fontWeight: "500" }}>{b.firstName} {b.lastName}</Copy>
+                  <StudentNameButton childId={b.id} name={`${b.firstName} ${b.lastName}`} style={{ fontWeight: "500" }} containerStyle={{ alignSelf: "flex-start" }} />
                   <Copy kind="caption">{b.class?.name ?? "No class"} · {birthdayCaption(b.birthDate, new Date())}</Copy>
                 </View>
               ))}

@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import type { SundaySchoolHomeworkDisplayStatus, SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import { Button, Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { HomeworkLink, HomeworkStatusPill } from "@/components/family-homework";
+import { StudentNameButton } from "@/components/student-history-parts";
 import { Choice, Field, ResourceState, confirmAction, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
 import {
@@ -222,7 +223,7 @@ function HomeworkScreen() {
                     <View key={child.id}>
                       <View style={{ padding: 14, gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Copy style={{ fontWeight: "500", flex: 1 }}>{child.firstName} {child.lastName}</Copy>
+                          <StudentNameButton childId={child.id} name={`${child.firstName} ${child.lastName}`} style={{ fontWeight: "500" }} containerStyle={{ flex: 1 }} />
                           <HomeworkStatusPill status={marks[child.id] ?? "NOT_RECORDED"} />
                         </View>
                         {selectedClass?.canEdit && (
@@ -257,7 +258,7 @@ function HomeworkScreen() {
                 {history.map((child, index, arr) => (
                   <View key={child.id}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14 }}>
-                      <Copy style={{ fontWeight: "500", flex: 1 }}>{child.firstName} {child.lastName}</Copy>
+                      <StudentNameButton childId={child.id} name={`${child.firstName} ${child.lastName}`} style={{ fontWeight: "500" }} containerStyle={{ flex: 1 }} />
                       <Copy kind="caption">
                         {child.completed} done · {child.notCompleted} not done · {formatPercent(child.rate)}
                       </Copy>

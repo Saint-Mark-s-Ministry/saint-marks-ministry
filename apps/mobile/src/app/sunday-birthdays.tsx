@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Copy, ListSurface, Screen, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { StudentNameButton } from "@/components/student-history-parts";
 import { savedLabel } from "@/data/prep-lessons";
 import { useResource } from "@/data/resources";
 import {
@@ -125,15 +126,13 @@ function BirthdayRow({ birthday, now, last }: { birthday: Birthday; now: Date; l
   const parts = birthdayParts(birthday.birthDate);
   return (
     <View
-      accessible
-      accessibilityLabel={`${birthday.firstName} ${birthday.lastName}, ${birthday.class?.name ?? "no class"}, ${caption}`}
       style={[
         { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 56 },
         !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
       ]}
     >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Copy style={{ fontWeight: "500" }}>{birthday.firstName} {birthday.lastName}</Copy>
+      <View style={{ flex: 1, gap: 2, alignItems: "flex-start" }}>
+        <StudentNameButton childId={birthday.id} name={`${birthday.firstName} ${birthday.lastName}`} style={{ fontWeight: "500" }} />
         <Copy kind="caption">{birthday.class?.name ?? "No class"} · {caption}</Copy>
       </View>
       {today && <StatusPill label="Today" color={colors.primary} soft={colors.primarySoft} />}

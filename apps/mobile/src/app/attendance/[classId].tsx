@@ -20,6 +20,7 @@ import { feedback } from "@/data/haptics";
 import { Copy, Icon, ConnectionBadge, Screen, styles } from "@/components/ui";
 import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
+import { historyTarget, useCanOpenStudentHistory, useOpenStudentHistory } from "@/components/student-history-parts";
 import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attendance-draft";
 import { sansRegular, useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
@@ -560,6 +561,8 @@ function RosterRow({
   contact: AbsenceContact | undefined;
 }) {
   const { colors } = useAppTheme();
+  const canOpenHistory = useCanOpenStudentHistory();
+  const openHistory = useOpenStudentHistory();
   const fillFor = (value: AttendanceStatus) => {
     if (value === "PRESENT") return colors.success;
     if (value === "LATE") return colors.warning;
@@ -583,18 +586,47 @@ function RosterRow({
           <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>{initials}</Copy>
         </View>
       )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={note ? `${name}, note: ${note}` : `Add note for ${name}`}
-        onPress={onEditNote}
-        disabled={!canEdit}
-        style={{ flex: 1, minWidth: 0, gap: 1 }}
-      >
-        <Copy numberOfLines={1} style={{ fontSize: 16, fontWeight: "500" }}>{name}</Copy>
-        {/* Only rendered when there's something to show — an empty caption still
-            takes a line of height, pushing the name off-center against its row. */}
-        {!!note && <Copy kind="caption" numberOfLines={1}>{note}</Copy>}
-      </Pressable>
+      {canOpenHistory ? (
+        // Two separate controls, apart from the Present/Late/Absent buttons: the
+        // name opens the child's history, the line under it edits the note.
+        // Opening history leaves this screen mounted, so unsaved marks stay put.
+        <View style={{ flex: 1, minWidth: 0, alignItems: "flex-start" }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${name}, view attendance, notes and visitations`}
+            onPress={() => openHistory(historyTarget(childId, name))}
+            hitSlop={{ top: 6, bottom: 2, left: 4, right: 4 }}
+            style={({ pressed }) => ({ maxWidth: "100%", opacity: pressed ? 0.6 : 1 })}
+          >
+            <Copy numberOfLines={1} color={colors.primary} style={{ fontSize: 16, fontWeight: "500" }}>{name}</Copy>
+          </Pressable>
+          {(!!note || canEdit) && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={note ? `Note for ${name}: ${note}. Edit` : `Add note for ${name}`}
+              onPress={onEditNote}
+              disabled={!canEdit}
+              hitSlop={{ top: 2, bottom: 6, left: 4, right: 4 }}
+              style={{ maxWidth: "100%" }}
+            >
+              <Copy kind="caption" numberOfLines={1}>{note || "Add note"}</Copy>
+            </Pressable>
+          )}
+        </View>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={note ? `${name}, note: ${note}` : `Add note for ${name}`}
+          onPress={onEditNote}
+          disabled={!canEdit}
+          style={{ flex: 1, minWidth: 0, gap: 1 }}
+        >
+          <Copy numberOfLines={1} style={{ fontSize: 16, fontWeight: "500" }}>{name}</Copy>
+          {/* Only rendered when there's something to show — an empty caption still
+              takes a line of height, pushing the name off-center against its row. */}
+          {!!note && <Copy kind="caption" numberOfLines={1}>{note}</Copy>}
+        </Pressable>
+      )}
       {status === "ABSENT" && canEdit && <ContactButton name={name} childId={childId} contact={contact} />}
       <View style={{ flexDirection: "row", gap: 4 }}>
         {STATUSES.map((item) => {

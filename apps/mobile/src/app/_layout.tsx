@@ -134,6 +134,19 @@ function Navigation() {
           }}
         />
         <Stack.Screen
+          name="student-history/[id]"
+          options={{
+            title: "History",
+            headerLargeTitle: false,
+            headerTransparent: false,
+            presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+            sheetAllowedDetents: Platform.OS === "ios" ? [0.62, 0.95] : undefined,
+            sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
+            sheetGrabberVisible: Platform.OS === "ios",
+            sheetExpandsWhenScrolledToEdge: Platform.OS === "ios",
+          }}
+        />
+        <Stack.Screen
           name="switch-ministry"
           options={{
             title: "Switch ministry",

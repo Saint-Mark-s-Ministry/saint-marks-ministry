@@ -1,7 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { useFocusEffect } from "expo-router";
 import { api } from "./auth-provider";
-import { isAuthorizationRevoked } from "./api-client";
+import { ApiError, isAuthorizationRevoked } from "./api-client";
 
 export const endpoint = (area: string, id?: string) =>
   `/api/sunday-school/${area}${id ? `/${encodeURIComponent(id)}` : ""}`;
@@ -15,6 +15,8 @@ const STALE_AFTER_MS = 30_000;
 type CacheEntry = {
   data?: unknown;
   error?: string;
+  /** HTTP status of the last failed request, when the server answered at all. */
+  errorStatus?: number;
   loading: boolean;
   updatedAt: number;
   request?: Promise<unknown>;
@@ -22,10 +24,16 @@ type CacheEntry = {
 const emptyEntry: CacheEntry = { loading: false, updatedAt: 0 };
 const cache = new Map<string, CacheEntry>();
 const listeners = new Map<string, Set<() => void>>();
-const cacheKey = (path: string) => path.endsWith("?") ? path.slice(0, -1) : path;
+const pathKey = (path: string) => path.endsWith("?") ? path.slice(0, -1) : path;
+/**
+ * A cache key is the request path, optionally under a scope. A scope separates
+ * answers that depend on who is asking (the signed-in viewer) from the same path
+ * asked by someone else, so one person's answer can never be served to another.
+ */
+export const resourceKey = (path: string, scope?: string) =>
+  scope ? `${scope}\u0000${pathKey(path)}` : pathKey(path);
 const emit = (key: string) => listeners.get(key)?.forEach(listener => listener());
-const subscribe = (path: string, listener: () => void) => {
-  const key = cacheKey(path);
+const subscribe = (key: string, listener: () => void) => {
   const current = listeners.get(key) ?? new Set();
   current.add(listener);
   listeners.set(key, current);
@@ -55,8 +63,8 @@ export function request<T>(
   });
 }
 
-async function loadResource<T>(path: string, force = false): Promise<T> {
-  const key = cacheKey(path);
+async function loadResource<T>(path: string, force = false, scope?: string): Promise<T> {
+  const key = resourceKey(path, scope);
   const current = cache.get(key) ?? emptyEntry;
   if (current.request) return current.request as Promise<T>;
   if (!force && current.data !== undefined && Date.now() - current.updatedAt < STALE_AFTER_MS)
@@ -71,20 +79,21 @@ async function loadResource<T>(path: string, force = false): Promise<T> {
   }).catch(error => {
     if (cache.get(key)?.request === pending) {
       // A refused request (403) must not keep serving what this account
-      // could see before — only a connection failure falls back to the
-      // last good data.
-      const revoked = isAuthorizationRevoked(error);
+      // could see before, and neither must a record that is gone (404) —
+      // only a connection failure falls back to the last good data.
+      const revoked = isAuthorizationRevoked(error) || (error instanceof ApiError && error.status === 404);
       cache.set(key, {
         data: revoked ? undefined : current.data,
         loading: false,
         updatedAt: revoked ? 0 : current.updatedAt,
         error: error instanceof Error ? error.message : "Unable to load. Please retry.",
+        errorStatus: error instanceof ApiError ? error.status : undefined,
       });
       emit(key);
     }
     throw error;
   });
-  cache.set(key, { ...current, loading: true, error: undefined, request: pending });
+  cache.set(key, { ...current, loading: true, error: undefined, errorStatus: undefined, request: pending });
   emit(key);
   return pending;
 }
@@ -107,27 +116,28 @@ export async function prefetchResources(paths: string[]) {
 }
 
 // Keep the last successful response visible, then refresh stale data quietly on focus.
-export function useResource<T>(path: string | null) {
+export function useResource<T>(path: string | null, scope?: string) {
   const [manualRefreshing, setManualRefreshing] = useState(false);
+  const key = path ? resourceKey(path, scope) : null;
   const subscribeToPath = useCallback(
-    (listener: () => void) => path ? subscribe(path, listener) : () => {},
-    [path],
+    (listener: () => void) => key ? subscribe(key, listener) : () => {},
+    [key],
   );
   const getSnapshot = useCallback(
-    () => path ? cache.get(cacheKey(path)) ?? emptyEntry : emptyEntry,
-    [path],
+    () => key ? cache.get(key) ?? emptyEntry : emptyEntry,
+    [key],
   );
   const entry = useSyncExternalStore(subscribeToPath, getSnapshot, () => emptyEntry);
   const refresh = useCallback(async () => {
     if (!path) return;
     setManualRefreshing(true);
-    await loadResource<T>(path, true).catch(() => undefined);
+    await loadResource<T>(path, true, scope).catch(() => undefined);
     setManualRefreshing(false);
-  }, [path]);
+  }, [path, scope]);
 
   useFocusEffect(useCallback(() => {
-    if (path) void loadResource<T>(path).catch(() => undefined);
-  }, [path]));
+    if (path) void loadResource<T>(path, false, scope).catch(() => undefined);
+  }, [path, scope]));
 
   const data = entry.data as T | undefined;
   return {
@@ -136,6 +146,8 @@ export function useResource<T>(path: string | null) {
     loading: !!path && data === undefined && !entry.error,
     refreshing: manualRefreshing,
     error: data === undefined ? entry.error : undefined,
+    /** The server's status for the last failed request (403 refused, 404 gone), when it answered. */
+    errorStatus: entry.error ? entry.errorStatus : undefined,
     // Cached data is still shown after a failed refresh; `stale` says so, and `updatedAt` says when it was last loaded.
     stale: data !== undefined && !!entry.error,
     updatedAt: entry.updatedAt,

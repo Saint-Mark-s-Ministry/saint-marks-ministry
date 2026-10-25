@@ -18,6 +18,7 @@ import {
   Screen,
   SectionTitle,
 } from "@/components/ui";
+import { StudentHistoryButton } from "@/components/student-history-parts";
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -143,6 +144,7 @@ export default function Search() {
                     title={child.title}
                     subtitle={child.subtitle}
                     icon={<ResultIcon ios="person.fill" android="person" />}
+                    trailing={<StudentHistoryButton childId={child.id} name={child.title} />}
                     onPress={() =>
                       router.push({
                         pathname: "/child/[id]",
