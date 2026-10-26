@@ -1,5 +1,6 @@
 import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { addDaysToDateKey } from '@/lib/liturgical'
 import {
   copticIoBaseUrl,
   copticIoCache,
@@ -307,6 +308,81 @@ describe('Coptic IO client', () => {
     await getLiturgicalCalendar(dates)
     expect(copticIoCache.isCircuitOpen('/api/celebrations')).toBe(true)
     expect((await getLiturgicalDay('2026-10-20')).fasting).toEqual({ fast: null })
+  })
+
+  describe('calendar celebrations', () => {
+    const monthView = (dates: string[]) =>
+      json({
+        days: dates.map((gregorianDate) => ({
+          gregorianDate,
+          copticDate,
+          fasting: { isFasting: false, fastType: null, description: null },
+        })),
+      })
+
+    beforeEach(() => {
+      vi.useFakeTimers({ now: new Date('2026-10-11T12:00:00Z'), toFake: ['Date'] })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('reads a year of upcoming feasts in one call instead of one per day', async () => {
+      const sundays = Array.from({ length: 52 }, (_, i) => addDaysToDateKey('2026-10-18', i * 7))
+      fetchMock.mockImplementation(async (input: URL | string) => {
+        const url = new URL(String(input))
+        if (url.pathname.startsWith('/api/calendar/month/')) {
+          const [, , , , year, month] = url.pathname.split('/')
+          return monthView(sundays.filter((day) => day.startsWith(`${year}-${month.padStart(2, '0')}`)))
+        }
+        if (url.pathname === '/api/celebrations/upcoming/list') {
+          return json([{ date: '2027-01-10', copticDate, celebrations: [{ id: 1, name: 'Sunday after Nativity', category: 'otherFeast' }] }])
+        }
+        return json({ error: 'Too Many Requests' }, 429)
+      })
+
+      const days = await getLiturgicalCalendar(sundays)
+      // 51 Sundays sit inside the one-call window; the 52nd (2027-10-10) is past
+      // it, falls back to a per-day lookup, gets the 429 and is left out.
+      expect(Object.keys(days)).toHaveLength(51)
+      expect(days['2027-10-10']).toBeUndefined()
+      expect(days['2026-10-18'].feasts).toEqual([])
+      expect(days['2027-01-10'].feasts).toEqual([{ name: 'Sunday after Nativity', category: 'otherFeast' }])
+
+      const paths = fetchMock.mock.calls.map(([input]) => new URL(String(input)))
+      const celebrationCalls = paths.filter((url) => url.pathname.startsWith('/api/celebrations'))
+      expect(celebrationCalls.map((url) => url.pathname)).toEqual([
+        '/api/celebrations/upcoming/list',
+        '/api/celebrations/2027-10-10',
+      ])
+      expect(celebrationCalls[0].searchParams.get('days')).toBe('365')
+      expect(celebrationCalls[0].searchParams.get('from')).toBe('2026-10-11')
+    })
+
+    it('looks up days outside the window one at a time', async () => {
+      fetchMock.mockImplementation(
+        route({
+          '/api/calendar/month/2026/9': () => monthView(['2026-09-27']),
+          '/api/celebrations/2026-09-27': () => json([{ id: 2, name: 'Feast of the Cross', category: 'otherFeast' }]),
+        })
+      )
+      const days = await getLiturgicalCalendar(['2026-09-27'])
+      expect(days['2026-09-27'].feasts).toEqual([{ name: 'Feast of the Cross', category: 'otherFeast' }])
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes('upcoming'))).toBe(false)
+    })
+
+    it('leaves out a day whose lookup failed, but keeps a day with no feasts', async () => {
+      fetchMock.mockImplementation(
+        route({
+          '/api/calendar/month/2026/9': () => monthView(['2026-09-20', '2026-09-27']),
+          '/api/celebrations/2026-09-20': () => json(null),
+          '/api/celebrations/2026-09-27': () => json({ error: 'Too Many Requests' }, 429),
+        })
+      )
+      const days = await getLiturgicalCalendar(['2026-09-20', '2026-09-27'])
+      expect(days['2026-09-20']).toMatchObject({ feasts: [] })
+      expect(days['2026-09-27']).toBeUndefined()
+    })
   })
 
   it('ignores reference fields that are not Katameros readings', () => {

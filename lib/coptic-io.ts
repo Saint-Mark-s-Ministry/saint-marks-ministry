@@ -4,6 +4,7 @@ import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-
 import { parseJsonBody } from '@/lib/coptic-io-body'
 import { getChurchSeason, getReadingCycle } from '@/lib/liturgical-cycle'
 import {
+  addDaysToDateKey,
   secondsUntilChurchMidnight,
   READING_DEFINITIONS,
   READING_KEYS,
@@ -46,6 +47,14 @@ const TIMEOUT_MS = 5000
 /** Dated answers only change when Coptic IO corrects its data; `revalidateTag('coptic-io')` forces it sooner. */
 const REVALIDATE_SECONDS = 60 * 60 * 24 * 7
 const MAX_CONCURRENT_REQUESTS = 6
+/**
+ * Per-day celebration lookups are the fan-out Coptic IO rate-limits (429s seen
+ * in production for a year of lesson Sundays), so they run gently and only for
+ * dates outside the one-call upcoming window below.
+ */
+const PER_DAY_CONCURRENCY = 2
+/** `/api/celebrations/upcoming/list` covers today plus this many days in one call (365 is its maximum). */
+const UPCOMING_DAYS = 365
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -138,6 +147,20 @@ const calendarMonthSchema = z.object({
 })
 
 // ── Transport ───────────────────────────────────────────────────────────────
+
+/**
+ * Celebrations for a day. Coptic IO answers JSON `null` for "none", which we
+ * turn into `[]` so that a null from copticIoGet can only mean "the lookup
+ * failed" — and a failed day is left out rather than shown with no feasts.
+ */
+const dayCelebrationsSchema = z
+  .array(celebrationSchema)
+  .nullable()
+  .transform((value) => value ?? [])
+
+const upcomingCelebrationsSchema = z.array(
+  z.object({ date: z.string(), celebrations: z.array(celebrationSchema) })
+)
 
 function copticIoGet<T>(
   path: string,
@@ -281,7 +304,7 @@ export async function getLiturgicalDay(date: string, language: LiturgicalLanguag
   const [readings, fasting, celebrations] = await Promise.all([
     copticIoGet(`/api/readings/${date}`, readingsSummarySchema, lang),
     copticIoGet(`/api/fasting/${date}`, fastingSchema, lang),
-    copticIoGet(`/api/celebrations/${date}`, z.array(celebrationSchema).nullable(), lang),
+    copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema, lang),
   ])
   const readingCycle = getReadingCycle(date)
 
@@ -346,9 +369,7 @@ export async function getLiturgicalCalendar(dates: string[]): Promise<Record<str
       const [year, monthNumber] = month.split('-')
       return copticIoGet(`/api/calendar/month/${year}/${Number(monthNumber)}`, calendarMonthSchema)
     }),
-    mapWithLimit(unique, MAX_CONCURRENT_REQUESTS, (date) =>
-      copticIoGet(`/api/celebrations/${date}`, z.array(celebrationSchema).nullable())
-    ),
+    getCelebrationsForDates(unique),
   ])
 
   const monthDays = new Map<string, z.infer<typeof calendarMonthSchema>['days'][number]>()
@@ -357,16 +378,60 @@ export async function getLiturgicalCalendar(dates: string[]): Promise<Record<str
   }
 
   const result: Record<string, LiturgicalCalendarDay> = {}
-  unique.forEach((date, index) => {
+  for (const date of unique) {
     const day = monthDays.get(date)
-    const feasts = toFeasts(celebrations[index])
-    if (!day && feasts.length === 0) return
+    const dayCelebrations = celebrations.get(date)
+    // Either lookup failing leaves the day out, so the route marks the
+    // response incomplete and the browser doesn't keep a day without its feasts.
+    if (!day || dayCelebrations === undefined) continue
     result[date] = {
       date,
-      copticDate: toCopticDateInfo(day?.copticDate),
-      fast: toFast(day?.fasting),
-      feasts,
+      copticDate: toCopticDateInfo(day.copticDate),
+      fast: toFast(day.fasting),
+      feasts: toFeasts(dayCelebrations),
     }
+  }
+  return result
+}
+
+type Celebration = z.infer<typeof celebrationSchema>
+
+/**
+ * Celebrations for each date, keyed by date; a date whose lookup failed is
+ * absent. Dates inside Coptic IO's upcoming window come from one call; only
+ * the rest are fetched a day at a time.
+ */
+async function getCelebrationsForDates(dates: string[], now: Date = new Date()): Promise<Map<string, Celebration[]>> {
+  const result = new Map<string, Celebration[]>()
+
+  // The list starts at Coptic IO's "today" (UTC). Trust it a day in from both
+  // ends so a request straddling UTC midnight can't misplace a day. `from`
+  // isn't read by the API; it keys the cache by day, since the list moves daily.
+  const from = now.toISOString().slice(0, 10)
+  const windowStart = addDaysToDateKey(from, 1)
+  const windowEnd = addDaysToDateKey(from, UPCOMING_DAYS - 2)
+  const inWindow = dates.filter((date) => date >= windowStart && date <= windowEnd)
+
+  let rest = dates
+  if (inWindow.length > 0) {
+    const upcoming = await copticIoGet('/api/celebrations/upcoming/list', upcomingCelebrationsSchema, {
+      days: String(UPCOMING_DAYS),
+      from,
+    })
+    if (upcoming) {
+      const byDate = new Map(upcoming.map((day) => [day.date, day.celebrations]))
+      // The list only carries days that have celebrations; others have none.
+      for (const date of inWindow) result.set(date, byDate.get(date) ?? [])
+      rest = dates.filter((date) => !result.has(date))
+    }
+  }
+
+  const perDay = await mapWithLimit(rest, PER_DAY_CONCURRENCY, (date) =>
+    copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema)
+  )
+  rest.forEach((date, index) => {
+    const value = perDay[index]
+    if (value !== null) result.set(date, value)
   })
   return result
 }
