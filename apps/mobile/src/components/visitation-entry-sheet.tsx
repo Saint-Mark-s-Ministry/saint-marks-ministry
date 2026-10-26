@@ -21,6 +21,7 @@ export function VisitationEntrySheet({
   childId,
   childName,
   draftKey,
+  privateNoteHint,
   onClose,
   onSaved,
 }: {
@@ -28,6 +29,8 @@ export function VisitationEntrySheet({
   childName: string;
   /** A stable per-user-per-child key, so a draft survives dismissal/backgrounding (SecureStore). */
   draftKey: string | null;
+  /** Who can read the private note, worded for this session (Super Admin accounts can write but not read one). */
+  privateNoteHint: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -164,7 +167,7 @@ export function VisitationEntrySheet({
             onChange={(v) => setDraft((d) => ({ ...d, privateNote: v }))}
             disabled={action.busy}
           />
-          <Copy kind="caption">Only priests and super admins can read the private note — it never appears in this child's shared history.</Copy>
+          <Copy kind="caption">{privateNoteHint}</Copy>
 
           <Button label={action.busy ? "Saving…" : "Save visit"} disabled={action.busy} onPress={save} />
         </ScrollView>

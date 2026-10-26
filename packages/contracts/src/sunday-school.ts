@@ -739,3 +739,14 @@ export interface SundaySchoolAbsenceNotificationMetadata {
   weeks: number;
   threshold: 2 | 4;
 }
+
+/**
+ * `GET /api/sunday-school/priest-notes?childId=…`: confidential visitation notes, kept apart
+ * from the shared visitation records. Active priests read every note for the child; other
+ * authors read only their own; Super Admin accounts (including one that also holds the Priest
+ * tag) and every View as session are refused with 403. The visitations response says whether
+ * to ask at all (`standing.canReadPrivateNotes`).
+ */
+export interface SundaySchoolPriestNotesResponse {
+  notes: SundaySchoolPriestNote[];
+}

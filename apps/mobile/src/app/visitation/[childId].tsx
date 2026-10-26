@@ -2,14 +2,21 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator } from "react-native";
 import { Pressable, Switch, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import type { SundaySchoolPriestNote, SundaySchoolVisitationsResponse } from "@stmark/contracts";
+import type { SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { shortMonthDay } from "@/data/sunday-school-classes";
-import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
+import {
+  PRIVATE_NOTES_PROBLEM_MESSAGE,
+  PRIVATE_NOTES_TITLE,
+  privateNoteFieldHint,
+  privateNotesAccess,
+  privateNotesCaption,
+} from "@/data/private-notes";
+import { usePrivateNotes } from "@/data/use-private-notes";
 import { callOutcomeLabel, canLogPhoneCalls } from "@/data/sunday-school-phone-calls";
 import { StudentHistoryLink } from "@/components/student-history-parts";
 import { PriorityNoticeBanner, PriorityPill } from "@/components/priority-parts";
@@ -77,9 +84,9 @@ function VisitationChildScreen() {
   const canCall = canLogPhoneCalls({ classCanEdit: !!cls?.canEdit, role: user?.role, standingIsPriest: resource.data?.standing.isPriest, viewingAs: !!viewingAs });
 
   const [notesOpen, setNotesOpen] = useState(false);
-  const notes = useResource<{ notes: SundaySchoolPriestNote[] }>(
-    notesOpen ? `${endpoint("priest-notes")}?${query({ childId })}` : null,
-  );
+  // The response says whether this session may read confidential notes at all; unknown reads as no.
+  const notesAccess = privateNotesAccess(resource.data?.standing);
+  const notes = usePrivateNotes({ childId, access: notesAccess, open: notesOpen });
 
   const [entryOpen, setEntryOpen] = useState(false);
   const draftKey = user ? `stmark.visitation-draft.${user.id}.${childId}` : null;
@@ -240,38 +247,53 @@ function VisitationChildScreen() {
               </ListSurface>
             </View>
 
-            <ListSurface>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={notesOpen ? "Hide private notes to priests" : "Show private notes to priests"}
-                onPress={() => setNotesOpen((v) => !v)}
-                style={({ pressed }) => [
-                  { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
-                  { backgroundColor: pressed ? colors.hover : "transparent" },
-                ]}
-              >
-                <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}>
-                  <Icon ios="lock.shield" android="shield" size={16} color={colors.text2} />
-                </View>
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Copy>Private notes to priests</Copy>
-                  <Copy kind="caption">{confidentialNotesCaption(!!resource.data?.standing.isPriest)}</Copy>
-                </View>
-                <Icon ios={notesOpen ? "chevron.up" : "chevron.down"} android={notesOpen ? "expand_less" : "expand_more"} size={14} color={colors.muted} />
-              </Pressable>
-              {notesOpen && (
-                <View style={{ borderTopWidth: 0.5, borderTopColor: colors.border, padding: 16, gap: 10 }}>
-                  <ResourceState loading={notes.loading} error={notes.error} retry={() => void notes.refresh()} />
-                  {notes.data && !notes.data.notes.length && <Copy kind="caption">No confidential notes visible to you.</Copy>}
-                  {notes.data?.notes.map((n) => (
-                    <View key={n.id} style={{ gap: 2 }}>
-                      <Copy>{n.content}</Copy>
-                      <Copy kind="caption">{n.author.name} · {shortMonthDay(n.createdAt)}</Copy>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </ListSurface>
+            {/* Hidden, and never requested, when the server says this session can't read confidential notes
+                (Super Admin accounts, every View as session). */}
+            {notesAccess !== "none" && (
+              <ListSurface>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={notesOpen ? `Hide ${PRIVATE_NOTES_TITLE.toLowerCase()}` : `Show ${PRIVATE_NOTES_TITLE.toLowerCase()}`}
+                  accessibilityState={{ expanded: notesOpen }}
+                  onPress={() => setNotesOpen((v) => !v)}
+                  style={({ pressed }) => [
+                    { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
+                    { backgroundColor: pressed ? colors.hover : "transparent" },
+                  ]}
+                >
+                  <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.hover, alignItems: "center", justifyContent: "center" }}>
+                    <Icon ios="lock.shield" android="shield" size={16} color={colors.text2} />
+                  </View>
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Copy>{PRIVATE_NOTES_TITLE}</Copy>
+                    <Copy kind="caption">{privateNotesCaption(notesAccess)}</Copy>
+                  </View>
+                  <Icon ios={notesOpen ? "chevron.up" : "chevron.down"} android={notesOpen ? "expand_less" : "expand_more"} size={14} color={colors.muted} />
+                </Pressable>
+                {notesOpen && (
+                  <View style={{ borderTopWidth: 0.5, borderTopColor: colors.border, padding: 16, gap: 10 }}>
+                    {notes.loading && <ResourceState loading error={undefined} retry={() => void notes.retry()} />}
+                    {notes.problem && (
+                      <View accessibilityRole="alert" accessible style={{ gap: 6 }}>
+                        <Copy kind="caption">{PRIVATE_NOTES_PROBLEM_MESSAGE[notes.problem]}</Copy>
+                        {notes.problem === "retry" && (
+                          <Pressable accessibilityRole="button" accessibilityLabel="Try again" onPress={() => void notes.retry()} style={{ minHeight: 44, justifyContent: "center" }}>
+                            <Copy color={colors.primary} style={{ fontWeight: "600" }}>Try again</Copy>
+                          </Pressable>
+                        )}
+                      </View>
+                    )}
+                    {notes.notes && !notes.notes.length && <Copy kind="caption">No confidential notes visible to you.</Copy>}
+                    {notes.notes?.map((n) => (
+                      <View key={n.id} style={{ gap: 2 }}>
+                        <Copy>{n.content}</Copy>
+                        <Copy kind="caption">{n.author.name} · {shortMonthDay(n.createdAt)}</Copy>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </ListSurface>
+            )}
           </>
         )}
       </Screen>
@@ -342,6 +364,7 @@ function VisitationChildScreen() {
           childId={child.id}
           childName={`${child.firstName} ${child.lastName}`}
           draftKey={draftKey}
+          privateNoteHint={privateNoteFieldHint(notesAccess)}
           onClose={() => setEntryOpen(false)}
           onSaved={async () => {
             setEntryOpen(false);

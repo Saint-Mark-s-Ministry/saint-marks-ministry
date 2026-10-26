@@ -104,13 +104,6 @@ export function rowSubtitle(child: SundaySchoolVisitationChild, className: strin
   return className;
 }
 
-/** The confidential-notes section's own caption, honest about what this viewer can see — the real route does the actual filtering server-side; this never overrides it. */
-export function confidentialNotesCaption(isPriest: boolean): string {
-  return isPriest
-    ? "As a priest, you can read every confidential note for this child."
-    : "Only priests and each note's author can read these.";
-}
-
 export type EntryDraft = {
   status: "DONE" | "NOT_DONE";
   visitedAt: string;

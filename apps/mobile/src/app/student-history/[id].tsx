@@ -286,9 +286,12 @@ function NotesTab({ history }: { history: StudentHistory }) {
           </View>
         </ListSurface>
       )}
-      <Copy kind="caption" color={colors.muted} style={{ paddingHorizontal: 4 }}>
-        {CONFIDENTIAL_NOTES_NOTE}
-      </Copy>
+      {/* Said only to sessions the server lets read confidential notes; Super Admin accounts and View as are told nothing. */}
+      {history.canReadPrivateNotes === true && (
+        <Copy kind="caption" color={colors.muted} style={{ paddingHorizontal: 4 }}>
+          {CONFIDENTIAL_NOTES_NOTE}
+        </Copy>
+      )}
     </View>
   );
 }

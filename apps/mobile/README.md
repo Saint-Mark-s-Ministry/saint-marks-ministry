@@ -139,7 +139,7 @@ server's own role helpers where it does not; every write is still authorized on 
 | Sunday School phone calls and check-in responsibility | Read only | the server refuses priests; the app hides "Log a call" for them |
 | User accounts, access tags, Contact Book grants, audit log, servant applications, organization, MCP tokens | Not offered | Super Admin only (or the separate Contact Book grant); ministry editing never confers them |
 | Feedback moderation | Not offered | the API's `viewer.canModerate` |
-| Confidential notes to priests | Priests read; Super Admins and View as are excluded | the API's `canReadPrivateNotes` |
+| Confidential notes to priests | Priests read every note, other authors only their own; Super Admins (even if also tagged Priest) and every View as session are excluded, and the app doesn't even ask | the visitations response's `standing.canReadPrivateNotes` and `isPriest`; the private-note route only |
 
 **View as is read-only whoever starts it.** The app refuses every write while viewing as
 (`ViewAsReadOnly`, before the request is sent), hides the controls it owns, and the server

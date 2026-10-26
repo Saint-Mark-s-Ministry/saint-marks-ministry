@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SundaySchoolVisitationChild, SundaySchoolVisitationClass } from "@stmark/contracts";
 import {
-  confidentialNotesCaption,
   emptyEntryDraft,
   filterByStatus,
   flattenVisitationChildren,
@@ -106,13 +105,6 @@ describe("rowSubtitle", () => {
   it("falls back to the class name, not a blank line, when there's no completed visit (highest-risk path)", () => {
     expect(rowSubtitle(child({ visitations: [] }), "Grade 3 Girls")).toBe("Grade 3 Girls");
     expect(rowSubtitle(child({ visitations: [record({ status: "NOT_DONE", visitedAt: null })] }), "Grade 3 Girls")).toBe("Grade 3 Girls");
-  });
-});
-
-describe("confidentialNotesCaption", () => {
-  it("tells a priest they see every note, and everyone else the real, narrower rule", () => {
-    expect(confidentialNotesCaption(true)).toMatch(/every confidential note/);
-    expect(confidentialNotesCaption(false)).toMatch(/author can read/);
   });
 });
 

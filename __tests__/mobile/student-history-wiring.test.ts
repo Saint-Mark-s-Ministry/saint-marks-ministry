@@ -75,7 +75,9 @@ describe("student history on iOS: what the sheet shows", () => {
   it("leaves guardian and family contacts, and confidential notes, out", () => {
     expect(code).not.toMatch(/\.profile\b|guardian|motherPhone|fatherPhone|homeAddress|tel:|sms:/i);
     expect(sheet).toContain("CONFIDENTIAL_NOTES_NOTE");
-    expect(sheet).not.toContain("canReadPrivateNotes");
+    // The sheet reads the server's flag only to decide whether to mention confidential notes at all; it never asks for one.
+    expect(sheet.match(/canReadPrivateNotes/g)).toHaveLength(1);
+    expect(sheet).toContain("history.canReadPrivateNotes === true");
     expect(sheet).not.toContain("priest-notes");
   });
 

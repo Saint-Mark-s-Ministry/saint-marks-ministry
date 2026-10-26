@@ -105,6 +105,18 @@ export function invalidateResourceCache() {
   }
 }
 
+/**
+ * Forgets every cached answer whose key starts with `prefix` (a scope prefix such as
+ * `priest-notes:`), for content that must not outlive its screen, its viewer or its permission.
+ */
+export function dropResources(prefix: string) {
+  for (const key of [...cache.keys()]) {
+    if (!key.startsWith(prefix)) continue;
+    cache.delete(key);
+    emit(key);
+  }
+}
+
 export function clearResourceCache() {
   const keys = [...cache.keys()];
   cache.clear();
