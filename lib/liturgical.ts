@@ -17,6 +17,13 @@ export type { ChurchSeason, ChurchSeasonKey, ReadingCycle, ReadingCycleKind } fr
 
 export type LiturgicalLanguage = 'en' | 'ar'
 
+/**
+ * Sent as `v` on every /api/liturgical request. Bump it when what a response
+ * means changes (e.g. how seasons are labelled), so browsers skip answers
+ * they cached under the old meaning. The routes ignore it.
+ */
+export const LITURGICAL_API_VERSION = '2'
+
 export const LITURGICAL_LANGUAGES: readonly LiturgicalLanguage[] = ['en', 'ar']
 
 export function parseLiturgicalLanguage(value: string | null | undefined): LiturgicalLanguage {

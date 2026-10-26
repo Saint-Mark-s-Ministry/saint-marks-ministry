@@ -106,8 +106,8 @@ are built on that:
 
 | Layer | Where | Lifetime | What it adds |
 |---|---|---|---|
-| SWR | each browser tab | the session | No refetch while navigating. "Today" is passed as an explicit date from `useChurchToday()`, which rolls over at church midnight, so an open tab moves to the new day by itself. |
-| HTTP `Cache-Control` | each browser | pinned date: 1 day + 7 days stale-while-revalidate; "today": until church midnight; partial/failed answers: `no-store` | Reloads and new tabs skip the server. A failure is never pinned in the browser. |
+| SWR | each browser tab | the session | No refetch while navigating. "Today" is passed as an explicit date from `useChurchToday()`, which rolls over at church midnight, so an open tab moves to the new day by itself. Every request carries `v=LITURGICAL_API_VERSION` (`lib/liturgical.ts`); bump it when what a response means changes, so browsers skip answers cached under the old meaning. |
+| HTTP `Cache-Control` | each browser and phone | pinned date: 1 hour; "today": 1 hour or until church midnight, whichever is sooner; partial/failed answers: `no-store` | Reloads and new tabs skip the server. Kept short because our own season and cycle logic is part of every answer, so a fix must reach clients within the hour. A failure is never pinned in the browser. |
 | `UpstreamCache` (`lib/coptic-io-cache.ts`) | each server instance | fresh 6 h, then stale up to 7 days | Parsed values in memory; concurrent identical calls share one request; a failed reload serves the last good value (stale-if-error); a failure with no fallback is remembered for 60 s (negative cache); 3 failures in a row on one endpoint open that endpoint's circuit for 30 s (circuits are per endpoint, so the calendar's fan-out failing can't blank the Today card) so an outage costs one 5 s timeout instead of one per request; LRU-bounded at 1,000 entries. |
 | Next data cache (`fetch` `next.revalidate`) | shared across instances and deploys (Vercel) | 7 days, stale-while-revalidate, tag `coptic-io` | Cold instances start warm. Next stores only 200 responses, so an outage is never cached. |
 | Coptic IO edge | Cloudflare | 12 h | Their side; nothing to configure. |
@@ -208,20 +208,43 @@ When the cycle is one Coptic IO doesn't have (`readingCycle.available: false`):
 The Synaxarium is shown on every day, because it follows the Coptic date and
 is correct. The cycle is computed per request from the date, after Coptic IO's
 answer is read from cache, so a cached response can't carry a wrong cycle.
-Browsers may hold a pre-fix response for up to a day; the UI tolerates the
-older shape.
+Clients keep an answer for an hour at most, and the web app's `v` parameter
+skips answers cached before this change (which were cached for a day plus a
+week of stale-while-revalidate: why "Ordinary Time" lingered after the first
+deploy). The UI also tolerates the older response shape.
+
+### Labels and sources
+
+- **Annual Days** is the Church's own term for the days outside the seasons:
+  Katameros indexes are organised as "Seasons, Annual Days, Sundays, Kiahk"
+  ([St. Bishoy, Ottawa](https://saintbishoy.ca/deacons-corner/katameros/)).
+  The hymn tunes follow the same lines: annual (*sanawi*), festive (*farayhi*),
+  Kiahk (*kiahki*), fasting (*siyami*), sorrowful (*hazayni*, Holy Week) and
+  Palm (*sha'anini*, Palm Sunday and the Feasts of the Cross).
+- **Advent · Kiahk.** Advent (the Nativity Fast) begins on 16 Hator; the Kiahk
+  praises and tune run from 1 Kiahk until the Nativity Paramoun, so those days
+  are labelled "Advent · Kiahk" (still the `advent` key).
+- **The Katameros** has separate books for Sundays, weekdays, Great Lent, Holy
+  Week (Pascha) and the Fifty Days, which is how `ReadingCycleKind` is split.
+  Within the Holy 50s, a fixed feast falling on a Sunday yields to the Sunday
+  readings of the Fifty Days, consistent with the Holy 50s outranking feasts.
 
 ### Assumptions to confirm with the church
 
 These rules come from common Coptic practice and are covered by tests. Confirm
 them with Mina before treating them as final:
 
-- **Paramoun.** It is the eve of the Nativity or Theophany. When the feast falls
-  on a Sunday it starts on the Friday before, and on a Monday it covers Friday to
-  Sunday. Coptic IO's own static data instead marks a fixed 26–28 Kiahk and
+- **Paramoun.** It is the eve of the Nativity or Theophany. Abstinence isn't
+  kept on Saturdays or Sundays, so when the eve falls on a weekend the Paramoun
+  starts on the Friday before: a Monday feast gets Friday to Sunday, a Sunday
+  feast Friday and Saturday. Church sources agree on the Monday case; at least
+  one describes a Sunday feast as a Saturday–Sunday Paramoun, so confirm that
+  one. Coptic IO's own static data instead marks a fixed 26–28 Kiahk and
   8–10 Toba.
 - **Nativity Period** runs from 29 Kiahk to the Theophany Paramoun. **Theophany
-  Period** runs from 11 Toba through the Wedding at Cana (13 Toba).
+  Period** runs from 11 Toba through the Wedding at Cana (13 Toba). Sources
+  differ on which tune the Nativity uses (festive or Kiahk), so the ends of both
+  periods are the least certain labels here.
 - **Festive Days** are 1–19 Tout (Nayrouz through the Feast of the Cross), the
   29th of each month except Toba and Amshir, and the fixed feasts of the Lord,
   each only when no fast or season outranks it. The church described Festive

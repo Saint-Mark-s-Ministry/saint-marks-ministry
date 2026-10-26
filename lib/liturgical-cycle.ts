@@ -147,6 +147,8 @@ const SEASON_NAMES: Record<ChurchSeasonKey, { en: string; ar: string }> = {
 
 /** Day-specific names within a period. */
 const DAY_NAMES = {
+  // Kiahk's own praises and tune run from 1 Kiahk until the Nativity Paramoun.
+  kiahk: { en: 'Advent · Kiahk', ar: 'صوم الميلاد · شهر كيهك' },
   nativityFeast: { en: 'Nativity Feast', ar: 'عيد الميلاد المجيد' },
   theophanyFeast: { en: 'Theophany Feast', ar: 'عيد الغطاس المجيد' },
   jonahPassover: { en: 'Jonah’s Passover', ar: 'فصح يونان' },
@@ -240,7 +242,9 @@ export function getChurchSeason(dateKey: string, language: LiturgicalLanguage = 
     const theophanyParamoun = paramounStart(theophany)
     const cana = shift(theophany, 2)
 
-    if (dateKey >= adventStart && dateKey < nativityParamoun) return season('advent', adventStart, shift(nativityParamoun, -1))
+    if (dateKey >= adventStart && dateKey < nativityParamoun) {
+      return season('advent', adventStart, shift(nativityParamoun, -1), coptic.month === KIAHK ? DAY_NAMES.kiahk : undefined)
+    }
     if (dateKey >= nativityParamoun && dateKey < nativity) return season('nativityParamoun', nativityParamoun, shift(nativity, -1))
     if (dateKey >= nativity && dateKey < theophanyParamoun) {
       return season('nativity', nativity, shift(theophanyParamoun, -1), dateKey === nativity ? DAY_NAMES.nativityFeast : undefined)
