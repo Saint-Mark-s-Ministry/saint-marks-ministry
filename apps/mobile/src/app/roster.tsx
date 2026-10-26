@@ -6,9 +6,15 @@ import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import type { SFSymbol, AndroidSymbol } from "expo-symbols";
 import type { SundaySchoolChild, SundaySchoolDashboard } from "@stmark/contracts";
 import { compareAgeGroupsByLevel } from "@stmark/domain";
-import { Copy, Icon, InitialsAvatar, ListSurface, Screen, styles } from "@/components/ui";
+import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { StudentHistoryButton } from "@/components/student-history-parts";
+import { ChildAvatar, PhotoNoticeBanner, TakePhotoButton } from "@/components/child-photo-parts";
+import { useLargeType } from "@/components/attendance-history-parts";
+import { canChangeChildPhoto } from "@/data/child-photo";
+import { useChildPhotos } from "@/data/use-child-photos";
+import { useAuth } from "@/data/auth-provider";
+import { canEditChild } from "@/data/sunday-school-roster";
 import { apiOrigin } from "@/data/auth-provider";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -34,6 +40,11 @@ export default function Roster() {
   const [search, setSearch] = useState("");
 
   const resource = useResource<SundaySchoolChild[]>(`${endpoint("children")}?${query({ classId, isActive: status })}`);
+  const { user, viewingAs } = useAuth();
+  const large = useLargeType();
+  const isAdmin = user?.role === "SUPER_ADMIN";
+  // After the server confirms a photo, read the roster again so the row shows it.
+  const photos = useChildPhotos(resource.refresh);
   const access = ministryAccess(dashboard.data, classes);
   const ageGroups = [...(dashboard.data?.ageGroups ?? [])].sort(compareAgeGroupsByLevel);
   const activeAgeGroup = ageGroups.find((g) => g.id === ageGroupId);
@@ -118,9 +129,10 @@ export default function Roster() {
           />
         )}
 
-        <View style={[styles.row, { gap: 10, flexWrap: "wrap" }]}>
+        <View style={[styles.row, { gap: 10, flexWrap: "wrap", flexDirection: large ? "column" : "row", alignItems: large ? "flex-start" : "center" }]}>
           {classes.length > 2 && (
             <MenuView
+              style={{ minHeight: large ? 100 : 44, alignSelf: "flex-start" }}
               title="Class"
               actions={classActions}
               onPressAction={({ nativeEvent }) => setClassId(nativeEvent.event)}
@@ -130,6 +142,7 @@ export default function Roster() {
           )}
           {ageGroups.length > 1 && (
             <MenuView
+              style={{ minHeight: large ? 100 : 44, alignSelf: "flex-start" }}
               title="Age group"
               actions={ageGroupActions}
               onPressAction={({ nativeEvent }) => setAgeGroupId(nativeEvent.event)}
@@ -138,6 +151,7 @@ export default function Roster() {
             </MenuView>
           )}
           <MenuView
+            style={{ minHeight: large ? 100 : 44, alignSelf: "flex-start" }}
             title="Roster"
             actions={statusActions}
             onPressAction={({ nativeEvent }) => setStatus(nativeEvent.event)}
@@ -145,6 +159,14 @@ export default function Roster() {
             <FilterChip label={STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Roster"} />
           </MenuView>
         </View>
+
+        <PhotoNoticeBanner
+          notice={photos.notice}
+          uploading={photos.busyId ? "Saving photo…" : null}
+          onDismiss={photos.dismiss}
+          onChoose={(target) => void photos.choosePhoto(target)}
+          onOpenSettings={photos.openSettings}
+        />
 
         {offline && resource.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
@@ -177,7 +199,7 @@ export default function Roster() {
                 <View
                   key={child.id}
                   style={[
-                    { flexDirection: "row", alignItems: "center", minHeight: 62 },
+                    { flexDirection: large ? "column" : "row", alignItems: large ? "stretch" : "center", minHeight: 62 },
                     index < arr.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
                   ]}
                 >
@@ -186,21 +208,28 @@ export default function Roster() {
                     accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
                     onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
                     style={({ pressed }) => [
-                      { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingVertical: 10, minHeight: 62 },
+                      { flex: large ? undefined : 1, width: large ? "100%" : undefined, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: large ? 16 : 0, paddingVertical: 10, minHeight: 62 },
                       { backgroundColor: pressed ? colors.primarySoft : "transparent" },
                     ]}
                   >
-                    <InitialsAvatar name={`${child.firstName} ${child.lastName}`} variant="accent" />
+                    {!large && <ChildAvatar child={child} name={`${child.firstName} ${child.lastName}`} size={40} />}
                     <View style={{ flex: 1, gap: 1, justifyContent: "center" }}>
-                      <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
+                      <Copy numberOfLines={large ? undefined : 1} style={{ fontWeight: "500" }}>{truncatedName(child.firstName, child.lastName)}</Copy>
                       {/* An empty caption still renders a blank line, taller than the name alone —
                           that extra height is what pushed the name up off-center against the avatar. */}
                       {!!subtitle && <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>}
                     </View>
                     <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
                   </Pressable>
-                  {/* Its own control beside the row: the row opens the profile, this opens history. */}
-                  <View style={{ paddingHorizontal: 8 }}>
+                  {/* Their own controls beside the row: the row opens the profile, the camera takes a photo, the clock opens history. */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: large ? 16 : 8, paddingBottom: large ? 10 : 0 }}>
+                    {canChangeChildPhoto({ canEdit: canEditChild(child, classes, isAdmin), isActive: child.isActive, viewingAs: !!viewingAs }) && (
+                      <TakePhotoButton
+                        name={`${child.firstName} ${child.lastName}`}
+                        busy={photos.busyId === child.id}
+                        onPress={() => void photos.takePhoto({ id: child.id, name: `${child.firstName} ${child.lastName}` })}
+                      />
+                    )}
                     <StudentHistoryButton childId={child.id} name={`${child.firstName} ${child.lastName}`} />
                   </View>
                 </View>

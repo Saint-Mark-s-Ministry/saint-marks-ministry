@@ -10,7 +10,6 @@ import {
   Copy,
   CopyableValue,
   Icon,
-  InitialsAvatar,
   ListSurface,
   readableDate,
   SectionTitle,
@@ -22,6 +21,9 @@ import { Choice, Field, ResourceState, confirmAction, useAction } from "@/compon
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
+import { ChildAvatar, PhotoNoticeBanner } from "@/components/child-photo-parts";
+import { canChangeChildPhoto, hasOwnPhoto } from "@/data/child-photo";
+import { useChildPhotos } from "@/data/use-child-photos";
 import { validDate } from "@/data/ministry";
 import {
   attendancePercentage,
@@ -49,13 +51,17 @@ export default function Child() {
   const { colors } = useAppTheme();
   const resource = useResource<ChildDetail>(id === "new" ? null : endpoint("children", id));
   const { classes, refresh } = usePortal();
-  const { user } = useAuth();
+  const { user, viewingAs } = useAuth();
   const [editing, setEditing] = useState(false);
   const action = useAction();
   const child = resource.data;
   const isNew = id === "new";
   const isAdmin = user?.role === "SUPER_ADMIN";
   const canEdit = isNew || (child ? canEditChild(child, classes, isAdmin) : false);
+  // After the server confirms a photo, read the profile and the roster again.
+  const photos = useChildPhotos(() => Promise.all([resource.refresh(), refresh()]));
+  const canChangePhoto = !isNew && !!child && canChangeChildPhoto({ canEdit, isActive: child.isActive, viewingAs: !!viewingAs });
+  const photoTarget = child ? { id: child.id, name: `${child.firstName} ${child.lastName}` } : null;
   const done = async () => {
     setEditing(false);
     await Promise.all([resource.refresh(), refresh()]);
@@ -105,7 +111,7 @@ export default function Child() {
             )}
 
             <View style={{ alignItems: "center", gap: 8, paddingTop: 4 }}>
-              <InitialsAvatar name={`${child.firstName} ${child.lastName}`} size={76} variant="accent" />
+              <ChildAvatar child={child} name={`${child.firstName} ${child.lastName}`} size={76} />
               <Copy style={{ ...serifHero, }}>
                 {truncatedName(child.firstName, child.lastName)}
               </Copy>
@@ -114,6 +120,46 @@ export default function Child() {
                   .filter(Boolean)
                   .join(" · ")}
               </Copy>
+              {canChangePhoto && photoTarget && (
+                <View style={{ width: "100%", gap: 8 }}>
+                  <Button
+                    secondary
+                    label="Take photo"
+                    disabled={photos.busyId === child.id}
+                    onPress={() => void photos.takePhoto(photoTarget)}
+                  />
+                  <Button
+                    secondary
+                    label="Choose from library"
+                    disabled={photos.busyId === child.id}
+                    onPress={() => void photos.choosePhoto(photoTarget)}
+                  />
+                  {hasOwnPhoto(child) && (
+                    <Button
+                      secondary
+                      label="Remove photo"
+                      disabled={photos.busyId === child.id}
+                      onPress={() =>
+                        confirmAction(
+                          "Remove this photo?",
+                          "The saved photo is deleted. If this child has a linked account photo, that one shows instead.",
+                          () => void photos.removePhoto(photoTarget),
+                          true,
+                        )
+                      }
+                    />
+                  )}
+                </View>
+              )}
+              <View style={{ width: "100%" }}>
+                <PhotoNoticeBanner
+                  notice={photos.notice}
+                  uploading={photos.busyId ? "Saving photo…" : null}
+                  onDismiss={photos.dismiss}
+                  onChoose={(target) => void photos.choosePhoto(target)}
+                  onOpenSettings={photos.openSettings}
+                />
+              </View>
               <View style={[styles.row, { gap: 6, flexWrap: "wrap", justifyContent: "center" }]}>
                 {genderLabel(child.gender) && (
                   <View style={[styles.pill, { backgroundColor: colors.hover }]}>

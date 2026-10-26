@@ -147,7 +147,7 @@ function VisitationsScreen() {
         />
 
         <View style={[styles.row, { gap: 10 }]}>
-          <MenuView title="Sort" style={{ minHeight: 44, alignSelf: "flex-start" }} actions={sortActions} onPressAction={({ nativeEvent }) => setSort(nativeEvent.event as ChildSort)}>
+          <MenuView title="Sort" style={{ minHeight: large ? 110 : 44, alignSelf: "flex-start" }} actions={sortActions} onPressAction={({ nativeEvent }) => setSort(nativeEvent.event as ChildSort)}>
             <FilterChip label={SORT_LABEL[sort]} />
           </MenuView>
         </View>

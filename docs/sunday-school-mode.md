@@ -361,6 +361,18 @@ The camera stops on capture or dismissal. Denied permission, missing cameras,
 and unsupported browsers leave file upload available. Saving uses the existing
 child-photo endpoint and class-serving permission; no database migration is needed.
 
+**In the iOS app,** each roster row (for people who can edit that child and not in View as)
+has a camera button, and the child's profile has **Take photo**, **Choose from library** and
+**Remove photo**. Take photo asks for camera access only when tapped, then opens the system
+camera in the app (it can switch cameras and retake; **Use Photo** then leads to a square
+crop and confirm) and uploads to the same `POST /api/sunday-school/children/[id]/photo`
+(multipart field `file`); removal is `DELETE` on that route. If camera access is refused the app
+says so and offers Settings and the library, which needs no permission. Cancelling at any
+step changes nothing, and a failed upload says the saved photo is unchanged. The temporary
+picker file is deleted afterwards and nothing is saved to the Photos library. After the server
+confirms, the roster and profile are read again; a child without their own photo still shows
+the linked account's photo, and removing the child's photo brings that back.
+
 The app shell shows a **mode switcher** between Servants Prep and Sunday School
 for anyone with access to both. A Sunday School servant without an active
 Servants Prep Servant tag opens Sunday School by default, including when their
