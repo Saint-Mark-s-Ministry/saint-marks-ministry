@@ -7,6 +7,17 @@ import type { SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
 import { StudentHistoryButton } from "@/components/student-history-parts";
+import { PriorityNoticeBanner, PriorityPill, PriorityStar } from "@/components/priority-parts";
+import { useAuth } from "@/data/auth-provider";
+import { useLargeType } from "@/components/attendance-history-parts";
+import { useVisitationPriority } from "@/data/use-visitation-priority";
+import {
+  PRIORITY_FILTER_LABEL,
+  applyPriorityOverrides,
+  canEditPriority,
+  filterByPriority,
+  priorityCount,
+} from "@/data/visitation-priority";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -50,16 +61,26 @@ function VisitationsScreen() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<ChildSort>("name");
   const [search, setSearch] = useState("");
+  const [priorityOnly, setPriorityOnly] = useState(false);
+  const { viewingAs } = useAuth();
+  const large = useLargeType();
 
   const resource = useResource<SundaySchoolVisitationsResponse>(`${endpoint("visitations")}?${query({ classId })}`);
   const offline = resource.error === OFFLINE;
 
-  const allRows = useMemo(() => flattenVisitationChildren(resource.data?.classes ?? []), [resource.data]);
+  const priority = useVisitationPriority(resource.refresh);
+  // A tap shows at once; the server's answer replaces it after the save.
+  const allRows = useMemo(
+    () => flattenVisitationChildren(applyPriorityOverrides(resource.data?.classes ?? [], priority.overrides)),
+    [resource.data, priority.overrides],
+  );
+  const priorityTotal = priorityCount(allRows);
   const summary = visitationSummary(allRows.map((r) => r.child));
   const primaryClass = classes.find((c) => c.id === classId);
 
   let rows = search.trim() ? allRows.filter((r) => matchesSearch(r.child, search)) : allRows;
   rows = filterByStatus(rows, status);
+  rows = filterByPriority(rows, priorityOnly);
   rows = sortFlatChildren(rows, sort);
 
   const classActions: MenuAction[] = [
@@ -89,7 +110,7 @@ function VisitationsScreen() {
         placeholder="Find a child"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />
-      <Screen resetOnFocus refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
+      <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
           <Copy kind="caption">{primaryClass?.name ?? "All accessible classes"}</Copy>
         </View>
@@ -126,10 +147,35 @@ function VisitationsScreen() {
         />
 
         <View style={[styles.row, { gap: 10 }]}>
-          <MenuView title="Sort" actions={sortActions} onPressAction={({ nativeEvent }) => setSort(nativeEvent.event as ChildSort)}>
+          <MenuView title="Sort" style={{ minHeight: 44, alignSelf: "flex-start" }} actions={sortActions} onPressAction={({ nativeEvent }) => setSort(nativeEvent.event as ChildSort)}>
             <FilterChip label={SORT_LABEL[sort]} />
           </MenuView>
         </View>
+
+        <View style={{ flexDirection: "row" }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${PRIORITY_FILTER_LABEL}, ${priorityTotal}`}
+            accessibilityState={{ selected: priorityOnly }}
+            onPress={() => setPriorityOnly((on) => !on)}
+            style={({ pressed }) => [
+              styles.pill,
+              {
+                minHeight: 36,
+                borderWidth: 1,
+                borderColor: priorityOnly ? colors.warning : colors.border,
+                backgroundColor: priorityOnly ? colors.warningSoft : pressed ? colors.hover : colors.surface,
+              },
+            ]}
+          >
+            <Icon ios={priorityOnly ? "star.fill" : "star"} android={priorityOnly ? "star" : "star_border"} size={12} color={priorityOnly ? colors.warning : colors.muted} />
+            <Copy kind="caption" color={priorityOnly ? colors.warning : colors.text} style={{ fontWeight: "600" }}>
+              {PRIORITY_FILTER_LABEL} · {priorityTotal}
+            </Copy>
+          </Pressable>
+        </View>
+
+        <PriorityNoticeBanner notice={priority.notice} onDismiss={priority.dismiss} />
 
         {offline && resource.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
@@ -143,9 +189,15 @@ function VisitationsScreen() {
 
         {resource.data && !rows.length && (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
-            <Copy kind="heading">{allRows.length ? "No children match" : "No children yet"}</Copy>
+            <Copy kind="heading">
+              {priorityOnly && !priorityTotal ? "No priority visits" : allRows.length ? "No children match" : "No children yet"}
+            </Copy>
             <Copy kind="caption" style={{ textAlign: "center" }}>
-              {allRows.length ? "Try another class, status, or search." : "Children in an accessible class will appear here."}
+              {priorityOnly && !priorityTotal
+                ? "Star a child to add them to your class team's shared follow-up list."
+                : allRows.length
+                  ? "Try another class, status, or search."
+                  : "Children in an accessible class will appear here."}
             </Copy>
           </View>
         )}
@@ -156,30 +208,44 @@ function VisitationsScreen() {
             <ListSurface>
               {rows.map((row, index, arr) => {
                 const tone = visitationTone(row.child);
+                const childName = `${row.child.firstName} ${row.child.lastName}`;
+                const canStar = canEditPriority({ classCanEdit: row.canEdit, viewingAs: !!viewingAs });
                 const pill = tone === "done" ? { color: colors.success, soft: colors.successSoft, label: "Done" } : { color: colors.warning, soft: colors.warningSoft, label: "Not done" };
                 return (
                   <View key={row.child.id}>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {/* At the largest text sizes the name cannot share a line with the avatar and two buttons: stack the buttons under the row and leave out the decorative avatar. */}
+                    <View style={{ flexDirection: large ? "column" : "row", alignItems: large ? "stretch" : "center" }}>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`${row.child.firstName} ${row.child.lastName}, ${pill.label}`}
+                        accessibilityLabel={`${childName}, ${pill.label}${row.child.visitationPriority ? ", priority visit" : ""}`}
                         onPress={() => router.push({ pathname: "/visitation/[childId]", params: { childId: row.child.id, classId: row.classId } })}
                         style={({ pressed }) => [
-                          { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingVertical: 10, minHeight: 62 },
+                          { flex: large ? undefined : 1, width: large ? "100%" : undefined, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: large ? 16 : 0, paddingVertical: 10, minHeight: 62 },
                           { backgroundColor: pressed ? colors.primarySoft : "transparent" },
                         ]}
                       >
-                        <InitialsAvatar name={`${row.child.firstName} ${row.child.lastName}`} size={36} variant="accent" />
+                        {!large && <InitialsAvatar name={`${row.child.firstName} ${row.child.lastName}`} size={36} variant="accent" />}
                         <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
-                          <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{row.child.firstName} {row.child.lastName}</Copy>
-                          <Copy kind="caption" numberOfLines={1}>{rowSubtitle(row.child, row.className)}</Copy>
+                          <Copy numberOfLines={large ? undefined : 2} style={{ fontWeight: "500" }}>{row.child.firstName} {row.child.lastName}</Copy>
+                          <Copy kind="caption" numberOfLines={large ? undefined : 1}>{rowSubtitle(row.child, row.className)}</Copy>
+                          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                            <StatusPill label={pill.label} color={pill.color} soft={pill.soft} />
+                            {row.child.visitationPriority && <PriorityPill />}
+                          </View>
                         </View>
-                        <StatusPill label={pill.label} color={pill.color} soft={pill.soft} />
                         <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
                       </Pressable>
-                      {/* Its own control beside the row: the row opens visitations, this opens history. */}
-                      <View style={{ paddingHorizontal: 8 }}>
-                        <StudentHistoryButton childId={row.child.id} name={`${row.child.firstName} ${row.child.lastName}`} />
+                      {/* Their own controls beside the row: the row opens visitations, the star sets the shared priority, the clock opens history. */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: large ? 16 : 8, paddingBottom: large ? 10 : 0 }}>
+                        {canStar && (
+                          <PriorityStar
+                            name={childName}
+                            on={row.child.visitationPriority}
+                            saving={!!priority.saving[row.child.id]}
+                            onToggle={() => void priority.toggle(row.child.id, !row.child.visitationPriority)}
+                          />
+                        )}
+                        <StudentHistoryButton childId={row.child.id} name={childName} />
                       </View>
                     </View>
                     {index < arr.length - 1 && <View style={{ height: 0.5, marginLeft: 64, backgroundColor: colors.border }} />}

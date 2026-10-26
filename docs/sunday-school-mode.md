@@ -708,6 +708,15 @@ never clears a star automatically. Priests can view and change priorities across
 requires current class-serving authority; an atomic update rejects concurrent
 class transfers. The child flag follows the child if the roster is transferred.
 
+**The iOS app** shows the flag on **Visitations**: a **Priority visit** label on each
+starred child, a **Priority visits · N** filter that combines with the Done / Not done
+filter, and a star beside the row (a switch on the child's record) for people the
+response lets edit (`classes[].canEdit`, so priests and admins in every class; never
+in View as). A tap shows at once and is saved with `PATCH`; if the save fails the star
+returns to what the server has and a message says why. A 403 or a 409 (the child moved
+class) also refreshes the list. Recording a visit or call never sends the flag. The
+list keeps its filters and scroll position after opening a child.
+
 Migration: `20261014120000_add_visitation_priority` adds a non-null boolean with
 `false` as its default. Apply the committed migration with the direct connection
 using `bun db:deploy` before deploying the code, following the migration runbook.

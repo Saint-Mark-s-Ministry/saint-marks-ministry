@@ -695,3 +695,14 @@ export interface IndividualAttendanceHistory {
 export interface IndividualAttendanceResponse extends IndividualAttendanceHistory {
   classroom: { id: string; name: string };
 }
+
+/** `PATCH /api/sunday-school/visitations`: the shared class-team priority flag, separate from visit and call history. */
+export interface SundaySchoolVisitationPriorityRequest {
+  childId: string;
+  priority: boolean;
+}
+
+export interface SundaySchoolVisitationPriorityResponse {
+  id: string;
+  visitationPriority: boolean;
+}

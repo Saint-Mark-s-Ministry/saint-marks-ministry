@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, Switch, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import type { SundaySchoolPriestNote, SundaySchoolVisitationsResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
@@ -11,6 +11,9 @@ import { shortMonthDay } from "@/data/sunday-school-classes";
 import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
 import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
 import { StudentHistoryLink } from "@/components/student-history-parts";
+import { PriorityNoticeBanner, PriorityPill } from "@/components/priority-parts";
+import { useVisitationPriority } from "@/data/use-visitation-priority";
+import { PRIORITY_EXPLAINER, PRIORITY_LABEL, canEditPriority, priorityToggleLabel } from "@/data/visitation-priority";
 import { VisitationEntrySheet } from "@/components/visitation-entry-sheet";
 import { PhoneCallEntrySheet } from "@/components/phone-call-entry-sheet";
 import { MinistryTintProvider, useAppTheme, serifHero } from "@/theme";
@@ -28,13 +31,19 @@ export default function VisitationChild() {
 function VisitationChildScreen() {
   const { childId, classId } = useLocalSearchParams<{ childId: string; classId: string }>();
   const { colors } = useAppTheme();
-  const { user } = useAuth();
+  const { user, viewingAs } = useAuth();
   const portal = usePortal();
   const resource = useResource<SundaySchoolVisitationsResponse>(`${endpoint("visitations")}?${query({ classId })}`);
   const offline = resource.error === OFFLINE;
 
+  const priority = useVisitationPriority(resource.refresh);
   const cls = resource.data?.classes.find((c) => c.id === classId);
-  const child = cls?.children.find((c) => c.id === childId);
+  const serverChild = cls?.children.find((c) => c.id === childId);
+  // A toggle shows at once; the server's answer replaces it after the save.
+  const child = serverChild && serverChild.id in priority.overrides
+    ? { ...serverChild, visitationPriority: priority.overrides[serverChild.id] }
+    : serverChild;
+  const canStar = canEditPriority({ classCanEdit: !!cls?.canEdit, viewingAs: !!viewingAs });
 
   const [notesOpen, setNotesOpen] = useState(false);
   const notes = useResource<{ notes: SundaySchoolPriestNote[] }>(
@@ -89,6 +98,29 @@ function VisitationChildScreen() {
                 />
               )}
             </View>
+
+            <PriorityNoticeBanner notice={priority.notice} onDismiss={priority.dismiss} />
+
+            {/* The shared priority flag, kept apart from the visit and call histories below. */}
+            <ListSurface>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 16 }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <Copy style={{ fontWeight: "500" }}>{PRIORITY_LABEL}</Copy>
+                    {!canStar && child.visitationPriority && <PriorityPill />}
+                  </View>
+                  <Copy kind="caption">{PRIORITY_EXPLAINER}</Copy>
+                </View>
+                {canStar && (
+                  <Switch
+                    accessibilityLabel={priorityToggleLabel(`${child.firstName} ${child.lastName}`, child.visitationPriority)}
+                    value={child.visitationPriority}
+                    disabled={!!priority.saving[child.id]}
+                    onValueChange={(next) => void priority.toggle(child.id, next)}
+                  />
+                )}
+              </View>
+            </ListSurface>
 
             <View style={{ gap: 10 }}>
               <SectionTitle title="History" />
