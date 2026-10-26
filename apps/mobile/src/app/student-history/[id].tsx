@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Image, PixelRatio, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import {
@@ -38,6 +38,7 @@ import {
   type Tone,
 } from "@/data/student-history";
 import { useStudentHistory } from "@/data/use-student-history";
+import { useLargeType } from "@/components/attendance-history-parts";
 import { MinistryTintProvider, serifHero, useAppTheme } from "@/theme";
 
 /**
@@ -133,6 +134,7 @@ function toneColors(tone: Tone, colors: ReturnType<typeof useAppTheme>["colors"]
 
 function Header({ name, history }: { name: string; history?: StudentHistory }) {
   const { colors } = useAppTheme();
+  const large = useLargeType();
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
       {history?.photoUrl ? (
@@ -144,7 +146,7 @@ function Header({ name, history }: { name: string; history?: StudentHistory }) {
         />
       ) : (
         // Decorative: at the largest text sizes the initials outgrow the circle, so leave it out.
-        PixelRatio.getFontScale() <= 1.6 && (
+        !large && (
           <View style={{ width: 56, height: 56, flexShrink: 0 }}>
             <InitialsAvatar name={name} size={56} variant="accent" />
           </View>
@@ -174,12 +176,13 @@ function Header({ name, history }: { name: string; history?: StudentHistory }) {
 
 function Summary({ history }: { history: StudentHistory }) {
   const { colors } = useAppTheme();
+  const large = useLargeType();
   const last = lastVisit(history);
   const call = history.phoneCalls[0];
   const rate = history.attendance.rate;
   const tone = toneColors(rateTone(rate), colors);
   // At the largest Dynamic Type sizes three columns cannot hold a word each, so stack them.
-  const stacked = PixelRatio.getFontScale() > 1.6;
+  const stacked = large;
   const cell = (label: string, value: string, color?: string) => (
     <View style={{ flex: stacked ? undefined : 1, alignItems: stacked ? "flex-start" : "center", gap: 2 }}>
       <Copy kind="caption">{label}</Copy>

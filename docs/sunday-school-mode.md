@@ -686,6 +686,21 @@ resolver, matching the existing attendance editor while year backfills are being
 reconciled. It returns names and class-scoped attendance marks without contact,
 attendance notes, or pastoral notes.
 
+**The iOS app** reads the same endpoint (types in `@stmark/contracts`:
+`IndividualAttendanceResponse`). **Take attendance → ⋯ → Individual history**, or
+**Individual attendance history** on a class, pushes a read-only screen over the
+attendance editor, which stays mounted, so pending marks and notes are never
+read or changed. Each child is a row with the server's rate and Present / Late /
+Absent counts (no Excused total) and a strip of the latest meetings; blank cells
+show a dash and read "Unrecorded". Former roster members carry a **Former**
+badge. Search and first/last-name sort match the web view. Tapping a name opens
+that child's saved weeks, newest first, as a sheet built from the same payload,
+so former members open too. The class picker only changes what this screen
+asks for. The cache is keyed by viewer (and View as original) and class; the
+screen asks again on every open, so a confirmed attendance save is reflected, and
+a 403 or 404 clears the cached answer. Contacts, attendance notes and pastoral
+notes are not in the payload and not shown.
+
 On **Visitations**, servants can star a child and use **Priority visits** to see
 that class's shared follow-up list. Stars persist across devices for the whole
 class team, separately from visit and phone-call histories. Recording a visit

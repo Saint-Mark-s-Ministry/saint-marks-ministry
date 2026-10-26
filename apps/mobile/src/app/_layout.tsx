@@ -134,6 +134,23 @@ function Navigation() {
           }}
         />
         <Stack.Screen
+          name="attendance-history/[classId]"
+          options={{ title: "Individual history" }}
+        />
+        <Stack.Screen
+          name="attendance-child/[childId]"
+          options={{
+            title: "Attendance",
+            headerLargeTitle: false,
+            headerTransparent: false,
+            presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+            sheetAllowedDetents: Platform.OS === "ios" ? [0.62, 0.95] : undefined,
+            sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
+            sheetGrabberVisible: Platform.OS === "ios",
+            sheetExpandsWhenScrolledToEdge: Platform.OS === "ios",
+          }}
+        />
+        <Stack.Screen
           name="student-history/[id]"
           options={{
             title: "History",

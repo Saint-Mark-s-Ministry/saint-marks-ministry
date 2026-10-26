@@ -667,3 +667,31 @@ export interface StudentHistory {
     callerName: string;
   }>;
 }
+
+/**
+ * `GET /api/sunday-school/attendance/history?classId=…`: one active class's saved
+ * attendance by child and meeting date. Names and class-scoped marks only; no
+ * contacts, attendance notes or pastoral notes. Counts and rate are the server's
+ * (late earns half credit, excused is excluded, blank cells are unrecorded).
+ */
+export interface IndividualAttendanceChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  /** False for a former roster member who still has saved marks in this class. */
+  onRoster: boolean;
+  /** Saved marks by `YYYY-MM-DD`; a missing date is unrecorded, not absent. */
+  attendance: Record<string, AttendanceStatus>;
+  counts: AttendanceCounts;
+  rate: number | null;
+}
+
+export interface IndividualAttendanceHistory {
+  /** Past scheduled dates and saved sessions, oldest first. */
+  dates: string[];
+  children: IndividualAttendanceChild[];
+}
+
+export interface IndividualAttendanceResponse extends IndividualAttendanceHistory {
+  classroom: { id: string; name: string };
+}

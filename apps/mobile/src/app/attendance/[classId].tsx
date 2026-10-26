@@ -28,6 +28,7 @@ import { MinistryTintProvider } from "@/theme";
 import { absenceContact, type AbsenceContact } from "@/data/sunday-school-roster";
 import { smsUrl, telUrl } from "@/data/contact-book";
 import { endpoint, useResource } from "@/data/resources";
+import { individualAttendanceRoute } from "@/data/individual-attendance";
 
 const STATUSES: { value: AttendanceStatus; label: string }[] = [
   { value: "PRESENT", label: "Present" },
@@ -266,10 +267,13 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
               actions={[
                 { id: "photos", title: "Include photos", state: showPhotos ? "on" : "off" },
                 { id: "gender", title: "Group by gender", state: groupByGender ? "on" : "off" },
+                { id: "history", title: "Individual history", image: "clock.arrow.circlepath" },
               ]}
               onPressAction={({ nativeEvent }) => {
                 if (nativeEvent.event === "photos") setShowPhotos((v) => !v);
                 if (nativeEvent.event === "gender") setGroupByGender((v) => !v);
+                // Pushed over this screen, which stays mounted: pending marks and notes are untouched.
+                if (nativeEvent.event === "history") router.push(individualAttendanceRoute(classId));
               }}
             >
               <Pressable accessibilityRole="button" accessibilityLabel="More options" hitSlop={8} style={{ padding: 6 }}>
@@ -317,6 +321,19 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             Last week: {lastWeekSummary.present} of {lastWeekSummary.total} present
           </Copy>
         )}
+        {/* Pushed over this screen, which stays mounted: pending marks and notes are untouched. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Individual history"
+          onPress={() => router.push(individualAttendanceRoute(classId))}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 14,
+            borderRadius: 16, backgroundColor: pressed ? colors.primarySoft : colors.hover, alignSelf: "flex-start",
+          })}
+        >
+          <Icon ios="clock.arrow.circlepath" android="history" size={18} color={colors.primary} />
+          <Copy color={colors.primary} style={{ fontWeight: "600" }}>Individual history</Copy>
+        </Pressable>
 
         {!current && !loadError && (
           <ActivityIndicator

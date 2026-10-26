@@ -11,6 +11,8 @@ export const authenticatedRoutes = [
   "age-groups",
   "applications",
   "attendance/[classId]",
+  "attendance-child/[childId]",
+  "attendance-history/[classId]",
   "change-password",
   "child/[id]",
   "class/[id]",

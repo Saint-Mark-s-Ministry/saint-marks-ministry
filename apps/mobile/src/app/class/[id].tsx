@@ -14,6 +14,7 @@ import { Choice, Field, ResourceState, confirmAction, useAction } from "@/compon
 import { Staffing } from "@/components/staffing";
 import { endpoint, request, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
+import { individualAttendanceRoute } from "@/data/individual-attendance";
 import { usePortal, meetingDate } from "@/data/portal-provider";
 import {
   attendanceTone,
@@ -152,6 +153,11 @@ function ClassDetailScreen() {
             <Button
               label={`${cls.canServe ? "Take" : "View"} attendance · ${shortMonthDay(meetingDate(cls))}`}
               onPress={() => router.push({ pathname: "/attendance/[classId]", params: { classId: id } })}
+            />
+            <Button
+              secondary
+              label="Individual attendance history"
+              onPress={() => router.push(individualAttendanceRoute(id))}
             />
             {(cls.canViewServantAttendance || cls.canTakeServantAttendance) && (
               <Button
