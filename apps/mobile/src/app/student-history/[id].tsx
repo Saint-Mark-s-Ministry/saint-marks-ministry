@@ -39,6 +39,8 @@ import {
 } from "@/data/student-history";
 import { useStudentHistory } from "@/data/use-student-history";
 import { useLargeType } from "@/components/attendance-history-parts";
+import { PrepStudentBadge } from "@/components/prep-student-badge";
+import { showsPrepStudentBadge } from "@/data/prep-student";
 import { MinistryTintProvider, serifHero, useAppTheme } from "@/theme";
 
 /**
@@ -157,15 +159,9 @@ function Header({ name, history }: { name: string; history?: StudentHistory }) {
           {name}
         </Copy>
         {!!history && <Copy kind="caption">{history.subtitle}</Copy>}
-        {!!history && (history.isServantsPrepStudent || history.priority?.value) && (
+        {!!history && (showsPrepStudentBadge(history) || history.priority?.value) && (
           <View style={[styles.row, { gap: 6, flexWrap: "wrap" }]}>
-            {history.isServantsPrepStudent && (
-              <View style={[styles.pill, { backgroundColor: colors.primarySoft }]}>
-                <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>
-                  SP Student
-                </Copy>
-              </View>
-            )}
+            {showsPrepStudentBadge(history) && <PrepStudentBadge />}
             {history.priority?.value && <StatusPill label="Priority visit" color={colors.warning} soft={colors.warningSoft} />}
           </View>
         )}

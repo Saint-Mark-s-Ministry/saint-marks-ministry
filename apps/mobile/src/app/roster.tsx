@@ -12,6 +12,8 @@ import { StudentHistoryButton } from "@/components/student-history-parts";
 import { ChildAvatar, PhotoNoticeBanner, TakePhotoButton } from "@/components/child-photo-parts";
 import { useLargeType } from "@/components/attendance-history-parts";
 import { canChangeChildPhoto } from "@/data/child-photo";
+import { PrepStudentBadge } from "@/components/prep-student-badge";
+import { showsPrepStudentBadge, withPrepStudentSpoken } from "@/data/prep-student";
 import { useChildPhotos } from "@/data/use-child-photos";
 import { useAuth } from "@/data/auth-provider";
 import { canEditChild } from "@/data/sunday-school-roster";
@@ -205,7 +207,7 @@ export default function Roster() {
                 >
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${child.firstName} ${child.lastName}${!child.isActive ? ", inactive" : ""}`}
+                    accessibilityLabel={`${withPrepStudentSpoken(`${child.firstName} ${child.lastName}`, child)}${!child.isActive ? ", inactive" : ""}`}
                     onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
                     style={({ pressed }) => [
                       { flex: large ? undefined : 1, width: large ? "100%" : undefined, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: large ? 16 : 0, paddingVertical: 10, minHeight: 62 },
@@ -218,6 +220,11 @@ export default function Roster() {
                       {/* An empty caption still renders a blank line, taller than the name alone —
                           that extra height is what pushed the name up off-center against the avatar. */}
                       {!!subtitle && <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>}
+                      {showsPrepStudentBadge(child) && (
+                        <View style={{ marginTop: 3 }}>
+                          <PrepStudentBadge />
+                        </View>
+                      )}
                     </View>
                     <Icon ios="chevron.right" android="chevron_right" size={16} color={colors.muted} />
                   </Pressable>

@@ -22,6 +22,8 @@ import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { ChildAvatar, PhotoNoticeBanner } from "@/components/child-photo-parts";
+import { PrepStudentBadge } from "@/components/prep-student-badge";
+import { showsPrepStudentBadge } from "@/data/prep-student";
 import { canChangeChildPhoto, hasOwnPhoto } from "@/data/child-photo";
 import { useChildPhotos } from "@/data/use-child-photos";
 import { validDate } from "@/data/ministry";
@@ -161,6 +163,7 @@ export default function Child() {
                 />
               </View>
               <View style={[styles.row, { gap: 6, flexWrap: "wrap", justifyContent: "center" }]}>
+                {showsPrepStudentBadge(child) && <PrepStudentBadge />}
                 {genderLabel(child.gender) && (
                   <View style={[styles.pill, { backgroundColor: colors.hover }]}>
                     <Copy kind="caption">{genderLabel(child.gender)}</Copy>
