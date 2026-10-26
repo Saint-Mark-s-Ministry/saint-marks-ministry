@@ -108,9 +108,9 @@ describe('navigationFor', () => {
     expect(hrefs('PRIEST', 'sunday-school', servesSS)).toContain(meetings)
   })
 
-  it('gives every servant the same five places, in order', () => {
+  it('gives every servant the same workspace tools, in order', () => {
     const [main] = navigationFor({ role: 'SERVANT', ...servesSS }, 'sunday-school')
-    expect(main.items.map((i) => i.label)).toEqual(['Home', 'Attendance', 'Children', 'Care', 'Lessons'])
+    expect(main.items.map((i) => i.label)).toEqual(['Home', 'Attendance', 'Children', 'Care', 'Lessons', 'Memorization'])
     expect(main.items.filter((i) => i.tab).map((i) => i.label)).toEqual(['Home', 'Attendance', 'Children', 'Lessons'])
   })
 
