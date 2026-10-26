@@ -11,6 +11,10 @@
  * permission checks.
  */
 
+import type { ChurchSeason, ReadingCycle } from '@/lib/liturgical-cycle'
+
+export type { ChurchSeason, ChurchSeasonKey, ReadingCycle, ReadingCycleKind } from '@/lib/liturgical-cycle'
+
 export type LiturgicalLanguage = 'en' | 'ar'
 
 export const LITURGICAL_LANGUAGES: readonly LiturgicalLanguage[] = ['en', 'ar']
@@ -41,12 +45,8 @@ export interface LiturgicalFast {
   type: string | null
 }
 
-export interface LiturgicalSeason {
-  name: string
-  description: string | null
-  startDate: string | null
-  endDate: string | null
-}
+/** The church season, computed locally (lib/liturgical-cycle.ts), not taken from Coptic IO. */
+export type LiturgicalSeason = ChurchSeason
 
 export interface ReadingReference {
   key: ReadingKey
@@ -65,13 +65,15 @@ export interface LiturgicalDay {
   date: string
   language: LiturgicalLanguage
   copticDate: CopticDateInfo | null
-  season: LiturgicalSeason | null
-  /** e.g. "Week 3, Wednesday" during Great Lent. */
+  season: LiturgicalSeason
+  /** What the day is within its cycle, e.g. "Monday of the third week of Great Lent" or "2nd Sunday of Baba". */
   seasonDay: string | null
   /** null when fasting status could not be loaded; `{ fast: null }` is a known non-fasting day. */
   fasting: { fast: LiturgicalFast | null } | null
   feasts: LiturgicalFeast[]
   saints: LiturgicalSaint[]
+  /** The Katameros cycle the day reads from. When `readingCycle.available` is false, `readings` is empty. */
+  readingCycle: ReadingCycle
   readings: ReadingReference[]
   /** False when every upstream call failed; the UI shows a quiet fallback. */
   available: boolean
@@ -106,9 +108,16 @@ export interface DailyReadings {
   date: string
   language: LiturgicalLanguage
   copticDate: CopticDateInfo | null
-  season: string | null
+  season: string
   seasonDay: string | null
+  readingCycle: ReadingCycle
+  /** The day's readings; empty when Coptic IO doesn't have the day's cycle (`readingCycle.available` is false). */
   sections: ReadingSection[]
+  /**
+   * Only when the day's cycle is unavailable: the annual readings Coptic IO has
+   * for the Coptic date (`readingCycle.annualDay`). Not the day's readings.
+   */
+  annualSections: ReadingSection[]
   synaxarium: SynaxariumStory[]
 }
 

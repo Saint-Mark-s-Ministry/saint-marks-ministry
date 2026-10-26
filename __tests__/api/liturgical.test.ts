@@ -55,6 +55,18 @@ describe('liturgical API', () => {
     expect(language).toBe('en')
   })
 
+  it('defaults to the church’s date, so late Sunday evening in New York is still Sunday', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-19T03:30:00Z'), toFake: ['Date'] })
+    try {
+      await getDay(request('/api/liturgical/day'))
+      await getReadings(request('/api/liturgical/readings'))
+      expect(mocks.day).toHaveBeenCalledWith('2026-10-18', 'en')
+      expect(mocks.readings).toHaveBeenCalledWith('2026-10-18', 'en')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('passes an explicit date and Arabic through', async () => {
     await getDay(request('/api/liturgical/day?date=2027-01-07&lang=ar'))
     expect(mocks.day).toHaveBeenCalledWith('2027-01-07', 'ar')

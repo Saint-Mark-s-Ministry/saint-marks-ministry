@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-io-cache'
 import { parseJsonBody } from '@/lib/coptic-io-body'
+import { getChurchSeason, getReadingCycle } from '@/lib/liturgical-cycle'
 import {
   addDaysToDateKey,
   secondsUntilChurchMidnight,
@@ -18,7 +19,7 @@ import {
   type LiturgicalFast,
   type LiturgicalFeast,
   type LiturgicalLanguage,
-  type LiturgicalSeason,
+  type ReadingCycle,
   type ReadingReference,
   type ReadingSection,
 } from '@/lib/liturgical'
@@ -96,13 +97,6 @@ const fastingSchema = z.object({
   description: z.string().nullable().optional(),
 })
 
-const seasonSchema = z.object({
-  season: z.string(),
-  description: z.string().nullable().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-})
-
 const synaxariumEntrySchema = z.object({
   name: z.string().optional(),
   text: z.string().optional(),
@@ -111,7 +105,6 @@ const synaxariumEntrySchema = z.object({
 const readingsSummarySchema = z.object({
   reference: z.record(z.string(), z.unknown()).optional(),
   Synaxarium: z.array(synaxariumEntrySchema).optional(),
-  season: z.string().optional(),
   seasonDay: z.string().optional(),
   fullDate: copticDateSchema.optional(),
 })
@@ -296,42 +289,40 @@ export function toReadingSections(data: z.infer<typeof readingsDetailedSchema>):
   return sections
 }
 
-function toSeason(value: z.infer<typeof seasonSchema> | null): LiturgicalSeason | null {
-  if (!value?.season) return null
-  return {
-    name: value.season,
-    description: value.description ?? null,
-    startDate: value.startDate ?? null,
-    endDate: value.endDate ?? null,
-  }
-}
-
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/** A summary of one church day: Coptic date, season, fast, feasts, saints and reading references. */
+/**
+ * A summary of one church day: Coptic date, season, fast, feasts, saints and reading references.
+ *
+ * The season and reading cycle are computed locally (lib/liturgical-cycle.ts).
+ * Coptic IO has no Sunday, Pascha or Holy 50s readings and serves the annual
+ * reading for the Coptic date instead, so those references are withheld rather
+ * than shown as the day's.
+ */
 export async function getLiturgicalDay(date: string, language: LiturgicalLanguage = 'en'): Promise<LiturgicalDay> {
   const lang = { lang: language }
-  const [readings, fasting, celebrations, season] = await Promise.all([
+  const [readings, fasting, celebrations] = await Promise.all([
     copticIoGet(`/api/readings/${date}`, readingsSummarySchema, lang),
     copticIoGet(`/api/fasting/${date}`, fastingSchema, lang),
     copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema, lang),
-    copticIoGet(`/api/season/${date}`, seasonSchema, lang),
   ])
+  const readingCycle = getReadingCycle(date)
 
   return {
     date,
     language,
     copticDate: toCopticDateInfo(readings?.fullDate),
-    season: toSeason(season),
-    seasonDay: readings?.seasonDay ?? null,
+    season: getChurchSeason(date, language),
+    seasonDay: describeSeasonDay(readingCycle, readings?.seasonDay),
     fasting: fasting ? { fast: toFast(fasting) } : null,
     feasts: toFeasts(celebrations),
     saints: (readings?.Synaxarium ?? [])
       .map((entry) => entry.name?.trim())
       .filter((name): name is string => Boolean(name))
       .map((name) => ({ name })),
-    readings: toReadingReferences(readings?.reference),
-    available: Boolean(readings || fasting || celebrations || season),
+    readingCycle,
+    readings: readingCycle.available ? toReadingReferences(readings?.reference) : [],
+    available: Boolean(readings || fasting || celebrations),
   }
 }
 
@@ -342,17 +333,26 @@ export async function getDailyReadings(date: string, language: LiturgicalLanguag
     lang: language,
   })
   if (!data) return null
+  const readingCycle = getReadingCycle(date)
+  const sections = toReadingSections(data)
   return {
     date,
     language,
     copticDate: toCopticDateInfo(data.fullDate),
-    season: data.season ?? null,
-    seasonDay: data.seasonDay ?? null,
-    sections: toReadingSections(data),
+    season: getChurchSeason(date, language).name,
+    seasonDay: describeSeasonDay(readingCycle, data.seasonDay),
+    readingCycle,
+    sections: readingCycle.available ? sections : [],
+    annualSections: readingCycle.available ? [] : sections,
     synaxarium: (data.Synaxarium ?? [])
       .filter((entry) => entry.name?.trim())
       .map((entry) => ({ name: entry.name!.trim(), text: entry.text?.trim() || null })),
   }
+}
+
+/** Coptic IO's own label for Lent and Jonah days ("Monday of the third week of Great Lent"); ours for other moveable and Sunday days. */
+function describeSeasonDay(cycle: ReadingCycle, upstreamSeasonDay: string | undefined): string | null {
+  return upstreamSeasonDay?.trim() || (cycle.kind === 'annual' ? null : cycle.label)
 }
 
 /**

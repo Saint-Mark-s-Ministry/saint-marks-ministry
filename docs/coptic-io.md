@@ -48,9 +48,12 @@ Friday fasts are not in the feed (only named fasting periods), whereas the
 in-app calendar does mark them.
 
 The "Today in the Church" card shows: Coptic date (A.M.), feasts (feasts of the
-Lord in gold), liturgical season, the fast (or "No fast today"), the Lenten day
-when there is one, the day's Gospel (linking to the readings page) and the
-saints commemorated.
+Lord in gold), the church season (Annual Days, Advent, Holy 50s, …), the fast
+(or "No fast today"), what the day is within its cycle ("Monday of the third
+week of Great Lent", "2nd Sunday of Baba"), the day's Gospel (linking to the
+readings page) and the saints commemorated. On a day whose readings Coptic IO
+doesn't have (see [Reading cycles and seasons](#reading-cycles-and-seasons)),
+the Gospel line says so instead.
 
 ## Architecture
 
@@ -69,6 +72,7 @@ browser ──SWR──▶ /api/liturgical/{day,readings,calendar}   (requireAut
 | File | Role |
 |---|---|
 | `lib/liturgical.ts` | Client-safe types, Katameros section labels/order, feast ranking, date-key helpers. No I/O. |
+| `lib/liturgical-cycle.ts` | Client-safe. Coptic date and Coptic Easter arithmetic, the church season, and which Katameros cycle a day reads from. No I/O. |
 | `lib/coptic-io.ts` | Server-only client. Imported by API routes only. |
 | `app/api/liturgical/day` | One day's summary. `?date=YYYY-MM-DD&lang=en\|ar`; date defaults to **today at the church** (`America/New_York`), never the server's or Coptic IO's clock. |
 | `app/api/liturgical/readings` | Full Katameros + Synaxarium text. 503 when Coptic IO is unreachable. |
@@ -125,7 +129,6 @@ catches up within 6 hours or on the next deploy.
 | `GET /api/fasting/:date?lang=` | Fast name and type |
 | `GET /api/celebrations/:date?lang=` | Feasts, including moveable ones (the readings endpoint only has fixed ones) |
 | `GET /api/celebrations/upcoming/list?days=365&from=` | A year of upcoming feasts in one call, for lesson schedules and calendars. Only dates outside that window are looked up one day at a time (2 at once), because Coptic IO rate-limits (429) a per-day fan-out. `from` isn't read by the API; it keys our cache by day. |
-| `GET /api/season/:date?lang=` | Liturgical season |
 | `GET /api/calendar/month/:year/:month` | Coptic date + fasting for a whole month (lesson schedules) |
 
 Not published to npm: `@coptic/client` and `@coptic/core` are workspace
@@ -144,6 +147,99 @@ request headers are part of Next's fetch cache key, the identity header also
 leaves behind any undecodable bodies cached before the fix. Worth reporting
 upstream: `apps/api/src/middleware/cache.ts` re-serves `caches.default.match()`
 responses as-is.
+
+## Reading cycles and seasons
+
+Reported by Mina Beshy (SMM-117): the site showed the readings for **8 Baba**
+on Sunday 18 October 2026, which is the **2nd Sunday of Baba**, and called
+annual days "ordinary".
+
+### Root cause: upstream, in Coptic IO
+
+Both problems come from Coptic IO, not from our mapping, caching or rendering.
+Checked against its source (`apps/api/src/models/readings/index.ts`, commit
+`b65e2b2`, 14 October 2026) by running its own reading selector:
+
+- **Readings.** Coptic IO picks a day's readings in two steps: a moveable
+  override keyed by days from the Coptic Easter, which exists **only** for Great
+  Lent (−57…−7, from the preparation Saturday through Palm Sunday) and Jonah's
+  Fast (−69…−66), and otherwise the annual Katameros by Coptic month and day.
+  It has **no Sunday Katameros, no Pascha (Holy Week, Monday–Saturday) readings
+  and no Holy 50s readings**. On those days it returns the annual readings for
+  the Coptic date: 8 Baba on the 2nd Sunday of Baba, 24 Baramouda on the Feast
+  of the Resurrection 2027, and so on.
+- **Seasons.** Its season endpoint knows six seasons (Nineveh, Great Lent, Holy
+  Week, Paschal Season, Apostles' Fast, Nativity Fast) and answers **"Ordinary
+  Time"** for every other day. It also runs the Apostles' Fast through the Feast
+  of the Apostles itself (12 July) instead of ending on its eve.
+
+Date handling was not at fault. We always send an explicit church-local date
+(`America/New_York`), and our Coptic date and Easter arithmetic agree with Coptic
+IO's own on every day from 1900 to 2199. Caching was not at fault either,
+because the cycle is computed on every request after the cache (below).
+
+### What the app does
+
+`lib/liturgical-cycle.ts` works out, from the date alone:
+
+- **The season**, in the taxonomy the church asked for: Annual Days, Festive
+  Days, Advent, Nativity Paramoun, Nativity Feast/Period, Theophany Paramoun,
+  Theophany Feast/Period, Jonah's Fast and Jonah's Passover, Great Lent, Holy
+  Week, Holy 50s, Apostles' Fast, St. Mary's Fast. Overlaps resolve in that order
+  of precedence: Holy Week, Great Lent, Holy 50s, Jonah, the Apostles' and
+  St. Mary's Fasts, the Nativity and Theophany cycle, Festive Days, then Annual
+  Days. It replaces Coptic IO's season everywhere, so `/api/season` is no longer
+  called. Names come back in Arabic for `lang=ar`.
+- **The reading cycle**, with this precedence: the Holy 50s (Resurrection to
+  Pentecost), the Pascha book (Monday to Saturday of Holy Week), Great Lent
+  (preparation Saturday to Palm Sunday), Jonah's Fast and Passover, the fixed
+  feasts of the Lord (whose own readings outrank a Sunday), Sundays (the *n*th
+  Sunday of the Coptic month), and otherwise the annual day.
+
+When the cycle is one Coptic IO doesn't have (`readingCycle.available: false`):
+
+| Surface | Behaviour |
+|---|---|
+| `/api/liturgical/day` | `readings` is empty; `readingCycle` and `seasonDay` say what the day is ("2nd Sunday of Baba") |
+| `/api/liturgical/readings` | `sections` is empty; Coptic IO's annual readings move to `annualSections`, labelled with `readingCycle.annualDay` |
+| Today card | "Today's readings aren't available yet." instead of the annual Gospel |
+| Readings page | Explains which book is missing; the annual readings for the Coptic date stay one click away, clearly labelled as not the day's |
+
+The Synaxarium is shown on every day, because it follows the Coptic date and
+is correct. The cycle is computed per request from the date, after Coptic IO's
+answer is read from cache, so a cached response can't carry a wrong cycle.
+Browsers may hold a pre-fix response for up to a day; the UI tolerates the
+older shape.
+
+### Assumptions to confirm with the church
+
+These rules come from common Coptic practice and are covered by tests. Confirm
+them with Mina before treating them as final:
+
+- **Paramoun.** It is the eve of the Nativity or Theophany. When the feast falls
+  on a Sunday it starts on the Friday before, and on a Monday it covers Friday to
+  Sunday. Coptic IO's own static data instead marks a fixed 26–28 Kiahk and
+  8–10 Toba.
+- **Nativity Period** runs from 29 Kiahk to the Theophany Paramoun. **Theophany
+  Period** runs from 11 Toba through the Wedding at Cana (13 Toba).
+- **Festive Days** are 1–19 Tout (Nayrouz through the Feast of the Cross), the
+  29th of each month except Toba and Amshir, and the fixed feasts of the Lord,
+  each only when no fast or season outranks it. The church described Festive
+  Days as a catch-all that may be subdivided later.
+- **Great Lent's preparation weekend.** The two days before the fast begins read
+  from the Lenten Katameros but are labelled with the season they fall in.
+- **Feasts of the Lord on a Sunday** keep their own readings: Nayrouz, the Cross
+  (17 Tout and 10 Baramhat), 28–29 Kiahk, 6, 10, 11 and 13 Toba, 8 Amshir,
+  29 Baramhat, 24 Bashans and 13 Mesra.
+
+### Remaining upstream limitation
+
+Until Coptic IO adds the Sunday Katameros, the Pascha readings and the Holy 50s
+Katameros, the app can say what those days are but cannot show their readings.
+We don't carry our own copy of those tables, so that no unreviewed Scripture
+references go out as the Church's. Worth reporting upstream. When Coptic IO
+adds a cycle, add its kind to `UPSTREAM_CYCLES` in `lib/liturgical-cycle.ts`
+(and, if it's moveable, line up the offsets with its tables).
 
 ## Configuration
 
