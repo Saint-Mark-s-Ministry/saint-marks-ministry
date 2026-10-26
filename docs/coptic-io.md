@@ -124,6 +124,7 @@ catches up within 6 hours or on the next deploy.
 | `GET /api/readings/:date?detailed=true&lang=` | Full verse text and Synaxarium stories |
 | `GET /api/fasting/:date?lang=` | Fast name and type |
 | `GET /api/celebrations/:date?lang=` | Feasts, including moveable ones (the readings endpoint only has fixed ones) |
+| `GET /api/celebrations/upcoming/list?days=365&from=` | A year of upcoming feasts in one call, for lesson schedules and calendars. Only dates outside that window are looked up one day at a time (2 at once), because Coptic IO rate-limits (429) a per-day fan-out. `from` isn't read by the API; it keys our cache by day. |
 | `GET /api/season/:date?lang=` | Liturgical season |
 | `GET /api/calendar/month/:year/:month` | Coptic date + fasting for a whole month (lesson schedules) |
 
