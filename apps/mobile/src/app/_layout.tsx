@@ -13,6 +13,7 @@ import { PortalProvider, usePortal } from "@/data/portal-provider";
 import { defaultMinistry, ministryForSegments, type Ministry } from "@/data/navigation";
 import { authenticatedRoutes, publicRoutes } from "@/data/route-access";
 import { ViewAsBanner } from "@/components/view-as-banner";
+import { AttendanceReminderBanner } from "@/components/attendance-reminder-banner";
 import { ActivityIndicator } from "react-native";
 import LaunchScreen from "@/components/launch-screen";
 import { useNavigationHeaderOptions } from "@/components/chrome";
@@ -77,6 +78,10 @@ function Navigation() {
   const { colors, isDark } = useAppTheme();
   const { user } = useAuth();
   const { classes, loading } = usePortal();
+  const segments = useSegments();
+  const lastMinistry = useRef<Ministry>("sundaySchool");
+  const ministry = ministryForSegments(segments as string[], lastMinistry.current);
+  lastMinistry.current = ministry;
   const base = isDark ? DarkTheme : DefaultTheme;
   // Route to the right ministry once, as soon as we know whether this
   // account has Sunday School access (classes finished loading). A manual
@@ -105,6 +110,8 @@ function Navigation() {
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={{ flex: 1 }}>
       <ViewAsBanner />
+      {/* Class-attendance reminders: throughout Sunday School (not Servants Prep), signed in. */}
+      {user && ministry === "sundaySchool" && <AttendanceReminderBanner />}
       <View style={{ flex: 1 }}>
       <Stack screenOptions={headerOptions}>
         <Stack.Protected guard={false}>

@@ -706,3 +706,20 @@ export interface SundaySchoolVisitationPriorityResponse {
   id: string;
   visitationPriority: boolean;
 }
+
+/**
+ * `GET /api/sunday-school/attendance/reminders`: one entry per class the signed-in
+ * servant is personally assigned to whose active roster is not fully marked on the
+ * server for the current reminder week. `sessionDate` is the exact meeting date
+ * (`YYYY-MM-DD`, church time); `url` is the web link, which the app does not follow.
+ */
+export interface SundaySchoolAttendanceReminder {
+  classId: string;
+  className: string;
+  sessionDate: string;
+  url: string;
+}
+
+export interface SundaySchoolAttendanceRemindersResponse {
+  reminders: SundaySchoolAttendanceReminder[];
+}

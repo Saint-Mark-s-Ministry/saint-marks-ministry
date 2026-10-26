@@ -8,6 +8,8 @@
 // Pure and platform-free so it can be unit tested. Returns `null` when there
 // is nothing in the app to open (announcements, rejections that point at `/`).
 
+import { attendanceReminderFromMetadata, attendanceReminderFromUrl, reminderPath } from "./attendance-reminders";
+
 export interface NotificationTarget {
   url?: string | null;
   type?: string | null;
@@ -148,6 +150,12 @@ export function resolveNotificationRoute(target: NotificationTarget): string | n
   // A teaching reminder opens the exact lesson, not the lessons list.
   const reminderLesson = lessonReminderLessonId(target.metadata);
   if (reminderLesson) return `/lesson/${reminderLesson}`;
+  // An attendance reminder opens Take attendance for its class on its exact
+  // meeting date, from the feed's metadata or, for a push (which has no
+  // metadata), from the web link's `classId` and `date`. Older reminders keep
+  // their own date. This is separate from the teaching reminder above.
+  const reminder = attendanceReminderFromMetadata(target.metadata) ?? attendanceReminderFromUrl(target.url);
+  if (reminder) return reminderPath(reminder);
   const url = target.url?.trim();
   if (url) {
     const segments = pathSegments(url);

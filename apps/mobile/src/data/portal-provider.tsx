@@ -22,6 +22,7 @@ import {
 } from "@stmark/domain";
 import { api } from "./auth-provider";
 import { ApiError } from "./api-client";
+import { requestAttendanceReminderRefresh } from "./attendance-reminders";
 import { resolveAttendanceNote, rosterProgress, type AttendanceMarks } from "./attendance-draft";
 import {
   clearResourceCache,
@@ -290,6 +291,8 @@ export function PortalProvider({ children }: PropsWithChildren) {
       }),
     );
     invalidateResourceCache();
+    // The server decides whether this save completed the class; ask it again.
+    requestAttendanceReminderRefresh();
     const confirmed = await loadAttendance(classId, date);
     setDrafts((previous) => {
       const next = { ...previous };

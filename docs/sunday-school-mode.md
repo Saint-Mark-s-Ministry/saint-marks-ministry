@@ -755,6 +755,20 @@ runs. Existing push configuration and user subscriptions apply. The cron becomes
 active when the updated Vercel configuration is deployed; no database migration
 is required.
 
+**The iOS app** loads `GET /api/sunday-school/attendance/reminders` and shows a
+non-dismissible banner on every Sunday School screen (not Servants Prep) for each
+returned class, until the server stops returning it. It asks again when the app
+returns to the foreground and after a confirmed attendance save. It never decides
+completion itself: a local draft, a session or a partial save changes nothing. A 403
+(for instance a revoked assignment) clears it; a bad connection keeps the last answer.
+Tapping a reminder opens Take attendance for the returned `classId` and exact
+`sessionDate`. The `sunday-school-attendance-reminder` notification opens the same
+place from its metadata in the feed, or from the web link's `classId` and `date` when it
+arrives as a push (a push carries no metadata), so an older notification still opens
+its original meeting. Push uses the existing transport; with push denied or failing,
+the banner and the feed still show the reminder. Banner text stops scaling at 1.3×,
+because it is always on screen.
+
 The personal reminder endpoint reloads database authorization and current direct
 assignments. It uses the active compatibility academic year and class roster,
 matching the attendance editor while Sunday School year backfills are reconciled.

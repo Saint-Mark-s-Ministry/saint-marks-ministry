@@ -13,6 +13,7 @@ import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
 import { apiOrigin } from "@/data/auth-provider";
 import { lessonReminderLessonId, resolveNotificationRoute } from "@/data/notification-routes";
+import { attendanceReminderFromMetadata } from "@/data/attendance-reminders";
 import { openNotificationRoute } from "@/data/notification-navigation";
 
 export default function Notifications() {
@@ -75,7 +76,7 @@ export default function Notifications() {
             <RowLink
               title={item.title}
               subtitle={item.body}
-              icon={lessonReminderLessonId(item.metadata) ? <Icon ios="book.closed" android="menu_book" /> : <Icon ios="bell" android="notifications" />}
+              icon={lessonReminderLessonId(item.metadata) ? <Icon ios="book.closed" android="menu_book" /> : attendanceReminderFromMetadata(item.metadata) ? <Icon ios="checklist" android="checklist" /> : <Icon ios="bell" android="notifications" />}
               trailing={
                 !item.isRead ? (
                   <View

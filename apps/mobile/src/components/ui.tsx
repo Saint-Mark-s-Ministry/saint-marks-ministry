@@ -155,12 +155,15 @@ export function Copy({
   style,
   numberOfLines,
   accessibilityLabel,
+  maxFontSizeMultiplier,
 }: PropsWithChildren<{
   kind?: "title" | "heading" | "body" | "caption" | "eyebrow";
   color?: string;
   style?: StyleProp<import("react-native").TextStyle>;
   numberOfLines?: number;
   accessibilityLabel?: string;
+  /** Caps Dynamic Type scaling, for persistent chrome that must never fill the screen. */
+  maxFontSizeMultiplier?: number;
 }>) {
   const { colors } = useAppTheme();
   // A custom family has no synthesised weights on iOS, so resolve the Geist
@@ -171,6 +174,7 @@ export function Copy({
     <Text
       numberOfLines={numberOfLines}
       accessibilityLabel={accessibilityLabel}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       style={[
         styles[kind],
         {
