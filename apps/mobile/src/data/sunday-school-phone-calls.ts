@@ -13,6 +13,22 @@ import { shortMonthDay } from "./sunday-school-classes";
 
 export const CALL_NOTE_MAX_LENGTH = 500;
 
+/**
+ * Whether to offer "Log a call". Priests edit most ministry records, but the phone-call
+ * route still refuses a priest (they read call history; class servants log calls), and
+ * the response has no flag for it, so the role and the visitations `standing.isPriest`
+ * are what the app has. A Super Admin who also holds the Priest tag is refused by the
+ * server too; the entry sheet shows its message. The server decides on every request.
+ */
+export function canLogPhoneCalls(options: {
+  classCanEdit: boolean;
+  role?: string | null;
+  standingIsPriest?: boolean;
+  viewingAs: boolean;
+}): boolean {
+  return options.classCanEdit && options.role !== "PRIEST" && options.standingIsPriest !== true && !options.viewingAs;
+}
+
 export const CALL_OUTCOMES: SundaySchoolPhoneCallOutcome[] = ["CONNECTED", "LEFT_VOICEMAIL", "NO_ANSWER", "OTHER"];
 
 export function callOutcomeLabel(outcome: SundaySchoolPhoneCallOutcome): string {

@@ -9,7 +9,7 @@ describe("child photos on iOS", () => {
   it("the roster row has a camera control apart from the row's own tap, shown only where permitted", () => {
     const roster = src("app/roster.tsx");
     expect(roster).toContain("<TakePhotoButton");
-    expect(roster).toContain("canChangeChildPhoto({ canEdit: canEditChild(child, classes, isAdmin)");
+    expect(roster).toContain("canChangeChildPhoto({ canEdit: canEditChild(child, classes, access.admin)");
     expect(roster).toContain("viewingAs: !!viewingAs");
     expect(roster.indexOf("<TakePhotoButton")).toBeGreaterThan(roster.indexOf("</Pressable>", roster.indexOf('pathname: "/child/[id]"')));
   });

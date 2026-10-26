@@ -51,6 +51,17 @@ const post = (value: unknown): RequestInit => ({
 });
 const patch = (value: unknown): RequestInit => ({ ...post(value), method: "PATCH" });
 const denied = (err: unknown) => err instanceof ApiError && err.status === 403;
+// Servant attendance is recorded only on the meeting's own church-local day.
+const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+const expectDenied = async (label: string, request: Promise<unknown>) => {
+  try {
+    await request;
+  } catch (error) {
+    if (denied(error)) return;
+    throw error;
+  }
+  throw new Error(`Expected a 403 for: ${label}`);
+};
 try {
   const year = await db.academicYear.findFirstOrThrow({
     where: { isActive: true },
@@ -151,11 +162,12 @@ try {
   await client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ title: "Native lesson check", resources: [{ title: "Example resource", url: "https://example.com/lesson" }] }));
   const lessonList = await client.request<{ lessons: { id: string; resources: unknown[]; canEdit: boolean }[] }>(`/api/sunday-school/lessons?scope=year&classId=${classId}`);
   assert.equal(lessonList.lessons.find(l => l.id === lessonId)?.resources.length, 1);
-  await assert.rejects(client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ ownerId: null })), denied);
-  await assert.rejects(client.request(`/api/sunday-school/classes/${classId}`, patch({ name: "Forbidden rename" })), denied);
-  const servantTeam = await client.request<{ canEdit: boolean }>(`/api/sunday-school/servant-attendance?classId=${classId}&date=2026-09-19`);
+  // Any servant of the class may assign its lesson owner (canAssignWeeklyLessonOwner is canServeClass).
+  await client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ ownerId: servantId }));
+  await expectDenied("servant renames the class", client.request(`/api/sunday-school/classes/${classId}`, patch({ name: "Forbidden rename" })));
+  const servantTeam = await client.request<{ canEdit: boolean }>(`/api/sunday-school/servant-attendance?classId=${classId}&date=${today}`);
   assert.equal(servantTeam.canEdit, true);
-  await assert.rejects(client.request("/api/sunday-school/organization"), denied);
+  await expectDenied("servant reads organization", client.request("/api/sunday-school/organization"));
   // No confidential note is created here: doing so would notify unrelated priests.
   await client.request("/api/sunday-school/visitations", post({ childId, status: "DONE", visitedAt: "2026-09-19", notes: "Native visitation check" }));
   const visits = await client.request<{ classes: { children: { id: string; visitations: { notes: string }[] }[] }[] }>(`/api/sunday-school/visitations?classId=${classId}`);
@@ -163,34 +175,30 @@ try {
   const idea = await client.request<{ id: string; type: string }>("/api/sunday-school/feedback", post({ type: "IDEA", title: `Native check ${suffix}`, description: "Disposable integration fixture" }));
   assert.equal(idea.type, "IDEA");
   await client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ title: `Updated native check ${suffix}` }));
-  await assert.rejects(client.request(`/api/sunday-school/feedback/${idea.id}/vote`, { ...post({ vote: "UP" }), method: "PUT" }), denied);
-  await assert.rejects(client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ status: "COMPLETED" })), denied);
+  await expectDenied("servant votes on feedback", client.request(`/api/sunday-school/feedback/${idea.id}/vote`, { ...post({ vote: "UP" }), method: "PUT" }));
+  await expectDenied("servant moderates feedback", client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ status: "COMPLETED" })));
   await client.signOut();
   assert.equal(await client.session(), null);
   await client.signIn(`${priestId}@example.invalid`, password);
-  for (const [path, body] of [
-    [`/api/sunday-school/children/${childId}`, { notes: "Forbidden" }],
-    [`/api/sunday-school/lessons/${lessonId}`, { title: "Forbidden" }],
-    [`/api/sunday-school/classes/${classId}`, { name: "Forbidden" }],
-  ] as const) await assert.rejects(client.request(path, patch(body)), denied);
-  await assert.rejects(client.request("/api/sunday-school/visitations", post({ childId, status: "NOT_DONE" })), denied);
-  await assert.rejects(client.request("/api/sunday-school/servant-attendance/batch", post({ classId, date: "2026-09-19", records: [{ servantId, status: "PRESENT" }] })), denied);
+  // A priest edits ministry records (October 16 policy): the child, lesson, class,
+  // visitations, and attendance. The server still refuses a priest phone-call logging
+  // and every form of account administration.
+  await client.request(`/api/sunday-school/children/${childId}`, patch({ notes: "Priest edit" }));
+  await client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ title: "Priest edit" }));
+  await client.request(`/api/sunday-school/classes/${classId}`, patch({ name: `Priest ${classId}` }));
+  await client.request("/api/sunday-school/visitations", post({ childId, status: "NOT_DONE" }));
+  await client.request("/api/sunday-school/servant-attendance/batch", post({ classId, date: today, records: [{ servantId, status: "PRESENT" }] }));
   await client.request(`/api/sunday-school/feedback/${idea.id}/vote`, { ...post({ vote: "UP" }), method: "PUT" });
-  await assert.rejects(
-    client.request(
-      "/api/sunday-school/attendance/batch",
-      post({
-        sessionId: session.id,
-        records: [{ childId, status: "PRESENT" }],
-      }),
-    ),
-    (err: unknown) => err instanceof ApiError && err.status === 403,
-  );
+  await client.request("/api/sunday-school/attendance/batch", post({ sessionId: session.id, records: [{ childId, status: "PRESENT" }] }));
+  await expectDenied("priest phone call", client.request("/api/sunday-school/phone-calls", post({ childId, outcome: "CONNECTED", note: "Forbidden", calledAt: "2026-09-19" })));
+  await expectDenied("priest creates a user", client.request("/api/users", post({ name: "Forbidden", email: `forbidden-${suffix}@example.invalid`, role: "STUDENT", password })));
+  await expectDenied("priest edits a user", client.request(`/api/users/${servantId}`, patch({ name: "Forbidden" })));
+  await expectDenied("priest changes contact book access", client.request(`/api/admin/users/${servantId}/contact-book-access`, { ...post({ canAccessContactBook: true }), method: "PUT" }));
   await client.signOut();
   await client.signIn(`${adminId}@example.invalid`, password);
   await client.request(`/api/sunday-school/classes/${classId}`, patch({ name: `Updated ${classId}` }));
-  await client.request("/api/sunday-school/servant-attendance/batch", post({ classId, date: "2026-09-19", records: [{ servantId, status: "PRESENT" }] }));
-  const team = await client.request<{ roster: { attendance: { status: string } | null }[] }>(`/api/sunday-school/servant-attendance?classId=${classId}&date=2026-09-19`);
+  await client.request("/api/sunday-school/servant-attendance/batch", post({ classId, date: today, records: [{ servantId, status: "PRESENT" }] }));
+  const team = await client.request<{ roster: { attendance: { status: string } | null }[] }>(`/api/sunday-school/servant-attendance?classId=${classId}&date=${today}`);
   assert.equal(team.roster[0].attendance?.status, "PRESENT");
   await client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ ownerId: servantId }));
   await client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ status: "PLANNED" }));
@@ -202,10 +210,10 @@ try {
   assert.equal(coordinatorClasses[0].canCoordinate, true);
   assert.equal(coordinatorClasses[0].canTakeServantAttendance, true);
   await client.request(`/api/sunday-school/classes/${classId}`, patch({ name: `Coordinator ${classId}` }));
-  await client.request(`/api/sunday-school/servant-attendance?classId=${classId}&date=2026-09-19`);
-  console.log("PASS: native roster/lesson/visitation saves, feedback voting/moderation, servant attendance, administrator queues, coordinator scope, and priest/servant write restrictions.");
+  await client.request(`/api/sunday-school/servant-attendance?classId=${classId}&date=${today}`);
+  console.log("PASS: native roster/lesson/visitation saves, feedback voting/moderation, servant attendance, administrator queues, coordinator scope, priest ministry editing, and servant restrictions.");
   console.log(
-    "PASS: local sign-in, cookie restoration, scoped classes, attendance save/read-back, sign-out, and priest write denial.",
+    "PASS: local sign-in, cookie restoration, scoped classes, attendance save/read-back, sign-out, priest ministry editing, and priest account-administration denial.",
   );
 } finally {
   await client.signOut().catch(() => {});

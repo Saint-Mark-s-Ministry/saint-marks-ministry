@@ -21,6 +21,7 @@ import { Choice, Field, ResourceState, confirmAction, useAction } from "@/compon
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
+import { useMinistryAdmin } from "@/data/use-ministry-admin";
 import { ChildAvatar, PhotoNoticeBanner } from "@/components/child-photo-parts";
 import { PrepStudentBadge } from "@/components/prep-student-badge";
 import { showsPrepStudentBadge } from "@/data/prep-student";
@@ -58,7 +59,8 @@ export default function Child() {
   const action = useAction();
   const child = resource.data;
   const isNew = id === "new";
-  const isAdmin = user?.role === "SUPER_ADMIN";
+  // The server's own flag for Super Admins and priests (never the role name).
+  const { isAdmin } = useMinistryAdmin();
   const canEdit = isNew || (child ? canEditChild(child, classes, isAdmin) : false);
   // After the server confirms a photo, read the profile and the roster again.
   const photos = useChildPhotos(() => Promise.all([resource.refresh(), refresh()]));
@@ -333,7 +335,8 @@ function ChildForm({ child, initialClassId, done }: { child?: SundaySchoolChild;
   });
   const action = useAction();
   const allowedClasses = classes.filter((c) => c.canServe && c.level === form.level);
-  const canLink = user?.role === "SUPER_ADMIN" || !!classes.find((c) => c.id === child?.classId)?.canCoordinate;
+  const { isAdmin } = useMinistryAdmin();
+  const canLink = isAdmin || !!classes.find((c) => c.id === child?.classId)?.canCoordinate;
   const set = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }));
   const save = () =>
     action.run(async () => {
@@ -409,7 +412,7 @@ function ChildForm({ child, initialClassId, done }: { child?: SundaySchoolChild;
       </Card>
       <Button
         label={action.busy ? "Saving…" : "Save child"}
-        disabled={action.busy || !form.firstName.trim() || !form.lastName.trim() || (!form.classId && user?.role !== "SUPER_ADMIN")}
+        disabled={action.busy || !form.firstName.trim() || !form.lastName.trim() || (!form.classId && !isAdmin)}
         onPress={() => void save()}
       />
     </>

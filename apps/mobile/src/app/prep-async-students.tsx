@@ -266,7 +266,7 @@ function FormsTab({
           approve or return for correction. Uploading never marks prep lessons Present.
         </Copy>
         {!canReview && (
-          <Copy kind="caption" color={colors.warning}>You have read-only access. Servants Prep servants and Super Admins review forms.</Copy>
+          <Copy kind="caption" color={colors.warning}>You have read-only access. Servants Prep servants, priests and Super Admins review forms.</Copy>
         )}
       </ListSurface>
 

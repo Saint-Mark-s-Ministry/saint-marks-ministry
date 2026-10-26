@@ -51,7 +51,7 @@ function Monitor({ id }: { id: string }) {
       {resource.error && <Copy>Monitoring is unavailable. Student status is out of date; saved answers and pauses remain on the server.</Copy>}
       {view && <>
         <Copy kind="caption">{examCalendarDate(view.exam.examDate)} · {view.exam.academicYear.name} · {sheet?.state === "DRAFT" && sheet.openedAt ? "Ready to open" : sheet?.state ?? "Needs setup"}</Copy>
-        {!manage && <Copy kind="caption">Monitoring is read-only. Servants Prep servants control opening, closing, and unlocking.</Copy>}
+        {!manage && <Copy kind="caption">{viewingAs ? "View as is read-only, so opening, closing and unlocking are off." : "Monitoring is read-only for your account."}</Copy>}
         {manage && !sheet?.openedAt && <Card>
           <Copy kind="heading">Set up the original exam</Copy>
           <Copy kind="caption">Printed questions · 50 equally weighted answers. The key and choices lock when the exam first opens.</Copy>
@@ -71,7 +71,7 @@ function Monitor({ id }: { id: string }) {
           {sheet.openedAt && !sheet.releasedAt && !view.hasAttempts && <Button secondary label="Reset test opening" disabled={action.busy}
             onPress={() => confirmAction("Reset this test opening?", "Return the sheet to draft and hide it from students. The key and all grades are preserved. Reset is blocked if any student has joined.", () => run("reset"))} />}
         </Card>}
-        {!manage && !sheet && <Copy>A Servants Prep servant has not configured an answer sheet yet.</Copy>}
+        {!manage && !sheet && <Copy>An answer sheet has not been configured yet.</Copy>}
         {sheet && <>
           <Card>
             <Copy kind="heading">Live monitoring</Copy>

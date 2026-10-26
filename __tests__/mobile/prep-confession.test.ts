@@ -66,18 +66,15 @@ describe("Confession periods + slip upload (SMM-36)", () => {
       expect(segmentFor(status)).toBeNull();
     });
 
-    it.each(["SUPER_ADMIN", "SERVANT_PREP"])("lets %s upload a slip", (role) => {
+    it.each(["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"])("lets %s upload a slip", (role) => {
       expect(canManageAttendance(role)).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])(
-      "denies %s upload access — PRIEST can view the tracker but not write",
-      (role) => {
-        expect(canManageAttendance(role)).toBe(false);
-      },
-    );
-    it("PRIEST can still view the tracker (isAdminLike), unlike the write-gated roles above", () => {
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])("denies %s upload access", (role) => {
+      expect(canManageAttendance(role)).toBe(false);
+    });
+    it("a priest both views the tracker and uploads (the slips route allows canManageData)", () => {
       expect(isAdminLike("PRIEST")).toBe(true);
-      expect(canManageAttendance("PRIEST")).toBe(false);
+      expect(canManageAttendance("PRIEST")).toBe(true);
     });
     it("hides the tracker entirely from non-admin, non-upload roles", () => {
       expect(isAdminLike("MENTOR")).toBe(false);

@@ -21,7 +21,7 @@ export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";
 export type AttendanceMark = { status: AttendanceStatus; notes?: string };
 export type AttendanceDraft = Record<string, AttendanceMark>;
 
-/** Same role set as the web's canManageData/canManageCurriculum — PRIEST is read-only even though it's an admin role. */
+/** Same role set as the web's canManageData/canManageCurriculum: Super Admins, priests and Servants Prep servants. */
 export function canManageAttendance(role?: string | null): boolean {
   return !!role && STUDENT_MANAGE_ROLES.includes(role);
 }

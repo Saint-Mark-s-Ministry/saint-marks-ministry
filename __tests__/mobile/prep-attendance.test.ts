@@ -74,11 +74,11 @@ describe("Prep attendance workflow (SMM-35)", () => {
   });
 
   describe("highest-risk path: a session can only be edited by the right role on a non-future date", () => {
-    it.each(["SUPER_ADMIN", "SERVANT_PREP"])("lets %s manage attendance", (role) => {
+    it.each(["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"])("lets %s manage attendance", (role) => {
       expect(canManageAttendance(role)).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])(
-      "denies %s — PRIEST is read-only even though it's an admin role",
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])(
+      "denies %s — only the admin roles (Super Admin, priest, Servants Prep) edit attendance",
       (role) => {
         expect(canManageAttendance(role)).toBe(false);
       },
@@ -94,8 +94,13 @@ describe("Prep attendance workflow (SMM-35)", () => {
       expect(canEditSession("SUPER_ADMIN", "2026-10-09", "2026-10-09")).toBe(true);
       expect(canEditSession("SERVANT_PREP", "2026-09-01", "2026-10-09")).toBe(true);
     });
-    it("blocks a read-only admin (PRIEST) even on a valid date", () => {
-      expect(canEditSession("PRIEST", "2026-10-01", "2026-10-09")).toBe(false);
+    it("lets a priest edit a past lesson, and still blocks a future one", () => {
+      expect(canEditSession("PRIEST", "2026-10-01", "2026-10-09")).toBe(true);
+      expect(canEditSession("PRIEST", "2026-10-10", "2026-10-09")).toBe(false);
+    });
+    it("never lets a mentor or student edit, even on a valid date", () => {
+      expect(canEditSession("MENTOR", "2026-10-01", "2026-10-09")).toBe(false);
+      expect(canEditSession("STUDENT", "2026-10-01", "2026-10-09")).toBe(false);
     });
   });
 });

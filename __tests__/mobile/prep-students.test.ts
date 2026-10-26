@@ -82,12 +82,13 @@ describe("Prep Students list + detail (SMM-34)", () => {
       expect(canViewStudentRoster(null)).toBe(false);
     });
 
-    it("lets SUPER_ADMIN and SERVANT_PREP edit a student record", () => {
+    it("lets SUPER_ADMIN, PRIEST and SERVANT_PREP edit a student's enrollment record", () => {
       expect(canManageStudentRecord("SUPER_ADMIN")).toBe(true);
+      expect(canManageStudentRecord("PRIEST")).toBe(true);
       expect(canManageStudentRecord("SERVANT_PREP")).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])(
-      "denies %s edit access — PRIEST is read-only even though it's an admin role, and a mentor never edits enrollment records",
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])(
+      "denies %s edit access — a mentor never edits enrollment records",
       (role) => {
         expect(canManageStudentRecord(role)).toBe(false);
       },

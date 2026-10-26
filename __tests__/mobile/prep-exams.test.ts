@@ -75,11 +75,11 @@ describe("Prep Exams + score entry (SMM-37)", () => {
     });
   });
 
-  describe("highest-risk path: only admins can manage exams/scores, PRIEST is read-only", () => {
-    it.each(["SUPER_ADMIN", "SERVANT_PREP"])("lets %s create exams and enter scores", (role) => {
+  describe("highest-risk path: only the admin roles can manage exams/scores", () => {
+    it.each(["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"])("lets %s create exams and enter scores", (role) => {
       expect(canManageExams(role)).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])(
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])(
       "denies %s write access — a mentor can view their mentees' scores but never edit them",
       (role) => {
         expect(canManageExams(role)).toBe(false);

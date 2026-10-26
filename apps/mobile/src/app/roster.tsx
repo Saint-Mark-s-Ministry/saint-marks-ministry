@@ -44,7 +44,6 @@ export default function Roster() {
   const resource = useResource<SundaySchoolChild[]>(`${endpoint("children")}?${query({ classId, isActive: status })}`);
   const { user, viewingAs } = useAuth();
   const large = useLargeType();
-  const isAdmin = user?.role === "SUPER_ADMIN";
   // After the server confirms a photo, read the roster again so the row shows it.
   const photos = useChildPhotos(resource.refresh);
   const access = ministryAccess(dashboard.data, classes);
@@ -230,7 +229,7 @@ export default function Roster() {
                   </Pressable>
                   {/* Their own controls beside the row: the row opens the profile, the camera takes a photo, the clock opens history. */}
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: large ? 16 : 8, paddingBottom: large ? 10 : 0 }}>
-                    {canChangeChildPhoto({ canEdit: canEditChild(child, classes, isAdmin), isActive: child.isActive, viewingAs: !!viewingAs }) && (
+                    {canChangeChildPhoto({ canEdit: canEditChild(child, classes, access.admin), isActive: child.isActive, viewingAs: !!viewingAs }) && (
                       <TakePhotoButton
                         name={`${child.firstName} ${child.lastName}`}
                         busy={photos.busyId === child.id}

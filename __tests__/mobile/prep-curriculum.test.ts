@@ -107,11 +107,11 @@ describe("Curriculum + lesson editor (SMM-38)", () => {
     });
   });
 
-  describe("highest-risk path: only admins can manage curriculum, PRIEST is read-only", () => {
-    it.each(["SUPER_ADMIN", "SERVANT_PREP"])("lets %s create/edit/delete lessons", (role) => {
+  describe("highest-risk path: only the admin roles can manage curriculum", () => {
+    it.each(["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"])("lets %s create/edit/delete lessons", (role) => {
       expect(canManageCurriculum(role)).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])("denies %s write access", (role) => {
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])("denies %s write access", (role) => {
       expect(canManageCurriculum(role)).toBe(false);
     });
     it("denies write access with no role at all", () => {

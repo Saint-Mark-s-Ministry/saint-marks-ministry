@@ -5,9 +5,10 @@ questions. Paper makeup exams and score entry remain separate.
 
 ## Open the feature
 
-- Prep servants and super admins: **Servants Prep → More → Exam Monitoring**,
-  or **Exams → Exam Monitoring**. Priests see the same monitoring screens with
-  no write controls.
+- Prep servants, priests and super admins: **Servants Prep → More → Exam
+  Monitoring**, or **Exams → Exam Monitoring**. Controls follow the API's
+  `canManage` flag, so priests can manage exams like the other administrators;
+  a View as session is read-only.
 - Prep students: **Home → Live Exam** or **More → Live Exam**. Only eligible
   exams opened by the proctor are returned by the existing API.
 - Both destinations are searchable in the Prep Search tab. Exam notification

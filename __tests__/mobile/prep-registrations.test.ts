@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canReviewRegistrations,
+  canManageInviteCodes,
   canReviewServantApplications,
   canSubmitReview,
   canViewRegistrations,
@@ -99,7 +100,8 @@ describe("Registrations + Servant applications (SMM-40)", () => {
   describe("highest-risk path", () => {
     it("gates the queue and review actions by the real, distinct role sets", () => {
       expect(canViewRegistrations("PRIEST")).toBe(true);
-      expect(canReviewRegistrations("PRIEST")).toBe(false);
+      expect(canReviewRegistrations("PRIEST")).toBe(true);
+      expect(canManageInviteCodes("PRIEST")).toBe(true);
       expect(canReviewRegistrations("SERVANT_PREP")).toBe(true);
       expect(canViewRegistrations("STUDENT")).toBe(false);
       expect(canViewRegistrations("MENTOR")).toBe(false);

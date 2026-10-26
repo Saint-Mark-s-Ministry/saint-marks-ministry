@@ -104,9 +104,9 @@ export function orderReviewQueue(forms: RotationFormReviewRow[]): RotationFormRe
   );
 }
 
-/** The server's rule: Super Admins and Servants Prep servants. Priests are read-only. The API still decides. */
+/** The server's rule (rotation-forms review route): Super Admins, priests and Servants Prep servants. The API still decides. */
 export function canReviewRotationForms(role?: string | null): boolean {
-  return role === "SUPER_ADMIN" || role === "SERVANT_PREP";
+  return role === "SUPER_ADMIN" || role === "SERVANT_PREP" || role === "PRIEST";
 }
 
 export function canSeeAsyncRotations(role?: string | null): boolean {
@@ -126,7 +126,7 @@ export function reviewBlocker(
   viewer: { id?: string | null; role?: string | null },
 ): ReviewBlocker {
   if (!canReviewRotationForms(viewer.role)) {
-    return { kind: "read-only", message: "Only Servants Prep servants and Super Admins can review forms." };
+    return { kind: "read-only", message: "Only Servants Prep servants, priests and Super Admins can review forms." };
   }
   if (viewer.id && form.assignment.studentId === viewer.id) {
     return { kind: "own-form", message: "A different Servants Prep servant must review your own form." };

@@ -7,7 +7,7 @@ import { Copy, Icon, ListSurface, Screen, SectionTitle } from "@/components/ui";
 import { Choice, Field, ResourceState, Toggle, confirmAction, useAction } from "@/components/forms";
 import { Staffing } from "@/components/staffing";
 import { endpoint, request, useResource } from "@/data/resources";
-import { useAuth } from "@/data/auth-provider";
+import { useMinistryAdmin } from "@/data/use-ministry-admin";
 import { usePortal } from "@/data/portal-provider";
 import { levelRangeLabel } from "@/data/sunday-school-classes";
 import { MinistryTintProvider, useAppTheme } from "@/theme";
@@ -29,10 +29,9 @@ export default function AgeGroups() {
 // this split was added).
 function AgeGroupsScreen() {
   const { colors } = useAppTheme();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "SUPER_ADMIN";
+  // The server's flag for Super Admins and priests; age groups are ministry records, not accounts.
+  const { isAdmin, dashboard } = useMinistryAdmin();
   const resource = useResource<SundaySchoolAgeGroup[]>(isAdmin ? endpoint("age-groups") : null);
-  const dashboard = useResource<SundaySchoolDashboard>(isAdmin ? endpoint("dashboard") : null);
   const priests = useResource<(SundaySchoolServantRef & { isDisabled: boolean })[]>(isAdmin ? "/api/users?role=PRIEST" : null);
   const [editor, setEditor] = useState<SundaySchoolAgeGroup | "new" | null>(null);
   const portal = usePortal();
@@ -64,9 +63,9 @@ function AgeGroupsScreen() {
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void refresh()}>
         {!isAdmin ? (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
-            <Copy kind="heading">Super-admin access required</Copy>
+            <Copy kind="heading">Administrator access required</Copy>
             <Copy kind="caption" style={{ textAlign: "center" }}>
-              Age group administration is limited to super admins.
+              Age group administration is limited to administrators.
             </Copy>
           </View>
         ) : (

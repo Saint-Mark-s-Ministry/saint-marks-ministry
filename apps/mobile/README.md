@@ -17,8 +17,8 @@ Android development and JavaScript bundle export are also configured.
   lessons, mentor/mentee views, enrollment and registration review, async student
   review, and annual mentor confirmation through Application. Async students
   without a cohort year are shown as “No cohort year”.
-- **Live exams:** native Exam Monitoring for Prep servants (read-only for
-  priests), original answer-sheet configuration, opening/closing, unlocking,
+- **Live exams:** native Exam Monitoring for Prep servants and priests,
+  original answer-sheet configuration, opening/closing, unlocking,
   result release, retakes, and activity history; student Live Exam with
   autosaving, encrypted pending drafts, interruption pauses, and final submission.
   See [`../../docs/mobile-live-exams.md`](../../docs/mobile-live-exams.md).
@@ -87,8 +87,8 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   live-exam choices use the separate encrypted draft store described below.
   Sign-out clears local credentials even when the server cannot be reached.
 - The existing API revalidates accounts and derives class permissions on the
-  server. Priests can read attendance but cannot save it. Forced and voluntary
-  password changes are completed in the native app.
+  server. Priests edit ministry records, including attendance. Forced and
+  voluntary password changes are completed in the native app.
 - Sunday School data and permission-aware administration screens load from the
   existing API. Pull to refresh. In-app notifications and native Expo push are
   implemented. Push registration requires permission, a physical device, and an
@@ -124,6 +124,27 @@ pulses from nested controls and rapid taps, outcomes have an additional cooldown
 and proctor warning pulses are spaced by at least eight seconds. Unsupported
 hardware and native failures never block an action. Device haptic settings and
 availability remain authoritative; physical devices are needed to assess feel.
+
+## Who can edit what in the app
+
+The app follows the web's October 16 policy: a **priest edits ministry records in both
+programs**. Which controls appear comes from the API where it offers a flag and from the
+server's own role helpers where it does not; every write is still authorized on the server.
+
+| Area | Priest | How the app decides |
+|---|---|---|
+| Servants Prep: attendance, curriculum and lessons, exams and scores, enrollments and mentor assignment, registration review, invite codes, async rotation-form review, confession slips, calendar | Edits | the admin roles (`SUPER_ADMIN`, `PRIEST`, `SERVANT_PREP`), mirroring `isAdmin` in `lib/roles.ts` |
+| Sunday School: class attendance, lessons, children, staffing, homework, visitations and priority visits, servant meetings | Edits | the API's `canServe`/`canCoordinate`/`canEdit` flags and the dashboard's `standing.isAdmin` (`useMinistryAdmin`) |
+| Live exam monitoring: open, close, unlock, release | Manages | the API's `canManage` flag |
+| Sunday School phone calls and check-in responsibility | Read only | the server refuses priests; the app hides "Log a call" for them |
+| User accounts, access tags, Contact Book grants, audit log, servant applications, organization, MCP tokens | Not offered | Super Admin only (or the separate Contact Book grant); ministry editing never confers them |
+| Feedback moderation | Not offered | the API's `viewer.canModerate` |
+| Confidential notes to priests | Priests read; Super Admins and View as are excluded | the API's `canReadPrivateNotes` |
+
+**View as is read-only whoever starts it.** The app refuses every write while viewing as
+(`ViewAsReadOnly`, before the request is sent), hides the controls it owns, and the server
+blocks the same writes. A priest's own editing rights never apply inside a View as session.
+Starting View as from the app is still limited to Super Admins.
 
 ## Verification
 

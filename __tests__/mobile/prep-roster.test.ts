@@ -76,10 +76,10 @@ describe("Roster + async student detail (SMM-39)", () => {
   });
 
   describe("highest-risk path", () => {
-    it.each(["SUPER_ADMIN", "SERVANT_PREP"])("lets %s enroll/transition/edit students", (role) => {
+    it.each(["SUPER_ADMIN", "PRIEST", "SERVANT_PREP"])("lets %s enroll/transition/edit students", (role) => {
       expect(canManageEnrollments(role)).toBe(true);
     });
-    it.each(["PRIEST", "MENTOR", "STUDENT", "SERVANT", "PARENT"])("denies %s write access", (role) => {
+    it.each(["MENTOR", "STUDENT", "SERVANT", "PARENT"])("denies %s write access", (role) => {
       expect(canManageEnrollments(role)).toBe(false);
     });
 

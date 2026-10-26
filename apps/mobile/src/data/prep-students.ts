@@ -9,8 +9,16 @@ import { PREP_ADMIN_ROLES, isAdminLike } from "./prep-home";
 
 export { PREP_ADMIN_ROLES, isAdminLike };
 
-/** Edit (and other write actions) are admin-only, and PRIEST is read-only even among admins — mirrors lib/roles.ts's canManageEnrollments on the web. */
-export const STUDENT_MANAGE_ROLES = ["SUPER_ADMIN", "SERVANT_PREP"];
+/**
+ * Who is offered Prep ministry-record editing: attendance, curriculum, exams and
+ * scores, enrollments and mentor assignment, registration review. These are the
+ * server's `isAdmin` helpers (lib/roles.ts canManageData, canManageCurriculum,
+ * canManageExams, canManageEnrollments, canAssignMentors, canReviewRegistrations),
+ * which include PRIEST since the October 16 policy. This only decides which
+ * controls to show; every write is authorized on the server. Account and user
+ * administration is a different, narrower rule (canManageUsers) and is not here.
+ */
+export const STUDENT_MANAGE_ROLES = PREP_ADMIN_ROLES;
 export function canManageStudentRecord(role?: string | null): boolean {
   return !!role && STUDENT_MANAGE_ROLES.includes(role);
 }

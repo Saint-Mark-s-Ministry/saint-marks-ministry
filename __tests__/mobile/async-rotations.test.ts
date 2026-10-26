@@ -124,10 +124,11 @@ describe("rotation grades", () => {
 });
 
 describe("review capabilities", () => {
-  it("lets Super Admins and Servants Prep servants review; priests and others are read-only (highest-risk path)", () => {
+  it("lets Super Admins, priests and Servants Prep servants review; everyone else is read-only (highest-risk path)", () => {
     expect(canReviewRotationForms("SUPER_ADMIN")).toBe(true);
     expect(canReviewRotationForms("SERVANT_PREP")).toBe(true);
-    for (const role of ["PRIEST", "MENTOR", "STUDENT", "SERVANT", undefined]) {
+    expect(canReviewRotationForms("PRIEST")).toBe(true);
+    for (const role of ["MENTOR", "STUDENT", "SERVANT", undefined]) {
       expect(canReviewRotationForms(role)).toBe(false);
     }
     expect(canSeeAsyncRotations("PRIEST")).toBe(true);
@@ -137,7 +138,8 @@ describe("review capabilities", () => {
   it("offers review for a pending form on an active rotation, and says why not otherwise", () => {
     const viewer = { id: "reviewer", role: "SERVANT_PREP" };
     expect(reviewBlocker(formRow(), viewer).kind).toBe("ready");
-    expect(reviewBlocker(formRow(), { id: "p", role: "PRIEST" }).kind).toBe("read-only");
+    expect(reviewBlocker(formRow(), { id: "p", role: "PRIEST" }).kind).toBe("ready");
+    expect(reviewBlocker(formRow(), { id: "m", role: "MENTOR" }).kind).toBe("read-only");
     expect(reviewBlocker(formRow({ status: "APPROVED" }), viewer).kind).toBe("not-pending");
     expect(reviewBlocker(formRow({ status: "REJECTED" }), viewer).kind).toBe("not-pending");
     expect(reviewBlocker(formRow({ assignment: { ...formRow().assignment, isActive: false } }), viewer).kind).toBe("inactive");

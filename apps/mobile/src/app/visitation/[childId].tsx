@@ -10,7 +10,7 @@ import { usePortal } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { shortMonthDay } from "@/data/sunday-school-classes";
 import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
-import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
+import { callOutcomeLabel, canLogPhoneCalls } from "@/data/sunday-school-phone-calls";
 import { StudentHistoryLink } from "@/components/student-history-parts";
 import { PriorityNoticeBanner, PriorityPill } from "@/components/priority-parts";
 import { ABSENCE_UNAVAILABLE_BODY, ABSENCE_UNAVAILABLE_TITLE } from "@/data/absence-notifications";
@@ -71,6 +71,10 @@ function VisitationChildScreen() {
     ? { ...serverChild, visitationPriority: priority.overrides[serverChild.id] }
     : serverChild;
   const canStar = canEditPriority({ classCanEdit: !!cls?.canEdit, viewingAs: !!viewingAs });
+  // Recording a visit follows the class's edit flag; View as is read-only. Phone calls add the
+  // server's rule that a priest reads call history but does not log calls.
+  const canRecord = !!cls?.canEdit && !viewingAs;
+  const canCall = canLogPhoneCalls({ classCanEdit: !!cls?.canEdit, role: user?.role, standingIsPriest: resource.data?.standing.isPriest, viewingAs: !!viewingAs });
 
   const [notesOpen, setNotesOpen] = useState(false);
   const notes = useResource<{ notes: SundaySchoolPriestNote[] }>(
@@ -88,7 +92,7 @@ function VisitationChildScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Visitation" }} />
-      <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()} bottom={child && cls?.canEdit ? 110 : 32}>
+      <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()} bottom={child && canRecord ? 110 : 32}>
         {offline && resource.stale && (
           <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
             <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
@@ -272,7 +276,7 @@ function VisitationChildScreen() {
         )}
       </Screen>
 
-      {child && cls?.canEdit && (
+      {child && canRecord && (
         <View
           style={{
             position: "absolute",
@@ -296,21 +300,23 @@ function VisitationChildScreen() {
           <Copy kind="caption" numberOfLines={1} style={{ flex: 1 }}>
             {child.visitations.length} {child.visitations.length === 1 ? "visit" : "visits"} · {child.phoneCalls.length} {child.phoneCalls.length === 1 ? "call" : "calls"}
           </Copy>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Log a call"
-            onPress={() => setCallOpen(true)}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: colors.hover,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon ios="phone" android="call" size={18} color={colors.text} />
-          </Pressable>
+          {canCall && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Log a call"
+              onPress={() => setCallOpen(true)}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.hover,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon ios="phone" android="call" size={18} color={colors.text} />
+            </Pressable>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="New visitation entry"
@@ -331,7 +337,7 @@ function VisitationChildScreen() {
         </View>
       )}
 
-      {entryOpen && child && (
+      {entryOpen && child && canRecord && (
         <VisitationEntrySheet
           childId={child.id}
           childName={`${child.firstName} ${child.lastName}`}
@@ -344,7 +350,7 @@ function VisitationChildScreen() {
         />
       )}
 
-      {callOpen && child && (
+      {callOpen && child && canCall && (
         <PhoneCallEntrySheet
           childId={child.id}
           childName={`${child.firstName} ${child.lastName}`}
