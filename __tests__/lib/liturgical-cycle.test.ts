@@ -154,6 +154,11 @@ describe('church seasons', () => {
   it('walks Advent, the Paramoun, Nativity, Theophany Paramoun and Theophany', () => {
     expect(season('2026-11-24')).toBe('Annual Days')
     expect(getChurchSeason('2026-11-25')).toEqual({ key: 'advent', name: 'Advent', startDate: '2026-11-25', endDate: '2027-01-05' })
+    // Kiahk's own praises begin on 1 Kiahk, still within Advent.
+    expect(getChurchSeason('2026-12-09')).toMatchObject({ key: 'advent', name: 'Advent' }) // 30 Hator
+    expect(getChurchSeason('2026-12-10')).toMatchObject({ key: 'advent', name: 'Advent · Kiahk', startDate: '2026-11-25' }) // 1 Kiahk
+    expect(season('2027-01-05')).toBe('Advent · Kiahk')
+    expect(getChurchSeason('2026-12-10', 'ar').name).toBe('صوم الميلاد · شهر كيهك')
     expect(season('2027-01-06')).toBe('Nativity Paramoun')
     expect(season('2027-01-07')).toBe('Nativity Feast')
     expect(getChurchSeason('2027-01-08')).toMatchObject({ key: 'nativity', name: 'Nativity Period', endDate: '2027-01-17' })
@@ -165,10 +170,10 @@ describe('church seasons', () => {
 
   it('extends the Paramoun back to Friday when the feast falls on a Sunday or Monday', () => {
     // Nativity on Monday 7 January 2030: Friday, Saturday and Sunday.
-    expect(season('2030-01-03')).toBe('Advent')
+    expect(season('2030-01-03')).toBe('Advent · Kiahk')
     expect(getChurchSeason('2030-01-04')).toMatchObject({ key: 'nativityParamoun', startDate: '2030-01-04', endDate: '2030-01-06' })
     // Nativity on Sunday 7 January 2029: Friday and Saturday.
-    expect(season('2029-01-04')).toBe('Advent')
+    expect(season('2029-01-04')).toBe('Advent · Kiahk')
     expect(getChurchSeason('2029-01-05')).toMatchObject({ key: 'nativityParamoun', startDate: '2029-01-05', endDate: '2029-01-06' })
   })
 

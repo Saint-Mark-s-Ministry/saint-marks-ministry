@@ -270,15 +270,22 @@ describe('Coptic IO client', () => {
     }
   })
 
-  it('caches pinned dates for a day, "today" until church midnight, and failures not at all', () => {
+  it('lets clients keep answers for an hour at most, "today" no later than church midnight, and failures not at all', () => {
     expect(liturgicalCacheControl({ complete: false, pinnedDate: true })).toBe('no-store')
-    expect(liturgicalCacheControl({ complete: true, pinnedDate: true })).toBe(
-      'private, max-age=86400, stale-while-revalidate=604800'
-    )
+    // No long stale window: a fix to our season or cycle logic must reach browsers and phones within the hour.
+    expect(liturgicalCacheControl({ complete: true, pinnedDate: true })).toBe('private, max-age=3600')
     const today = liturgicalCacheControl({ complete: true, pinnedDate: false })
+    expect(today).toMatch(/^private, max-age=\d+$/)
     const maxAge = Number(/max-age=(\d+)/.exec(today)?.[1])
     expect(maxAge).toBeGreaterThanOrEqual(60)
-    expect(maxAge).toBeLessThanOrEqual(86400)
+    expect(maxAge).toBeLessThanOrEqual(3600)
+
+    vi.useFakeTimers({ now: new Date('2026-10-27T03:50:00Z'), toFake: ['Date'] }) // 11:50 pm at the church
+    try {
+      expect(liturgicalCacheControl({ complete: true, pinnedDate: false })).toBe('private, max-age=600')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('reads bodies the Coptic IO edge cache serves still compressed, and asks for identity', async () => {

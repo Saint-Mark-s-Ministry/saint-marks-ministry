@@ -436,14 +436,18 @@ async function getCelebrationsForDates(dates: string[], now: Date = new Date()):
   return result
 }
 
+/** Longest a browser or phone may reuse an answer: our own season and cycle logic is part of it, so fixes must show within the hour. */
+const CLIENT_MAX_AGE_SECONDS = 60 * 60
+
 /**
- * Browser cache lifetime for a liturgical response.
+ * Browser cache lifetime for a liturgical response. The server-side caches
+ * above carry the load, so clients keep answers only briefly.
  * - Incomplete answers (Coptic IO partly down): never cached, so the next view retries.
- * - "Today" (no date asked for): until midnight at the church, when it stops being today.
- * - A pinned date: a day, then served stale for a week while revalidating.
+ * - "Today" (no date asked for): an hour, or until midnight at the church if sooner.
+ * - A pinned date: an hour.
  */
 export function liturgicalCacheControl({ complete, pinnedDate }: { complete: boolean; pinnedDate: boolean }): string {
   if (!complete) return 'no-store'
-  if (!pinnedDate) return `private, max-age=${secondsUntilChurchMidnight()}`
-  return 'private, max-age=86400, stale-while-revalidate=604800'
+  if (!pinnedDate) return `private, max-age=${Math.min(secondsUntilChurchMidnight(), CLIENT_MAX_AGE_SECONDS)}`
+  return `private, max-age=${CLIENT_MAX_AGE_SECONDS}`
 }

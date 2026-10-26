@@ -89,9 +89,9 @@ describe('liturgical API', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
-  it('caches a pinned date longer than "today"', async () => {
+  it('lets clients cache a pinned date and "today" for an hour at most', async () => {
     const pinned = await getDay(request('/api/liturgical/day?date=2027-01-07'))
-    expect(pinned.headers.get('Cache-Control')).toContain('max-age=86400')
+    expect(pinned.headers.get('Cache-Control')).toBe('private, max-age=3600')
     const today = await getDay(request('/api/liturgical/day'))
     expect(today.headers.get('Cache-Control')).toMatch(/^private, max-age=\d+$/)
   })
@@ -101,7 +101,7 @@ describe('liturgical API', () => {
     const partial = await getCalendar(request('/api/liturgical/calendar?dates=2026-10-11,2026-10-18'))
     expect(partial.headers.get('Cache-Control')).toBe('no-store')
     const whole = await getCalendar(request('/api/liturgical/calendar?dates=2026-10-11'))
-    expect(whole.headers.get('Cache-Control')).toContain('max-age=86400')
+    expect(whole.headers.get('Cache-Control')).toBe('private, max-age=3600')
   })
 
   it('reports 503 when the readings are unavailable', async () => {
