@@ -7,6 +7,7 @@ import {
   ConnectionBadge,
   RowLink,
   Screen,
+  StatusPill,
 } from "@/components/ui";
 import { usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
@@ -14,11 +15,15 @@ import { useAppTheme } from "@/theme";
 import { apiOrigin } from "@/data/auth-provider";
 import { lessonReminderLessonId, resolveNotificationRoute } from "@/data/notification-routes";
 import { attendanceReminderFromMetadata } from "@/data/attendance-reminders";
+import { absenceDisplay, parseAbsenceMetadata } from "@/data/absence-notifications";
+import { useLargeType } from "@/components/attendance-history-parts";
 import { openNotificationRoute } from "@/data/notification-navigation";
 
 export default function Notifications() {
   const { colors } = useAppTheme();
   const { notifications, markRead, loading, error, refresh } = usePortal();
+  // At the largest text sizes the decorative icon takes width the title needs.
+  const large = useLargeType();
   const openRequiredAction = async (url?: string | null) => {
     if (!url) {
       Alert.alert("Action required", "Complete this action in the ministry portal.");
@@ -76,7 +81,7 @@ export default function Notifications() {
             <RowLink
               title={item.title}
               subtitle={item.body}
-              icon={lessonReminderLessonId(item.metadata) ? <Icon ios="book.closed" android="menu_book" /> : attendanceReminderFromMetadata(item.metadata) ? <Icon ios="checklist" android="checklist" /> : <Icon ios="bell" android="notifications" />}
+              icon={large ? undefined : lessonReminderLessonId(item.metadata) ? <Icon ios="book.closed" android="menu_book" /> : attendanceReminderFromMetadata(item.metadata) ? <Icon ios="checklist" android="checklist" /> : parseAbsenceMetadata(item.metadata) ? <Icon ios="exclamationmark.bubble" android="warning" /> : <Icon ios="bell" android="notifications" />}
               trailing={
                 !item.isRead ? (
                   <View
@@ -115,6 +120,7 @@ export default function Notifications() {
                 );
               }}
             />
+            <AbsenceTags metadata={item.metadata} />
             <Copy kind="caption">
               {item.isPersistent
                 ? "Action required · Tap to continue"
@@ -132,5 +138,24 @@ export default function Notifications() {
         ))}
       </Screen>
     </>
+  );
+}
+
+/**
+ * The server's absence details, as they arrive in the notification: whether this
+ * is the follow-up for class staff or the escalation, and how many consecutive
+ * weeks. Nothing here is counted on the device.
+ */
+function AbsenceTags({ metadata }: { metadata: unknown }) {
+  const { colors } = useAppTheme();
+  const absence = parseAbsenceMetadata(metadata);
+  if (!absence) return null;
+  const display = absenceDisplay(absence);
+  const escalation = display.tone === "escalation";
+  return (
+    <View accessible accessibilityLabel={display.spoken} style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      <StatusPill label={display.tag} color={escalation ? colors.danger : colors.warning} soft={escalation ? colors.dangerSoft : colors.warningSoft} />
+      <StatusPill label={display.weeksText} color={colors.muted} soft={colors.hover} />
+    </View>
   );
 }

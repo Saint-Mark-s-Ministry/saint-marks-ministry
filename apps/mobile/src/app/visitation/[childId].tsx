@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ActivityIndicator } from "react-native";
 import { Pressable, Switch, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import type { SundaySchoolPriestNote, SundaySchoolVisitationsResponse } from "@stmark/contracts";
@@ -12,6 +13,7 @@ import { confidentialNotesCaption } from "@/data/sunday-school-visitations";
 import { callOutcomeLabel } from "@/data/sunday-school-phone-calls";
 import { StudentHistoryLink } from "@/components/student-history-parts";
 import { PriorityNoticeBanner, PriorityPill } from "@/components/priority-parts";
+import { ABSENCE_UNAVAILABLE_BODY, ABSENCE_UNAVAILABLE_TITLE } from "@/data/absence-notifications";
 import { useVisitationPriority } from "@/data/use-visitation-priority";
 import { PRIORITY_EXPLAINER, PRIORITY_LABEL, canEditPriority, priorityToggleLabel } from "@/data/visitation-priority";
 import { VisitationEntrySheet } from "@/components/visitation-entry-sheet";
@@ -29,16 +31,41 @@ export default function VisitationChild() {
 }
 
 function VisitationChildScreen() {
-  const { childId, classId } = useLocalSearchParams<{ childId: string; classId: string }>();
+  const { childId, classId, check } = useLocalSearchParams<{ childId: string; classId?: string; check?: string }>();
   const { colors } = useAppTheme();
   const { user, viewingAs } = useAuth();
   const portal = usePortal();
-  const resource = useResource<SundaySchoolVisitationsResponse>(`${endpoint("visitations")}?${query({ classId })}`);
+  // A notification may name only the child, or a class the child has since left:
+  // look in every class this person can see, which is the most the server will
+  // ever return, so an unrelated or moved child simply is not found.
+  const [anyClass, setAnyClass] = useState(!classId);
+  const resource = useResource<SundaySchoolVisitationsResponse>(`${endpoint("visitations")}?${query({ classId: anyClass ? undefined : classId })}`);
   const offline = resource.error === OFFLINE;
 
   const priority = useVisitationPriority(resource.refresh);
-  const cls = resource.data?.classes.find((c) => c.id === classId);
+  // Opened from an alert that may be old: ask the server before showing anything
+  // cached, so a child this person can no longer see (moved, archived, access
+  // removed) is never shown from memory.
+  const mustCheck = check === "1";
+  const [checkedPath, setCheckedPath] = useState<string | null>(null);
+  const path = resource.path;
+  useEffect(() => {
+    if (!mustCheck || !path || checkedPath === path) return;
+    let active = true;
+    void resource.refresh().finally(() => {
+      if (active) setCheckedPath(path);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mustCheck, path]);
+  const checking = mustCheck && !!path && checkedPath !== path;
+  const cls = checking ? undefined : resource.data?.classes.find((c) => c.children.some((c2) => c2.id === childId) && (!classId || anyClass || c.id === classId));
   const serverChild = cls?.children.find((c) => c.id === childId);
+  useEffect(() => {
+    if (!checking && resource.data && !serverChild && !anyClass) setAnyClass(true);
+  }, [checking, resource.data, serverChild, anyClass]);
   // A toggle shows at once; the server's answer replaces it after the save.
   const child = serverChild && serverChild.id in priority.overrides
     ? { ...serverChild, visitationPriority: priority.overrides[serverChild.id] }
@@ -72,12 +99,17 @@ function VisitationChildScreen() {
           <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
         )}
 
-        {resource.data && !child && (
+        {checking && (
+          <View accessibilityRole="progressbar" accessibilityLabel="Checking access" style={{ paddingVertical: 28, alignItems: "center", gap: 8 }}>
+            <ActivityIndicator color={colors.primary} />
+            <Copy kind="caption">Checking access…</Copy>
+          </View>
+        )}
+
+        {!checking && resource.data && !child && anyClass && (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
-            <Copy kind="heading">Child unavailable</Copy>
-            <Copy kind="caption" style={{ textAlign: "center" }}>
-              This child may have been reassigned to a different class, archived, or is no longer active. Go back and search again.
-            </Copy>
+            <Copy kind="heading">{ABSENCE_UNAVAILABLE_TITLE}</Copy>
+            <Copy kind="caption" style={{ textAlign: "center" }}>{ABSENCE_UNAVAILABLE_BODY}</Copy>
           </View>
         )}
 

@@ -9,6 +9,7 @@
 // is nothing in the app to open (announcements, rejections that point at `/`).
 
 import { attendanceReminderFromMetadata, attendanceReminderFromUrl, reminderPath } from "./attendance-reminders";
+import { absenceChildFromUrl, absencePath, parseAbsenceMetadata } from "./absence-notifications";
 
 export interface NotificationTarget {
   url?: string | null;
@@ -156,6 +157,10 @@ export function resolveNotificationRoute(target: NotificationTarget): string | n
   // their own date. This is separate from the teaching reminder above.
   const reminder = attendanceReminderFromMetadata(target.metadata) ?? attendanceReminderFromUrl(target.url);
   if (reminder) return reminderPath(reminder);
+  // An absence notice opens that child's visitation workflow: from the feed's
+  // metadata (child and class) or, for a push, from the web link's `childId`.
+  const absence = parseAbsenceMetadata(target.metadata) ?? absenceChildFromUrl(target.url);
+  if (absence) return absencePath(absence);
   const url = target.url?.trim();
   if (url) {
     const segments = pathSegments(url);

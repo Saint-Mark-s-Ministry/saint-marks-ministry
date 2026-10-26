@@ -123,6 +123,18 @@ payload carries `kind: sunday-school-lesson-reminder` and `lessonId` so a tap op
 that lesson; the same fields are in the notification's `metadata`, so the in-app
 feed opens it too whether or not push was delivered.
 
+**In the iOS app,** the `sunday-school-absence` notification shows the server's own title and
+body (student, class, consecutive weeks) plus a **Follow-up** or **Escalation** tag and the
+week count from its metadata (`threshold` 2 is the three-week follow-up for direct class
+staff; 4 is the escalation to active band coordinators and that band's priest overseer).
+Tapping it, or the push, opens that child's Visitations record. From the feed the
+metadata supplies the child and class; a push carries only the web link, so it names the
+child alone. The record is asked for again before it is shown (the alert may be days old),
+and the lookup is limited to the classes this person can see: a child who moved to a class
+they cannot see, an archived child, or removed access shows "Child unavailable" or an access
+error instead of the cached record. The app never counts streaks or picks recipients, and the
+server's stable notification ids and `skipDuplicates` are what prevent duplicates.
+
 Absence follow-up runs daily at 15:00 UTC through the `CRON_SECRET`-protected
 `GET /api/cron/sunday-school-absence-notifications`. Three consecutive explicit
 weekly `ABSENT` marks notify the active direct class servants (including class

@@ -723,3 +723,19 @@ export interface SundaySchoolAttendanceReminder {
 export interface SundaySchoolAttendanceRemindersResponse {
   reminders: SundaySchoolAttendanceReminder[];
 }
+
+/**
+ * `metadata` on the notification the server writes for a Sunday School absence
+ * streak (lib/notifications.ts, kind `sunday-school-absence`). The student and
+ * class names are in the notification's own title and body. `threshold` 2 is the
+ * follow-up for direct class staff (three consecutive weeks); 4 is the
+ * escalation to active band coordinators and that band's priest overseer.
+ */
+export interface SundaySchoolAbsenceNotificationMetadata {
+  kind: "sunday-school-absence";
+  childId: string;
+  classId: string;
+  firstAbsenceDate: string;
+  weeks: number;
+  threshold: 2 | 4;
+}
