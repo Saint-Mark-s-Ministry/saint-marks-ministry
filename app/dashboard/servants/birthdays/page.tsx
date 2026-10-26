@@ -2,9 +2,15 @@
 
 import { StudentName } from '@/components/student-history-provider'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { SundaySchoolLevel } from '@prisma/client'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { Button } from '@/components/ui/button'
+import { MonthCalendar, monthGridDays, type CalendarEvent } from '@/components/ds/calendar'
+import { SundaySchoolBirthdaySubscribe } from '@/components/sunday-school-birthday-subscribe'
+import { SundaySchoolBirthdayActions } from '@/components/sunday-school-birthday-actions'
 import { Cake, CalendarDays } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
@@ -17,6 +23,7 @@ import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolAgeGroups, useSundaySchoolBirthdays, useSundaySchoolClasses } from '@/lib/swr'
 import {
   ageOnBirthdayInYear,
+  birthdayDateInYear,
   BIRTHDAY_MONTHS,
   compareBirthdays,
   formatBirthday,
@@ -32,8 +39,13 @@ const MONTH_OPTIONS = [
   ...BIRTHDAY_MONTHS.map((label, index) => ({ value: String(index + 1), label })),
 ]
 
-export default function SundaySchoolBirthdaysPage() {
+function BirthdaysContent() {
   const { status } = useSundaySchoolGuard()
+  const { data: session } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [view, setView] = useState<'calendar' | 'list'>('calendar')
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const { data, error, isLoading } = useSundaySchoolBirthdays()
   const { data: classesData } = useSundaySchoolClasses()
   const { data: ageGroupsData } = useSundaySchoolAgeGroups()
@@ -46,7 +58,7 @@ export default function SundaySchoolBirthdaysPage() {
     ),
     [ageGroupsData, classesData]
   )
-  const [classId] = useViewingClassId(classes, { allowAll: true })
+  const [classId, , scopedClasses, hasAgeGroupScope] = useViewingClassId(classes, { allowAll: true, requested: searchParams.get('classId') })
   const childrenWithBirthdays = useMemo(
     () => [...((data as SundaySchoolBirthdayChild[] | undefined) ?? [])].sort(compareBirthdays),
     [data]
@@ -55,11 +67,11 @@ export default function SundaySchoolBirthdaysPage() {
     () => childrenWithBirthdays.filter(child => {
       const birthday = child.birthDate ? getBirthdayParts(child.birthDate) : null
       return (
-        (classId === ALL_CLASSES || child.classId === classId) &&
+        (classId === ALL_CLASSES ? !hasAgeGroupScope || scopedClasses.some(cls => cls.id === child.classId) : child.classId === classId) &&
         (month === 'all' || birthday?.month === Number(month))
       )
     }),
-    [childrenWithBirthdays, classId, month]
+    [childrenWithBirthdays, classId, month, scopedClasses, hasAgeGroupScope]
   )
   const groups = useMemo(() => {
     const byMonth = new Map<number, SundaySchoolBirthdayChild[]>()
@@ -72,6 +84,21 @@ export default function SundaySchoolBirthdaysPage() {
     }
     return [...byMonth.entries()].sort(([left], [right]) => left - right)
   }, [visibleChildren])
+
+  const scopedChildren = childrenWithBirthdays.filter(child => classId === ALL_CLASSES ? !hasAgeGroupScope || scopedClasses.some(cls => cls.id === child.classId) : child.classId === classId)
+  const days = monthGridDays(calendarMonth)
+  const events: CalendarEvent[] = scopedChildren.flatMap(child => {
+    if (!child.birthDate) return []
+    const years = [...new Set(days.map(day => Number(day.slice(0, 4))))]
+    return years.flatMap(year => {
+      const date = birthdayDateInYear(child.birthDate!, year)
+      const day = date?.toISOString().slice(0, 10)
+      return day && days.includes(day) ? [{ id: `${child.id}-${year}`, day, type: 'birthday' as const,
+        title: `${getChildFullName(child)}${classId === ALL_CLASSES && child.class ? ` · ${child.class.name}` : ''}`,
+        href: `/dashboard/servants/birthdays?classId=${child.classId ?? ''}&child=${encodeURIComponent(child.id)}` }] : []
+    })
+  })
+  const selectedChild = childrenWithBirthdays.find(child => child.id === searchParams.get('child'))
 
   if (status === 'loading') return <PageLoading />
 
@@ -88,10 +115,20 @@ export default function SundaySchoolBirthdaysPage() {
       />
       <CareHubTabs />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant={view === 'calendar' ? 'default' : 'outline'} onClick={() => setView('calendar')} aria-pressed={view === 'calendar'}>Calendar</Button>
+        <Button variant={view === 'list' ? 'default' : 'outline'} onClick={() => setView('list')} aria-pressed={view === 'list'}>List</Button>
+        <SundaySchoolBirthdaySubscribe key={classId} classes={scopedClasses} selectedClassId={classId === ALL_CLASSES ? undefined : classId} viewingAs={!!session?.impersonating} />
+      </div>
+      {selectedChild && <SundaySchoolBirthdayActions key={selectedChild.id} child={selectedChild} onClose={() => {
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete('child')
+        router.replace(`/dashboard/servants/birthdays?${params.toString()}`, { scroll: false })
+      }} />}
       <Panel
         toolbar={
           <>
-            <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+            {view === 'list' && <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
               Month
               <FilterSelect
                 aria-label="Birthday month"
@@ -99,10 +136,10 @@ export default function SundaySchoolBirthdaysPage() {
                 onChange={setMonth}
                 options={MONTH_OPTIONS}
               />
-            </label>
+            </label>}
           </>
         }
-        footer={<span>{visibleChildren.length} birthdays</span>}
+        footer={<span>{view === 'list' ? visibleChildren.length : events.length} birthdays</span>}
       >
         {isLoading ? (
           <EmptyState message="Loading birthdays…" />
@@ -113,6 +150,10 @@ export default function SundaySchoolBirthdaysPage() {
           />
         ) : classes.length === 0 ? (
           <EmptyState message="You are not assigned to a Sunday School class yet." />
+        ) : view === 'calendar' ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-[560px]"><MonthCalendar month={calendarMonth} onMonthChange={setCalendarMonth} events={events} maxPerDay={Number.MAX_SAFE_INTEGER} /></div>
+          </div>
         ) : visibleChildren.length === 0 ? (
           <EmptyState
             icon={<Cake />}
@@ -172,6 +213,7 @@ export default function SundaySchoolBirthdaysPage() {
                             )}
                           </div>
                           {isToday && <StatusBadge tone="accent">Today</StatusBadge>}
+                          <Button asChild variant="outline" size="sm"><Link href={`/dashboard/servants/birthdays?classId=${child.classId ?? ''}&child=${encodeURIComponent(child.id)}`}>Send birthday text</Link></Button>
                           <Link
                             href={`/dashboard/servants/roster?classId=${child.classId ?? ''}`}
                             className="text-xs font-medium text-accent-ink hover:underline"
@@ -190,4 +232,8 @@ export default function SundaySchoolBirthdaysPage() {
       </Panel>
     </div>
   )
+}
+
+export default function SundaySchoolBirthdaysPage() {
+  return <Suspense fallback={<PageLoading />}><BirthdaysContent /></Suspense>
 }

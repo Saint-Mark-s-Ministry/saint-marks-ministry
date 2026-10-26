@@ -1,5 +1,6 @@
 import { EnrollmentYearError, resolveEnrollmentYear } from "@/lib/enrollment-year"
 import { NextResponse } from "next/server"
+import { Prisma } from '@prisma/client'
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
@@ -7,7 +8,7 @@ import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib
 import { notifyMentorAssigned } from "@/lib/notifications"
 import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
 import { isEligibleMentorAccount, MENTOR_CANDIDATE_SELECT } from "@/lib/mentor-eligibility"
-import { syncMentorCompatibilityRoles } from "@/lib/mentor-assignments"
+import { resetYearTwoMentors, syncMentorCompatibilityRoles, YEAR_TWO_MENTOR_RESET } from "@/lib/mentor-assignments"
 import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // PATCH /api/enrollments/[id] - Update an enrollment
@@ -102,10 +103,26 @@ export async function PATCH(
     const enrollment = await prisma.$transaction(async (tx) => {
       const currentEnrollment = await tx.studentEnrollment.findUniqueOrThrow({
         where: { id },
-        select: { mentorId: true, yearLevel: true, isAsyncStudent: true },
+        select: { studentId: true, isActive: true, mentorId: true, yearLevel: true, isAsyncStudent: true },
       })
       if (yearLevel !== undefined || isAsyncStudent !== undefined) {
         updateData.yearLevel = resolveEnrollmentYear(currentEnrollment, { yearLevel, isAsyncStudent })
+      }
+      const promotedToYearTwo = updateData.yearLevel === 'YEAR_2' && currentEnrollment.yearLevel !== 'YEAR_2'
+      if (promotedToYearTwo) {
+        const activeYear = await tx.academicYear.findFirst({ where: { isActive: true }, select: { id: true } })
+        if (!activeYear && (isActive ?? currentEnrollment.isActive)) {
+          throw new Error('No active academic year is configured for Year 2 promotion')
+        }
+        await resetYearTwoMentors(tx, [{ ...currentEnrollment, id }], user.id, activeYear?.id ?? null)
+        Object.assign(updateData, YEAR_TWO_MENTOR_RESET)
+      }
+      if (!promotedToYearTwo && mentorAssignmentRequested && nextMentorId && currentEnrollment.yearLevel === 'YEAR_2' && currentEnrollment.isActive) {
+        const submittedForm = await tx.annualMentorInformation.findFirst({
+          where: { studentId: currentEnrollment.studentId, academicYear: { isActive: true } },
+          select: { id: true },
+        })
+        if (!submittedForm) throw new Error('Submit the current Year 2 mentor form before assigning a mentor')
       }
       const updated = await tx.studentEnrollment.update({
         where: { id },
@@ -116,6 +133,7 @@ export async function PATCH(
               id: true,
               name: true,
               email: true,
+              profileImageUrl: true,
             }
           },
           mentor: {
@@ -150,7 +168,7 @@ export async function PATCH(
       })
 
       if (
-        mentorAssignmentRequested &&
+        !promotedToYearTwo && mentorAssignmentRequested &&
         currentEnrollment?.mentorId !== nextMentorId
       ) {
         const changedAt = new Date()
@@ -173,7 +191,7 @@ export async function PATCH(
         }
       }
 
-      if (mentorAssignmentRequested) {
+      if (!promotedToYearTwo && mentorAssignmentRequested) {
         const affectedMentorIds: string[] = []
         if (currentEnrollment?.mentorId) affectedMentorIds.push(currentEnrollment.mentorId)
         if (nextMentorId) affectedMentorIds.push(nextMentorId)
@@ -186,10 +204,10 @@ export async function PATCH(
       }
 
       return updated
-    })
+    }, { timeout: 30_000, isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
     // Notify student when a mentor is assigned (non-blocking)
-    if (nextMentorId && enrollment.mentor) {
+    if (mentorAssignmentRequested && nextMentorId && enrollment.mentorId && enrollment.mentor) {
       notifyMentorAssigned({
         studentId: enrollment.student.id,
         mentorName: enrollment.mentor.name,
@@ -198,7 +216,13 @@ export async function PATCH(
 
     return NextResponse.json((await withEnrollmentMentorContacts([enrollment]))[0])
   } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      return NextResponse.json({ error: 'Enrollment changed while saving. Refresh and try again.' }, { status: 409 })
+    }
     if (error instanceof EnrollmentYearError) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error instanceof Error && (error.message.includes('No active academic year') || error.message.startsWith('Submit the current Year 2 mentor form'))) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update enrollment" },
       { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { normalizeOptionalEmail } from '@/lib/email'
-import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
+import { getAnnualMentorRequirement, queueAnnualMentorReview } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
 
 type ApplicationDetails = {
@@ -67,11 +67,14 @@ async function getApplicationState(userId: string) {
   if (!application && !annualRequirement) return null
 
   const annualInformation = annualRequirement?.information ?? null
-  const mentorDetails = annualInformation ?? application ?? {
+  const previousMentorDetails = application ?? {
     mentorName: annualRequirement?.enrollment.mentorName ?? null,
     mentorPhone: annualRequirement?.enrollment.mentorPhone ?? null,
     mentorEmail: null,
   }
+  const mentorDetails = annualRequirement
+    ? annualInformation ?? { mentorName: null, mentorPhone: null, mentorEmail: null }
+    : previousMentorDetails
   const missingDetails = getMissingDetails(
     application,
     Boolean(annualRequirement),
@@ -186,7 +189,7 @@ export async function PATCH(request: NextRequest) {
       })
 
       if (state.annualRequirement) {
-        await tx.annualMentorInformation.upsert({
+        const submission = await tx.annualMentorInformation.upsert({
           where: {
             studentId_academicYearId: {
               studentId: user.id,
@@ -201,6 +204,11 @@ export async function PATCH(request: NextRequest) {
             mentorEmail,
           },
           update: { mentorName, mentorPhone, mentorEmail, submittedAt: new Date(), reviewedAt: null, reviewedBy: null },
+        })
+        await queueAnnualMentorReview(tx, {
+          studentId: user.id, studentName: user.name || 'A Year 2 student',
+          academicYearId: state.annualRequirement.activeYear.id,
+          id: submission.id, updatedAt: submission.updatedAt,
         })
       }
 

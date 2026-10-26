@@ -87,7 +87,10 @@ function TodayInChurchBody({ day }: { day: LiturgicalDay }) {
         )}
       </div>
       {day.seasonDay && <p className="text-ink-3">{day.seasonDay}</p>}
-      {gospel && (
+      {/* Optional chaining: a response cached before reading cycles existed has none. */}
+      {day.readingCycle?.available === false ? (
+        <p className="text-ink-3">Today’s readings aren’t available yet.</p>
+      ) : gospel && (
         <p className="text-ink-2">
           <span className="text-ink-3">{gospel.label}:</span>{' '}
           <Link href="/dashboard/readings" className="font-medium text-accent-ink hover:underline">

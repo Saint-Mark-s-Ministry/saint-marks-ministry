@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
-import { BookOpen, ChevronLeft, ChevronRight, Church, FileText, Presentation } from 'lucide-react'
+import { Cake, BookOpen, ChevronLeft, ChevronRight, Church, FileText, Presentation } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -11,10 +11,11 @@ import { cn } from '@/lib/utils'
  * Only types with a real data source are listed; add one here when a
  * feature starts producing dated items of that kind.
  */
-export type CalendarEventType = 'prep-lesson' | 'exam' | 'sunday-lesson' | 'feast'
+export type CalendarEventType = 'prep-lesson' | 'exam' | 'sunday-lesson' | 'feast' | 'birthday'
 
 export const EVENT_TYPES: Record<CalendarEventType, { label: string; icon: LucideIcon; tint: string; ink: string }> = {
   'prep-lesson': { label: 'Prep lesson', icon: BookOpen, tint: 'bg-accent-tint', ink: 'text-accent-ink' },
+  birthday: { label: 'Birthday', icon: Cake, tint: 'bg-gold-tint', ink: 'text-gold' },
   exam: { label: 'Exam', icon: FileText, tint: 'bg-info-tint', ink: 'text-info' },
   'sunday-lesson': { label: 'Sunday lesson', icon: Presentation, tint: 'bg-gold-tint', ink: 'text-gold' },
   /** Church feasts from the Coptic calendar (Coptic IO). */
@@ -67,7 +68,7 @@ export function EventChip({ event }: { event: CalendarEvent }) {
     </>
   )
   const className = cn(
-    'flex h-[22px] min-w-0 items-center gap-[5px] rounded-[4px] px-1.5 text-[11.5px] leading-none text-ink no-underline',
+    'flex h-[22px] min-w-0 shrink-0 items-center gap-[5px] rounded-[4px] px-1.5 text-[11.5px] leading-none text-ink no-underline',
     type.tint,
     event.muted && 'line-through opacity-60'
   )
@@ -206,7 +207,7 @@ export function MonthCalendar({
               role="gridcell"
               aria-label={`${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${fast ? `, ${fast}` : ''}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
               className={cn(
-                'flex h-[104px] min-w-0 flex-col gap-[3px] overflow-hidden p-1.5',
+                'flex h-[104px] min-w-0 flex-col gap-[3px] overflow-y-auto p-1.5',
                 i % 7 !== 0 && 'border-l border-line',
                 i >= 7 && 'border-t border-line'
               )}

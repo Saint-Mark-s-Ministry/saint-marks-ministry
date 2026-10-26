@@ -76,3 +76,15 @@ export function compareBirthdays(
     left.lastName.localeCompare(right.lastName)
   )
 }
+
+/** Birthday occurrence as a date-only UTC value; Feb 29 is observed on Feb 28 in other years. */
+export function birthdayDateInYear(value: string | Date, year: number): Date | null {
+  const parts = getBirthdayParts(value)
+  if (!parts) return null
+  const lastDay = new Date(Date.UTC(year, parts.month, 0)).getUTCDate()
+  return new Date(Date.UTC(year, parts.month - 1, Math.min(parts.day, lastDay)))
+}
+
+export function birthdayGreeting(firstName: string): string {
+  return `Happy birthday, ${firstName}! May God bless you and grant you a joyful year ahead! 🎉`
+}

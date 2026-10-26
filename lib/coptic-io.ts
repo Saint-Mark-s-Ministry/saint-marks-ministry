@@ -2,7 +2,9 @@
 import { z } from 'zod'
 import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-io-cache'
 import { parseJsonBody } from '@/lib/coptic-io-body'
+import { getChurchSeason, getReadingCycle } from '@/lib/liturgical-cycle'
 import {
+  addDaysToDateKey,
   secondsUntilChurchMidnight,
   READING_DEFINITIONS,
   READING_KEYS,
@@ -17,7 +19,7 @@ import {
   type LiturgicalFast,
   type LiturgicalFeast,
   type LiturgicalLanguage,
-  type LiturgicalSeason,
+  type ReadingCycle,
   type ReadingReference,
   type ReadingSection,
 } from '@/lib/liturgical'
@@ -45,6 +47,14 @@ const TIMEOUT_MS = 5000
 /** Dated answers only change when Coptic IO corrects its data; `revalidateTag('coptic-io')` forces it sooner. */
 const REVALIDATE_SECONDS = 60 * 60 * 24 * 7
 const MAX_CONCURRENT_REQUESTS = 6
+/**
+ * Per-day celebration lookups are the fan-out Coptic IO rate-limits (429s seen
+ * in production for a year of lesson Sundays), so they run gently and only for
+ * dates outside the one-call upcoming window below.
+ */
+const PER_DAY_CONCURRENCY = 2
+/** `/api/celebrations/upcoming/list` covers today plus this many days in one call (365 is its maximum). */
+const UPCOMING_DAYS = 365
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -87,13 +97,6 @@ const fastingSchema = z.object({
   description: z.string().nullable().optional(),
 })
 
-const seasonSchema = z.object({
-  season: z.string(),
-  description: z.string().nullable().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-})
-
 const synaxariumEntrySchema = z.object({
   name: z.string().optional(),
   text: z.string().optional(),
@@ -102,7 +105,6 @@ const synaxariumEntrySchema = z.object({
 const readingsSummarySchema = z.object({
   reference: z.record(z.string(), z.unknown()).optional(),
   Synaxarium: z.array(synaxariumEntrySchema).optional(),
-  season: z.string().optional(),
   seasonDay: z.string().optional(),
   fullDate: copticDateSchema.optional(),
 })
@@ -145,6 +147,20 @@ const calendarMonthSchema = z.object({
 })
 
 // ── Transport ───────────────────────────────────────────────────────────────
+
+/**
+ * Celebrations for a day. Coptic IO answers JSON `null` for "none", which we
+ * turn into `[]` so that a null from copticIoGet can only mean "the lookup
+ * failed" — and a failed day is left out rather than shown with no feasts.
+ */
+const dayCelebrationsSchema = z
+  .array(celebrationSchema)
+  .nullable()
+  .transform((value) => value ?? [])
+
+const upcomingCelebrationsSchema = z.array(
+  z.object({ date: z.string(), celebrations: z.array(celebrationSchema) })
+)
 
 function copticIoGet<T>(
   path: string,
@@ -273,42 +289,40 @@ export function toReadingSections(data: z.infer<typeof readingsDetailedSchema>):
   return sections
 }
 
-function toSeason(value: z.infer<typeof seasonSchema> | null): LiturgicalSeason | null {
-  if (!value?.season) return null
-  return {
-    name: value.season,
-    description: value.description ?? null,
-    startDate: value.startDate ?? null,
-    endDate: value.endDate ?? null,
-  }
-}
-
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/** A summary of one church day: Coptic date, season, fast, feasts, saints and reading references. */
+/**
+ * A summary of one church day: Coptic date, season, fast, feasts, saints and reading references.
+ *
+ * The season and reading cycle are computed locally (lib/liturgical-cycle.ts).
+ * Coptic IO has no Sunday, Pascha or Holy 50s readings and serves the annual
+ * reading for the Coptic date instead, so those references are withheld rather
+ * than shown as the day's.
+ */
 export async function getLiturgicalDay(date: string, language: LiturgicalLanguage = 'en'): Promise<LiturgicalDay> {
   const lang = { lang: language }
-  const [readings, fasting, celebrations, season] = await Promise.all([
+  const [readings, fasting, celebrations] = await Promise.all([
     copticIoGet(`/api/readings/${date}`, readingsSummarySchema, lang),
     copticIoGet(`/api/fasting/${date}`, fastingSchema, lang),
-    copticIoGet(`/api/celebrations/${date}`, z.array(celebrationSchema).nullable(), lang),
-    copticIoGet(`/api/season/${date}`, seasonSchema, lang),
+    copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema, lang),
   ])
+  const readingCycle = getReadingCycle(date)
 
   return {
     date,
     language,
     copticDate: toCopticDateInfo(readings?.fullDate),
-    season: toSeason(season),
-    seasonDay: readings?.seasonDay ?? null,
+    season: getChurchSeason(date, language),
+    seasonDay: describeSeasonDay(readingCycle, readings?.seasonDay),
     fasting: fasting ? { fast: toFast(fasting) } : null,
     feasts: toFeasts(celebrations),
     saints: (readings?.Synaxarium ?? [])
       .map((entry) => entry.name?.trim())
       .filter((name): name is string => Boolean(name))
       .map((name) => ({ name })),
-    readings: toReadingReferences(readings?.reference),
-    available: Boolean(readings || fasting || celebrations || season),
+    readingCycle,
+    readings: readingCycle.available ? toReadingReferences(readings?.reference) : [],
+    available: Boolean(readings || fasting || celebrations),
   }
 }
 
@@ -319,17 +333,26 @@ export async function getDailyReadings(date: string, language: LiturgicalLanguag
     lang: language,
   })
   if (!data) return null
+  const readingCycle = getReadingCycle(date)
+  const sections = toReadingSections(data)
   return {
     date,
     language,
     copticDate: toCopticDateInfo(data.fullDate),
-    season: data.season ?? null,
-    seasonDay: data.seasonDay ?? null,
-    sections: toReadingSections(data),
+    season: getChurchSeason(date, language).name,
+    seasonDay: describeSeasonDay(readingCycle, data.seasonDay),
+    readingCycle,
+    sections: readingCycle.available ? sections : [],
+    annualSections: readingCycle.available ? [] : sections,
     synaxarium: (data.Synaxarium ?? [])
       .filter((entry) => entry.name?.trim())
       .map((entry) => ({ name: entry.name!.trim(), text: entry.text?.trim() || null })),
   }
+}
+
+/** Coptic IO's own label for Lent and Jonah days ("Monday of the third week of Great Lent"); ours for other moveable and Sunday days. */
+function describeSeasonDay(cycle: ReadingCycle, upstreamSeasonDay: string | undefined): string | null {
+  return upstreamSeasonDay?.trim() || (cycle.kind === 'annual' ? null : cycle.label)
 }
 
 /**
@@ -346,9 +369,7 @@ export async function getLiturgicalCalendar(dates: string[]): Promise<Record<str
       const [year, monthNumber] = month.split('-')
       return copticIoGet(`/api/calendar/month/${year}/${Number(monthNumber)}`, calendarMonthSchema)
     }),
-    mapWithLimit(unique, MAX_CONCURRENT_REQUESTS, (date) =>
-      copticIoGet(`/api/celebrations/${date}`, z.array(celebrationSchema).nullable())
-    ),
+    getCelebrationsForDates(unique),
   ])
 
   const monthDays = new Map<string, z.infer<typeof calendarMonthSchema>['days'][number]>()
@@ -357,28 +378,76 @@ export async function getLiturgicalCalendar(dates: string[]): Promise<Record<str
   }
 
   const result: Record<string, LiturgicalCalendarDay> = {}
-  unique.forEach((date, index) => {
+  for (const date of unique) {
     const day = monthDays.get(date)
-    const feasts = toFeasts(celebrations[index])
-    if (!day && feasts.length === 0) return
+    const dayCelebrations = celebrations.get(date)
+    // Either lookup failing leaves the day out, so the route marks the
+    // response incomplete and the browser doesn't keep a day without its feasts.
+    if (!day || dayCelebrations === undefined) continue
     result[date] = {
       date,
-      copticDate: toCopticDateInfo(day?.copticDate),
-      fast: toFast(day?.fasting),
-      feasts,
+      copticDate: toCopticDateInfo(day.copticDate),
+      fast: toFast(day.fasting),
+      feasts: toFeasts(dayCelebrations),
     }
+  }
+  return result
+}
+
+type Celebration = z.infer<typeof celebrationSchema>
+
+/**
+ * Celebrations for each date, keyed by date; a date whose lookup failed is
+ * absent. Dates inside Coptic IO's upcoming window come from one call; only
+ * the rest are fetched a day at a time.
+ */
+async function getCelebrationsForDates(dates: string[], now: Date = new Date()): Promise<Map<string, Celebration[]>> {
+  const result = new Map<string, Celebration[]>()
+
+  // The list starts at Coptic IO's "today" (UTC). Trust it a day in from both
+  // ends so a request straddling UTC midnight can't misplace a day. `from`
+  // isn't read by the API; it keys the cache by day, since the list moves daily.
+  const from = now.toISOString().slice(0, 10)
+  const windowStart = addDaysToDateKey(from, 1)
+  const windowEnd = addDaysToDateKey(from, UPCOMING_DAYS - 2)
+  const inWindow = dates.filter((date) => date >= windowStart && date <= windowEnd)
+
+  let rest = dates
+  if (inWindow.length > 0) {
+    const upcoming = await copticIoGet('/api/celebrations/upcoming/list', upcomingCelebrationsSchema, {
+      days: String(UPCOMING_DAYS),
+      from,
+    })
+    if (upcoming) {
+      const byDate = new Map(upcoming.map((day) => [day.date, day.celebrations]))
+      // The list only carries days that have celebrations; others have none.
+      for (const date of inWindow) result.set(date, byDate.get(date) ?? [])
+      rest = dates.filter((date) => !result.has(date))
+    }
+  }
+
+  const perDay = await mapWithLimit(rest, PER_DAY_CONCURRENCY, (date) =>
+    copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema)
+  )
+  rest.forEach((date, index) => {
+    const value = perDay[index]
+    if (value !== null) result.set(date, value)
   })
   return result
 }
 
+/** Longest a browser or phone may reuse an answer: our own season and cycle logic is part of it, so fixes must show within the hour. */
+const CLIENT_MAX_AGE_SECONDS = 60 * 60
+
 /**
- * Browser cache lifetime for a liturgical response.
+ * Browser cache lifetime for a liturgical response. The server-side caches
+ * above carry the load, so clients keep answers only briefly.
  * - Incomplete answers (Coptic IO partly down): never cached, so the next view retries.
- * - "Today" (no date asked for): until midnight at the church, when it stops being today.
- * - A pinned date: a day, then served stale for a week while revalidating.
+ * - "Today" (no date asked for): an hour, or until midnight at the church if sooner.
+ * - A pinned date: an hour.
  */
 export function liturgicalCacheControl({ complete, pinnedDate }: { complete: boolean; pinnedDate: boolean }): string {
   if (!complete) return 'no-store'
-  if (!pinnedDate) return `private, max-age=${secondsUntilChurchMidnight()}`
-  return 'private, max-age=86400, stale-while-revalidate=604800'
+  if (!pinnedDate) return `private, max-age=${Math.min(secondsUntilChurchMidnight(), CLIENT_MAX_AGE_SECONDS)}`
+  return `private, max-age=${CLIENT_MAX_AGE_SECONDS}`
 }

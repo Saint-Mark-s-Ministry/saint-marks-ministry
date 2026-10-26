@@ -2,7 +2,7 @@ import type { SundaySchoolCheckIns } from '@/types/sunday-school-check-ins'
 import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
-import type { DailyReadings, LiturgicalCalendarDay, LiturgicalCalendarResponse, LiturgicalDay, LiturgicalLanguage } from '@/lib/liturgical'
+import { LITURGICAL_API_VERSION, type DailyReadings, type LiturgicalCalendarDay, type LiturgicalCalendarResponse, type LiturgicalDay, type LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
 import useSWRMutation from 'swr/mutation'
 
@@ -401,18 +401,19 @@ export function useContactBook(userId: string | undefined) {
   )
 }
 
-// Church calendar (Coptic IO, via /api/liturgical). Dated answers never change,
-// so these cache for the session; "today" is resolved on the server.
+// Church calendar (Coptic IO, via /api/liturgical). Dated answers rarely change,
+// so these cache for the session; "today" is resolved on the server. The `v`
+// parameter moves past answers browsers cached under an older meaning.
 const liturgicalConfig: SWRConfiguration = { ...staticDataConfig, errorRetryCount: 1 }
 
 export function useLiturgicalDay(date?: string | null, lang: LiturgicalLanguage = 'en', options?: SWRConfiguration) {
-  const params = new URLSearchParams({ lang })
+  const params = new URLSearchParams({ lang, v: LITURGICAL_API_VERSION })
   if (date) params.set('date', date)
   return useSWR<LiturgicalDay>(`/api/liturgical/day?${params}`, fetcher, { ...liturgicalConfig, ...options })
 }
 
 export function useDailyReadings(date: string | null, lang: LiturgicalLanguage = 'en', options?: SWRConfiguration) {
-  const params = new URLSearchParams({ lang })
+  const params = new URLSearchParams({ lang, v: LITURGICAL_API_VERSION })
   if (date) params.set('date', date)
   return useSWR<DailyReadings, Error & { status?: number }>(`/api/liturgical/readings?${params}`, fetcher, {
     ...liturgicalConfig,
@@ -434,7 +435,7 @@ export function useLiturgicalCalendar(dates: string[], options?: SWRConfiguratio
     chunks.length > 0 ? ['liturgical-calendar', ...chunks] : null,
     async ([, ...keys]: string[]) => {
       const responses = await Promise.all(
-        keys.map((key) => fetcher(`/api/liturgical/calendar?dates=${key}`) as Promise<LiturgicalCalendarResponse>)
+        keys.map((key) => fetcher(`/api/liturgical/calendar?dates=${key}&v=${LITURGICAL_API_VERSION}`) as Promise<LiturgicalCalendarResponse>)
       )
       return Object.assign({}, ...responses.map((response) => response.days))
     },
@@ -518,5 +519,25 @@ export function useLessonCalendarSubscription(classId: string) {
       if (!response.ok) throw new Error('Could not prepare class calendar')
       return response.json()
     },
+  )
+}
+
+export function useBirthdayCalendarSubscription(classId: string) {
+  return useSWRMutation<{ feedUrl: string; className: string }>(
+    classId ? `/api/sunday-school/classes/${encodeURIComponent(classId)}/birthday-calendar` : null,
+    async (url: string) => {
+      const response = await fetch(url, { method: 'POST' })
+      if (!response.ok) throw new Error('Could not prepare class calendar')
+      return response.json()
+    },
+  )
+}
+
+/** Contact details are loaded only while a birthday action dialog is open. */
+export function useBirthdayTextContact(childId: string, viewerId?: string) {
+  return useSWR<{ cellPhone: string | null }>(
+    viewerId ? [`/api/sunday-school/children/${encodeURIComponent(childId)}`, viewerId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    { ...defaultSWRConfig, revalidateOnMount: true, revalidateOnFocus: true, dedupingInterval: 0, keepPreviousData: false },
   )
 }

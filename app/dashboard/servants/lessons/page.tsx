@@ -69,9 +69,11 @@ function LessonsContent() {
     ).values()
   ), (ageGroupsData as Array<{ levels: SundaySchoolLevel[]; name: string }> | undefined) ?? [])
 
-  const [classId] = useViewingClassId(classOptions, { allowAll: true, requested: searchParams.get('classId') })
+  const [classId, , scopedClasses] = useViewingClassId(classOptions, { allowAll: true, requested: searchParams.get('classId') })
 
+  const scopedIds = new Set(scopedClasses.map(cls => cls.id))
   const visibleLessons = lessons.filter(lesson => {
+    if (classId === ALL_CLASSES && !scopedIds.has(lesson.classId)) return false
     if (classId !== ALL_CLASSES && lesson.classId !== classId) return false
     if (scope === 'mine') return lesson.ownerId === session?.user?.id && lesson.sundayDate.slice(0, 10) >= today
     if (scope === 'past') return lesson.sundayDate.slice(0, 10) < today
@@ -94,7 +96,7 @@ function LessonsContent() {
   const { data: liturgicalDays } = useLiturgicalCalendar(visibleLessons.map(lesson => lesson.sundayDate.slice(0, 10)))
   const monthDays = useMemo(() => monthGridDays(month), [month])
   const liturgical = useLiturgicalCalendarOverlay(monthDays)
-  const calendarLessons = lessons.filter(lesson => classId === ALL_CLASSES || lesson.classId === classId)
+  const calendarLessons = lessons.filter(lesson => classId === ALL_CLASSES ? scopedIds.has(lesson.classId) : lesson.classId === classId)
   const calendarEvents: CalendarEvent[] = [
     ...calendarLessons.map(lesson => ({
       id: lesson.id,

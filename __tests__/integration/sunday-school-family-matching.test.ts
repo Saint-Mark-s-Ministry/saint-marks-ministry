@@ -84,6 +84,33 @@ describe.skipIf(!enabled)('family matching database and roster API', () => {
     await match(['two'])
     expect(await db.sundaySchoolChild.findUnique({ where: { id: 'two' } })).toMatchObject({ familyId: 'a', guardianPhone: '2015550123' })
   })
+  it('matches existing families before a roster edit returns without reconciling unrelated families', async () => {
+    await family('existing', { motherPhone: '2015550123', homeAddress: '1 Main St' })
+    await child('existing-child', 'existing')
+    await child('edited-child', null)
+    await family('unrelated-a', { motherPhone: '3055550123' })
+    await family('unrelated-b', { motherPhone: '3055550123' })
+    await child('unrelated-one', 'unrelated-a'); await child('unrelated-two', 'unrelated-b')
+
+    const response = await updateChild(new Request('http://localhost/api/sunday-school/children/edited-child', {
+      method: 'PATCH', body: JSON.stringify({ guardianPhone: '+1 (201) 555-0123' }),
+    }), { params: Promise.resolve({ id: 'edited-child' }) })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ familyId: 'existing', family: { homeAddress: '1 Main St' } })
+    expect((await db.sundaySchoolChild.findUniqueOrThrow({ where: { id: 'unrelated-two' } })).familyId).toBe('unrelated-b')
+    expect(await db.sundaySchoolChildGuardian.count()).toBe(0)
+    const matched = await db.sundaySchoolFamily.findUniqueOrThrow({ where: { id: 'existing' } })
+    const events = readFamilyMatchingHistory(matched.matchingHistory).events
+    expect(events).toHaveLength(1)
+
+    // Saving the same roster entry again must not duplicate the matching event.
+    const repeated = await updateChild(new Request('http://localhost', {
+      method: 'PATCH', body: JSON.stringify({ notes: 'Updated roster note' }),
+    }), { params: Promise.resolve({ id: 'edited-child' }) })
+    expect(repeated.status).toBe(200)
+    expect(readFamilyMatchingHistory((await db.sundaySchoolFamily.findUniqueOrThrow({ where: { id: 'existing' } })).matchingHistory).events).toHaveLength(1)
+  })
   it('keeps additional parent phones available when another sibling arrives later', async () => {
     await family('a', { motherPhone: '2015550123', fatherPhone: '2015550124' })
     await family('b', { motherPhone: '2015550123', fatherPhone: '2015550125' })
