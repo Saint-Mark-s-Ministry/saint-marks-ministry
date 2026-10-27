@@ -34,10 +34,16 @@ export function useSplitSelection(): Selection | null {
 export function SplitScreen({
   children,
   listMin,
+  detail: custom,
 }: {
   children: ReactNode | ((split: Selection | null) => ReactNode);
   /** A wider minimum for a list whose rows carry controls, such as Take attendance. */
   listMin?: number;
+  /**
+   * A screen whose detail is not a child's history supplies its own: the content for what is selected
+   * (null when nothing is) and what to say until then. The screen keeps its own selection.
+   */
+  detail?: { content: ReactNode | null; empty: { title: string; caption: string } };
 }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -67,7 +73,13 @@ export function SplitScreen({
         <View style={{ width: list, borderRightWidth: gap ? 0 : 0.5, borderRightColor: colors.border }}>{render(value)}</View>
         {gap > 0 && <View style={{ width: gap }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
         <View style={{ width: detail }} accessibilityLabel="Details">
-          {selected ? <HistoryPane key={`${selected.program}:${selected.id}`} target={selected} /> : <EmptyDetail />}
+          {custom ? (
+            (custom.content ?? <EmptyDetail title={custom.empty.title} caption={custom.empty.caption} />)
+          ) : selected ? (
+            <HistoryPane key={`${selected.program}:${selected.id}`} target={selected} />
+          ) : (
+            <EmptyDetail />
+          )}
         </View>
       </View>
     </SelectionContext.Provider>
@@ -83,14 +95,18 @@ function HistoryPane({ target }: { target: StudentHistoryTarget }) {
   );
 }
 
-function EmptyDetail() {
+function EmptyDetail({
+  title = "Select a child",
+  caption = "Their attendance, notes and visitations appear here.",
+}: {
+  title?: string;
+  caption?: string;
+}) {
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 32 }}>
       <Icon ios="person.crop.circle" android="account_circle" size={44} />
-      <Copy kind="heading" style={{ textAlign: "center" }}>Select a child</Copy>
-      <Copy kind="caption" style={{ textAlign: "center" }}>
-        Their attendance, notes and visitations appear here.
-      </Copy>
+      <Copy kind="heading" style={{ textAlign: "center" }}>{title}</Copy>
+      <Copy kind="caption" style={{ textAlign: "center" }}>{caption}</Copy>
     </View>
   );
 }

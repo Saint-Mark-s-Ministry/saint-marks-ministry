@@ -292,6 +292,9 @@ to three coloured event chips and "+N more", a Today marker, a Fast tag and a le
 (`Screen fullWidth`), and its columns break at the hinge, Sunday to Wednesday on the left and Thursday to
 Saturday on the right. Home and the forms stay one large page across the window.
 
+On the **Classes** tab the right pane is the tapped class: children and attendance, Take attendance, individual
+history, roster, servants and recent sessions, with "Open full class" for editing and staffing.
+
 **The dock stays on the right.** Inside the tabs the system draws its vertical tab bar on the trailing edge.
 A screen pushed over the tabs (Take attendance, a lesson, a profile) covers that bar, so a dock with the same
 five tabs is drawn in the same strip until you go back; tapping a tab returns to it. It is drawn only when the

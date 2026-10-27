@@ -5,6 +5,8 @@ import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import type { SundaySchoolDashboard, SundaySchoolPinnedClassesResponse } from "@stmark/contracts";
 import { Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { ClassPane } from "@/components/class-pane";
+import { SplitScreen } from "@/components/split-screen";
 import { TopActions } from "@/components/top-actions";
 import ParentChildren from "../../parent-children";
 import { useAuth } from "@/data/auth-provider";
@@ -64,6 +66,7 @@ function ClassesScreen() {
   const pinned = useResource<SundaySchoolPinnedClassesResponse>(access.admin ? endpoint("pinned-classes") : null);
   const pinnedClassIds = pinned.data?.classIds ?? [];
   const [showAll, setShowAll] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const showPinnedToggle = access.admin && pinnedClassIds.length > 0;
 
   const allClasses = dashboard.data?.classes ?? [];
@@ -92,6 +95,14 @@ function ClassesScreen() {
         }}
       />
       {Platform.OS === "ios" && <TopActions />}
+      <SplitScreen
+        listMin={380}
+        detail={{
+          content: selectedId ? <ClassPane key={selectedId} classId={selectedId} /> : null,
+          empty: { title: "Select a class", caption: "Its attendance, roster, servants and sessions appear here." },
+        }}
+      >
+        {(split) => (
       <Screen
         resetOnFocus
         refreshing={dashboard.loading || dashboard.refreshing}
@@ -178,11 +189,12 @@ function ClassesScreen() {
                     key={cls.id}
                     accessibilityRole="button"
                     accessibilityLabel={`${cls.name}, ${cls.childCount} children, attendance ${cls.attendanceTakenThisWeek ? "taken" : "due"}`}
-                    onPress={() => router.push({ pathname: "/class/[id]", params: { id: cls.id } })}
+                    onPress={() => (split ? setSelectedId(cls.id) : router.push({ pathname: "/class/[id]", params: { id: cls.id } }))}
+                    accessibilityState={{ selected: !!split && selectedId === cls.id }}
                     style={({ pressed }) => [
                       { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 8, minHeight: 58 },
                       index < arr.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
-                      { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                      { backgroundColor: pressed || (split && selectedId === cls.id) ? colors.primarySoft : "transparent" },
                     ]}
                   >
                     <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
@@ -207,6 +219,8 @@ function ClassesScreen() {
           </View>
         ))}
       </Screen>
+        )}
+      </SplitScreen>
     </>
   );
 }
