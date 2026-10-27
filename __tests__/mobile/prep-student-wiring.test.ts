@@ -9,7 +9,7 @@ describe("SP Student badge on iOS", () => {
   it.each([
     ["roster", "app/roster.tsx"],
     ["child profile", "app/child/[id].tsx"],
-    ["student history", "app/student-history/[id].tsx"],
+    ["student history", "components/student-history-view.tsx"],
   ])("%s shows the shared badge from the server flag", (_name, file) => {
     expect(src(file)).toContain("<PrepStudentBadge");
     expect(src(file)).toContain("showsPrepStudentBadge(");

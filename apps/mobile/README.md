@@ -277,3 +277,17 @@ the app. The in-app notification list and optional local proctor alert sounds
 remain available, and so do teaching reminders (they are in the feed regardless
 of push). To restore remote push later, set the flag to `true`, refresh
 the APNs-enabled signing profile, and rebuild the native app.
+
+## iPhone Duo and wide windows (iOS 27.1)
+
+On a window at least 700 pt wide after the vertical bar's inset (the iPhone Duo fully open), Roster and
+Take attendance show **two panes**: the list on the left and the selected child's history (Attendance,
+Notes, Visitations) on the right. Tapping a child, or the clock button, selects them in the pane instead of
+opening a sheet, so the list, its scroll position and any unsaved attendance marks stay put. Phones are
+never that wide and keep the single column. The rule uses width, not the device name.
+
+The `DuoLayout` native module (`modules/duo-layout`, Swift, iOS 27.1 only) reports the hinge angle and
+status, the vertical bar edge, the safe-area insets and the crease regions to `useDuo()`. On any other
+iPhone or iOS it answers "not foldable". In development a small pill shows the live values on a foldable.
+Building needs Xcode 27.1 (the 27.1 SDK); an older dev client without the module simply reports not
+foldable. The hinge is changed in DeviceHub; there is no `simctl` command for it.

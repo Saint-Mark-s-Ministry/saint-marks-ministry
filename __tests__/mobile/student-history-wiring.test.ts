@@ -63,7 +63,7 @@ describe("student history on iOS: where a saved child's name opens it", () => {
 });
 
 describe("student history on iOS: what the sheet shows", () => {
-  const sheet = src("app/student-history/[id].tsx");
+  const sheet = src("components/student-history-view.tsx");
   // Code only: the doc comment above the component says what is left out.
   const code = sheet.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
@@ -86,7 +86,9 @@ describe("student history on iOS: what the sheet shows", () => {
   });
 
   it("reads through the viewer-scoped history hook, not a shared cache key", () => {
-    expect(sheet).toContain("useStudentHistory(target)");
+    // The sheet and the wide-screen detail pane both read through the same hook.
+    expect(src("app/student-history/[id].tsx")).toContain("useStudentHistory(target)");
+    expect(src("components/split-screen.tsx")).toContain("useStudentHistory(target)");
     expect(src("data/use-student-history.ts")).toContain("studentHistoryScope(");
     expect(src("data/use-student-history.ts")).toContain("useResource<StudentHistory>(path, scope)");
   });

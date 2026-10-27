@@ -28,11 +28,11 @@ describe("confidential notes on iOS", () => {
   });
 
   it("keeps private content out of shared history, logs, summaries and previews", () => {
-    for (const file of ["data/use-private-notes.ts", "data/private-notes.ts", "app/visitation/[childId].tsx", "app/student-history/[id].tsx"]) {
+    for (const file of ["data/use-private-notes.ts", "data/private-notes.ts", "app/visitation/[childId].tsx", "components/student-history-view.tsx"]) {
       expect(code(file)).not.toMatch(/console\.(log|warn|error|info|debug)/);
     }
     // The shared history sheet never asks for or renders a confidential note.
-    expect(code("app/student-history/[id].tsx")).not.toMatch(/priest-notes|PriestNote|privateNote\b/);
+    expect(code("components/student-history-view.tsx")).not.toMatch(/priest-notes|PriestNote|privateNote\b/);
     // Notification rows show the server's own content-free title and body, never a note.
     expect(code("app/notifications.tsx")).not.toMatch(/priest-notes|\.content\b|privateNote/i);
   });
@@ -44,7 +44,7 @@ describe("confidential notes on iOS", () => {
   });
 
   it("the history sheet mentions confidential notes only to sessions the server lets read them", () => {
-    expect(code("app/student-history/[id].tsx")).toContain("history.canReadPrivateNotes === true");
+    expect(code("components/student-history-view.tsx")).toContain("history.canReadPrivateNotes === true");
   });
 
   it("ordinary ministry editing grants no note access: the policy never reads the role or the editing flags", () => {

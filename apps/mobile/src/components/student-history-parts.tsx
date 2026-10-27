@@ -5,6 +5,7 @@ import { Copy, Icon } from "@/components/ui";
 import { feedback } from "@/data/haptics";
 import { useAuth } from "@/data/auth-provider";
 import { studentHistoryRoute, type StudentHistoryTarget } from "@/data/student-history";
+import { useSplitSelection } from "@/components/split-screen";
 import { useAppTheme } from "@/theme";
 
 /**
@@ -25,14 +26,21 @@ export function useCanOpenStudentHistory(): boolean {
  */
 export function useOpenStudentHistory(): (target: StudentHistoryTarget) => void {
   const lastOpened = useRef(0);
+  // On a wide window the history appears in the detail pane beside the list rather than as a sheet.
+  const split = useSplitSelection();
   return useCallback((target: StudentHistoryTarget) => {
+    if (split) {
+      feedback("selection");
+      split.select(target);
+      return;
+    }
     // A double tap must not stack two sheets.
     const now = Date.now();
     if (now - lastOpened.current < 800) return;
     lastOpened.current = now;
     feedback("selection");
     router.push(studentHistoryRoute(target));
-  }, []);
+  }, [split]);
 }
 
 export function historyTarget(id: string, name: string): StudentHistoryTarget {

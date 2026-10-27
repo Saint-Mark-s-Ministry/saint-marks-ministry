@@ -21,6 +21,7 @@ import { Copy, Icon, ConnectionBadge, Screen, styles } from "@/components/ui";
 import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
 import { historyTarget, useCanOpenStudentHistory, useOpenStudentHistory } from "@/components/student-history-parts";
+import { SplitScreen, useSplitSelection } from "@/components/split-screen";
 import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attendance-draft";
 import { sansRegular, useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
@@ -283,6 +284,9 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
           ),
         }}
       />
+      {/* Two panes on a wide window: this list and bottom bar on the left, the child's history beside it. */}
+      <SplitScreen listMin={410}>
+        <>
       <Screen bottom={24}>
         <Copy kind="caption">{cls.name} · {weekOfLabel(date)}</Copy>
         <ConnectionBadge />
@@ -490,6 +494,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
         </View>
       )}
 
+        </>
+      </SplitScreen>
     </>
   );
 }
@@ -580,6 +586,8 @@ function RosterRow({
   const { colors } = useAppTheme();
   const canOpenHistory = useCanOpenStudentHistory();
   const openHistory = useOpenStudentHistory();
+  // Beside the history pane the list column is narrow: the decorative avatar gives its width to the name.
+  const split = useSplitSelection();
   const fillFor = (value: AttendanceStatus) => {
     if (value === "PRESENT") return colors.success;
     if (value === "LATE") return colors.warning;
@@ -596,13 +604,13 @@ function RosterRow({
           photos" is off) — matching the Roster screen's own row convention,
           rather than the artboard's photo-less row, so a row never loses its
           visual anchor. */}
-      {photo ? (
+      {!split && (photo ? (
         <Image source={{ uri: photo }} accessibilityLabel={`${name} profile photo`} style={{ width: 36, height: 36, borderRadius: 18 }} />
       ) : (
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
           <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>{initials}</Copy>
         </View>
-      )}
+      ))}
       {canOpenHistory ? (
         // Two separate controls, apart from the Present/Late/Absent buttons: the
         // name opens the child's history, the line under it edits the note.

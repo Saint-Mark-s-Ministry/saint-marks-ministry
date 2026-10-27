@@ -14,6 +14,7 @@ import { defaultMinistry, ministryForSegments, type Ministry } from "@/data/navi
 import { authenticatedRoutes, publicRoutes } from "@/data/route-access";
 import { ViewAsBanner } from "@/components/view-as-banner";
 import { AttendanceReminderBanner } from "@/components/attendance-reminder-banner";
+import { DuoDiagnostics } from "@/components/duo-diagnostics";
 import { ActivityIndicator } from "react-native";
 import LaunchScreen from "@/components/launch-screen";
 import { useNavigationHeaderOptions } from "@/components/chrome";
@@ -205,6 +206,7 @@ function Navigation() {
       <MinistryTintProvider ministry="sundaySchool">
         <AttendanceAccessory />
       </MinistryTintProvider>
+      <DuoDiagnostics />
     </ThemeProvider>
   );
 }

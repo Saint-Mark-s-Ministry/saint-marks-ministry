@@ -8,8 +8,9 @@ import type { SundaySchoolChild, SundaySchoolDashboard } from "@stmark/contracts
 import { compareAgeGroupsByLevel } from "@stmark/domain";
 import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
-import { StudentHistoryButton } from "@/components/student-history-parts";
+import { StudentHistoryButton, historyTarget } from "@/components/student-history-parts";
 import { ChildAvatar, PhotoNoticeBanner, TakePhotoButton } from "@/components/child-photo-parts";
+import { SplitScreen } from "@/components/split-screen";
 import { useLargeType } from "@/components/attendance-history-parts";
 import { canChangeChildPhoto } from "@/data/child-photo";
 import { PrepStudentBadge } from "@/components/prep-student-badge";
@@ -107,6 +108,8 @@ export default function Roster() {
         placeholder="Search children"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />
+      <SplitScreen>
+      {(split) => (
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
           <Copy kind="caption">
@@ -207,10 +210,14 @@ export default function Roster() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${withPrepStudentSpoken(`${child.firstName} ${child.lastName}`, child)}${!child.isActive ? ", inactive" : ""}`}
-                    onPress={() => router.push({ pathname: "/child/[id]", params: { id: child.id } })}
+                    onPress={() =>
+                      split
+                        ? split.select(historyTarget(child.id, `${child.firstName} ${child.lastName}`))
+                        : router.push({ pathname: "/child/[id]", params: { id: child.id } })
+                    }
                     style={({ pressed }) => [
                       { flex: large ? undefined : 1, width: large ? "100%" : undefined, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: large ? 16 : 0, paddingVertical: 10, minHeight: 62 },
-                      { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                      { backgroundColor: pressed || split?.selected?.id === child.id ? colors.primarySoft : "transparent" },
                     ]}
                   >
                     {!large && <ChildAvatar child={child} name={`${child.firstName} ${child.lastName}`} size={40} />}
@@ -244,6 +251,8 @@ export default function Roster() {
           </ListSurface>
         )}
       </Screen>
+      )}
+      </SplitScreen>
     </MinistryTintProvider>
   );
 }
