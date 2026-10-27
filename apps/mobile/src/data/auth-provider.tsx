@@ -99,7 +99,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     // The screens still on the stack belong to the person who was being viewed. Leave them.
     const expired = expiry !== null && Date.now() >= expiry - 5000;
-    const notice = viewAsEndedMessage(expired ? "expired" : "access-ended");
+    const notice = viewAsEndedMessage(expired ? "expired" : "unavailable");
     if (user) {
       router.dismissAll();
       router.replace(defaultMinistry(user, user.sundaySchool.hasAccess) === "prep" ? "/(prep)/home" : "/(tabs)/home");

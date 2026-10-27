@@ -48,7 +48,7 @@ describe("the preview countdown", () => {
   });
   it("tells a person why the preview closed", () => {
     expect(viewAsEndedMessage("expired").message).toMatch(/30-minute/);
-    expect(viewAsEndedMessage("access-ended").message).toMatch(/removed/);
+    expect(viewAsEndedMessage("unavailable").message).toMatch(/no longer available/);
   });
 });
 

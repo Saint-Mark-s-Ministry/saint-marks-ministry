@@ -37,11 +37,14 @@ export function viewAsRemainingLabel(expiresAt: number, now: number = Date.now()
   return ms < 60000 ? "Under a minute left" : `${Math.round(ms / 60000)} min left`;
 }
 
-/** What to tell someone whose preview ended without their pressing Stop. */
-export function viewAsEndedMessage(reason: "expired" | "access-ended"): { title: string; message: string } {
+/**
+ * What to tell someone whose preview ended without their pressing Stop while their own session carried on:
+ * the time ran out, or the viewed account went away. (A revoked grant closes the whole session instead.)
+ */
+export function viewAsEndedMessage(reason: "expired" | "unavailable"): { title: string; message: string } {
   return reason === "expired"
     ? { title: "View as ended", message: "The 30-minute preview has ended, and you are back in your own account." }
-    : { title: "View as ended", message: "Your View as access was removed, so the preview was closed." };
+    : { title: "View as ended", message: "The account you were viewing is no longer available, so the preview was closed. You are back in your own account." };
 }
 
 export type ViewAsAccessControl =

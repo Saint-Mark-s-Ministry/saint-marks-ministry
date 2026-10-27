@@ -69,10 +69,17 @@ describe("priest ministry editing on iOS", () => {
     expect(canSeeContactBook({ role: "PRIEST" })).toBe(false);
     expect(canViewActivity("PRIEST")).toBe(false);
     expect(canReviewServantApplications("PRIEST")).toBe(false);
-    for (const file of ["app/people.tsx", "app/person/[id].tsx", "app/organization.tsx", "app/activity.tsx", "app/applications.tsx", "app/view-as.tsx"]) {
+    for (const file of ["app/people.tsx", "app/person/[id].tsx", "app/organization.tsx", "app/activity.tsx", "app/applications.tsx"]) {
       expect(src(file)).toContain('"SUPER_ADMIN"');
       expect(code(file)).not.toMatch(/PRIEST|isAdminLike|useMinistryAdmin/);
     }
+    // View As: the screens ask the shared helper, which allows a Super Admin or the server's per-account
+    // grant. A Priest role never opens it; "PRIEST" appears only as the target's tag on the grant switch.
+    expect(code("app/view-as.tsx")).not.toMatch(/PRIEST|isAdminLike|useMinistryAdmin/);
+    expect(src("app/view-as.tsx")).toContain("canStartViewAs");
+    expect(src("data/view-as.ts")).toContain('"SUPER_ADMIN"');
+    expect(src("data/view-as.ts")).toContain("canUseViewAs === true");
+    expect(code("data/view-as.ts").match(/PRIEST/g)).toHaveLength(1);
   });
 
   it("leaves feedback moderation and the check-in assignment rule to the server's flags", () => {
