@@ -15,6 +15,8 @@ import { authenticatedRoutes, publicRoutes } from "@/data/route-access";
 import { ViewAsBanner } from "@/components/view-as-banner";
 import { AttendanceReminderBanner } from "@/components/attendance-reminder-banner";
 import { DuoDiagnostics } from "@/components/duo-diagnostics";
+import { DuoDock } from "@/components/duo-dock";
+import { peopleTabLabel } from "@/data/duo-layout";
 import { ActivityIndicator } from "react-native";
 import LaunchScreen from "@/components/launch-screen";
 import { useNavigationHeaderOptions } from "@/components/chrome";
@@ -207,6 +209,11 @@ function Navigation() {
         <AttendanceAccessory />
       </MinistryTintProvider>
       <DuoDiagnostics />
+      {user && (
+        <MinistryTintProvider ministry={ministry}>
+          <DuoDock ministry={ministry} peopleLabel={peopleTabLabel(ministry, user.role)} />
+        </MinistryTintProvider>
+      )}
     </ThemeProvider>
   );
 }

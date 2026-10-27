@@ -135,3 +135,66 @@ export function monthColumns(options: {
     gap,
   };
 }
+
+// ── The dock ────────────────────────────────────────────────────────────────
+
+export type DockMinistry = "sundaySchool" | "prep";
+
+export type DockItem = {
+  /** The tab's route name inside its group. */
+  name: string;
+  label: string;
+  sf: string;
+  sfSelected: string;
+  /** The tab's href. */
+  href: string;
+};
+
+/**
+ * The tabs the dock offers: the same five as the system tab bar, in the same order, for the ministry
+ * the person is in. `peopleLabel` is the third tab's name (Classes, Children, Students, Lessons, Mentees).
+ */
+export function dockItems(ministry: DockMinistry, peopleLabel: string): DockItem[] {
+  const group = ministry === "prep" ? "(prep)" : "(tabs)";
+  const people = ministry === "prep" ? "students" : "classes";
+  const item = (name: string, label: string, sf: string, sfSelected = sf): DockItem => ({
+    name,
+    label,
+    sf,
+    sfSelected,
+    href: `/${group}/${name}`,
+  });
+  return [
+    item("home", "Home", "house", "house.fill"),
+    item("calendar", "Calendar", "calendar"),
+    item(people, peopleLabel, "person.2", "person.2.fill"),
+    item("ministry", "More", "square.grid.2x2", "square.grid.2x2.fill"),
+    item("search", "Search", "magnifyingglass"),
+  ];
+}
+
+const TAB_GROUPS = new Set(["(tabs)", "(prep)"]);
+
+/**
+ * Whether the dock should be drawn by the app: on a device whose system bar is on the trailing edge, while
+ * a screen that is not inside the tab groups is on top (those pushed screens cover the system tab bar).
+ * Inside the tab groups the system draws the bar itself, so the dock steps aside.
+ */
+export function dockVisible(state: Pick<DuoState, "supported" | "verticalBarEdge">, segments: readonly string[]): boolean {
+  if (!state.supported || state.verticalBarEdge === "none") return false;
+  const first = segments[0];
+  if (!first) return false;
+  return !TAB_GROUPS.has(first);
+}
+
+/** The tab to show as selected: the one named by the segments when they are in a tab group, else the previous one. */
+export function dockSelected(segments: readonly string[], previous: string): string {
+  const [group, tab] = segments;
+  return group && TAB_GROUPS.has(group) && tab ? tab.replace(/\/.*$/, "") : previous;
+}
+
+/** The third tab's name, as the tab layouts spell it: Classes (Children for a parent), or Students, Lessons, Mentees in Prep. */
+export function peopleTabLabel(ministry: DockMinistry, role: string | null | undefined): string {
+  if (ministry === "prep") return role === "STUDENT" ? "Lessons" : role === "MENTOR" ? "Mentees" : "Students";
+  return role === "PARENT" ? "Children" : "Classes";
+}

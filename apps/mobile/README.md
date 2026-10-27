@@ -292,6 +292,11 @@ to three coloured event chips and "+N more", a Today marker, a Fast tag and a le
 (`Screen fullWidth`), and its columns break at the hinge, Sunday to Wednesday on the left and Thursday to
 Saturday on the right. Home and the forms stay one large page across the window.
 
+**The dock stays on the right.** Inside the tabs the system draws its vertical tab bar on the trailing edge.
+A screen pushed over the tabs (Take attendance, a lesson, a profile) covers that bar, so a dock with the same
+five tabs is drawn in the same strip until you go back; tapping a tab returns to it. It is drawn only when the
+system reports a vertical bar (`verticalBarEdge`), so phones are unchanged.
+
 The `DuoLayout` native module (`modules/duo-layout`, Swift, iOS 27.1 only) reports the hinge angle and
 status, the vertical bar edge, the safe-area insets and the crease regions to `useDuo()`. On any other
 iPhone or iOS it answers "not foldable". In development a small pill shows the live values on a foldable.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DuoState } from "../../apps/mobile/modules/duo-layout/src/types";
-import { WIDE_MIN_WIDTH, crease, describeDuo, foldX, halves, isWide, monthColumns, paneWidths, panesAtFold, posture } from "../../apps/mobile/src/data/duo-layout";
+import { WIDE_MIN_WIDTH, crease, describeDuo, dockItems, dockSelected, dockVisible, foldX, halves, isWide, monthColumns, paneWidths, panesAtFold, peopleTabLabel, posture } from "../../apps/mobile/src/data/duo-layout";
 
 const region = (r: { x: number; y: number; width: number; height: number }) => ({ ...r, active: true, margins: { top: 0, left: 0, bottom: 0, right: 0 } });
 const base: DuoState = { supported: true, hinge: "open", angle: Math.PI, verticalBarEdge: "trailing", insets: { top: 0, left: 0, bottom: 34, right: 84 }, occlusions: [], divisions: [] };
@@ -112,5 +112,43 @@ describe("a month grid that breaks at the hinge", () => {
     const grid = monthColumns({ containerLeft: 16, containerWidth: 400, fold: 60 });
     expect(grid.gapAfter).toBeNull();
     expect(new Set(grid.widths).size).toBe(1);
+  });
+});
+
+describe("dock", () => {
+  const bar = { supported: true, verticalBarEdge: "trailing" as const };
+
+  it("is the system's five tabs, in order, for each ministry", () => {
+    expect(dockItems("sundaySchool", "Classes").map((i) => i.label)).toEqual(["Home", "Calendar", "Classes", "More", "Search"]);
+    expect(dockItems("prep", "Mentees").map((i) => i.href)).toEqual([
+      "/(prep)/home",
+      "/(prep)/calendar",
+      "/(prep)/students",
+      "/(prep)/ministry",
+      "/(prep)/search",
+    ]);
+  });
+
+  it("shows only over pushed screens, on a device with a vertical bar", () => {
+    expect(dockVisible(bar, ["attendance", "[classId]"])).toBe(true);
+    expect(dockVisible(bar, ["(tabs)", "home"])).toBe(false);
+    expect(dockVisible(bar, ["(prep)", "calendar"])).toBe(false);
+    expect(dockVisible(bar, [])).toBe(false);
+    expect(dockVisible({ supported: true, verticalBarEdge: "none" }, ["roster"])).toBe(false);
+    expect(dockVisible({ supported: false, verticalBarEdge: "trailing" }, ["roster"])).toBe(false);
+  });
+
+  it("keeps the last tab selected while a pushed screen is on top", () => {
+    expect(dockSelected(["(tabs)", "calendar"], "home")).toBe("calendar");
+    expect(dockSelected(["roster"], "calendar")).toBe("calendar");
+    expect(dockSelected(["(tabs)"], "classes")).toBe("classes");
+  });
+
+  it("names the people tab as the layouts do", () => {
+    expect(peopleTabLabel("sundaySchool", "PARENT")).toBe("Children");
+    expect(peopleTabLabel("sundaySchool", "SERVANT")).toBe("Classes");
+    expect(peopleTabLabel("prep", "STUDENT")).toBe("Lessons");
+    expect(peopleTabLabel("prep", "MENTOR")).toBe("Mentees");
+    expect(peopleTabLabel("prep", "ADMIN")).toBe("Students");
   });
 });

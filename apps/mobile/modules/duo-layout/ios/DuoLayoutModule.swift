@@ -24,6 +24,11 @@ public class DuoLayoutModule: Module {
     AsyncFunction("getState") { () -> [String: Any] in
       await MainActor.run { self.snapshot() }
     }
+
+    // Development: where the tab bar and vertical bar actually are, read from the live view hierarchy.
+    AsyncFunction("describeBars") { () -> String in
+      await MainActor.run { self.describeBars() }
+    }
   }
 
   // MARK: hinge
@@ -63,6 +68,38 @@ public class DuoLayoutModule: Module {
     if let existing = interaction as? UIHingeInteraction { host?.removeInteraction(existing) }
     interaction = nil
     host = nil
+  }
+
+  // MARK: bars
+
+  private func describeBars() -> String {
+    guard let root = keyView() else { return "no key view" }
+    var lines: [String] = []
+    var seen = Set<ObjectIdentifier>()
+    func walk(_ controller: UIViewController, _ depth: Int) {
+      guard seen.insert(ObjectIdentifier(controller)).inserted else { return }
+      let pad = String(repeating: " ", count: depth)
+      var line = "\(pad)\(type(of: controller)) view=\(controller.view.frame)"
+      if #available(iOS 27.1, *) {
+        line += " vbar=\(controller.preferredVerticalBarBehavior.rawValue) edge=\(controller.traitCollection.verticalBarEdge.rawValue)"
+      }
+      if let tabs = controller as? UITabBarController {
+        line += " TABBAR frame=\(tabs.tabBar.frame) hidden=\(tabs.tabBar.isHidden) alpha=\(tabs.tabBar.alpha) items=\(tabs.tabBar.items?.count ?? -1)"
+      }
+      lines.append(line)
+      for child in controller.children { walk(child, depth + 1) }
+      if let presented = controller.presentedViewController { walk(presented, depth + 1) }
+    }
+    if let controller = root.window?.rootViewController { walk(controller, 0) }
+    func views(_ view: UIView, _ depth: Int) {
+      let name = String(describing: type(of: view))
+      if depth < 40, name.localizedCaseInsensitiveContains("bar") && !name.contains("Scroll") {
+        lines.append("view \(name) frame=\(view.convert(view.bounds, to: nil)) hidden=\(view.isHidden)")
+      }
+      for sub in view.subviews { views(sub, depth + 1) }
+    }
+    if let window = root.window { views(window, 0) }
+    return lines.joined(separator: "\n")
   }
 
   // MARK: state
