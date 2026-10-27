@@ -2,16 +2,18 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
-import { AppState, Platform } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import { router } from "expo-router";
 import { fetch } from "expo/fetch";
 import * as SecureStore from "expo-secure-store";
 import { PortalApi, type CookieJar, type PortalUser, type PortalSession, type ViewAsSession } from "./api-client";
 
 import { defaultMinistry } from "./navigation";
+import { viewAsEndedMessage, viewAsRemainingMs } from "./view-as";
 import { clearResourceCache } from "./resources";
 
 const configured = process.env.EXPO_PUBLIC_API_URL;
@@ -78,6 +80,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userId = user?.id;
+  const viewingActorId = session.impersonating?.originalId ?? null;
+  const viewAsExpiresAt = session.impersonating?.expiresAt ?? null;
+  // A preview can end without the person pressing Stop: the 30 minutes run out, the actor's access is
+  // revoked, or the viewed account is disabled. The server reports each on the next session refresh.
+  const previousViewingActor = useRef<string | null>(null);
+  const stopRequested = useRef(false);
+  const previousExpiry = useRef<number | null>(null);
+  useEffect(() => {
+    const before = previousViewingActor.current;
+    const expiry = previousExpiry.current;
+    previousViewingActor.current = viewingActorId;
+    previousExpiry.current = viewAsExpiresAt;
+    if (!before || viewingActorId) return;
+    if (stopRequested.current) {
+      stopRequested.current = false;
+      return;
+    }
+    // The screens still on the stack belong to the person who was being viewed. Leave them.
+    const expired = expiry !== null && Date.now() >= expiry - 5000;
+    const notice = viewAsEndedMessage(expired ? "expired" : "access-ended");
+    if (user) {
+      router.dismissAll();
+      router.replace(defaultMinistry(user, user.sundaySchool.hasAccess) === "prep" ? "/(prep)/home" : "/(tabs)/home");
+      Alert.alert(notice.title, notice.message);
+    } else {
+      // The server closed the whole session (the actor's access or account was removed).
+      setError((current) => current ?? "Your View as access ended. Please sign in again.");
+    }
+  }, [viewingActorId, viewAsExpiresAt, user]);
+  // Ask the server to close an expired preview at the moment it expires, rather than at the next minute tick.
+  useEffect(() => {
+    if (!viewAsExpiresAt || !api) return;
+    const timer = setTimeout(() => {
+      void api.session().catch(() => undefined);
+    }, viewAsRemainingMs(viewAsExpiresAt) + 1500);
+    return () => clearTimeout(timer);
+  }, [viewAsExpiresAt]);
   async function retry() {
     setLoading(true);
     setError(null);
@@ -140,10 +179,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
         viewAs: async (targetId) => {
           if (!api) throw new Error("No API server configured.");
           setSwitchingIdentity(true);
+          if (targetId === null && previousViewingActor.current) stopRequested.current = true;
           try {
             const next = await api.updateViewAs(targetId);
             router.dismissAll();
             router.replace(defaultMinistry(next.user!, next.user!.sundaySchool.hasAccess) === "prep" ? "/(prep)/home" : "/(tabs)/home");
+          }
+          catch (error) {
+            stopRequested.current = false;
+            // A refused start usually means the access was just removed: re-read what the server says now.
+            if (targetId !== null) await api.session().catch(() => undefined);
+            throw error;
           }
           finally { setSwitchingIdentity(false); }
         },
@@ -165,6 +211,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setError(null);
         },
         signOut: async () => {
+          if (previousViewingActor.current) stopRequested.current = true;
           setSession({});
           setError(null);
           try {

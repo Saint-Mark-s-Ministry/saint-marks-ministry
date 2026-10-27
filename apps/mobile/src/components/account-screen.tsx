@@ -17,6 +17,7 @@ import { usePortal } from "@/data/portal-provider";
 import { useResource } from "@/data/resources";
 import { ministryAccessSummary, roleLabel, sortAcademicYears, type AcademicYearLike } from "@/data/account";
 import { canDeleteOwnAccount } from "@/data/account-deletion";
+import { canStartViewAs } from "@/data/view-as";
 import { useAppTheme, type AppearancePreference, serifHero } from "@/theme";
 
 export function AccountScreen() {
@@ -65,7 +66,7 @@ export function AccountScreen() {
         </View>
 
         <ConnectionBadge />
-        {(user?.role === "SUPER_ADMIN" || viewingAs) && <RowLink
+        {canStartViewAs({ user, viewingAs }) && <RowLink
           title={viewingAs ? "Change viewed account" : "View as another user"}
           subtitle="Preview their access in a read-only session"
           icon={<Icon ios="person.crop.circle.badge.checkmark" android="manage_accounts" size={18} />}

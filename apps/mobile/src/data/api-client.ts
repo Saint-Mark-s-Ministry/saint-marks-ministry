@@ -16,6 +16,9 @@ export type PortalUser = {
   // Display-only: decides whether the Contact Book menu entry is shown. The
   // API re-checks on every request; never authorize from this.
   canAccessContactBook?: boolean;
+  // Display-only, like the flag above: the server sends it on every session refresh, and re-checks on every
+  // View As request. It is never set from the app.
+  canUseViewAs?: boolean;
 };
 export type ViewAsSession = {
   originalId: string;
@@ -292,7 +295,7 @@ export class PortalApi {
         ? session.user.id !== targetId || !session.impersonating
         : !!session.impersonating)) {
         throw new Error(targetId
-          ? "View as could not be started. Confirm your Super Admin access and try again."
+          ? "View as could not be started. Confirm you still have View as access and try again."
           : "View as could not be stopped. Try again or sign out.");
       }
       return session;

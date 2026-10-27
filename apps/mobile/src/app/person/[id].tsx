@@ -15,6 +15,12 @@ import {
   type Person,
 } from "@/data/people";
 import { usePortal } from "@/data/portal-provider";
+import {
+  viewAsAccessChanged,
+  viewAsAccessControl,
+  viewAsAccessErrorMessage,
+  viewAsAccessPath,
+} from "@/data/view-as";
 import { MinistryTintProvider } from "@/theme";
 
 export default function PersonScreen() {
@@ -34,8 +40,18 @@ function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person;
   const [tags, setTags] = useState<RoleTag[]>(person?.roleAssignments.map(r => r.tag) ?? ["SUNDAY_SCHOOL_SERVANT"]);
   const [note, setNote] = useState("");
   const [contactAccess, setContactAccess] = useState(person?.canAccessContactBook ?? false);
+  const [viewAsAllowed, setViewAsAllowed] = useState(person?.canUseViewAs ?? false);
   const [isDisabled, setDisabled] = useState(initiallyDisabled);
   const action = useAction();
+  const viewAsControl = viewAsAccessControl({
+    exists: !!person,
+    actorRole: user?.role,
+    viewingAs: !!viewingAs,
+    targetRole: person?.role ?? "SERVANT",
+    targetDisabled: isDisabled,
+    draftTags: tags,
+    granted: person?.canUseViewAs ?? false,
+  });
   return <><Card><Field label="Full name" value={name} onChange={setName} disabled={action.busy} /><Field label="Email" keyboardType="email-address" value={email} onChange={setEmail} disabled={action.busy || person?.id === user?.id} /><Field label="Phone" keyboardType="phone-pad" value={phone} onChange={setPhone} disabled={action.busy} />
     {!person && <Field label="Initial password (share privately)" value={password} onChange={setPassword} secureTextEntry disabled={action.busy} />}
     {person && <Button label="Save contact details" disabled={action.busy || !name.trim() || !email.trim()} onPress={() => void action.run(async () => { await request(`/api/users/${encodeURIComponent(person.id)}`, "PATCH", { name, email, phone }); await refresh(); }, "Account updated")} />}
@@ -45,8 +61,17 @@ function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person;
       <Toggle label="Allow contact book access" value={contactAccess} disabled={action.busy || !canChangeContactBookAccess({ actorRole: user?.role, viewAs: !!viewingAs })} onChange={setContactAccess} />
       <Copy kind="caption">Can view all app users’ names, emails, and phone numbers.</Copy>
     </>}
+    {viewAsControl.visible && <>
+      <Toggle
+        label="Allow View as"
+        value={viewAsAllowed}
+        disabled={action.busy || !viewAsControl.editable}
+        onChange={next => { if (!next || viewAsControl.canGrant) setViewAsAllowed(next); }}
+      />
+      <Copy kind="caption">{viewAsControl.caption}</Copy>
+    </>}
     {person && <Field label="Reason for access change" value={note} onChange={setNote} multiline disabled={action.busy} />}
-    <Button label={person ? "Save access tags" : "Create account"} disabled={action.busy || (!person && (!name.trim() || !email.trim() || password.length < 8 || !tags.length))} onPress={() => confirmAction(person ? "Change account access?" : "Create account?", `Confirm access for ${email}: ${tags.map(t => accessTagLabels[t]).join(", ") || "No tags"}.${person && showsContactBookAccess({ exists: true, draftTags: tags }) ? ` Contact book: ${contactAccess ? "allowed" : "not allowed"}.` : ""}`, () => void action.run(async () => {
+    <Button label={person ? "Save access tags" : "Create account"} disabled={action.busy || (!person && (!name.trim() || !email.trim() || password.length < 8 || !tags.length))} onPress={() => confirmAction(person ? "Change account access?" : "Create account?", `Confirm access for ${email}: ${tags.map(t => accessTagLabels[t]).join(", ") || "No tags"}.${person && showsContactBookAccess({ exists: true, draftTags: tags }) ? ` Contact book: ${contactAccess ? "allowed" : "not allowed"}.` : ""}${viewAsAccessChanged({ control: viewAsControl, original: person?.canUseViewAs ?? false, next: viewAsAllowed }) ? ` View as: ${viewAsAllowed ? "allowed" : "not allowed"}.` : ""}`, () => void action.run(async () => {
       if (person) {
         await request(`/api/admin/users/${encodeURIComponent(person.id)}/roles`, "PUT", { roleTags: tags, note });
         if (contactBookAccessChanged({ draftTags: tags, original: person.canAccessContactBook, next: contactAccess })) {
@@ -58,6 +83,16 @@ function PersonEditor({ person, initiallyDisabled, refresh }: { person?: Person;
             throw new Error(`Access tags were saved, but contact book access was not updated: ${contactBookAccessErrorMessage(error)}`);
           }
           if (person.id === user?.id) await refreshUser();
+        }
+        if (viewAsAccessChanged({ control: viewAsControl, original: person.canUseViewAs ?? false, next: viewAsAllowed })) {
+          try {
+            // A dedicated endpoint: profile updates and the session never carry this field.
+            await request(viewAsAccessPath(person.id), "PUT", { canUseViewAs: viewAsAllowed });
+          } catch (error) {
+            setViewAsAllowed(person.canUseViewAs ?? false);
+            await refresh();
+            throw new Error(`Access tags were saved, but View as access was not updated: ${viewAsAccessErrorMessage(error)}`);
+          }
         }
         await refresh();
       }

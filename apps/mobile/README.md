@@ -144,7 +144,7 @@ server's own role helpers where it does not; every write is still authorized on 
 **View as is read-only whoever starts it.** The app refuses every write while viewing as
 (`ViewAsReadOnly`, before the request is sent), hides the controls it owns, and the server
 blocks the same writes. A priest's own editing rights never apply inside a View as session.
-Starting View as from the app is still limited to Super Admins.
+Starting View as needs the server's capability (below), not a role.
 
 ## Verification
 
@@ -256,7 +256,7 @@ Merging this branch does not publish a mobile app or include local env files.
 
 ### View as
 
-Super Admins can open **Account → View as another user**. Mobile uses the same
+Super Admins, and **individually enabled priests**, can open **Account → View as another user**. Mobile uses the same
 `/api/admin/view-as/users` picker and NextAuth session update as the web portal;
 the server verifies the original actor and audits each session change. A
 persistent **View as · Read-only** banner identifies the viewed account. Tap the
@@ -267,6 +267,24 @@ foreground and every minute while active. Server expiry restores the original
 account. Identity changes clear resource caches, remount portal state, and
 invalidate pending responses. Mobile also blocks unsafe data requests while
 viewing; the existing server read-only barrier remains authoritative.
+
+**Priests.** A Priest role or tag alone gives nothing. The entry appears when the
+refreshed session says `canUseViewAs` (or the account is a Super Admin), is hidden
+during a forced password change, and the server re-checks the actor on every
+request (`hasViewAsAccess`). The banner shows the time left in the 30-minute preview.
+When a preview ends without Stop (it expires, the viewed account is disabled, or the
+grant is revoked) the next session refresh, which the app also forces at expiry,
+clears the viewed account's caches; the app leaves the screens that belonged to that
+person and shows why. If the server closes the whole session (grant revoked,
+actor disabled) the app signs out with a message. Previews stay read-only and
+confidential priest notes are never loaded in them.
+
+A Super Admin grants it in **People → account → Allow View as**, shown for an active
+priest (or while a grant exists, so it can be removed after the Priest tag goes). It saves
+through `PUT /api/admin/users/[id]/view-as-access` with `{ canUseViewAs }`, never through
+the profile update, the role update or a session update, and is off for priests and
+every other role, for disabled accounts, and inside View as. Apply the
+`20261016171000_add_priest_view_as_access` migration before using it.
 
 ## Remote push temporarily disabled
 

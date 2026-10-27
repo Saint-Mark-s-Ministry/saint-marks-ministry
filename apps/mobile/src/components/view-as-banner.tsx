@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Copy } from "./ui";
 import { useAction } from "./forms";
 import { useAuth } from "@/data/auth-provider";
+import { viewAsRemainingLabel } from "@/data/view-as";
 import { useAppTheme } from "@/theme";
 
 export function ViewAsBanner() {
@@ -11,12 +13,21 @@ export function ViewAsBanner() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const action = useAction();
+  const [now, setNow] = useState(() => Date.now());
+  const active = !!viewingAs;
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, [active]);
   if (!viewingAs) return null;
+  const remaining = viewAsRemainingLabel(viewingAs.expiresAt, now);
   const busy = action.busy || switchingIdentity;
   return <View style={{ paddingTop: insets.top, paddingHorizontal: 16, paddingBottom: 8, backgroundColor: colors.primarySoft }}>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Change viewed account" onPress={() => router.push("/view-as")} style={{ flex: 1, minHeight: 44, justifyContent: "center" }}>
-        <Copy kind="caption" color={colors.text}>View as · Read-only</Copy>
+      <Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Change viewed account" accessibilityValue={{ text: `Read-only. ${remaining}` }} onPress={() => router.push("/view-as")} style={{ flex: 1, minHeight: 44, justifyContent: "center" }}>
+        <Copy kind="caption" color={colors.text}>View as · Read-only · {remaining}</Copy>
         <Copy numberOfLines={1} style={{ fontWeight: "600" }}>{user?.name ?? user?.email}</Copy>
       </Pressable>
       <Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Stop viewing as this user" onPress={() => void action.run(async () => { await viewAs(null); })} style={{ minWidth: 44, minHeight: 44, justifyContent: "center" }}>

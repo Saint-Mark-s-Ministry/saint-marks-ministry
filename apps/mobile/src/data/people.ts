@@ -1,5 +1,5 @@
 import type { RoleTag, UserRole } from "@stmark/contracts";
-export interface Person { id: string; name: string; email: string; phone: string | null; role: UserRole; profileImageUrl?: string | null; isDisabled?: boolean; updatedAt?: string; roleAssignments: { tag: RoleTag }[]; canAccessContactBook?: boolean; }
+export interface Person { id: string; name: string; email: string; phone: string | null; role: UserRole; profileImageUrl?: string | null; isDisabled?: boolean; updatedAt?: string; roleAssignments: { tag: RoleTag }[]; canAccessContactBook?: boolean; canUseViewAs?: boolean; }
 export const accessTagLabels: Record<RoleTag, string> = {
   SUPER_ADMIN: "Super administrator", PRIEST: "Priest (edits ministry records)",
   SUNDAY_SCHOOL_SERVANT: "Sunday School servant", SUNDAY_SCHOOL_STUDENT: "Sunday School student",
