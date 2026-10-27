@@ -286,8 +286,11 @@ Notes, Visitations) on the right. Tapping a child, or the clock button, selects 
 opening a sheet, so the list, its scroll position and any unsaved attendance marks stay put. Phones are
 never that wide and keep the single column. The rule uses width, not the device name. On a foldable the
 panes meet at the hinge: the system's crease region when it reports one (active or not), otherwise the
-middle of the window, with the vertical bar's inset kept clear on the trailing edge. Screens with no list
-to pair (Calendar, Home, forms) stay one large page across the window.
+middle of the window, with the vertical bar's inset kept clear on the trailing edge. The **Calendar** (Sunday
+School and Servants Prep) becomes the desktop month grid on a wide window: Sunday-first columns, each day with up
+to three coloured event chips and "+N more", a Today marker, a Fast tag and a legend. It fills the window
+(`Screen fullWidth`), and its columns break at the hinge, Sunday to Wednesday on the left and Thursday to
+Saturday on the right. Home and the forms stay one large page across the window.
 
 The `DuoLayout` native module (`modules/duo-layout`, Swift, iOS 27.1 only) reports the hinge angle and
 status, the vertical bar edge, the safe-area insets and the crease regions to `useDuo()`. On any other

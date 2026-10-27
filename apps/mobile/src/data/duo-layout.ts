@@ -102,3 +102,36 @@ export function panesAtFold(options: {
   const detail = Math.max(0, Math.round(options.windowWidth - options.insetRight - (options.fold + gap / 2)));
   return { list, detail, gap };
 }
+
+// ── A month grid that breaks at the hinge ───────────────────────────────────
+
+const COLUMNS_LEFT = 4;
+const COLUMNS_RIGHT = 3;
+const MIN_COLUMN = 56;
+
+/**
+ * Widths for the seven day columns of a month grid. With no hinge the seven are equal. On a foldable the
+ * grid breaks at the hinge: Sunday to Wednesday fill the left half and Thursday to Saturday the right half,
+ * with the crease's width left empty between them, so no day cell is drawn across the fold. Falls back to
+ * equal columns if either half would be too narrow to read.
+ */
+export function monthColumns(options: {
+  /** The grid's left edge and width, in window coordinates. */
+  containerLeft: number;
+  containerWidth: number;
+  fold: number | null;
+  gap?: number;
+}): { widths: number[]; gapAfter: number | null; gap: number } {
+  const { containerLeft, containerWidth, fold } = options;
+  const equal = { widths: Array<number>(7).fill(containerWidth / 7), gapAfter: null, gap: 0 };
+  if (fold === null) return equal;
+  const gap = Math.max(0, options.gap ?? 0);
+  const left = fold - gap / 2 - containerLeft;
+  const right = containerLeft + containerWidth - (fold + gap / 2);
+  if (left < COLUMNS_LEFT * MIN_COLUMN || right < COLUMNS_RIGHT * MIN_COLUMN) return equal;
+  return {
+    widths: [...Array<number>(COLUMNS_LEFT).fill(left / COLUMNS_LEFT), ...Array<number>(COLUMNS_RIGHT).fill(right / COLUMNS_RIGHT)],
+    gapAfter: COLUMNS_LEFT - 1,
+    gap,
+  };
+}

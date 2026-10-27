@@ -60,12 +60,15 @@ export function Screen({
   onRefresh,
   adjustForKeyboard = true,
   resetOnFocus = false,
+  fullWidth = false,
 }: PropsWithChildren<{
   bottom?: number;
   refreshing?: boolean;
   onRefresh?: () => void;
   adjustForKeyboard?: boolean;
   resetOnFocus?: boolean;
+  /** Use the whole window instead of the 720 pt centred column: for a page built for a wide window, such as the calendar grid. */
+  fullWidth?: boolean;
 }>) {
   const { colors } = useAppTheme();
   const scrollRef = useRef<ScrollView>(null);
@@ -141,7 +144,7 @@ export function Screen({
           />
         ) : undefined
       }
-      contentContainerStyle={[styles.screen, { paddingBottom: bottom }]}
+      contentContainerStyle={[styles.screen, fullWidth && { maxWidth: undefined, padding: 16 }, { paddingBottom: bottom }]}
     >
       {children}
     </ScrollView>

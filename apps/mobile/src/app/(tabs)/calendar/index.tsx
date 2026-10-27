@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import { PanResponder, Platform, Pressable, View } from "react-native";
-import { router, Stack } from "expo-router";
+import { PanResponder, Platform, Pressable, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router, Stack, type Href } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
-import { CalendarEventRow, DayDots } from "@/components/calendar-parts";
+import { CalendarEventRow, DayDots, kindGlyph, useKindColors } from "@/components/calendar-parts";
+import { MonthGrid, MonthLegend, type GridChip, type LegendItem } from "@/components/month-grid";
+import { isWide } from "@/data/duo-layout";
 import { useAppTheme } from "@/theme";
 import { feedback } from "@/data/haptics";
 import {
@@ -33,9 +36,14 @@ type Mode = (typeof MODES)[number];
 
 export default function Calendar() {
   const { colors } = useAppTheme();
+  const kindColors = useKindColors();
   // Today at the church, moving on at church midnight.
   const today = useChurchToday();
-  const [mode, setMode] = useState<Mode>("week");
+  // A wide window (the iPhone Duo fully open) gets the desktop month grid, filling the window.
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const wide = isWide(windowWidth - insets.left - insets.right);
+  const [mode, setMode] = useState<Mode>(wide ? "month" : "week");
   const [selected, setSelected] = useState<DateKey>(today);
   const [visibleMonth, setVisibleMonth] = useState<DateKey>(startOfMonth(today));
 
@@ -44,6 +52,27 @@ export default function Calendar() {
   const { eventsOn, liturgical, loading, refresh } = useCalendarEvents(mode === "week" ? week : grid);
 
   const { month, year } = monthParts(mode === "week" ? selected : visibleMonth);
+
+  // The desktop grid's chips and legend, from this calendar's events. A fast is a corner tag, not a chip.
+  const chipsOn = (day: DateKey): GridChip[] =>
+    eventsOn(day)
+      .filter((event) => event.kind !== "fast")
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        spoken: [event.title, event.subtitle].filter(Boolean).join(", "),
+        ...kindColors(event.kind),
+        icon: kindGlyph(event.kind),
+        onPress: event.route
+          ? () => router.push({ pathname: event.route!.pathname, params: event.route!.params } as unknown as Href)
+          : undefined,
+      }));
+  const legend: LegendItem[] = (["lesson", "attendance-due", "attendance-taken", "feast"] as const).map((kind) => ({
+    key: kind,
+    label: { lesson: "Lesson", "attendance-due": "Attendance due", "attendance-taken": "Attendance taken", feast: "Feast" }[kind],
+    ...kindColors(kind),
+    icon: kindGlyph(kind),
+  }));
 
   const openDay = (day: DateKey) => router.push({ pathname: "/calendar-day", params: { date: day } });
   const selectDay = (day: DateKey) => {
@@ -102,7 +131,7 @@ export default function Calendar() {
         }}
       />
       {Platform.OS === "ios" && <TopActions />}
-      <Screen resetOnFocus refreshing={loading} onRefresh={() => void refresh()}>
+      <Screen resetOnFocus fullWidth={wide} refreshing={loading} onRefresh={() => void refresh()}>
         <View style={[styles.row, { justifyContent: "space-between" }]}>
           <View style={[styles.row, { gap: 2 }]}>
             <HeaderIconButton icon="chevron.left" label={previousLabel} onPress={() => shift(-1)} />
@@ -144,7 +173,22 @@ export default function Calendar() {
           style={{ width: "100%", minHeight: 36 }}
         />
 
-        {mode === "month" && (
+        {mode === "month" && wide && (
+          <>
+            <MonthGrid
+              days={grid}
+              month={visibleMonth}
+              today={today}
+              selected={selected}
+              chipsOn={chipsOn}
+              fastOn={(day) => liturgical[day]?.fast?.name}
+              onOpenDay={openDay}
+            />
+            <MonthLegend items={legend} />
+          </>
+        )}
+
+        {mode === "month" && !wide && (
           <View style={{ gap: 6 }} {...swipe.panHandlers}>
             <View style={{ flexDirection: "row" }}>
               {WEEKDAYS.map((label, i) => (
@@ -185,7 +229,7 @@ export default function Calendar() {
           </View>
         )}
 
-        {mode === "month" && (
+        {mode === "month" && !wide && (
           <ListMode days={listDays} today={today} eventsOn={eventsOn} loading={loading} onOpenDay={openDay} />
         )}
 

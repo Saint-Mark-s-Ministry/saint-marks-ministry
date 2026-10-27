@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DuoState } from "../../apps/mobile/modules/duo-layout/src/types";
-import { WIDE_MIN_WIDTH, crease, describeDuo, foldX, halves, isWide, paneWidths, panesAtFold, posture } from "../../apps/mobile/src/data/duo-layout";
+import { WIDE_MIN_WIDTH, crease, describeDuo, foldX, halves, isWide, monthColumns, paneWidths, panesAtFold, posture } from "../../apps/mobile/src/data/duo-layout";
 
 const region = (r: { x: number; y: number; width: number; height: number }) => ({ ...r, active: true, margins: { top: 0, left: 0, bottom: 0, right: 0 } });
 const base: DuoState = { supported: true, hinge: "open", angle: Math.PI, verticalBarEdge: "trailing", insets: { top: 0, left: 0, bottom: 34, right: 84 }, occlusions: [], divisions: [] };
@@ -82,5 +82,35 @@ describe("aligning the panes to the hinge", () => {
   });
   it("falls back to the proportional split when there is no hinge", () => {
     expect(panesAtFold({ windowWidth: 951, insetLeft: 0, insetRight: 84, fold: null })).toEqual({ ...paneWidths(867), gap: 0 });
+  });
+});
+
+describe("a month grid that breaks at the hinge", () => {
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  it("is seven equal columns when there is no hinge", () => {
+    const grid = monthColumns({ containerLeft: 16, containerWidth: 700, fold: null });
+    expect(grid.widths).toHaveLength(7);
+    expect(new Set(grid.widths).size).toBe(1);
+    expect(grid.gapAfter).toBeNull();
+  });
+  it("puts Sunday to Wednesday left of the hinge and Thursday to Saturday right of it", () => {
+    // The Duo fully open: grid from x=16 to x=867, hinge at 475.5.
+    const grid = monthColumns({ containerLeft: 16, containerWidth: 851, fold: 475.5 });
+    expect(grid.gapAfter).toBe(3);
+    const leftEdge = 16 + sum(grid.widths.slice(0, 4));
+    expect(leftEdge).toBeCloseTo(475.5, 5);
+    expect(16 + sum(grid.widths)).toBeCloseTo(867, 5);
+    expect(grid.widths.slice(0, 4).every((w) => Math.abs(w - grid.widths[0]) < 1e-9)).toBe(true);
+  });
+  it("leaves the crease's own width between Wednesday and Thursday", () => {
+    const grid = monthColumns({ containerLeft: 16, containerWidth: 851, fold: 475.5, gap: 12 });
+    expect(grid.gap).toBe(12);
+    expect(16 + sum(grid.widths.slice(0, 4))).toBeCloseTo(469.5, 5);
+    expect(16 + sum(grid.widths.slice(0, 4)) + 12 + sum(grid.widths.slice(4))).toBeCloseTo(867, 5);
+  });
+  it("falls back to equal columns when a half is too narrow to read", () => {
+    const grid = monthColumns({ containerLeft: 16, containerWidth: 400, fold: 60 });
+    expect(grid.gapAfter).toBeNull();
+    expect(new Set(grid.widths).size).toBe(1);
   });
 });

@@ -4,7 +4,7 @@ import { Copy, Icon, styles } from "@/components/ui";
 import { useAppTheme } from "@/theme";
 import type { CalendarEvent, CalendarEventKind, DotKind } from "@/data/calendar";
 
-function useKindColors() {
+export function useKindColors() {
   const { colors } = useAppTheme();
   return (kind: CalendarEventKind | DotKind) => {
     switch (kind) {
@@ -44,11 +44,8 @@ export function DayDots({ dots, onPrimary = false }: { dots: DotKind[]; onPrimar
   );
 }
 
-function KindIcon({ kind }: { kind: CalendarEventKind }) {
-  const colorFor = useKindColors();
-  const { tint, soft } = colorFor(kind);
-  const glyph =
-    kind === "lesson"
+export function kindGlyph(kind: CalendarEventKind) {
+  return kind === "lesson"
       ? { ios: "book.closed" as const, android: "menu_book" as const }
       : kind === "attendance-due"
         ? { ios: "exclamationmark.circle" as const, android: "error" as const }
@@ -57,6 +54,12 @@ function KindIcon({ kind }: { kind: CalendarEventKind }) {
           : kind === "feast"
             ? { ios: "star" as const, android: "star" as const }
             : { ios: "leaf" as const, android: "eco" as const };
+}
+
+function KindIcon({ kind }: { kind: CalendarEventKind }) {
+  const colorFor = useKindColors();
+  const { tint, soft } = colorFor(kind);
+  const glyph = kindGlyph(kind);
   return (
     <View
       style={{

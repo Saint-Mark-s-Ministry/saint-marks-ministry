@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, Stack } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Button, Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
+import { MonthGrid, MonthLegend, type GridChip, type LegendItem } from "@/components/month-grid";
+import { isWide } from "@/data/duo-layout";
 import { TopActions } from "@/components/top-actions";
 import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
 import { useAppTheme } from "@/theme";
@@ -43,7 +46,11 @@ export default function PrepCalendar() {
   // administrators also get exams, attendance progress and "new event".
   const canSee = adminLike || user?.role === "STUDENT" || user?.role === "MENTOR";
 
-  const [view, setView] = useState<ViewMode>("week");
+  // A wide window (the iPhone Duo fully open) gets the desktop month grid, filling the window.
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const wide = isWide(windowWidth - insets.left - insets.right);
+  const [view, setView] = useState<ViewMode>(wide ? "month" : "week");
   const [cursor, setCursor] = useState(() => new Date());
   // Today at the church, moving on at church midnight (not the phone's day).
   const today = useChurchToday();
@@ -133,6 +140,28 @@ export default function PrepCalendar() {
   const canOpenEvents = adminLike || user?.role === "STUDENT";
   const canOpen = (event: CalendarEvent) => event.type === "feast" || event.type === "fast" || canOpenEvents;
 
+  // The desktop grid's chips and legend, from this calendar's events. A fast is a corner tag, not a chip.
+  const palette: Record<CalendarEventType, Pick<GridChip, "tint" | "soft" | "icon">> = {
+    lesson: { tint: colors.primary, soft: colors.primarySoft, icon: { ios: "book.closed", android: "menu_book" } },
+    exam: { tint: colors.info, soft: colors.infoSoft, icon: { ios: "doc.text", android: "description" } },
+    feast: { tint: colors.warning, soft: colors.warningSoft, icon: { ios: "star", android: "star" } },
+    fast: { tint: colors.muted, soft: colors.hover, icon: { ios: "leaf", android: "eco" } },
+  };
+  const chipsOn = (key: string): GridChip[] =>
+    withoutFasts(byDate.get(key) ?? []).map((event) => ({
+      id: event.id,
+      title: event.title,
+      spoken: [event.title, event.subtitle].filter(Boolean).join(", "),
+      ...palette[event.type],
+      onPress: canOpen(event) ? () => openEvent(event) : undefined,
+    }));
+  const fastOn = (key: string) => (byDate.get(key) ?? []).find((event) => event.type === "fast")?.title;
+  const legend: LegendItem[] = (["lesson", "exam", "feast"] as const).map((type) => ({
+    key: type,
+    label: { lesson: "Lesson", exam: "Exam", feast: "Feast" }[type],
+    ...palette[type],
+  }));
+
   return (
     <>
       <Stack.Screen
@@ -154,6 +183,7 @@ export default function PrepCalendar() {
       {Platform.OS === "ios" && <TopActions />}
       <Screen
         resetOnFocus
+        fullWidth={wide}
         refreshing={lessons.loading || lessons.refreshing}
         onRefresh={() => {
           void stats.refresh();
@@ -227,7 +257,25 @@ export default function PrepCalendar() {
               style={{ width: "100%", minHeight: 36 }}
             />
 
-            {view === "month" && (
+            {view === "month" && wide && (
+              <>
+                <MonthGrid
+                  days={grid.map(localDateKey)}
+                  month={localDateKey(monthStart)}
+                  today={today}
+                  selected={selectedDate}
+                  chipsOn={chipsOn}
+                  fastOn={fastOn}
+                  onOpenDay={(key) => {
+                    selectDate(key);
+                    setView("week");
+                  }}
+                />
+                <MonthLegend items={legend} />
+              </>
+            )}
+
+            {view === "month" && !wide && (
               <View style={{ gap: 10 }}>
                 <View style={{ flexDirection: "row" }}>
                   {WEEKDAYS.map((label, i) => (
@@ -349,7 +397,7 @@ export default function PrepCalendar() {
               </View>
             )}
 
-            {view !== "list" && (
+            {view !== "list" && !(view === "month" && wide) && (
               <View style={{ gap: 10 }}>
                 <Copy style={{ fontSize: 17, fontWeight: "600" }}>
                   {view === "month"
