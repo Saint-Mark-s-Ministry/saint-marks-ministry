@@ -13,7 +13,9 @@ import {
   filterMentees,
   formatPercent,
   graduationCounts,
+  hasAsyncMentee,
   isAdminLike,
+  menteeAttendanceLabel,
   riskLabel,
   searchMentees,
   sortMentees,
@@ -127,7 +129,7 @@ export default function PrepMentees() {
                     <View style={{ flex: 1, gap: 2 }}>
                       <Copy style={{ fontWeight: "500" }} numberOfLines={1}>{r.name}</Copy>
                       <Copy kind="caption" numberOfLines={1}>
-                        Attend {formatPercent(r.attendancePercentage)} · Exam {formatPercent(r.examAverage)}
+                        {menteeAttendanceLabel(r)} {formatPercent(r.attendancePercentage)} · Exam {formatPercent(r.examAverage)}
                       </Copy>
                     </View>
                     <StatusPill
@@ -153,6 +155,9 @@ export default function PrepMentees() {
                     <Copy kind="caption">{counts.exam.met} of {counts.exam.total} mentees</Copy>
                   </View>
                 </ListSurface>
+                {hasAsyncMentee(all) && (
+                  <Copy kind="caption">Async mentees are counted by rotation attendance, not lessons.</Copy>
+                )}
               </View>
             )}
           </>

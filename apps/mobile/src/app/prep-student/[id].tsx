@@ -7,6 +7,13 @@ import { ResourceState } from "@/components/forms";
 import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
+import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import {
+  attendanceTerms,
+  isAsyncRow,
+  rotationRequirement,
+  type PrepAnalyticsSundaySchool,
+} from "@/data/rotation-attendance";
 import {
   canManageStudentRecord,
   eligibilityLabel,
@@ -28,6 +35,9 @@ type StudentAnalytics = {
   studentId: string;
   studentName: string;
   yearLevel: string | null;
+  isAsyncStudent?: boolean;
+  sundaySchoolMet?: boolean;
+  /** Rotation attendance when async, lesson attendance otherwise. */
   attendancePercentage: number | null;
   totalLessons: number;
   examAverage: number | null;
@@ -63,6 +73,13 @@ export default function PrepStudentDetail() {
     canViewDetails ? `/api/students/${encodeURIComponent(id)}/details` : null,
   );
   const student = analytics.data?.[0];
+  const isAsync = isAsyncRow(student);
+  // The rotation weeks and whether a rotation is assigned come from the per-student
+  // analytics, which only an async student needs. Staff can already open it.
+  const rotation = useResource<{ sundaySchool?: PrepAnalyticsSundaySchool | null }>(
+    isAsync ? `/api/students/${encodeURIComponent(id)}/analytics` : null,
+  );
+  const terms = attendanceTerms(isAsync);
   const enrollment = details.data?.student.enrollments.find((e) => e.isActive) ?? details.data?.student.enrollments[0];
 
   const offline = analytics.error === "Could not reach the server. Check your connection and try again.";
@@ -73,6 +90,7 @@ export default function PrepStudentDetail() {
   const refresh = () => {
     void analytics.refresh();
     void details.refresh();
+    void rotation.refresh();
   };
 
   return (
@@ -103,7 +121,7 @@ export default function PrepStudentDetail() {
             <Copy kind="caption">Showing the last data we had. Pull down to try again once you're back online.</Copy>
           </View>
         )}
-        <ResourceState loading={analytics.loading} error={offline ? undefined : analytics.error || details.error} retry={refresh} />
+        <ResourceState loading={analytics.loading} error={offline ? undefined : analytics.error || details.error || rotation.error} retry={refresh} />
 
         {student && (
           <>
@@ -128,7 +146,7 @@ export default function PrepStudentDetail() {
                   />
                 )}
                 <View style={[styles.pill, { backgroundColor: colors.hover }]}>
-                  <Copy kind="caption">{yearLevelLabel(student.yearLevel)}</Copy>
+                  <Copy kind="caption">{isAsync ? "Async student" : yearLevelLabel(student.yearLevel)}</Copy>
                 </View>
               </View>
               {details.data?.student && (
@@ -163,12 +181,29 @@ export default function PrepStudentDetail() {
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <StatCard
-                label="Attendance"
+                label={terms.title}
                 value={student.attendancePercentage}
-                sublabel={`${student.totalLessons} lessons`}
+                sublabel={
+                  isAsync && student.attendancePercentage === null
+                    ? "No rotation weeks counted yet"
+                    : `${student.totalLessons} ${student.totalLessons === 1 && isAsync ? "rotation week" : terms.unit}`
+                }
               />
               <StatCard label="Exam average" value={student.examAverage} sublabel={`${student.examCount} exams`} />
             </View>
+
+            {isAsync && (
+              <View style={{ gap: 10 }}>
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotation</Copy>
+                <AsyncBasisNote />
+                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} />}
+                {student.sundaySchoolMet !== undefined && (
+                  <RotationRequirementRow
+                    requirement={rotationRequirement(rotation.data?.sundaySchool, student.sundaySchoolMet)}
+                  />
+                )}
+              </View>
+            )}
 
             {details.data?.student && (
               <ListSurface>
@@ -198,6 +233,25 @@ export default function PrepStudentDetail() {
         )}
       </Screen>
     </>
+  );
+}
+
+function RotationRequirementRow({ requirement }: { requirement: ReturnType<typeof rotationRequirement> }) {
+  const { colors } = useAppTheme();
+  return (
+    <ListSurface>
+      <View style={[styles.compactRow]}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Copy style={{ fontWeight: "500" }}>{requirement.title}</Copy>
+          <Copy kind="caption">{requirement.caption}</Copy>
+        </View>
+        <StatusPill
+          label={requirement.met ? requirement.metLabel : requirement.unmetLabel}
+          color={requirement.met ? colors.success : colors.warning}
+          soft={requirement.met ? colors.successSoft : colors.warningSoft}
+        />
+      </View>
+    </ListSurface>
   );
 }
 

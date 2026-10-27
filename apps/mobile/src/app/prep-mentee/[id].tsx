@@ -7,6 +7,13 @@ import { Field, ResourceState, useAction } from "@/components/forms";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
+import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import {
+  attendanceTerms,
+  isAsyncRow,
+  rotationRequirement,
+  type PrepAnalyticsSundaySchool,
+} from "@/data/rotation-attendance";
 import {
   canViewMentees,
   canViewPhone,
@@ -45,7 +52,17 @@ export default function PrepMenteeDetail() {
 
   const mentee = analytics.data?.[0];
   const enrollment = enrollments.data?.[0];
+  const isAsync = isAsyncRow(mentee);
+  const terms = attendanceTerms(isAsync);
+  // Rotation weeks and whether a rotation is assigned: the per-student analytics, for an async mentee only.
+  const rotation = useResource<{ sundaySchool?: PrepAnalyticsSundaySchool | null }>(
+    isAsync ? `/api/students/${encodeURIComponent(id)}/analytics` : null,
+  );
   const reassigned = isReassignmentError(enrollments.error) || isReassignmentError(analytics.error);
+  const rotationRow =
+    isAsync && mentee?.sundaySchoolMet !== undefined
+      ? rotationRequirement(rotation.data?.sundaySchool, mentee.sundaySchoolMet)
+      : null;
   const sectionNameFor = (section: string) => sections.data?.find((s) => s.name === section)?.displayName ?? section;
   const worstSection = mentee
     ? worstFailingSection(
@@ -85,7 +102,7 @@ export default function PrepMenteeDetail() {
             <View style={{ alignItems: "center", gap: 8, paddingVertical: 4 }}>
               <InitialsAvatar name={mentee.studentName} size={76} variant="neutral" />
               <Copy style={{ ...serifHero, }}>{mentee.studentName}</Copy>
-              <Copy kind="caption">{yearLevelLabel(enrollment?.yearLevel)} · your mentee</Copy>
+              <Copy kind="caption">{isAsync ? "Async student" : yearLevelLabel(enrollment?.yearLevel)} · your mentee</Copy>
               <StatusPill
                 label={riskLabel(mentee.graduationEligible)}
                 color={mentee.graduationEligible ? colors.success : colors.danger}
@@ -106,16 +123,43 @@ export default function PrepMenteeDetail() {
             <View style={{ gap: 10 }}>
               <Copy style={{ fontSize: 17, fontWeight: "600" }}>Graduation requirements</Copy>
               <ListSurface>
-                <Row label="Attendance ≥ 75%" value={`${formatPercent(mentee.attendancePercentage)} · met`} met={mentee.attendanceMet} />
+                {isAsync ? (
+                  <Row
+                    label={terms.requirement}
+                    value={mentee.attendancePercentage === null ? "No rotation weeks counted yet" : formatPercent(mentee.attendancePercentage)}
+                    met={mentee.attendanceMet}
+                    noData={mentee.attendancePercentage === null}
+                  />
+                ) : (
+                  <Row label="Attendance ≥ 75%" value={`${formatPercent(mentee.attendancePercentage)} · met`} met={mentee.attendanceMet} />
+                )}
                 <Row label="Exam avg ≥ 75%" value={`${formatPercent(mentee.examAverage)} · ${mentee.examCount} ${mentee.examCount === 1 ? "exam" : "exams"}`} met={mentee.examAverageMet} />
                 <Row
                   label="All sections ≥ 60%"
                   value={worstSection ? `${worstSection.displayName} ${worstSection.average.toFixed(0)}%` : "All passing"}
                   met={mentee.allSectionsMet}
-                  last
+                  last={!rotationRow}
                 />
+                {rotationRow && (
+                  <Row
+                    label={rotationRow.title}
+                    value={rotationRow.caption}
+                    met={rotationRow.met}
+                    metLabel={rotationRow.metLabel}
+                    unmetLabel={rotationRow.unmetLabel}
+                    last
+                  />
+                )}
               </ListSurface>
             </View>
+
+            {isAsync && (
+              <View style={{ gap: 10 }}>
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotation</Copy>
+                <AsyncBasisNote />
+                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} />}
+              </View>
+            )}
 
             {enrollment?.fatherOfConfession && (
               <View style={{ gap: 10 }}>
@@ -137,7 +181,23 @@ export default function PrepMenteeDetail() {
   );
 }
 
-function Row({ label, value, met, last = false }: { label: string; value: string; met: boolean; last?: boolean }) {
+function Row({
+  label,
+  value,
+  met,
+  last = false,
+  noData = false,
+  metLabel = "Met",
+  unmetLabel = "Below",
+}: {
+  label: string;
+  value: string;
+  met: boolean;
+  last?: boolean;
+  noData?: boolean;
+  metLabel?: string;
+  unmetLabel?: string;
+}) {
   const { colors } = useAppTheme();
   return (
     <View style={[styles.compactRow, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
@@ -145,7 +205,15 @@ function Row({ label, value, met, last = false }: { label: string; value: string
         <Copy style={{ fontWeight: "500" }}>{label}</Copy>
         <Copy kind="caption">{value}</Copy>
       </View>
-      <StatusPill label={met ? "Met" : "Below"} color={met ? colors.success : colors.danger} soft={met ? colors.successSoft : colors.dangerSoft} />
+      {noData ? (
+        <StatusPill label="No data yet" color={colors.muted} soft={colors.hover} />
+      ) : (
+        <StatusPill
+          label={met ? metLabel : unmetLabel}
+          color={met ? colors.success : unmetLabel === "Below" ? colors.danger : colors.warning}
+          soft={met ? colors.successSoft : unmetLabel === "Below" ? colors.dangerSoft : colors.warningSoft}
+        />
+      )}
     </View>
   );
 }

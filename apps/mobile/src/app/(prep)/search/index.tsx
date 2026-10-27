@@ -7,11 +7,13 @@ import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
 import { canViewStudentRoster, eligibilityLabel, isAdminLike, searchStudents } from "@/data/prep-students";
+import { attendanceShort } from "@/data/rotation-attendance";
 
 type StudentAnalytics = {
   studentId: string;
   studentName: string;
   yearLevel: string | null;
+  isAsyncStudent?: boolean;
   attendancePercentage: number | null;
   examAverage: number | null;
   graduationEligible: boolean;
@@ -77,7 +79,7 @@ export default function PrepSearch() {
                     key={s.studentId}
                     divider={index < matchingStudents.length - 1}
                     title={s.studentName}
-                    subtitle={`Att ${formatPercent(s.attendancePercentage)} · Exam ${formatPercent(s.examAverage)}`}
+                    subtitle={`${attendanceShort(s, formatPercent)} · Exam ${formatPercent(s.examAverage)}`}
                     icon={<InitialsAvatar name={s.studentName} size={38} />}
                     trailing={
                       <StatusPill

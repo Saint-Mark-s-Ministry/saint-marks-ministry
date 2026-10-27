@@ -16,6 +16,7 @@
 
 import { useSyncExternalStore } from "react";
 import { STUDENT_MANAGE_ROLES } from "./prep-students";
+import { isAsyncRow } from "./rotation-attendance";
 
 export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";
 export type AttendanceMark = { status: AttendanceStatus; notes?: string };
@@ -75,6 +76,60 @@ export function buildBatchRecords(draft: AttendanceDraft, rosterIds: string[]): 
   return rosterIds
     .filter((id) => !!draft[id]?.status)
     .map((id) => ({ studentId: id, status: draft[id].status, ...(draft[id].notes ? { notes: draft[id].notes } : {}) }));
+}
+
+// --- Async students are not on lesson roll calls ---
+//
+// A current async student has no Servants Prep lesson attendance: their
+// attendance is their Sunday School rotation (docs/async-serving-rotations.md).
+// The server enforces it: /api/attendance/batch drops their records, and the
+// single-record routes answer 400. The roll call mirrors that so nobody is shown
+// as unmarked, counted as remaining, or sent, and so a student who becomes async
+// while a roll call is open stops blocking Save.
+
+export type RollCallEnrollment = { studentId: string; isAsyncStudent?: boolean | null; student: { name: string } };
+
+/** Splits the active enrollments into who is on this lesson's roll call and who is off it because they are async. */
+export function splitRollCall<T extends RollCallEnrollment>(enrollments: readonly T[]): { roster: T[]; offRoll: T[] } {
+  const roster: T[] = [];
+  const offRoll: T[] = [];
+  for (const enrollment of enrollments) (isAsyncRow(enrollment) ? offRoll : roster).push(enrollment);
+  return { roster, offRoll };
+}
+
+/** The draft without marks for students who are now async, and which of them had a mark. */
+export function dropAsyncMarks(draft: AttendanceDraft, asyncIds: readonly string[]): { draft: AttendanceDraft; dropped: string[] } {
+  const dropped = asyncIds.filter((id) => draft[id] !== undefined);
+  if (!dropped.length) return { draft, dropped };
+  const next = { ...draft };
+  for (const id of dropped) delete next[id];
+  return { draft: next, dropped };
+}
+
+const nameList = (names: readonly string[]) => names.join(", ");
+
+/** The standing note under the roll call: who is off it and why. */
+export function offRollCallNote(names: readonly string[]): string {
+  return `Not on this roll call (async): ${nameList(names)}. Their attendance comes from their Sunday School rotation. Normal lessons do not count.`;
+}
+
+/** What changed under an open roll call, or null when nothing did. */
+export function rollCallChangeNotice(change: { becameAsync: readonly string[]; markedDropped: readonly string[]; leftAsync: readonly string[] }): string | null {
+  const parts: string[] = [];
+  if (change.becameAsync.length) {
+    const dropped = change.markedDropped.length
+      ? ` Their marks on this roll call were discarded and won't be saved.`
+      : "";
+    parts.push(
+      `${nameList(change.becameAsync)} ${change.becameAsync.length === 1 ? "is" : "are"} now async and ${change.becameAsync.length === 1 ? "is" : "are"} off this roll call.${dropped}`,
+    );
+  }
+  if (change.leftAsync.length) {
+    parts.push(
+      `${nameList(change.leftAsync)} ${change.leftAsync.length === 1 ? "is" : "are"} no longer async and ${change.leftAsync.length === 1 ? "is" : "are"} back on this roll call, unmarked.`,
+    );
+  }
+  return parts.length ? parts.join(" ") : null;
 }
 
 export function searchRoster<T extends { name: string }>(roster: T[], query: string): T[] {

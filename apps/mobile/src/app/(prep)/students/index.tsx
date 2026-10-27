@@ -18,6 +18,7 @@ import {
   filterBySegment,
   isAdminLike,
   segmentCounts,
+  studentRowSubtitle,
   type StudentSegment,
 } from "@/data/prep-students";
 
@@ -25,6 +26,7 @@ type StudentAnalytics = {
   studentId: string;
   studentName: string;
   yearLevel: string | null;
+  isAsyncStudent?: boolean;
   attendancePercentage: number | null;
   examAverage: number | null;
   graduationEligible: boolean;
@@ -139,11 +141,7 @@ function PrepStudents() {
                   key={s.studentId}
                   divider={index < students.length - 1}
                   title={s.studentName}
-                  subtitle={
-                    (s.attendancePercentage === null || s.attendancePercentage === undefined) && (s.examAverage === null || s.examAverage === undefined)
-                      ? `${yearLabel(s.yearLevel)} · no scores yet`
-                      : `Att ${formatPercent(s.attendancePercentage)} · Exam ${formatPercent(s.examAverage)}`
-                  }
+                  subtitle={studentRowSubtitle(s, yearLabel(s.yearLevel), formatPercent)}
                   icon={<InitialsAvatar name={s.studentName} size={38} />}
                   trailing={
                     (s.attendancePercentage !== null && s.attendancePercentage !== undefined) || (s.examAverage !== null && s.examAverage !== undefined) ? (

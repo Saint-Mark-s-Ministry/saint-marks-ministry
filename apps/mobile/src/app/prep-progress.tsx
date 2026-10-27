@@ -7,18 +7,20 @@ import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
+import { RotationStatus, RotationWorkflow } from "@/components/rotation-attendance";
+import { attendanceCaption, attendanceTerms, isAsyncRow, rotationRequirement } from "@/data/rotation-attendance";
 import {
   ATTENDANCE_GOAL,
   CONFESSION_LABEL,
   EXAM_GOAL,
   GUIDANCE_LABEL,
   SECTION_MINIMUM,
-  attendanceGuidance,
   canViewOwnProgress,
   currentConfessionPeriod,
   examGuidance,
   nextLesson,
   periodLastDay,
+  progressAttendanceGuidance,
   periodTitle,
   recentMarks,
   standingLabel,
@@ -42,7 +44,10 @@ export default function PrepProgress() {
 
   const analytics = useResource<ProgressAnalytics>(base ? `${base}/analytics` : null);
   const confession = useResource<ConfessionResponse>(base ? `${base}/confession` : null);
-  const lessons = useResource<LessonItem[]>(base ? `${base}/lessons` : null);
+  // An async student's attendance is rotation weeks only; normal lessons carry no
+  // attendance for them, so their lesson list is not fetched or shown here.
+  const isAsync = isAsyncRow(analytics.data?.enrollment);
+  const lessons = useResource<LessonItem[]>(base && !isAsync ? `${base}/lessons` : null);
 
   const offline = analytics.error === OFFLINE;
   const notEnrolled = analytics.error === NOT_ENROLLED;
@@ -50,6 +55,7 @@ export default function PrepProgress() {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const firstName = user?.name?.split(" ")[0];
+  const terms = attendanceTerms(isAsync);
 
   return (
     <>
@@ -97,16 +103,16 @@ export default function PrepProgress() {
                 {firstName ? `Hi, ${firstName}` : "My progress"}
               </Copy>
               <Copy kind="caption">
-                {yearLevelLabel(progress.enrollment.yearLevel)}
+                {isAsync ? "Async student" : yearLevelLabel(progress.enrollment.yearLevel)}
                 {confession.data?.academicYear ? ` · Servants Prep ${confession.data.academicYear.name}` : ""}
               </Copy>
             </View>
 
             <Section title="Graduation track" trailing={<StatusPill label={standingLabel(progress.graduation.eligible)} color={progress.graduation.eligible ? colors.success : colors.warning} soft={progress.graduation.eligible ? colors.successSoft : colors.warningSoft} />}>
               <MetricRow
-                title="Attendance"
+                title={terms.title}
                 value={pct(progress.attendance.percentage)}
-                caption={`${progress.attendance.effectivePresent} of ${progress.attendance.totalLessons} lessons counted · Goal ${ATTENDANCE_GOAL}%`}
+                caption={attendanceCaption(progress.attendance, isAsync, ATTENDANCE_GOAL)}
                 percent={progress.attendance.percentage}
                 goal={ATTENDANCE_GOAL}
                 met={progress.attendance.met}
@@ -127,26 +133,37 @@ export default function PrepProgress() {
                 met={progress.graduation.allSectionsPassing}
               />
               {progress.graduation.sundaySchoolMet !== undefined && (
-                <CheckRow title="Sunday School serving" caption="Serving weeks at 75% or higher" met={progress.graduation.sundaySchoolMet} last />
+                <CheckRow {...rotationRequirement(progress.sundaySchool, progress.graduation.sundaySchoolMet)} last />
               )}
             </Section>
 
             <Section title="What to do next">
-              <GuidanceRow label="Attendance" guidance={attendanceGuidance(progress.attendance)} />
+              <GuidanceRow label={terms.title} guidance={progressAttendanceGuidance(progress, now)} />
               <GuidanceRow label="Exam average" guidance={examGuidance(progress.exams)} last />
             </Section>
 
-            <Section title="Recent lessons">
-              {lessons.error && lessons.error !== OFFLINE ? (
-                <ResourceState loading={lessons.loading} error={lessons.error} retry={() => void lessons.refresh()} />
-              ) : (
-                <RecentLessons marks={recentMarks(lessons.data ?? [])} loading={lessons.loading && !lessons.data} />
-              )}
-            </Section>
+            {isAsync ? (
+              <>
+                <Section title="Rotation weeks">
+                  <RotationStatus sundaySchool={progress.sundaySchool} now={now} />
+                </Section>
+                <Section title="How rotations work">
+                  <RotationWorkflow />
+                </Section>
+              </>
+            ) : (
+              <Section title="Recent lessons">
+                {lessons.error && lessons.error !== OFFLINE ? (
+                  <ResourceState loading={lessons.loading} error={lessons.error} retry={() => void lessons.refresh()} />
+                ) : (
+                  <RecentLessons marks={recentMarks(lessons.data ?? [])} loading={lessons.loading && !lessons.data} />
+                )}
+              </Section>
+            )}
 
             <Section title="Coming up">
               <ListSurface>
-                {nextLessonRow(lessons.data ?? [], today)}
+                {!isAsync && nextLessonRow(lessons.data ?? [], today)}
                 <ConfessionRow data={confession.data} now={now} />
               </ListSurface>
             </Section>
@@ -256,7 +273,21 @@ function MetricRow({
   );
 }
 
-function CheckRow({ title, caption, met, last = false }: { title: string; caption: string; met: boolean; last?: boolean }) {
+function CheckRow({
+  title,
+  caption,
+  met,
+  metLabel = "Met",
+  unmetLabel = "Below goal",
+  last = false,
+}: {
+  title: string;
+  caption: string;
+  met: boolean;
+  metLabel?: string;
+  unmetLabel?: string;
+  last?: boolean;
+}) {
   const { colors } = useAppTheme();
   return (
     <ListSurface>
@@ -265,7 +296,11 @@ function CheckRow({ title, caption, met, last = false }: { title: string; captio
           <Copy style={{ fontWeight: "500" }}>{title}</Copy>
           <Copy kind="caption">{caption}</Copy>
         </View>
-        <StatusPill label={met ? "Met" : "Below goal"} color={met ? colors.success : colors.danger} soft={met ? colors.successSoft : colors.dangerSoft} />
+        <StatusPill
+          label={met ? metLabel : unmetLabel}
+          color={met ? colors.success : unmetLabel === "Below goal" ? colors.danger : colors.warning}
+          soft={met ? colors.successSoft : unmetLabel === "Below goal" ? colors.dangerSoft : colors.warningSoft}
+        />
       </View>
     </ListSurface>
   );

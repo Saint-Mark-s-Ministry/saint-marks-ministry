@@ -7,6 +7,9 @@
  * keep the two in step when the rules change.
  */
 
+import type { PrepAnalyticsSundaySchool } from "@stmark/contracts";
+import { asyncAttendanceGuidance, isAsyncRow } from "./rotation-attendance";
+
 export const ATTENDANCE_GOAL = 75;
 export const EXAM_GOAL = 75;
 export const SECTION_MINIMUM = 60;
@@ -19,6 +22,11 @@ export type ProgressAnalytics = {
     fatherOfConfession: { id: string; name: string; phone: string | null; church: string | null } | null;
     student: { id: string; name: string; email: string };
   };
+  /**
+   * For an async student these are rotation weeks, not lessons: `totalLessons`
+   * counts the serving-rotation weeks that have started (excused weeks removed),
+   * and `percentage` is null until one has. Normal lessons never enter it.
+   */
   attendance: {
     percentage: number | null;
     effectivePresent: number;
@@ -28,6 +36,8 @@ export type ProgressAnalytics = {
     met: boolean;
     required: number;
   };
+  /** Present only for an async student. */
+  sundaySchool?: PrepAnalyticsSundaySchool | null;
   exams: {
     overallAverage: number | null;
     overallAverageMet: boolean;
@@ -111,6 +121,17 @@ export function attendanceGuidance(a: ProgressAnalytics["attendance"]): Guidance
     };
   }
   return { status: "failing", message: `Below ${a.required}% threshold`, detail: `Currently ${(a.percentage ?? 0).toFixed(1)}%` };
+}
+
+/**
+ * The attendance guidance for whichever basis the server used. An async
+ * student never gets the in-person lesson buffer or recover-in-a-row advice.
+ */
+export function progressAttendanceGuidance(progress: Pick<ProgressAnalytics, "enrollment" | "attendance" | "sundaySchool">, now: Date): Guidance {
+  if (isAsyncRow(progress.enrollment)) {
+    return asyncAttendanceGuidance(progress.attendance, progress.sundaySchool, now);
+  }
+  return attendanceGuidance(progress.attendance);
 }
 
 export function examGuidance(e: ProgressAnalytics["exams"]): Guidance {

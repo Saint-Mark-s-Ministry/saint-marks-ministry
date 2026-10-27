@@ -1,7 +1,7 @@
 import { formatPercent } from "@/data/format-percent";
 import { Platform, Pressable, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
-import type { SundaySchoolHomeworkResponse } from "@stmark/contracts";
+import type { PrepStudentAnalyticsRow, SundaySchoolHomeworkResponse } from "@stmark/contracts";
 import {
   Button,
   Copy,
@@ -36,8 +36,10 @@ type AcademicYear = { id: string; isActive: boolean };
 type AtRiskStudent = {
   id: string;
   name: string;
+  /** Rotation attendance for an async student, lesson attendance otherwise. */
   attendanceRate: number | null;
   examAverage: number | null;
+  issues?: string[];
 };
 
 type DashboardAnalytics = {
@@ -115,6 +117,20 @@ export default function PrepHome() {
   const weekLessonDates = new Set(ordered.map((l) => l.scheduledDate.slice(0, 10)));
 
   const atRisk = analytics.data?.atRiskStudents ?? [];
+  // The dashboard's at-risk rows don't say who is async, but their attendance rate
+  // is rotation attendance for an async student. Ask the batch analytics, for just
+  // the rows shown, so each is labelled by what its percentage measures.
+  const shownAtRisk = atRisk.slice(0, 3);
+  const atRiskKinds = useResource<Pick<PrepStudentAnalyticsRow, "studentId" | "isAsyncStudent">[]>(
+    adminLike && shownAtRisk.length
+      ? `/api/students/analytics/batch?studentIds=${shownAtRisk.map((student) => encodeURIComponent(student.id)).join(",")}`
+      : null,
+  );
+  const asyncAtRisk = new Set((atRiskKinds.data ?? []).filter((row) => row.isAsyncStudent === true).map((row) => row.studentId));
+  const atRiskAttendanceLabel = (student: AtRiskStudent) =>
+    atRiskKinds.data
+      ? asyncAtRisk.has(student.id) ? "Rotation" : "Att"
+      : student.issues?.some((issue) => /rotation attendance/i.test(issue)) ? "Rotation" : "Attendance";
 
   return (
     <>
@@ -380,7 +396,7 @@ export default function PrepHome() {
                       <Pressable
                         key={student.id}
                         accessibilityRole="button"
-                        accessibilityLabel={`${student.name}, attendance ${formatPercent(student.attendanceRate)}, exam average ${formatPercent(student.examAverage)}`}
+                        accessibilityLabel={`${student.name}, ${atRiskAttendanceLabel(student) === "Rotation" ? "rotation attendance" : "attendance"} ${formatPercent(student.attendanceRate)}, exam average ${formatPercent(student.examAverage)}`}
                         onPress={() => router.push({ pathname: "/prep-student/[id]", params: { id: student.id } })}
                         style={({ pressed }) => [
                           styles.compactRow,
@@ -392,7 +408,7 @@ export default function PrepHome() {
                         <View style={{ flex: 1, gap: 1 }}>
                           <Copy numberOfLines={1}>{student.name}</Copy>
                           <Copy kind="caption">
-                            Att <Copy kind="caption" color={attColor}>{formatPercent(student.attendanceRate)}</Copy>
+                            {atRiskAttendanceLabel(student)} <Copy kind="caption" color={attColor}>{formatPercent(student.attendanceRate)}</Copy>
                             {" · Exam "}
                             <Copy kind="caption" color={examColorRow}>{formatPercent(student.examAverage)}</Copy>
                           </Copy>

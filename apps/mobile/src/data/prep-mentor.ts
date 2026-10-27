@@ -31,6 +31,10 @@ export type MentorMentee = {
 
 export type StudentAnalyticsFlat = {
   studentId: string;
+  /** True for a current async student, whose attendance below is rotation attendance. */
+  isAsyncStudent?: boolean;
+  /** Async students only: all ten four-week rotations approved. */
+  sundaySchoolMet?: boolean;
   attendancePercentage: number | null;
   examAverage: number | null;
   examCount: number;
@@ -130,6 +134,16 @@ export function sortMentees<T extends { name: string; attendancePercentage: numb
   if (sort === "exam") return sorted.sort((a, b) => (a.examAverage ?? -1) - (b.examAverage ?? -1));
   // "risk": at-risk mentees first, so the ones needing attention surface at the top.
   return sorted.sort((a, b) => Number(a.graduationEligible) - Number(b.graduationEligible));
+}
+
+/** "Rotation" for an async mentee, whose attendance is rotation weeks only; "Attend" otherwise. */
+export function menteeAttendanceLabel(row: { isAsyncStudent?: boolean | null }): string {
+  return row.isAsyncStudent === true ? "Rotation" : "Attend";
+}
+
+/** Whether any mentee is async, so a list can explain how their attendance is counted. */
+export function hasAsyncMentee(rows: { isAsyncStudent?: boolean | null }[]): boolean {
+  return rows.some((row) => row.isAsyncStudent === true);
 }
 
 /** "Attendance ≥75%: N of M mentees" / "Exam average ≥75%: N of M mentees" — both real, from the batch analytics' own booleans. */

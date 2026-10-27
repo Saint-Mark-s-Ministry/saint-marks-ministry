@@ -24,7 +24,18 @@ export type StudentLesson = {
   examSection?: { displayName: string } | null;
   resources: LessonResource[];
   attendance: { status: AttendanceStatus } | null;
+  /**
+   * True on every lesson for a current async student. Their attendance is their
+   * Sunday School rotation, so lessons carry no attendance for them and a past
+   * lesson is "Not counted", never "Not recorded" or "Absent".
+   */
+  asyncPeriod?: boolean;
 };
+
+/** Whether the server says this student is async (it marks every lesson). */
+export function lessonsAreAsync(lessons: readonly Pick<StudentLesson, "asyncPeriod">[]): boolean {
+  return lessons.some((lesson) => lesson.asyncPeriod === true);
+}
 
 export type LessonTab = "upcoming" | "completed" | "all";
 
@@ -67,6 +78,9 @@ export function searchLessons(lessons: StudentLesson[], query: string): StudentL
 /** The one word a student sees for a lesson's state. Always text, never color alone. */
 export function attendanceLabel(lesson: StudentLesson, now: Date): string {
   if (lesson.status === "CANCELLED") return "Cancelled";
+  if (lesson.asyncPeriod === true) {
+    return lesson.status === "COMPLETED" || isPast(lesson, now) ? "Not counted" : "Upcoming";
+  }
   if (lesson.attendance) {
     return { PRESENT: "Present", LATE: "Late", ABSENT: "Absent", EXCUSED: "Excused" }[lesson.attendance.status];
   }

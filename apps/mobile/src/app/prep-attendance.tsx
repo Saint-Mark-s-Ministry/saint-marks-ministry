@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { yearLevelLabel } from "@/data/year-level";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, AppState, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { MenuView } from "@expo/ui/community/menu";
@@ -18,9 +18,14 @@ import {
   canEditSession,
   canManageAttendance,
   draftChanged,
+  dropAsyncMarks,
+  getAttendanceDraft,
   isLessonInFuture,
+  offRollCallNote,
   restPresent,
+  rollCallChangeNotice,
   searchRoster,
+  splitRollCall,
   statusTotals,
   setAttendanceDraft,
   useAttendanceDraft,
@@ -40,6 +45,8 @@ type LessonListItem = {
 type EnrollmentLite = {
   studentId: string;
   isActive: boolean;
+  /** A current async student is assessed on rotation weeks and is never on a lesson roll call. */
+  isAsyncStudent?: boolean;
   yearLevel: string | null;
   student: { id: string; name: string };
 };
@@ -132,7 +139,7 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
 
   const enrollments = useResource<EnrollmentLite[]>("/api/enrollments?isActive=true");
   const attendance = useResource<AttendanceRecordRow[]>(`/api/attendance?lessonId=${encodeURIComponent(lesson.id)}`);
-  const roster = enrollments.data ?? [];
+  const { roster, offRoll } = splitRollCall(enrollments.data ?? []);
   const rosterIds = roster.map((e) => e.studentId);
 
   const serverDraft: AttendanceDraft = {};
@@ -147,6 +154,47 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
     setAttendanceDraft(lesson.id, serverDraft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attendance.data, lesson.id]);
+
+  // Who is async can change while this roll call is open (a servant switches a student
+  // on another device). Re-check on a timer and on return to the app, drop any draft
+  // marks for a student who has become async, and say so.
+  const [notice, setNotice] = useState<string | null>(null);
+  const asyncIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!enrollments.data) return;
+    const split = splitRollCall(enrollments.data);
+    const current = new Set(split.offRoll.map((e) => e.studentId));
+    const previous = asyncIdsRef.current;
+    asyncIdsRef.current = current;
+    const { draft: cleaned, dropped } = dropAsyncMarks(getAttendanceDraft(lesson.id), [...current]);
+    if (dropped.length) setAttendanceDraft(lesson.id, cleaned);
+    const nameOf = (id: string) => enrollments.data!.find((e) => e.studentId === id)?.student.name ?? "A student";
+    const becameAsync = previous ? [...current].filter((id) => !previous.has(id)) : dropped;
+    const leftAsync = previous ? [...previous].filter((id) => !current.has(id)) : [];
+    const message = rollCallChangeNotice({
+      becameAsync: becameAsync.map(nameOf),
+      markedDropped: dropped.map(nameOf),
+      leftAsync: leftAsync.map(nameOf),
+    });
+    if (message) {
+      setNotice(message);
+      feedback("warning");
+    }
+  }, [enrollments.data, lesson.id]);
+
+  const refreshEnrollments = enrollments.refresh;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (AppState.currentState === "active") void refreshEnrollments();
+    }, 30_000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshEnrollments();
+    });
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [refreshEnrollments]);
 
   const [query, setQuery] = useState("");
   const visibleRoster = searchRoster(
@@ -188,7 +236,17 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
   function save() {
     if (!canSave) return;
     void action.run(async () => {
+      // Check who is async right before sending: if the roll call changed under this
+      // draft, show what changed instead of saving a roster that no longer matches.
+      const fresh = splitRollCall(await request<EnrollmentLite[]>("/api/enrollments?isActive=true"));
+      const onRoll = new Set(rosterIds);
+      if (fresh.offRoll.some((e) => onRoll.has(e.studentId)) || fresh.roster.some((e) => !onRoll.has(e.studentId))) {
+        await enrollments.refresh();
+        feedback("warning");
+        return;
+      }
       await request("/api/attendance/batch", "POST", { lessonId: lesson.id, records: buildBatchRecords(draft, rosterIds) });
+      setNotice(null);
       await attendance.refresh();
       feedback("success");
     });
@@ -301,6 +359,21 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
             <Copy kind="caption">This lesson hasn't happened yet — attendance opens on {dateLabel}.</Copy>
           </View>
         )}
+        {notice && (
+          <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 16, backgroundColor: colors.warningSoft, gap: 8 }}>
+            <Copy style={{ fontWeight: "600" }} color={colors.warning}>This roll call changed</Copy>
+            <Copy kind="caption">{notice}</Copy>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss roll call change"
+              onPress={() => setNotice(null)}
+              hitSlop={8}
+              style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
+            >
+              <Copy style={{ color: colors.primary, fontWeight: "600" }}>Dismiss</Copy>
+            </Pressable>
+          </View>
+        )}
 
         {!!roster.length && (
           <>
@@ -365,8 +438,18 @@ function AttendanceRoster({ lesson, role }: { lesson: LessonListItem; role?: str
 
         {enrollments.data && !roster.length && (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
-            <Copy kind="heading">No active students yet</Copy>
-            <Copy kind="caption">Once students are enrolled, you can take attendance here.</Copy>
+            <Copy kind="heading">{offRoll.length ? "No one on this roll call" : "No active students yet"}</Copy>
+            <Copy kind="caption" style={{ textAlign: "center" }}>
+              {offRoll.length
+                ? "Every active student is async, and async students are assessed on their Sunday School rotation."
+                : "Once students are enrolled, you can take attendance here."}
+            </Copy>
+          </View>
+        )}
+
+        {!!offRoll.length && (
+          <View style={{ padding: 14, borderRadius: 16, backgroundColor: colors.hover }}>
+            <Copy kind="caption">{offRollCallNote(offRoll.map((e) => e.student.name))}</Copy>
           </View>
         )}
       </Screen>

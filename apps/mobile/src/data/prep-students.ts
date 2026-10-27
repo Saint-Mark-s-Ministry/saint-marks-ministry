@@ -6,6 +6,7 @@
  */
 
 import { PREP_ADMIN_ROLES, isAdminLike } from "./prep-home";
+import { attendanceShort, isAsyncRow } from "./rotation-attendance";
 
 export { PREP_ADMIN_ROLES, isAdminLike };
 
@@ -52,6 +53,22 @@ export function eligibilityTone(eligible: boolean): "success" | "warning" {
 }
 export function eligibilityLabel(eligible: boolean): "Eligible" | "Review" {
   return eligible ? "Eligible" : "Review";
+}
+
+/**
+ * One list row's second line. Attendance is "Rotation 80%" for an async student
+ * (rotation weeks only) and "Att 80%" otherwise; nothing counted yet shows "—",
+ * never 0%. With no attendance and no exam data the line says so instead.
+ */
+export function studentRowSubtitle(
+  student: { isAsyncStudent?: boolean | null; yearLevel: string | null; attendancePercentage: number | null | undefined; examAverage: number | null | undefined },
+  yearLabel: string,
+  format: (value: number | null | undefined) => string,
+): string {
+  const noAttendance = student.attendancePercentage === null || student.attendancePercentage === undefined;
+  const noExams = student.examAverage === null || student.examAverage === undefined;
+  if (noAttendance && noExams) return `${isAsyncRow(student) ? "Async student" : yearLabel} · no scores yet`;
+  return `${attendanceShort({ isAsyncStudent: student.isAsyncStudent, attendancePercentage: student.attendancePercentage ?? null }, format)} · Exam ${format(student.examAverage)}`;
 }
 
 export type StudentSearchable = { studentId: string; studentName: string };

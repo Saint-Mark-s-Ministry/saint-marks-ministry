@@ -7,11 +7,13 @@ import { ResourceState } from "@/components/forms";
 import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
+import { ASYNC_BASIS_NOTE } from "@/data/rotation-attendance";
 import {
   attendanceLabel,
   canViewOwnLessons,
   formatLessonWhen,
   isNewMaterial,
+  lessonsAreAsync,
   lessonsForTab,
   savedLabel,
   searchLessons,
@@ -38,6 +40,7 @@ export default function PrepLessons() {
   const all = lessons.data ?? [];
   const rows = useMemo(() => searchLessons(lessonsForTab(all, tab, now), query), [all, tab, query]);
   const totals = summary(all);
+  const isAsync = lessonsAreAsync(all);
   const offline = lessons.error === OFFLINE;
   const notEnrolled = lessons.error === NOT_ENROLLED;
 
@@ -98,13 +101,28 @@ export default function PrepLessons() {
 
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <Tile label="Total lessons" value={String(totals.total)} caption={`${totals.completed} completed`} />
-                  <Tile
-                    label="Attended"
-                    value={totals.counted ? `${totals.attended} / ${totals.counted}` : "—"}
-                    caption="lessons with attendance"
-                    tone={totals.counted && totals.attended === totals.counted ? colors.success : undefined}
-                  />
+                  {!isAsync && (
+                    <Tile
+                      label="Attended"
+                      value={totals.counted ? `${totals.attended} / ${totals.counted}` : "—"}
+                      caption="lessons with attendance"
+                      tone={totals.counted && totals.attended === totals.counted ? colors.success : undefined}
+                    />
+                  )}
                 </View>
+
+                {isAsync && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Rotation attendance. Open my progress"
+                    onPress={() => router.push("/prep-progress")}
+                    style={{ padding: 16, borderRadius: 18, backgroundColor: colors.hover, gap: 4, minHeight: 44 }}
+                  >
+                    <Copy style={{ fontWeight: "600" }}>Rotation attendance</Copy>
+                    <Copy kind="caption">{ASYNC_BASIS_NOTE}</Copy>
+                    <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600" }}>See your rotation progress</Copy>
+                  </Pressable>
+                )}
 
                 {!rows.length && (
                   <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>
@@ -124,7 +142,9 @@ export default function PrepLessons() {
                   </ListSurface>
                 )}
 
-                <Copy kind="caption">Expected absences and lessons before you joined are not counted against you.</Copy>
+                {!isAsync && (
+                  <Copy kind="caption">Expected absences and lessons before you joined are not counted against you.</Copy>
+                )}
               </>
             )}
           </>
