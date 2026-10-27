@@ -1,3 +1,4 @@
+import { SplitScreen } from "@/components/split-screen";
 import { formatPercent } from "@/data/format-percent";
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
@@ -119,6 +120,7 @@ function HomeworkScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Homework" }} />
+      <SplitScreen>
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 4 }}>
           <Copy kind="caption">Publish Elementary homework and track completion through the school year</Copy>
@@ -276,6 +278,7 @@ function HomeworkScreen() {
           </>
         )}
       </Screen>
+      </SplitScreen>
 
       {editorOpen && selectedWeek && (
         <HomeworkEditorSheet

@@ -280,11 +280,14 @@ the APNs-enabled signing profile, and rebuild the native app.
 
 ## iPhone Duo and wide windows (iOS 27.1)
 
-On a window at least 700 pt wide after the vertical bar's inset (the iPhone Duo fully open), Roster and
-Take attendance show **two panes**: the list on the left and the selected child's history (Attendance,
+On a window at least 700 pt wide after the vertical bar's inset (the iPhone Duo fully open), Roster, Take
+attendance, Visitations, Search, Homework and Birthdays show **two panes**: the list on the left and the selected child's history (Attendance,
 Notes, Visitations) on the right. Tapping a child, or the clock button, selects them in the pane instead of
 opening a sheet, so the list, its scroll position and any unsaved attendance marks stay put. Phones are
-never that wide and keep the single column. The rule uses width, not the device name.
+never that wide and keep the single column. The rule uses width, not the device name. On a foldable the
+panes meet at the hinge: the system's crease region when it reports one (active or not), otherwise the
+middle of the window, with the vertical bar's inset kept clear on the trailing edge. Screens with no list
+to pair (Calendar, Home, forms) stay one large page across the window.
 
 The `DuoLayout` native module (`modules/duo-layout`, Swift, iOS 27.1 only) reports the hinge angle and
 status, the vertical bar edge, the safe-area insets and the crease regions to `useDuo()`. On any other

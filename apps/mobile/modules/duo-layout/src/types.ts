@@ -3,6 +3,8 @@
 export type HingeStatus = "unavailable" | "unknown" | "closed" | "partial" | "open";
 export type VerticalBarEdge = "none" | "leading" | "trailing";
 export type Rect = { x: number; y: number; width: number; height: number };
+/** A reserved region: the frame includes its margins, and `active` says whether the system is using it right now. */
+export type Region = Rect & { active: boolean; margins: { top: number; left: number; bottom: number; right: number } };
 
 /** What iOS 27.1 reports for a foldable iPhone. On any other device `supported` is false and the rest is inert. */
 export type DuoState = {
@@ -13,9 +15,9 @@ export type DuoState = {
   verticalBarEdge: VerticalBarEdge;
   insets: { top: number; left: number; bottom: number; right: number };
   /** Regions another element occludes (points, in the app's root view). */
-  occlusions: Rect[];
+  occlusions: Region[];
   /** Regions where content should divide in two (the crease). */
-  divisions: Rect[];
+  divisions: Region[];
 };
 
 export const NOT_FOLDABLE: DuoState = {

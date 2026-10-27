@@ -74,8 +74,8 @@ public class DuoLayoutModule: Module {
       "angle": hingeAngle,
       "verticalBarEdge": "none",
       "insets": ["top": 0, "left": 0, "bottom": 0, "right": 0],
-      "occlusions": [[String: Double]](),
-      "divisions": [[String: Double]](),
+      "occlusions": [[String: Any]](),
+      "divisions": [[String: Any]](),
     ]
     guard #available(iOS 27.1, *), let view = host ?? keyView() else { return state }
     state["supported"] = true
@@ -86,13 +86,19 @@ public class DuoLayoutModule: Module {
     }
     let safe = view.safeAreaInsets
     state["insets"] = ["top": safe.top, "left": safe.left, "bottom": safe.bottom, "right": safe.right]
-    func frames(_ regions: [UIView.ReservedRegion]) -> [[String: Double]] {
-      regions.filter { $0.isActive }.map {
-        ["x": $0.frame.origin.x, "y": $0.frame.origin.y, "width": $0.frame.size.width, "height": $0.frame.size.height]
+    // Inactive regions are included on purpose: a hinge that is flat may report its crease as inactive,
+    // but the crease is still where the two halves of the display meet.
+    func frames(_ regions: [UIView.ReservedRegion]) -> [[String: Any]] {
+      regions.map {
+        [
+          "x": $0.frame.origin.x, "y": $0.frame.origin.y, "width": $0.frame.size.width, "height": $0.frame.size.height,
+          "active": $0.isActive,
+          "margins": ["top": $0.margins.top, "left": $0.margins.left, "bottom": $0.margins.bottom, "right": $0.margins.right],
+        ]
       }
     }
-    state["occlusions"] = frames(view.reservedRegions(kind: .occlusion))
-    state["divisions"] = frames(view.reservedRegions(kind: .division))
+    state["occlusions"] = frames(view.reservedRegions(kind: .occlusion, options: .includeInactive))
+    state["divisions"] = frames(view.reservedRegions(kind: .division, options: .includeInactive))
     return state
   }
 }

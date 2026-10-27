@@ -1,3 +1,4 @@
+import { SplitScreen } from "@/components/split-screen";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Stack } from "expo-router";
@@ -55,6 +56,7 @@ export default function SundayBirthdays() {
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
       />
+      <SplitScreen>
       <Screen refreshing={birthdays.loading || birthdays.refreshing} onRefresh={() => void birthdays.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 6 }}>
           <Copy kind="caption">
@@ -115,6 +117,7 @@ export default function SundayBirthdays() {
           </>
         )}
       </Screen>
+      </SplitScreen>
     </>
   );
 }

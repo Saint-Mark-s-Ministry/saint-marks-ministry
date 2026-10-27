@@ -1,3 +1,4 @@
+import { SplitScreen } from "@/components/split-screen";
 import {
   useEffect,
   useState,
@@ -107,6 +108,7 @@ export default function Search() {
         onChangeText={(event) => setQuery(event.nativeEvent.text)}
         onCancelButtonPress={() => setQuery("")}
       />
+      <SplitScreen>
       <Screen resetOnFocus bottom={48} adjustForKeyboard={false}>
         {loading && (
           <ActivityIndicator
@@ -211,6 +213,7 @@ export default function Search() {
           </>
         )}
       </Screen>
+      </SplitScreen>
     </>
   );
 }

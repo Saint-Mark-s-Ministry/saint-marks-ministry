@@ -66,3 +66,39 @@ export function paneWidths(usableWidth: number, listMin: number = LIST_MIN): { l
   const list = Math.round(Math.min(ceiling, Math.max(floor, usableWidth * 0.36)));
   return { list, detail: Math.max(0, usableWidth - list) };
 }
+
+// ── Aligning the panes to the hinge ─────────────────────────────────────────
+
+/**
+ * Where the hinge falls across the window, in the window's own x coordinates, or null on a device that does
+ * not fold. The system's crease region is used when it reports one (active or not, since a flat hinge may
+ * report it inactive). When it reports none on a foldable, the hinge is taken to run down the middle of the
+ * window: the two halves of a book-style foldable are equal.
+ */
+export function foldX(state: Pick<DuoState, "supported" | "hinge" | "divisions">, windowWidth: number): number | null {
+  if (!state.supported || state.hinge === "unavailable") return null;
+  const region = state.divisions.find((d) => d.width >= 0 && d.x >= 0 && d.x <= windowWidth);
+  return region ? region.x + region.width / 2 : windowWidth / 2;
+}
+
+/**
+ * Pane widths that meet at the hinge rather than at an arbitrary proportion: the list fills the left half
+ * up to the hinge, the detail the right half, less the vertical bar's inset, with a gap where the crease is
+ * so nothing is drawn across it. Falls back to the proportional split when there is no hinge to meet.
+ */
+export function panesAtFold(options: {
+  windowWidth: number;
+  insetLeft: number;
+  insetRight: number;
+  fold: number | null;
+  /** The crease's own width, left empty between the panes. */
+  gap?: number;
+  listMin?: number;
+}): { list: number; detail: number; gap: number } {
+  const usable = options.windowWidth - options.insetLeft - options.insetRight;
+  if (options.fold === null) return { ...paneWidths(usable, options.listMin), gap: 0 };
+  const gap = Math.max(0, options.gap ?? 0);
+  const list = Math.max(0, Math.round(options.fold - gap / 2 - options.insetLeft));
+  const detail = Math.max(0, Math.round(options.windowWidth - options.insetRight - (options.fold + gap / 2)));
+  return { list, detail, gap };
+}

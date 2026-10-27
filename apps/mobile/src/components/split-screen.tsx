@@ -3,7 +3,8 @@ import { View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Copy, Icon, Screen } from "@/components/ui";
 import { StudentHistoryView } from "@/components/student-history-view";
-import { isWide, paneWidths } from "@/data/duo-layout";
+import { foldX, isWide, panesAtFold } from "@/data/duo-layout";
+import { useDuo } from "@/data/use-duo";
 import type { StudentHistoryTarget } from "@/data/student-history";
 import { useStudentHistory } from "@/data/use-student-history";
 import { useAppTheme } from "@/theme";
@@ -41,6 +42,7 @@ export function SplitScreen({
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const duo = useDuo();
   const [selected, setSelected] = useState<StudentHistoryTarget | null>(null);
   const select = useCallback((target: StudentHistoryTarget) => setSelected(target), []);
   const usable = width - insets.left - insets.right;
@@ -48,12 +50,23 @@ export function SplitScreen({
 
   const render = (split: Selection | null) => (typeof children === "function" ? children(split) : children);
   if (!isWide(usable)) return <>{render(null)}</>;
-  const { list } = paneWidths(usable, listMin);
+  // On a foldable the two panes meet at the hinge, with the crease's width left empty between them.
+  const fold = foldX(duo, width);
+  const crease = duo.divisions.find((d) => d.width >= 0);
+  const { list, detail, gap } = panesAtFold({
+    windowWidth: width,
+    insetLeft: insets.left,
+    insetRight: insets.right,
+    fold,
+    gap: crease?.width ?? 0,
+    listMin,
+  });
   return (
     <SelectionContext.Provider value={value}>
       <View style={{ flex: 1, flexDirection: "row", paddingLeft: insets.left, paddingRight: insets.right }}>
-        <View style={{ width: list, borderRightWidth: 0.5, borderRightColor: colors.border }}>{render(value)}</View>
-        <View style={{ flex: 1 }} accessibilityLabel="Details">
+        <View style={{ width: list, borderRightWidth: gap ? 0 : 0.5, borderRightColor: colors.border }}>{render(value)}</View>
+        {gap > 0 && <View style={{ width: gap }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
+        <View style={{ width: detail }} accessibilityLabel="Details">
           {selected ? <HistoryPane key={`${selected.program}:${selected.id}`} target={selected} /> : <EmptyDetail />}
         </View>
       </View>

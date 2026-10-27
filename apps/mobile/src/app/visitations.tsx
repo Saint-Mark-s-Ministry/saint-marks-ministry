@@ -1,3 +1,4 @@
+import { SplitScreen } from "@/components/split-screen";
 import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
@@ -110,6 +111,7 @@ function VisitationsScreen() {
         placeholder="Find a child"
         onChangeText={(event) => setSearch(event.nativeEvent.text)}
       />
+      <SplitScreen>
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
         <View style={{ paddingHorizontal: 4, gap: 2 }}>
           <Copy kind="caption">{primaryClass?.name ?? "All accessible classes"}</Copy>
@@ -256,6 +258,7 @@ function VisitationsScreen() {
           </View>
         )}
       </Screen>
+      </SplitScreen>
     </>
   );
 }
