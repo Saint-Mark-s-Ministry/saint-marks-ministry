@@ -12,6 +12,7 @@ import { useAppTheme } from "@/theme";
 import { useAuth } from "@/data/auth-provider";
 import PrepLessons from "../../prep-lessons";
 import { useResource } from "@/data/resources";
+import { fatherLine, mentorLine, type PrepEnrollmentPeople } from "@/data/roster-contacts";
 import {
   canViewStudentRoster,
   eligibilityLabel,
@@ -73,6 +74,10 @@ function PrepStudents() {
   const copy = (user && COPY_BY_ROLE[user.role]) ?? { title: "Students" };
   const [segment, setSegment] = useState<StudentSegment>("active");
   const resource = useResource<StudentAnalytics[]>(canView ? "/api/students/analytics/batch" : null);
+  // Mentor and father of confession come from the enrollments (the same answer the roster uses);
+  // the analytics rows don't carry them. A mentor sees only their own mentees' enrollments.
+  const enrollments = useResource<(PrepEnrollmentPeople & { studentId: string })[]>(canView ? "/api/enrollments" : null);
+  const peopleByStudent = new Map((enrollments.data ?? []).map((e) => [e.studentId, e]));
 
   const offline = resource.error === "Could not reach the server. Check your connection and try again.";
   const all = resource.data ?? [];
@@ -91,7 +96,7 @@ function PrepStudents() {
         }}
       />
       {Platform.OS === "ios" && <TopActions />}
-      <Screen resetOnFocus refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
+      <Screen resetOnFocus refreshing={resource.loading || resource.refreshing} onRefresh={() => { void resource.refresh(); void enrollments.refresh(); }}>
         {!canView ? (
           <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
             <Copy kind="heading" style={{ textAlign: "center" }}>
@@ -143,6 +148,14 @@ function PrepStudents() {
                   title={s.studentName}
                   subtitle={studentRowSubtitle(s, yearLabel(s.yearLevel), formatPercent)}
                   icon={<InitialsAvatar name={s.studentName} size={38} />}
+                  footer={
+                    enrollments.data ? (
+                      <>
+                        <Copy kind="caption" numberOfLines={2}>{mentorLine(peopleByStudent.get(s.studentId) ?? {})}</Copy>
+                        <Copy kind="caption" numberOfLines={2}>{fatherLine(peopleByStudent.get(s.studentId) ?? {})}</Copy>
+                      </>
+                    ) : undefined
+                  }
                   trailing={
                     (s.attendancePercentage !== null && s.attendancePercentage !== undefined) || (s.examAverage !== null && s.examAverage !== undefined) ? (
                       <StatusPill

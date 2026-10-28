@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { yearLevelLabel } from "@/data/year-level";
-import { Linking, Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Stack } from "expo-router";
 import { Copy, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState } from "@/components/forms";
@@ -8,6 +8,7 @@ import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
 import { RotationStatus, RotationWorkflow } from "@/components/rotation-attendance";
+import { EnrollmentPeople } from "@/components/enrollment-people";
 import { useLargeType } from "@/components/attendance-history-parts";
 import { attendanceCaption, attendanceTerms, isAsyncRow, rotationRequirement } from "@/data/rotation-attendance";
 import {
@@ -170,36 +171,7 @@ export default function PrepProgress() {
             </Section>
 
             <Section title="Your people">
-              <ListSurface>
-                <ContactRow
-                  title="Mentor"
-                  subtitle={progress.enrollment.mentor?.name ?? "Not assigned yet"}
-                  actions={
-                    progress.enrollment.mentor
-                      ? [
-                          { label: "Email", onPress: () => void Linking.openURL(`mailto:${progress.enrollment.mentor!.email}`) },
-                          ...(progress.enrollment.mentor.phone
-                            ? [{ label: "Call", onPress: () => void Linking.openURL(`tel:${progress.enrollment.mentor!.phone}`) }]
-                            : []),
-                        ]
-                      : []
-                  }
-                />
-                <ContactRow
-                  title="Father of confession"
-                  subtitle={
-                    progress.enrollment.fatherOfConfession
-                      ? [progress.enrollment.fatherOfConfession.name, progress.enrollment.fatherOfConfession.church].filter(Boolean).join(" · ")
-                      : "Not assigned yet"
-                  }
-                  actions={
-                    progress.enrollment.fatherOfConfession?.phone
-                      ? [{ label: "Call", onPress: () => void Linking.openURL(`tel:${progress.enrollment.fatherOfConfession!.phone}`) }]
-                      : []
-                  }
-                  last
-                />
-              </ListSurface>
+              <EnrollmentPeople enrollment={progress.enrollment} />
             </Section>
           </>
         )}
@@ -386,40 +358,6 @@ function InfoRow({ title, subtitle, trailing, last = false }: { title: string; s
         <Copy kind="caption">{subtitle}</Copy>
       </View>
       {trailing}
-    </View>
-  );
-}
-
-function ContactRow({
-  title,
-  subtitle,
-  actions,
-  last = false,
-}: {
-  title: string;
-  subtitle: string;
-  actions: { label: string; onPress: () => void }[];
-  last?: boolean;
-}) {
-  const { colors } = useAppTheme();
-  return (
-    <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 56 }, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Copy style={{ fontWeight: "500" }}>{title}</Copy>
-        <Copy kind="caption">{subtitle}</Copy>
-      </View>
-      {actions.map((action) => (
-        <Pressable
-          key={action.label}
-          accessibilityRole="link"
-          accessibilityLabel={`${action.label} ${title.toLowerCase()}`}
-          onPress={action.onPress}
-          hitSlop={8}
-          style={{ minHeight: 44, minWidth: 44, justifyContent: "center", alignItems: "center", paddingHorizontal: 8 }}
-        >
-          <Copy style={{ color: colors.primary, fontWeight: "600" }}>{action.label}</Copy>
-        </Pressable>
-      ))}
     </View>
   );
 }

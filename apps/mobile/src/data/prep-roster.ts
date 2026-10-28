@@ -5,10 +5,12 @@
  * graduation-note requirement are unit-testable without rendering native UI.
  */
 
+import type { PrepEnrollmentPeople } from "@stmark/contracts";
+
 export { canManageAttendance as canManageEnrollments } from "./prep-attendance";
 
 export type EnrollmentStatus = "ACTIVE" | "GRADUATED" | "WITHDRAWN";
-export type RosterEnrollment = {
+export type RosterEnrollment = PrepEnrollmentPeople & {
   id: string;
   studentId: string;
   isActive: boolean;
@@ -16,7 +18,6 @@ export type RosterEnrollment = {
   yearLevel: string | null;
   isAsyncStudent: boolean;
   student: { id: string; name: string };
-  mentor: { id: string; name: string } | null;
 };
 
 export type RosterSegment = "active" | "async" | "all";
@@ -43,18 +44,12 @@ export type MentorWorkload = { id: string; name: string; count: number };
 export function mentorWorkload(rows: RosterEnrollment[]): MentorWorkload[] {
   const workload = new Map<string, MentorWorkload>();
   for (const r of rows) {
-    if (!r.isActive || !r.mentor) continue;
+    if (!r.isActive || !r.mentor?.name) continue;
     const entry = workload.get(r.mentor.id) ?? { id: r.mentor.id, name: r.mentor.name, count: 0 };
     entry.count += 1;
     workload.set(r.mentor.id, entry);
   }
   return [...workload.values()].sort((a, b) => b.count - a.count);
-}
-
-/** The eligible-to-be-a-mentor roles — mirrors lib/roles.ts's MENTOR_ELIGIBLE_ROLES on the web. */
-export const MENTOR_ELIGIBLE_ROLES = ["SUPER_ADMIN", "PRIEST", "SERVANT_PREP", "MENTOR"];
-export function isEligibleMentorRole(role: string): boolean {
-  return MENTOR_ELIGIBLE_ROLES.includes(role);
 }
 
 export type AddableUser = { id: string; name: string; role: string };

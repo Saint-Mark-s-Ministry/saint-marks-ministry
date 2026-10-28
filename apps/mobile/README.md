@@ -306,6 +306,26 @@ screen, the staff student view, the mentee views and the list rows. No lesson-ab
   their draft marks are discarded, and a notice says so. The server enforces the same rule.
 - Shapes are shared type-only contracts in `packages/contracts/src/prep-analytics.ts`.
 
+### Mentors and fathers of confession on the roster
+
+Student rows (Roster, Students) show the current mentor and father of confession by name. The
+student detail adds the mentor's email and phone and the father of confession's church and phone,
+each with native Call, Message and Email actions. A missing value reads "Not provided" (web PR #243).
+
+- The mentor shown is the server's resolved `mentorContact`, which prefers the student's confirmed
+  annual mentor details over the raw enrollment and account fields, so a stale assigned account is
+  never presented as the contact. A Year 2 student who hasn't confirmed this year reads "awaiting
+  this year's confirmation". When the confirmed contact differs from the assigned account, the card
+  says which account is assigned.
+- Mentor candidates come from `GET /api/mentor-options` (the same list the web uses), never from a
+  role filter on the user list. An enabled Sunday School servant with an eligible tag is selectable
+  even when their primary role differs. The server re-checks eligibility on save.
+- "Change mentor" is offered only to Super Admins, priests and Servants Prep servants (the roles the
+  server allows). Eligibility or assignment grants no Servants Prep authority in the app: every
+  screen still checks the signed-in user's own role.
+- After a reassignment or removal the enrollment, the mentor views and the student's own screen
+  are refetched. Shapes are in `packages/contracts/src/prep-roster.ts`.
+
 ## Remote push temporarily disabled
 
 `extra.remotePushEnabled` is currently `false` in `app.json`. The app skips

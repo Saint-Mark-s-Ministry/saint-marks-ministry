@@ -4,7 +4,6 @@ import {
   filterRosterSegment,
   filterRosterYear,
   graduationNoteRequired,
-  isEligibleMentorRole,
   mentorWorkload,
   searchRoster,
   unenrolledStudents,
@@ -57,13 +56,6 @@ describe("Roster + async student detail (SMM-39)", () => {
         { id: "m1", name: "Mentor One", count: 2 },
         { id: "m2", name: "Mentor Two", count: 1 },
       ]);
-    });
-
-    it("recognizes the mentor-eligible roles", () => {
-      expect(isEligibleMentorRole("MENTOR")).toBe(true);
-      expect(isEligibleMentorRole("SERVANT_PREP")).toBe(true);
-      expect(isEligibleMentorRole("STUDENT")).toBe(false);
-      expect(isEligibleMentorRole("PARENT")).toBe(false);
     });
 
     it("finds existing student accounts with no enrollment yet", () => {

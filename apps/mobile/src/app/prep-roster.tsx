@@ -6,6 +6,7 @@ import { MenuView } from "@expo/ui/community/menu";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { Button, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { Choice, Field, ResourceState, Toggle, confirmAction, useAction } from "@/components/forms";
+import { fatherLine, mentorLine, MENTOR_OPTIONS_PATH, type PrepMentorOption } from "@/data/roster-contacts";
 import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
@@ -14,7 +15,6 @@ import {
   canManageEnrollments,
   filterRosterSegment,
   filterRosterYear,
-  isEligibleMentorRole,
   mentorWorkload,
   searchRoster,
   unenrolledStudents,
@@ -212,9 +212,7 @@ function RosterRow({
         ? " · Graduated"
         : enrollment.isAsyncStudent
           ? " · Async"
-          : enrollment.mentor
-            ? ` · Mentor ${enrollment.mentor.name}`
-            : " · No mentor yet"
+          : ""
   }`;
 
   function transition(status: "ACTIVE" | "GRADUATED" | "WITHDRAWN") {
@@ -280,6 +278,8 @@ function RosterRow({
       <View style={{ flex: 1, gap: 1 }}>
         <Copy numberOfLines={1} style={{ fontWeight: "500" }}>{enrollment.student.name}</Copy>
         <Copy kind="caption" numberOfLines={1}>{subtitle}</Copy>
+        <Copy kind="caption" numberOfLines={2}>{mentorLine(enrollment)}</Copy>
+        <Copy kind="caption" numberOfLines={2}>{fatherLine(enrollment)}</Copy>
       </View>
       {enrollment.status === "WITHDRAWN" && <StatusPill label="Withdrawn" color={colors.muted} soft={colors.hover} />}
       {enrollment.status === "ACTIVE" && enrollment.isAsyncStudent && <StatusPill label="Async" color={colors.info} soft={colors.infoSoft} />}
@@ -297,13 +297,13 @@ function RosterRow({
 function EnrollStudentSheet({ enrollments, onClose, onEnrolled }: { enrollments: RosterEnrollment[]; onClose: () => void; onEnrolled: () => void }) {
   const { colors } = useAppTheme();
   const students = useResource<UserLite[]>("/api/users?role=STUDENT");
-  const servants = useResource<UserLite[]>("/api/users?role=SERVANT_PREP");
-  const mentors = useResource<UserLite[]>("/api/users?role=MENTOR");
+  // Mentor candidates are whatever the server allows, not a role filter on the user list.
+  const mentors = useResource<PrepMentorOption[]>(MENTOR_OPTIONS_PATH);
   const years = useResource<AcademicYear[]>("/api/academic-years");
   const activeYear = years.data?.find((y) => y.isActive) ?? years.data?.[0];
 
   const addable = unenrolledStudents(students.data ?? [], enrollments);
-  const mentorOptions = [...(servants.data ?? []), ...(mentors.data ?? [])].filter((u) => isEligibleMentorRole(u.role));
+  const mentorOptions = mentors.data ?? [];
 
   const [studentId, setStudentId] = useState("");
   const [yearLevel, setYearLevel] = useState<"YEAR_1" | "YEAR_2">("YEAR_1");
@@ -357,9 +357,9 @@ function EnrollStudentSheet({ enrollments, onClose, onEnrolled }: { enrollments:
         </View>
 
         <ResourceState
-          loading={students.loading || years.loading}
-          error={students.error || years.error}
-          retry={() => { void students.refresh(); void years.refresh(); }}
+          loading={students.loading || years.loading || mentors.loading}
+          error={students.error || years.error || mentors.error}
+          retry={() => { void students.refresh(); void years.refresh(); void mentors.refresh(); }}
         />
 
         {!!students.data && (

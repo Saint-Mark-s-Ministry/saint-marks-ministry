@@ -7,7 +7,7 @@
  * keep the two in step when the rules change.
  */
 
-import type { PrepAnalyticsSundaySchool } from "@stmark/contracts";
+import type { PrepAnalyticsSundaySchool, PrepEnrollmentPeople } from "@stmark/contracts";
 import { asyncAttendanceGuidance, isAsyncRow } from "./rotation-attendance";
 
 export const ATTENDANCE_GOAL = 75;
@@ -15,11 +15,13 @@ export const EXAM_GOAL = 75;
 export const SECTION_MINIMUM = 60;
 
 export type ProgressAnalytics = {
-  enrollment: {
+  /**
+   * `mentorContact` is the server's resolved mentor (confirmed annual details first);
+   * screens read it through roster-contacts, not the raw `mentor`, which can be stale.
+   */
+  enrollment: PrepEnrollmentPeople & {
     yearLevel: "YEAR_1" | "YEAR_2" | null;
     isAsyncStudent: boolean;
-    mentor: { id: string; name: string; email: string; phone: string | null } | null;
-    fatherOfConfession: { id: string; name: string; phone: string | null; church: string | null } | null;
     student: { id: string; name: string; email: string };
   };
   /**

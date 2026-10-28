@@ -1,5 +1,6 @@
 import { formatPercent } from "@/data/format-percent";
-import { Linking, Pressable, View } from "react-native";
+import { useState } from "react";
+import { Alert, Linking, Pressable, View } from "react-native";
 import { yearLevelLabel } from "@/data/year-level";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { CircleIconButton, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
@@ -8,6 +9,8 @@ import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
 import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import { EnrollmentPeople, MentorPickerSheet } from "@/components/enrollment-people";
+import { canAssignMentors, type PrepEnrollmentPeople } from "@/data/roster-contacts";
 import { useLargeType } from "@/components/attendance-history-parts";
 import {
   attendanceTerms,
@@ -52,10 +55,9 @@ type StudentDetails = {
   examScores: ExamScoreInput[];
 };
 
-type EnrollmentDetail = {
+type EnrollmentDetail = PrepEnrollmentPeople & {
+  id: string;
   isActive: boolean;
-  mentor: { name: string } | null;
-  fatherOfConfession: { name: string } | null;
 };
 
 export default function PrepStudentDetail() {
@@ -68,6 +70,8 @@ export default function PrepStudentDetail() {
   // reaches this screen (see the students list/search), but skip the fetch
   // and its error entirely rather than let a stray deep link blank the page.
   const canViewDetails = isAdminLike(user?.role);
+  const canAssign = canAssignMentors(user?.role);
+  const [pickingMentor, setPickingMentor] = useState(false);
 
   const analytics = useResource<StudentAnalytics[]>(`/api/students/analytics/batch?studentIds=${encodeURIComponent(id)}`);
   const details = useResource<StudentDetails & { student: { enrollments: EnrollmentDetail[] } }>(
@@ -209,10 +213,15 @@ export default function PrepStudentDetail() {
             {details.data?.student && (
               <ListSurface>
                 <FieldRow label="Email" value={details.data.student.email} />
-                <FieldRow label="Phone" value={details.data.student.phone} />
-                <FieldRow label="Mentor" value={enrollment?.mentor?.name} fallback="Not assigned" />
-                <FieldRow label="Father of confession" value={enrollment?.fatherOfConfession?.name} fallback="Not assigned" last />
+                <FieldRow label="Phone" value={details.data.student.phone} last />
               </ListSurface>
+            )}
+
+            {enrollment && (
+              <View style={{ gap: 10 }}>
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Mentor and father of confession</Copy>
+                <EnrollmentPeople enrollment={enrollment} onChangeMentor={canAssign && enrollment.isActive ? () => setPickingMentor(true) : undefined} />
+              </View>
             )}
 
             <View style={{ gap: 10 }}>
@@ -233,6 +242,22 @@ export default function PrepStudentDetail() {
           </>
         )}
       </Screen>
+      {pickingMentor && enrollment && student && (
+        <MentorPickerSheet
+          enrollmentId={enrollment.id}
+          studentName={student.studentName}
+          currentMentorId={enrollment.mentorId ?? enrollment.mentor?.id ?? null}
+          // What is being replaced is the assigned account, which can differ from the confirmed contact shown above.
+          currentMentorName={enrollment.mentor?.name ?? null}
+          onClose={() => setPickingMentor(false)}
+          onChanged={(message) => {
+            setPickingMentor(false);
+            // The change reaches the enrollment, the mentor's views and the student's own screen.
+            refresh();
+            Alert.alert(message);
+          }}
+        />
+      )}
     </>
   );
 }

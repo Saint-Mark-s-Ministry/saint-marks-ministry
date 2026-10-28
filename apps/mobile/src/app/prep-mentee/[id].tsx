@@ -8,6 +8,8 @@ import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
 import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import { EnrollmentPeople } from "@/components/enrollment-people";
+import type { PrepEnrollmentPeople } from "@/data/roster-contacts";
 import { useLargeType } from "@/components/attendance-history-parts";
 import {
   attendanceTerms,
@@ -26,11 +28,9 @@ import {
 } from "@/data/prep-mentor";
 
 
-type Enrollment = {
+type Enrollment = PrepEnrollmentPeople & {
   yearLevel: string | null;
   student: { id: string; name: string; email: string };
-  mentor: { id: string; name: string } | null;
-  fatherOfConfession: { id: string; name: string } | null;
 };
 type StudentDetails = { student: { phone: string | null } };
 type Note = { id: string; content: string; createdAt: string; author: { id: string; name: string; role: string } };
@@ -162,15 +162,10 @@ export default function PrepMenteeDetail() {
               </View>
             )}
 
-            {enrollment?.fatherOfConfession && (
+            {enrollment && (
               <View style={{ gap: 10 }}>
                 <Copy style={{ fontSize: 17, fontWeight: "600" }}>Assigned support</Copy>
-                <ListSurface>
-                  <View style={{ paddingVertical: 10 }}>
-                    <Copy kind="caption">Father of confession</Copy>
-                    <Copy style={{ marginTop: 2 }}>{enrollment.fatherOfConfession.name}</Copy>
-                  </View>
-                </ListSurface>
+                <EnrollmentPeople enrollment={enrollment} />
               </View>
             )}
 
