@@ -1,6 +1,7 @@
 import type { SundaySchoolCheckIns } from '@/types/sunday-school-check-ins'
 import { SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL } from '@/types/sunday-school-attendance-reminders'
 import type { ContactBookResponse } from '@/lib/contact-book'
+import type { MenteeAttendanceHistory } from '@/types/mentee-attendance'
 import type { StudentHistory, StudentHistoryTarget } from '@/lib/student-history'
 import { LITURGICAL_API_VERSION, type DailyReadings, type LiturgicalCalendarDay, type LiturgicalCalendarResponse, type LiturgicalDay, type LiturgicalLanguage } from '@/lib/liturgical'
 import useSWR, { SWRConfiguration, mutate } from 'swr'
@@ -68,6 +69,20 @@ export function useEnrollments(mentorId?: string, options?: SWRConfiguration) {
     ? `/api/enrollments?mentorId=${mentorId}`
     : '/api/enrollments'
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useMenteeAttendanceHistory(studentId: string, viewerId?: string) {
+  return useSWR<MenteeAttendanceHistory>(
+    viewerId ? [`/api/students/${encodeURIComponent(studentId)}/attendance`, viewerId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    {
+      ...defaultSWRConfig,
+      revalidateOnFocus: true,
+      revalidateOnMount: true,
+      dedupingInterval: 0,
+      shouldRetryOnError: false,
+    },
+  )
 }
 
 export function useDashboardStats(options?: SWRConfiguration) {
