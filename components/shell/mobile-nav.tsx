@@ -31,7 +31,7 @@ export function MobileAppBar({
   viewing?: boolean
 }) {
   return (
-    <header className="z-40 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas pr-2 pl-3 md:hidden print:hidden">
+    <header className="mobile-app-bar z-40 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas pr-2 pl-3 md:hidden print:hidden">
       <MinistrySwitcher current={ministry} options={ministries} compact markOnly={viewing} className="h-11 shrink-0 px-1.5" />
       {viewing && <SundaySchoolViewingPicker variant="appbar" />}
       <div className="ml-auto flex items-center">
@@ -74,7 +74,7 @@ export function MobileTabBar({
     <>
       <nav
         aria-label="Primary"
-        className="z-40 shrink-0 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
+        className="mobile-tab-bar z-40 shrink-0 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
       >
         <ul className="grid grid-cols-5">
           {tabs.map((item) => {

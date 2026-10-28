@@ -725,13 +725,11 @@
     overflow-y: scroll;
     scrollbar-gutter: stable;
   }
-  /* Phones: the app shell is exactly the visible height (100dvh) and scrolls
-     inside #main, so the page itself must never be taller or scrollable. In
-     Safari 100vh is taller than the area the browser toolbars leave; a taller
-     page shifted the whole shell up and left a gap under the tab bar. */
-  @media (max-width: 767.98px) {
-    html:has([data-ministry]),
-    html:has([data-ministry]) body {
+  /* Only installed phone apps lock the document. Browser tabs need native page
+     scrolling so Safari can collapse its address bar. */
+  @media (max-width: 767.98px) and (display-mode: standalone) {
+    html:has(.app-shell),
+    html:has(.app-shell) body {
       overflow: hidden;
     }
   }
@@ -771,6 +769,40 @@
 
 /* Dark mode overrides for common utility classes */
 @layer utilities {
+  @media screen and (max-width: 767.98px) {
+    .app-shell .mobile-app-bar {
+      position: sticky;
+      top: 0;
+    }
+    .app-shell .mobile-tab-bar {
+      position: fixed;
+      inset-inline: 0;
+      bottom: 0;
+    }
+    .app-shell #main {
+      /* Reserve the 56px tab bar, its border and safe area, plus content padding. */
+      padding-bottom: calc(5rem + 1px + env(safe-area-inset-bottom));
+    }
+
+    @media (display-mode: standalone) {
+      /* iOS Home Screen apps need both bars in the fixed-height flex column. */
+      .app-shell {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .app-shell #main {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: 1.5rem;
+      }
+      .app-shell .mobile-app-bar,
+      .app-shell .mobile-tab-bar {
+        position: static;
+      }
+    }
+  }
+
   /* Dashboard pages historically use bg-gray-50 for their outer wrapper.
      Keep that wrapper on the shared canvas in dark mode so it cannot diverge
      from the navbar and footer gutters. */
