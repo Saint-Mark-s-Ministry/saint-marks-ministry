@@ -286,6 +286,26 @@ the profile update, the role update or a session update, and is off for priests 
 every other role, for disabled accounts, and inside View as. Apply the
 `20261016171000_add_priest_view_as_access` migration before using it.
 
+### Async students' attendance
+
+A current async student's Servants Prep attendance is **rotation attendance**: only the
+serving-rotation weeks that have started count, and normal lessons never do, including lesson
+records from before the student became async (web PRs #245 and #246). The server computes it; the
+app only labels it. Rotation attendance and rotation weeks are the words on the student's progress
+screen, the staff student view, the mentee views and the list rows. No lesson-absence buffer or
+"attend the next lessons in a row" advice is shown to an async student.
+
+- A week that has not started is "Upcoming", never missed. A started week with no credit reads "Not
+  credited" until a servant approves the signed four-week form, which credits all four weeks.
+- No data is "—" and "No rotation weeks counted yet", never 0%.
+- Finishing all ten approved rotations is a separate requirement from the 75% attendance goal, with
+  its own row. A student with no rotation assigned is told a servant assigns one (servants are
+  pointed to Async students).
+- The roll call leaves async students off. A student who becomes async while a roll call is open
+  is removed on the next roster check (every 30 seconds, on return to the app, and just before Save),
+  their draft marks are discarded, and a notice says so. The server enforces the same rule.
+- Shapes are shared type-only contracts in `packages/contracts/src/prep-analytics.ts`.
+
 ## Remote push temporarily disabled
 
 `extra.remotePushEnabled` is currently `false` in `app.json`. The app skips

@@ -8,6 +8,7 @@ import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
 import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import { useLargeType } from "@/components/attendance-history-parts";
 import {
   attendanceTerms,
   isAsyncRow,
@@ -61,7 +62,7 @@ export default function PrepMenteeDetail() {
   const reassigned = isReassignmentError(enrollments.error) || isReassignmentError(analytics.error);
   const rotationRow =
     isAsync && mentee?.sundaySchoolMet !== undefined
-      ? rotationRequirement(rotation.data?.sundaySchool, mentee.sundaySchoolMet)
+      ? rotationRequirement(rotation.data?.sundaySchool, mentee.sundaySchoolMet, "staff")
       : null;
   const sectionNameFor = (section: string) => sections.data?.find((s) => s.name === section)?.displayName ?? section;
   const worstSection = mentee
@@ -157,7 +158,7 @@ export default function PrepMenteeDetail() {
               <View style={{ gap: 10 }}>
                 <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotation</Copy>
                 <AsyncBasisNote />
-                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} />}
+                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} audience="staff" />}
               </View>
             )}
 
@@ -199,9 +200,10 @@ function Row({
   unmetLabel?: string;
 }) {
   const { colors } = useAppTheme();
+  const stacked = useLargeType();
   return (
-    <View style={[styles.compactRow, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
-      <View style={{ flex: 1, gap: 2 }}>
+    <View style={[styles.compactRow, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 8 }, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
+      <View style={{ flex: stacked ? undefined : 1, gap: 2 }}>
         <Copy style={{ fontWeight: "500" }}>{label}</Copy>
         <Copy kind="caption">{value}</Copy>
       </View>

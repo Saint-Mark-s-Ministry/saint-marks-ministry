@@ -2,25 +2,36 @@ import { View } from "react-native";
 import { router, type Href } from "expo-router";
 import { Button, Copy, ListSurface, StatusPill, styles } from "@/components/ui";
 import {
-  ASYNC_BASIS_NOTE,
+  ASYNC_BASIS_NOTE_STAFF,
   ROTATION_COMPLETION_NOTE,
   ROTATION_WORKFLOW,
   activeRotation,
   rotationState,
   rotationWeekRows,
+  type Audience,
   type PrepAnalyticsSundaySchool,
   type RotationWeekState,
 } from "@/data/rotation-attendance";
 import { useAppTheme } from "@/theme";
+import { useLargeType } from "@/components/attendance-history-parts";
 
 /**
  * Where an async student is in their serving rotation, and which weeks count.
  * The weeks come from the server's analytics; this only labels them. A week
  * that has not started is "Upcoming" and is never drawn as a miss.
  */
-export function RotationStatus({ sundaySchool, now }: { sundaySchool: PrepAnalyticsSundaySchool | null | undefined; now: Date }) {
+export function RotationStatus({
+  sundaySchool,
+  now,
+  audience = "student",
+}: {
+  sundaySchool: PrepAnalyticsSundaySchool | null | undefined;
+  now: Date;
+  audience?: Audience;
+}) {
   const { colors } = useAppTheme();
-  const state = rotationState(sundaySchool, now);
+  const stacked = useLargeType();
+  const state = rotationState(sundaySchool, now, audience);
   const active = activeRotation(sundaySchool);
   const weeks = active ? rotationWeekRows(active, now) : [];
   const tone = (value: RotationWeekState) =>
@@ -42,9 +53,9 @@ export function RotationStatus({ sundaySchool, now }: { sundaySchool: PrepAnalyt
             key={week.weekNumber}
             accessible
             accessibilityLabel={`Week ${week.weekNumber}, ${week.date}: ${week.label}`}
-            style={[styles.compactRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}
+            style={[styles.compactRow, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 6 }, { borderTopWidth: 0.5, borderTopColor: colors.border }]}
           >
-            <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flex: stacked ? undefined : 1, gap: 2 }}>
               <Copy style={{ fontWeight: "500" }}>Week {week.weekNumber}</Copy>
               <Copy kind="caption">{week.date}</Copy>
             </View>
@@ -55,7 +66,7 @@ export function RotationStatus({ sundaySchool, now }: { sundaySchool: PrepAnalyt
       {weeks.some((week) => week.state === "missed") && (
         <View style={{ padding: 16, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: colors.border }}>
           <Copy kind="caption">
-            "Not credited" weeks count against the percentage until a servant approves your signed form, which credits all four weeks.
+            "Not credited" weeks count against the percentage until a servant approves the signed form, which credits all four weeks.
           </Copy>
         </View>
       )}
@@ -89,7 +100,7 @@ export function AsyncBasisNote() {
   const { colors } = useAppTheme();
   return (
     <View style={{ padding: 14, borderRadius: 16, backgroundColor: colors.hover }}>
-      <Copy kind="caption">{ASYNC_BASIS_NOTE}</Copy>
+      <Copy kind="caption">{ASYNC_BASIS_NOTE_STAFF}</Copy>
     </View>
   );
 }

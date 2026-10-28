@@ -8,6 +8,7 @@ import { useAuth } from "@/data/auth-provider";
 import { useResource } from "@/data/resources";
 import { useAppTheme } from "@/theme";
 import { RotationStatus, RotationWorkflow } from "@/components/rotation-attendance";
+import { useLargeType } from "@/components/attendance-history-parts";
 import { attendanceCaption, attendanceTerms, isAsyncRow, rotationRequirement } from "@/data/rotation-attendance";
 import {
   ATTENDANCE_GOAL,
@@ -241,12 +242,13 @@ function MetricRow({
   hasData: boolean;
 }) {
   const { colors } = useAppTheme();
+  const stacked = useLargeType();
   const fill = Math.min(100, Math.max(0, percent ?? 0));
   const label = hasData ? (met ? "Met" : "Below goal") : "No data yet";
   return (
     <ListSurface>
       <View style={{ padding: 16, gap: 10 }}>
-        <View style={[styles.row, { justifyContent: "space-between" }]}>
+        <View style={[styles.row, { justifyContent: "space-between" }, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 2 }]}>
           <Copy style={{ fontSize: 15, fontWeight: "500" }}>{title}</Copy>
           <Copy style={{ fontSize: 22, lineHeight: 28, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{value}</Copy>
         </View>
@@ -260,7 +262,7 @@ function MetricRow({
           <View style={{ width: `${fill}%`, height: "100%", borderRadius: 5, backgroundColor: met && hasData ? colors.success : colors.warning }} />
           <View style={{ position: "absolute", left: `${goal}%`, top: -4, bottom: -4, width: 2, borderRadius: 1, backgroundColor: colors.text }} />
         </View>
-        <View style={[styles.row, { justifyContent: "space-between", alignItems: "center" }]}>
+        <View style={[styles.row, { justifyContent: "space-between", alignItems: "center" }, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 8 }]}>
           <Copy kind="caption" style={{ flexShrink: 1 }}>{caption}</Copy>
           <StatusPill
             label={label}
@@ -289,10 +291,11 @@ function CheckRow({
   last?: boolean;
 }) {
   const { colors } = useAppTheme();
+  const stacked = useLargeType();
   return (
     <ListSurface>
-      <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 44 }, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
-        <View style={{ flex: 1, gap: 2 }}>
+      <View style={[{ flexDirection: stacked ? "column" : "row", alignItems: stacked ? "flex-start" : "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 44 }, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
+        <View style={{ flex: stacked ? undefined : 1, gap: 2 }}>
           <Copy style={{ fontWeight: "500" }}>{title}</Copy>
           <Copy kind="caption">{caption}</Copy>
         </View>
@@ -308,13 +311,14 @@ function CheckRow({
 
 function GuidanceRow({ label, guidance, last = false }: { label: string; guidance: Guidance; last?: boolean }) {
   const { colors } = useAppTheme();
+  const stacked = useLargeType();
   const tone = guidance.status === "on-track" ? colors.success : guidance.status === "no-data" ? colors.muted : guidance.status === "at-risk" ? colors.warning : colors.danger;
   const soft = guidance.status === "on-track" ? colors.successSoft : guidance.status === "no-data" ? colors.hover : guidance.status === "at-risk" ? colors.warningSoft : colors.dangerSoft;
   return (
     <ListSurface>
       <View style={[{ padding: 16, gap: 6 }, !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
-        <View style={[styles.row, { justifyContent: "space-between" }]}>
-          <Copy kind="caption" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</Copy>
+        <View style={[styles.row, { justifyContent: "space-between" }, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 6 }]}>
+          <Copy kind="caption" style={{ textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 1 }}>{label}</Copy>
           <StatusPill label={GUIDANCE_LABEL[guidance.status]} color={tone} soft={soft} />
         </View>
         <Copy style={{ fontWeight: "500" }}>{guidance.message}</Copy>

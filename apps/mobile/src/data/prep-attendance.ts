@@ -126,7 +126,7 @@ export function rollCallChangeNotice(change: { becameAsync: readonly string[]; m
   }
   if (change.leftAsync.length) {
     parts.push(
-      `${nameList(change.leftAsync)} ${change.leftAsync.length === 1 ? "is" : "are"} no longer async and ${change.leftAsync.length === 1 ? "is" : "are"} back on this roll call, unmarked.`,
+      `${nameList(change.leftAsync)} ${change.leftAsync.length === 1 ? "is" : "are"} no longer async and ${change.leftAsync.length === 1 ? "is" : "are"} back on this roll call. Check their mark before saving.`,
     );
   }
   return parts.length ? parts.join(" ") : null;

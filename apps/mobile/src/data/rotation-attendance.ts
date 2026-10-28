@@ -145,6 +145,9 @@ export function approvedRotationCount(sundaySchool: PrepAnalyticsSundaySchool | 
   return levels.size;
 }
 
+/** Who is reading: the student themself ("you") or a servant or mentor reading about a student. */
+export type Audience = "student" | "staff";
+
 export type RotationStateKind = "unassigned" | "upcoming" | "in-progress" | "complete";
 
 export interface RotationState {
@@ -154,23 +157,31 @@ export interface RotationState {
 }
 
 /** Where the student is in the cycle, in words: not assigned, not started, in progress, or finished. */
-export function rotationState(sundaySchool: PrepAnalyticsSundaySchool | null | undefined, now: Date): RotationState {
+export function rotationState(
+  sundaySchool: PrepAnalyticsSundaySchool | null | undefined,
+  now: Date,
+  audience: Audience = "student",
+): RotationState {
+  const staff = audience === "staff";
   if (!sundaySchool || (sundaySchool.needsRotation && !sundaySchool.allMet)) {
     return {
       kind: "unassigned",
       title: "No rotation assigned yet",
-      detail:
-        "A Servants Prep servant assigns your first Sunday School class and start date. Until then no rotation weeks count. Ask a servant if you expected one.",
+      detail: staff
+        ? "No rotation weeks count until a servant assigns a Sunday School class and start date. Do that in Async students."
+        : "A Servants Prep servant assigns your first Sunday School class and start date. Until then no rotation weeks count. Ask a servant if you expected one.",
     };
   }
   const active = activeRotation(sundaySchool);
   if (!active) {
     return sundaySchool.allMet
-      ? { kind: "complete", title: "All ten rotations approved", detail: "You have no new class assignment." }
+      ? { kind: "complete", title: "All ten rotations approved", detail: staff ? "No new class assignment is needed." : "You have no new class assignment." }
       : {
           kind: "unassigned",
           title: "No rotation assigned yet",
-          detail: "Your next rotation starts once a servant assigns your class. Ask a servant if you expected one.",
+          detail: staff
+            ? "The next rotation starts once a servant assigns a class. Do that in Async students."
+            : "Your next rotation starts once a servant assigns your class. Ask a servant if you expected one.",
         };
   }
   const elapsed = elapsedRotationWeeks(active.startDate, active.totalWeeks, now);
@@ -180,13 +191,13 @@ export function rotationState(sundaySchool: PrepAnalyticsSundaySchool | null | u
     return {
       kind: "upcoming",
       title: `${grade} rotation starts ${starts}`,
-      detail: "Weeks that haven't started can't be missed, so nothing counts against you yet.",
+      detail: `Weeks that haven't started can't be missed, so nothing counts against ${staff ? "the student" : "you"} yet.`,
     };
   }
   return {
     kind: "in-progress",
     title: `${grade} · week ${elapsed} of ${active.totalWeeks}`,
-    detail: "Only the weeks that have started count toward your rotation attendance.",
+    detail: `Only the weeks that have started count toward ${staff ? "rotation attendance" : "your rotation attendance"}.`,
   };
 }
 
@@ -201,6 +212,7 @@ export const ROTATION_COMPLETION_NOTE =
   "Finishing all ten approved rotations is separate from the 75% rotation attendance goal. You need both.";
 
 export const ASYNC_BASIS_NOTE = "Your attendance is based solely on rotation weeks. Normal lessons do not count.";
+export const ASYNC_BASIS_NOTE_STAFF = "Attendance is based solely on rotation weeks. Normal lessons do not count.";
 
 // ── Guidance ────────────────────────────────────────────────────────────────
 
@@ -248,13 +260,14 @@ export interface RotationRequirement {
 export function rotationRequirement(
   sundaySchool: PrepAnalyticsSundaySchool | null | undefined,
   met: boolean,
+  audience: Audience = "student",
 ): RotationRequirement {
   const needsRotation = !!sundaySchool?.needsRotation && !met;
   const approved = approvedRotationCount(sundaySchool);
   return {
     title: needsRotation ? "Sunday School rotation · not assigned yet" : "All ten four-week rotations approved",
     caption: needsRotation
-      ? "Ask a servant to assign your rotation"
+      ? audience === "staff" ? "Assign a rotation in Async students" : "Ask a servant to assign your rotation"
       : `${approved} of ${ROTATION_LEVELS.length} rotations approved`,
     met,
     metLabel: "Complete",

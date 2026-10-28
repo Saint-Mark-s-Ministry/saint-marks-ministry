@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { elapsedRotationWeeks as serverElapsedWeeks } from "../../lib/sunday-school-utils";
 import {
   ASYNC_BASIS_NOTE,
+  ASYNC_BASIS_NOTE_STAFF,
   ROTATION_COMPLETION_NOTE,
   ROTATION_WORKFLOW,
   activeRotation,
@@ -204,6 +205,17 @@ describe("no rotation assignment", () => {
     });
   });
 
+  it("speaks about the student, not to them, for a servant or mentor", () => {
+    const state = rotationState(unassigned, NOW, "staff");
+    expect(state.detail).toMatch(/until a servant assigns a Sunday School class and start date/);
+    expect(state.detail).not.toMatch(/\byou(r)?\b/i);
+    expect(rotationRequirement(unassigned, false, "staff").caption).toBe("Assign a rotation in Async students");
+    expect(rotationState(school(), NOW, "staff").detail).not.toMatch(/\byour\b/);
+    const upcoming = school({ assignments: [rotation({ startDate: "2026-11-15T00:00:00.000Z" })] });
+    expect(rotationState(upcoming, NOW, "staff").detail).toMatch(/against the student/);
+    expect(ASYNC_BASIS_NOTE_STAFF).not.toMatch(/\byour\b/);
+  });
+
   it("treats a missing sundaySchool block like no assignment", () => {
     expect(rotationState(undefined, NOW).kind).toBe("unassigned");
   });
@@ -358,7 +370,7 @@ describe("the roll call", () => {
       "Ben, Dee are now async and are off this roll call.",
     );
     expect(rollCallChangeNotice({ becameAsync: [], markedDropped: [], leftAsync: ["Cy"] })).toBe(
-      "Cy is no longer async and is back on this roll call, unmarked.",
+      "Cy is no longer async and is back on this roll call. Check their mark before saving.",
     );
     expect(rollCallChangeNotice({ becameAsync: [], markedDropped: [], leftAsync: [] })).toBeNull();
   });

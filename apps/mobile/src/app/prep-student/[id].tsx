@@ -8,6 +8,7 @@ import { useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme, serifHero } from "@/theme";
 import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import { useLargeType } from "@/components/attendance-history-parts";
 import {
   attendanceTerms,
   isAsyncRow,
@@ -196,10 +197,10 @@ export default function PrepStudentDetail() {
               <View style={{ gap: 10 }}>
                 <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotation</Copy>
                 <AsyncBasisNote />
-                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} />}
+                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} audience="staff" />}
                 {student.sundaySchoolMet !== undefined && (
                   <RotationRequirementRow
-                    requirement={rotationRequirement(rotation.data?.sundaySchool, student.sundaySchoolMet)}
+                    requirement={rotationRequirement(rotation.data?.sundaySchool, student.sundaySchoolMet, "staff")}
                   />
                 )}
               </View>
@@ -238,10 +239,11 @@ export default function PrepStudentDetail() {
 
 function RotationRequirementRow({ requirement }: { requirement: ReturnType<typeof rotationRequirement> }) {
   const { colors } = useAppTheme();
+  const stacked = useLargeType();
   return (
     <ListSurface>
-      <View style={[styles.compactRow]}>
-        <View style={{ flex: 1, gap: 2 }}>
+      <View style={[styles.compactRow, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 8 }]}>
+        <View style={{ flex: stacked ? undefined : 1, gap: 2 }}>
           <Copy style={{ fontWeight: "500" }}>{requirement.title}</Copy>
           <Copy kind="caption">{requirement.caption}</Copy>
         </View>
