@@ -329,14 +329,9 @@ function EnrollmentsContent() {
   // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
-  // A mentor's count covers every student they mentor, withdrawn and graduated
-  // included, so picking one shows all statuses; clearing it goes back to Active.
-  // A status the admin chose by hand is left alone.
+  // Selecting a mentor preserves the status filter (Active by default).
   const selectMentor = (mentorId: string) => {
     setFilterMentor(mentorId)
-    const isMentor = mentorId !== 'all' && mentorId !== 'unassigned'
-    if (isMentor && filterStatus === 'ACTIVE') setFilterStatus('all')
-    if (!isMentor && filterStatus === 'all') setFilterStatus('ACTIVE')
   }
 
   if (loading || status === 'loading') {
@@ -371,11 +366,11 @@ function EnrollmentsContent() {
     return true
   }).sort((left, right) => comparePersonNames(left.student.name, right.student.name, nameOrder))
 
-  // Calculate workload per mentor
+  // Workload counts active students, independently of the roster filters.
   const mentorWorkload = new Map<string, number>()
   if (Array.isArray(enrollments)) {
     enrollments.forEach(enrollment => {
-      if (enrollment.mentor) {
+      if (enrollment.status === 'ACTIVE' && enrollment.mentor) {
         const count = mentorWorkload.get(enrollment.mentor.id) || 0
         mentorWorkload.set(enrollment.mentor.id, count + 1)
       }
@@ -618,7 +613,7 @@ function EnrollmentsContent() {
           )}
         </Panel>
 
-        <Panel title="Mentor workload" description="Assigned accounts · select a mentor to filter the roster">
+        <Panel title="Mentor workload" description="Active students · select a mentor to filter the roster">
           <ul className="flex flex-col py-1.5">
             {[...mentors]
               .sort((a, b) => (mentorWorkload.get(b.id) || 0) - (mentorWorkload.get(a.id) || 0))
