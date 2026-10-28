@@ -364,6 +364,8 @@ model User {
   createdSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkCreator")
   updatedSundaySchoolHomework           SundaySchoolHomework[]           @relation("SundaySchoolHomeworkUpdater")
   recordedSundaySchoolHomework          SundaySchoolHomeworkCompletion[] @relation("RecordedSundaySchoolHomework")
+  createdSundaySchoolMemorizations      SundaySchoolMemorization[]       @relation("SundaySchoolMemorizationCreator")
+  recordedSundaySchoolMemorizationScores SundaySchoolMemorizationScore[]  @relation("RecordedSundaySchoolMemorizationScore")
   linkedSundaySchoolChild               SundaySchoolChild?               @relation("SundaySchoolChildAccount")
 
   // Registration relations
@@ -974,6 +976,7 @@ model SundaySchoolClass {
   rosterLinks               SundaySchoolRosterLink[]
   sessions                  SundaySchoolSession[]
   weeklyLessons             SundaySchoolWeeklyLesson[]
+  memorizations             SundaySchoolMemorization[]
   childRegistrationRequests ChildRegistrationRequest[]
   visitations               SundaySchoolVisitation[]
   phoneCalls                SundaySchoolPhoneCall[]
@@ -1111,6 +1114,7 @@ model SundaySchoolChild {
   user                User?                            @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
   homeworkCompletions SundaySchoolHomeworkCompletion[]
+  memorizationScores  SundaySchoolMemorizationScore[]
   visitations         SundaySchoolVisitation[]
   phoneCalls          SundaySchoolPhoneCall[]
   followUpAssignment  SundaySchoolServantAssignment? @relation("ChildFollowUpServant", fields: [followUpAssignmentId], references: [id], onDelete: SetNull)
@@ -1287,6 +1291,46 @@ model SundaySchoolHomeworkCompletion {
   @@unique([homeworkId, childId])
   @@index([childId])
   @@index([status])
+  @@index([recordedById])
+}
+
+/// A memorization (verse, prayer, hymn...) a servant sets for one class. Scoped
+/// to the class, and so to its academic year. Scores are always out of 100.
+model SundaySchoolMemorization {
+  id           String    @id @default(cuid())
+  classId      String
+  title        String
+  instructions String?   @db.Text
+  dueDate      DateTime? @db.Date
+  archivedAt   DateTime? @db.Timestamptz(3)
+  createdById  String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  class     SundaySchoolClass               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdBy User?                           @relation("SundaySchoolMemorizationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  scores    SundaySchoolMemorizationScore[]
+
+  @@index([classId, archivedAt])
+  @@index([createdById])
+}
+
+model SundaySchoolMemorizationScore {
+  id             String   @id @default(cuid())
+  memorizationId String
+  childId        String
+  score          Int
+  notes          String?  @db.Text
+  recordedById   String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  memorization SundaySchoolMemorization @relation(fields: [memorizationId], references: [id], onDelete: Cascade)
+  child        SundaySchoolChild        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  recordedBy   User?                    @relation("RecordedSundaySchoolMemorizationScore", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([memorizationId, childId])
+  @@index([childId])
   @@index([recordedById])
 }
 
