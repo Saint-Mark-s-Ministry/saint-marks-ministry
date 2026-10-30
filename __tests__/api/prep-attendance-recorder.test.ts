@@ -9,7 +9,7 @@ vi.mock('@/lib/notifications', () => ({ notifyAttendanceRecorded: vi.fn(), notif
 vi.mock('@/lib/prisma', () => ({ prisma: {
   lesson: { findUnique: async () => ({ id: 'lesson', title: 'Lesson', scheduledDate: new Date('2000-01-02') }) },
   attendanceRecord: { findMany: async () => [{ id: 'simple', studentId: 'a' }, { id: 'complex', studentId: 'b' }] },
-  studentEnrollment: { findMany: async () => [] }, expectedAbsence: { findMany: async () => [] },
+  studentEnrollment: { findMany: async () => ['a','b','c'].map(studentId => ({ studentId, isActive: true, status: 'ACTIVE', isAsyncStudent: false })) }, expectedAbsence: { findMany: async () => [] },
   user: { findMany: async () => [] },
   $transaction: async (callback: (tx: unknown) => Promise<void>) => callback({ attendanceRecord: mocks }),
 } }))
