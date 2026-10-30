@@ -32,10 +32,13 @@ students without an approved registration record. Submission creates the usual
 staff verification notification. Staff can select Withdrawn on Student roster
 (or follow the notification) and verify the form there.
 
-Submission and verification do not reactivate the enrollment or change attendance.
-Staff must separately change the student's status to Active when ready to include
-them again. Graduated students and other inactive enrollments do not gain the
-Year 2 renewal flow. No database migration is required.
+Submission alone leaves the student withdrawn and excluded from attendance.
+When staff verify a pending form, the same transaction reactivates a withdrawn
+Year 2 enrollment, returning the student to the active attendance sheet on its
+next load. Existing attendance records and the attendance start date are retained.
+A stale or rejected verification cannot reactivate the student. Re-reviewing an
+already verified form does not undo a later withdrawal, and graduated students
+are never reactivated by this flow. No database migration is required.
 
 ## Existing records before deployment
 

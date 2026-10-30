@@ -3,7 +3,7 @@ import { NotificationType, RoleTag } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext, canWriteBusinessData } from '@/lib/authorization'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
-import { handleApiError } from '@/lib/api-utils'
+import { enrollmentStatusUpdate, handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +30,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         where: { id: requirement.information!.id, updatedAt: requirement.information!.updatedAt },
         data: { reviewedAt: new Date(), reviewedBy: user.id },
       })
+      let reactivated = false
       if (updated.count === 1) {
+        // A pending form's approval restores attendance eligibility atomically.
+        // Re-reviewing an approved form must not undo a later withdrawal, and
+        // a concurrent graduation must never be changed back to Active.
+        if (!requirement.information!.reviewedAt && requirement.enrollment.status === 'WITHDRAWN') {
+          const activated = await tx.studentEnrollment.updateMany({
+            where: { id: requirement.enrollment.id, studentId: id, status: 'WITHDRAWN', yearLevel: 'YEAR_2' },
+            data: await enrollmentStatusUpdate('ACTIVE'),
+          })
+          reactivated = activated.count === 1
+        }
         await tx.notification.deleteMany({
           where: {
             userId: id,
@@ -48,12 +59,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           ],
         } })
       }
-      return updated
+      return { count: updated.count, reactivated }
     })
     if (result.count !== 1) {
       return NextResponse.json({ error: 'Mentor information changed. Refresh before reviewing.' }, { status: 409 })
     }
-    return NextResponse.json({ reviewed: true })
+    return NextResponse.json({ reviewed: true, reactivated: result.reactivated })
   } catch (error: unknown) {
     return handleApiError(error)
   }

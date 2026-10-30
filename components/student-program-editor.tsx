@@ -351,6 +351,9 @@ export function StudentProgramEditor({ student, onRefresh, readOnly = false }: {
           <p className="text-sm">{renewal.information?.reviewedAt ? 'Reviewed' : renewal.information ? 'Submitted · Awaiting admin review' : 'Awaiting student submission'}</p>
           {renewal.information && <>
             <p className="text-sm">{[renewal.information.mentorName, renewal.information.mentorPhone, renewal.information.mentorEmail].join(' · ')}</p>
+            {!renewal.information.reviewedAt && enrollment?.status === EnrollmentStatus.WITHDRAWN && (
+              <p className="text-sm">Verification returns this student to active attendance.</p>
+            )}
             {!renewal.information.reviewedAt && canEdit && myRole !== UserRole.PRIEST && <Button disabled={saving} onClick={() => save(
               `/api/students/${student.id}/mentor-information/review`,
               { updatedAt: renewal.information!.updatedAt },

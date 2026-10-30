@@ -230,7 +230,7 @@ function EnrollmentsContent() {
       if (!refreshed.ok) throw new Error('Mentor form verified. Refresh the roster to see the latest status.')
       const current = await refreshed.json() as Enrollment[]
       setEnrollments(previous => previous.map(row => current.find(item => item.id === row.id) ?? row))
-      toast.success('Mentor form verified')
+      toast.success(result.reactivated ? 'Mentor form verified. Student returned to active attendance.' : 'Mentor form verified')
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not verify mentor form')
     } finally {
@@ -397,6 +397,9 @@ function EnrollmentsContent() {
           </StatusBadge>
           {enrollment.mentorForm.submission?.email && <ContactLink kind="email" value={enrollment.mentorForm.submission.email} name={enrollment.mentorForm.submission.name} className="text-xs" />}
           {enrollment.mentorForm.submission?.phone && <ContactLink kind="phone" value={enrollment.mentorForm.submission.phone} name={enrollment.mentorForm.submission.name} className="text-xs" />}
+          {enrollment.mentorForm.status === 'PENDING_REVIEW' && enrollment.status === 'WITHDRAWN' && (
+            <p className="text-xs text-ink-3">Verification returns this student to active attendance.</p>
+          )}
           {enrollment.mentorForm.status === 'PENDING_REVIEW' && canEdit && session?.user?.role !== 'PRIEST' && !session?.impersonating && (
             <Button type="button" variant="outline" disabled={verifyingStudentId !== null}
               aria-label={`Verify mentor form for ${enrollment.student.name}`}

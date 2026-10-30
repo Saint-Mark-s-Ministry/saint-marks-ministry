@@ -108,8 +108,8 @@ describe('Servants Prep roster', () => {
     auth.query = 'studentId=anna'
     const student = { ...pending, status, isActive: status === 'ACTIVE' }
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
-      if (options?.method === 'POST') return Response.json({ reviewed: true })
-      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...student, mentorForm: { ...student.mentorForm, status: 'REVIEWED' } }])
+      if (options?.method === 'POST') return Response.json({ reviewed: true, reactivated: status === 'WITHDRAWN' })
+      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...student, status: 'ACTIVE', isActive: true, mentorForm: { ...student.mentorForm, status: 'REVIEWED' } }])
       return Response.json(url === '/api/enrollments' ? [student] : [])
     })
     vi.stubGlobal('fetch', fetch)
@@ -125,7 +125,7 @@ describe('Servants Prep roster', () => {
     })
     expect(screen.queryByRole('button', { name: 'Verify mentor form for Anna George' })).not.toBeInTheDocument()
     expect(fetch.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false)
-    if (status === 'WITHDRAWN') expect(within(screen.getByRole('table')).getByText('Withdrawn')).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText('Active')).toBeInTheDocument()
   })
 
   it('keeps a stale submission pending when the server rejects verification', async () => {
