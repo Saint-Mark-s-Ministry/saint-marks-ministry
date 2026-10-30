@@ -3,6 +3,7 @@ import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackStatus, SundaySchool
 import { Copy, Icon, InitialsAvatar, ListSurface, StatusPill } from "@/components/ui";
 import { confirmAction, useAction } from "@/components/forms";
 import { FeedbackStatus } from "@/components/feedback-status";
+import { InlineAction } from "@/components/inline-action";
 import { useLargeType } from "@/components/attendance-history-parts";
 import { endpoint, request } from "@/data/resources";
 import { feedback } from "@/data/haptics";
@@ -143,30 +144,6 @@ export function FeedbackEntry({
         </View>
       )}
     </ListSurface>
-  );
-}
-
-/**
- * A small action under a post. A plain pressable rather than the app's native button: a board can hold dozens of
- * posts, and a SwiftUI host per button is both heavy and, at this count, not reliably drawn.
- */
-function InlineAction({ label, onPress, disabled, destructive = false }: { label: string; onPress: () => void; disabled?: boolean; destructive?: boolean }) {
-  const { colors } = useAppTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
-      onPress={() => { feedback("action"); onPress(); }}
-      style={({ pressed }) => ({
-        minHeight: 44, paddingHorizontal: 16, justifyContent: "center", borderRadius: 12, borderWidth: 1,
-        borderColor: destructive ? colors.danger : colors.border, backgroundColor: pressed ? colors.hover : colors.surface,
-        opacity: disabled ? 0.5 : 1,
-      })}
-    >
-      <Copy style={{ fontSize: 14, fontWeight: "600" }} color={destructive ? colors.danger : colors.primary}>{label}</Copy>
-    </Pressable>
   );
 }
 
