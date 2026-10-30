@@ -29,6 +29,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: {
 import { GET, PATCH } from '@/app/api/registration/application/route'
 import { POST as upload } from '@/app/api/registration/application/upload/route'
 import { POST as review } from '@/app/api/students/[id]/mentor-information/review/route'
+import { buildStudentMapFromEnrollments } from '@/lib/utils'
 
 const enrollment = {
   id: 'enrollment-1', isActive: false, status: 'WITHDRAWN', yearLevel: 'YEAR_2',
@@ -52,6 +53,7 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
     mocks.annual.mockResolvedValue(null)
     mocks.upsertAnnual.mockResolvedValue(information)
     mocks.review.mockResolvedValue({ count: 1 })
+    mocks.updateEnrollment.mockResolvedValue({ count: 1 })
     mocks.put.mockResolvedValue({ url: 'https://example.com/approval.pdf' })
   })
 
@@ -69,7 +71,16 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
     })
   })
 
-  it('saves a late submission, queues staff review, and permits verification without reactivation', async () => {
+  it('keeps a submission withdrawn, then restores the student to attendance only on approval', async () => {
+    const current = { ...enrollment, student: { id: 'student-1', name: 'Student' } }
+    mocks.enrollment.mockImplementation(async ({ select }) => Object.fromEntries(
+      Object.entries(current).filter(([key]) => select[key]),
+    ))
+    mocks.updateEnrollment.mockImplementation(async ({ data }) => {
+      Object.assign(current, data)
+      return { count: 1 }
+    })
+    expect(buildStudentMapFromEnrollments([current])).toEqual([])
     const response = await PATCH(new NextRequest('http://localhost/api/registration/application', {
       method: 'PATCH', body: JSON.stringify(information),
     }))
@@ -81,6 +92,12 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
     expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({
       userId: 'staff-1', url: '/dashboard/admin/enrollments?studentId=student-1',
     })] }))
+    expect(current).toMatchObject({ status: 'WITHDRAWN', isActive: false })
+    expect(buildStudentMapFromEnrollments([current])).toEqual([])
+    expect(mocks.updateEnrollment).toHaveBeenCalledExactlyOnceWith({
+      where: { studentId: 'student-1' },
+      data: { mentorName: information.mentorName, mentorPhone: information.mentorPhone },
+    })
 
     mocks.annual.mockResolvedValue(information)
     mocks.auth.mockResolvedValue({ id: 'staff-1' })
@@ -88,15 +105,13 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
       method: 'POST', body: JSON.stringify({ updatedAt: updatedAt.toISOString() }),
     }), { params: Promise.resolve({ id: 'student-1' }) })
     expect(reviewed.status).toBe(200)
+    expect(await reviewed.json()).toEqual({ reviewed: true, reactivated: true })
     expect(mocks.review).toHaveBeenCalledWith({
       where: { id: 'info-1', updatedAt },
       data: { reviewedAt: expect.any(Date), reviewedBy: 'staff-1' },
     })
-    // The only enrollment write saves contact details; status/attendance stay unchanged.
-    expect(mocks.updateEnrollment).toHaveBeenCalledExactlyOnceWith({
-      where: { studentId: 'student-1' },
-      data: { mentorName: information.mentorName, mentorPhone: information.mentorPhone },
-    })
+    expect(current).toMatchObject({ status: 'ACTIVE', isActive: true })
+    expect(buildStudentMapFromEnrollments([current])).toMatchObject([{ id: 'student-1' }])
   })
 
   it('uploads the signed form for a withdrawn legacy student and still requires staff review', async () => {
