@@ -21,7 +21,7 @@ vi.mock('@simplewebauthn/server', () => ({
 }))
 
 import { authenticatePasskey, consumePasskeyChallenge, registerPasskey, registrationOptions, passkeyTokenFromHeader } from '@/lib/passkeys'
-import { assertPasskeyOrigin, assertRecentPasskeyLogin, expectedPasskeyOrigins, getPasskeyConfig, getPasskeyIosAppIds } from '@/lib/passkey-config'
+import { assertPasskeyOrigin, assertRecentPasskeyLogin, getPasskeyConfig } from '@/lib/passkey-config'
 
 const token = 'a'.repeat(43)
 const user = { id: 'user-1', authVersion: 3, email: 'person@example.test', name: 'Person', isDisabled: false, mustChangePassword: false }
@@ -32,7 +32,6 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.stubEnv('PASSKEY_RP_ID', 'example.test')
   vi.stubEnv('PASSKEY_ORIGIN', 'https://app.example.test')
-  vi.stubEnv('PASSKEY_IOS_APP_IDS', '')
   mocks.prisma.passkeyChallenge.findFirst.mockResolvedValue({ challenge: 'challenge-1', purpose: 'authenticate', userId: user.id, authVersion: user.authVersion })
   mocks.prisma.passkeyChallenge.deleteMany.mockResolvedValue({ count: 1 })
   mocks.prisma.passkey.findUnique.mockResolvedValue(key)
@@ -72,33 +71,6 @@ describe('passkey configuration', () => {
   })
 })
 
-describe('native iOS enablement', () => {
-  const appId = 'ABCDE12345.org.example.app'
-  it('is off, and expects only the web origin, until an App ID is configured', () => {
-    expect(getPasskeyIosAppIds()).toEqual([])
-    expect(expectedPasskeyOrigins()).toEqual(['https://app.example.test'])
-  })
-  it('also expects the origin iOS embeds (https://<RP ID>) once an App ID is configured', () => {
-    vi.stubEnv('PASSKEY_IOS_APP_IDS', `${appId}, ${appId} ZYXWV98765.org.example.beta`)
-    expect(getPasskeyIosAppIds()).toEqual([appId, 'ZYXWV98765.org.example.beta'])
-    expect(expectedPasskeyOrigins()).toEqual(['https://app.example.test', 'https://example.test'])
-  })
-  it('adds nothing when the RP ID host is already the web origin', () => {
-    vi.stubEnv('PASSKEY_RP_ID', 'app.example.test')
-    vi.stubEnv('PASSKEY_IOS_APP_IDS', appId)
-    expect(expectedPasskeyOrigins()).toEqual(['https://app.example.test'])
-  })
-  it.each(['com.example.app', 'abcde12345.org.example.app', 'ABCDE12345', 'ABCDE12345.*', 'https://x.test'])('rejects the malformed App ID %s', value => {
-    vi.stubEnv('PASSKEY_IOS_APP_IDS', value)
-    expect(() => getPasskeyIosAppIds()).toThrow('Invalid passkey configuration.')
-  })
-  it('verifies native sign-in against both origins', async () => {
-    vi.stubEnv('PASSKEY_IOS_APP_IDS', appId)
-    await authenticatePasskey(token, JSON.stringify(response))
-    expect(mocks.verifyAuthenticationResponse).toHaveBeenCalledWith(expect.objectContaining({ expectedOrigin: ['https://app.example.test', 'https://example.test'] }))
-  })
-})
-
 describe('one-time challenges', () => {
   it('looks up only a hashed token with the correct purpose and expiry', async () => {
     await consumePasskeyChallenge(token, 'authenticate')
@@ -122,7 +94,7 @@ describe('passkey sign-in', () => {
   it('requires signature, origin, RP ID, challenge and user verification, then advances the counter', async () => {
     await expect(authenticatePasskey(token, JSON.stringify(response))).resolves.toEqual(user)
     expect(mocks.verifyAuthenticationResponse).toHaveBeenCalledWith(expect.objectContaining({
-      expectedOrigin: ['https://app.example.test'], expectedRPID: 'example.test', expectedChallenge: 'challenge-1', requireUserVerification: true,
+      expectedOrigin: 'https://app.example.test', expectedRPID: 'example.test', expectedChallenge: 'challenge-1', requireUserVerification: true,
       credential: expect.objectContaining({ counter: 4 }),
     }))
     expect(mocks.prisma.passkey.updateMany).toHaveBeenCalledWith({ where: { id: 'key-1', counter: BigInt(4) }, data: { counter: BigInt(5), backedUp: true, lastUsedAt: expect.any(Date) } })
@@ -158,7 +130,7 @@ describe('passkey registration', () => {
   })
   it('stores verified public credential data', async () => {
     await registerPasskey(user, token, {} as never, 'My phone')
-    expect(mocks.verifyRegistrationResponse).toHaveBeenCalledWith(expect.objectContaining({ requireUserVerification: true, expectedOrigin: ['https://app.example.test'], expectedRPID: 'example.test' }))
+    expect(mocks.verifyRegistrationResponse).toHaveBeenCalledWith(expect.objectContaining({ requireUserVerification: true, expectedOrigin: 'https://app.example.test', expectedRPID: 'example.test' }))
     expect(mocks.prisma.passkey.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: user.id, credentialId: 'new-key', name: 'My phone', publicKey: 'AQI', counter: BigInt(0) }) })
   })
   it.each(['wrong-owner', 'old-version', 'disabled', 'must-change-password', 'bad-attestation'])('rejects %s enrollment', async scenario => {

@@ -18,7 +18,6 @@ import { useResource } from "@/data/resources";
 import { ministryAccessSummary, roleLabel, sortAcademicYears, type AcademicYearLike } from "@/data/account";
 import { canDeleteOwnAccount } from "@/data/account-deletion";
 import { canStartViewAs } from "@/data/view-as";
-import { usePasskeyCapability } from "@/data/passkey-flow";
 import { useAppTheme, type AppearancePreference, serifHero } from "@/theme";
 
 export function AccountScreen() {
@@ -27,8 +26,6 @@ export function AccountScreen() {
   const { refresh, loading } = usePortal();
   const years = useResource<AcademicYearLike[]>("/api/academic-years");
   const activeYear = sortAcademicYears(years.data ?? []).find((y) => y.isActive);
-  // Offered only when the server says passkeys are on for this app; never while viewing as someone else.
-  const passkeys = usePasskeyCapability();
 
   return (
     <>
@@ -90,17 +87,6 @@ export function AccountScreen() {
             icon={<Icon ios="lock.shield" android="lock" size={16} color={colors.text2} />}
             onPress={() => router.push("/change-password")}
           />
-          {passkeys.offered && !viewingAs && (
-            <>
-              <View style={{ height: 0.5, backgroundColor: colors.border }} />
-              <RowLink
-                title="Passkeys"
-                subtitle="Sign in with Face ID or Touch ID"
-                icon={<Icon ios="person.badge.key" android="key" size={16} color={colors.text2} />}
-                onPress={() => router.push("/passkeys")}
-              />
-            </>
-          )}
         </View>
 
         <View style={{ gap: 10 }}>

@@ -78,7 +78,6 @@ const SHARED_ROUTES = new Set([
   "profile",
   "switch-ministry",
   "change-password",
-  "passkeys",
   "delete-account",
   "view-as",
   "readings",
