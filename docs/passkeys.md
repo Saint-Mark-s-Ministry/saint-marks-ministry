@@ -54,6 +54,64 @@ Unset either variable to disable passkey entry points without removing stored
 credentials. Existing sessions and other sign-in methods continue to work.
 `bun run build` never applies a migration.
 
+## Native iOS app
+
+The iOS app uses the same endpoints and the same NextAuth `passkey` provider as
+the web. It differs in four ways, and each needs something from this
+deployment.
+
+1. **The RP ID host must serve the association file.** iOS only lets an app use
+   passkeys for a domain that lists the app's App ID in
+   `https://<RP ID>/.well-known/apple-app-site-association`, fetched **without
+   following redirects**. This deployment serves it at
+   `app/.well-known/apple-app-site-association/route.ts`, from
+   `PASSKEY_IOS_APP_IDS`. Production redirects the apex (`stmarkministry.app`) to
+   `www`, so an apex RP ID could not serve it. **Choose `www.stmarkministry.app`
+   as the RP ID** (and the origin) before anyone enrolls; passkeys cannot be
+   moved to a different RP ID later.
+2. **`PASSKEY_IOS_APP_IDS`** is a comma- or space-separated list of
+   `TEAMID.bundle.id` values, for example `ABCDE12345.org.stmark.ministryportal`.
+   It is the team that signs the App Store build, not a developer's personal
+   team. Unset, the iOS app is off: `/.well-known/apple-app-site-association` is
+   a 404 and `GET /api/public/passkeys` reports `ios: false`. Web passkeys are
+   unaffected either way.
+3. **The origin differs.** Browsers report the page origin in `clientDataJSON`;
+   iOS reports `https://<RP ID>`. When the RP ID is a parent of the web origin,
+   the verifier also accepts `https://<RP ID>`, but only while
+   `PASSKEY_IOS_APP_IDS` is set. With the recommended setup (RP ID = origin
+   host) there is nothing extra to accept. Separately, the request `Origin`
+   header is still compared exactly with `PASSKEY_ORIGIN`: the app sends its
+   API origin, so the API host must be the configured origin.
+4. **The challenge cookie is held by the app.** The app keeps the cookie-bound
+   challenge in a private in-memory jar, returns it with the verify or sign-in
+   request, and never stores it. The credential response is converted from
+   iOS's raw fields into the browser-shaped JSON the verifier expects
+   (`apps/mobile/src/data/passkeys.ts`); `__tests__/mobile/passkeys.test.ts`
+   runs an iOS-shaped credential through the real verifier.
+
+`GET /api/public/passkeys` answers `{ "enabled": true, "rpId": "...", "ios": true }`.
+The app offers passkeys only when `enabled` and `ios` are true **and** `rpId` is
+the domain the installed build was associated with at build time (the host of
+`EXPO_PUBLIC_API_URL`, or `PASSKEY_ASSOCIATED_DOMAIN` for a parent RP ID). An
+older server that sends neither field never offers them.
+
+The Associated Domains capability needs a **paid Apple Developer team**; a free
+personal team cannot sign a build with it. A build made without a domain (a
+local dev client pointed at an IP address) has no entitlement and hides
+passkeys.
+
+### iOS smoke test
+
+On a physical iPhone, with a build signed by the team named in
+`PASSKEY_IOS_APP_IDS`, against the production domain:
+
+1. Sign in with a password, open **Account → Passkeys**, name a passkey, add it.
+2. Sign out. Choose **Sign in with a passkey** and approve with Face ID.
+3. Confirm the list shows the last-used date, then remove the passkey.
+4. Confirm password sign-in still works, and that with
+   `PASSKEY_IOS_APP_IDS` unset (or `PASSKEY_RP_ID` unset) the button and the
+   Account row disappear.
+
 ## Domain changes
 
 Passkeys are bound to the RP ID. Keep it stable even when changing hosting
