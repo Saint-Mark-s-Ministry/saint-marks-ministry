@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
-import { put } from '@vercel/blob'
+import { randomUUID } from 'node:crypto'
+import { head, put } from '@vercel/blob'
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
-import { blobUploadTarget } from '@/lib/blob-upload'
-
-const ALLOWED_FILE_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/gif',
-  'application/pdf',
-]
-const MAX_FILE_SIZE = 4.5 * 1024 * 1024
+import { handleApiError } from '@/lib/api-utils'
+import {
+  APPROVAL_FORM_CONTENT_TYPE, APPROVAL_FORM_MAX_BYTES, approvalFormFileError,
+  approvalFormPrefix, approvalFormStorageName, isOwnApprovalFormPath,
+} from '@/lib/approval-form-upload'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,24 +34,68 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File | null
-
-    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: 'Please upload a PNG, JPG, GIF, or PDF file' }, { status: 400 })
+    let uploaded: { url: string; filename: string }
+    if (request.headers.get('content-type')?.includes('application/json')) {
+      const body: unknown = await request.json().catch(() => null)
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json({ error: 'Invalid upload request' }, { status: 400 })
+      }
+      const data = body as Record<string, unknown>
+      if (typeof data.filename !== 'string' || !data.filename.trim() || data.filename.length > 255) {
+        return NextResponse.json({ error: 'Please choose a file with a valid filename' }, { status: 400 })
+      }
+      const filename = data.filename
+      if (data.action === 'prepare') {
+        if (typeof data.size !== 'number' || !Number.isSafeInteger(data.size) || data.size < 0) {
+          return NextResponse.json({ error: 'Invalid file size' }, { status: 400 })
+        }
+        const fileError = approvalFormFileError({ size: data.size })
+        if (fileError) return NextResponse.json({ error: fileError }, { status: 400 })
+        const pathname = `${approvalFormPrefix(user.id)}${randomUUID()}/${approvalFormStorageName(filename)}`
+        const clientToken = await generateClientTokenFromReadWriteToken({
+          pathname,
+          allowedContentTypes: [APPROVAL_FORM_CONTENT_TYPE],
+          maximumSizeInBytes: APPROVAL_FORM_MAX_BYTES,
+          validUntil: Date.now() + 30 * 60 * 1000,
+          addRandomSuffix: false,
+          allowOverwrite: false,
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        })
+        return NextResponse.json({ pathname, clientToken })
+      }
+      if (data.action !== 'complete' || typeof data.pathname !== 'string' ||
+        !isOwnApprovalFormPath(data.pathname, user.id) ||
+        !data.pathname.endsWith(`/${approvalFormStorageName(filename)}`)) {
+        return NextResponse.json({ error: 'Invalid upload reference' }, { status: 400 })
+      }
+      // Resolve by pathname within our own store; never trust a browser-supplied
+      // URL, size, content type or another student's upload reference.
+      const blob = await head(data.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN })
+      if (blob.pathname !== data.pathname || blob.contentType !== APPROVAL_FORM_CONTENT_TYPE ||
+        approvalFormFileError(blob)) {
+        return NextResponse.json({ error: 'Unable to verify this uploaded file. Please upload it again.' }, { status: 400 })
+      }
+      uploaded = { url: blob.downloadUrl, filename }
+    } else {
+      // Compatibility for pages already open when this update deploys. New
+      // pages send the file directly to Blob, with only small JSON API calls.
+      const formData = await request.formData()
+      const file = formData.get('file')
+      if (!file || typeof file === 'string') return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      const fileError = approvalFormFileError(file)
+      if (fileError) return NextResponse.json({ error: fileError }, { status: 400 })
+      if (file.size > 4 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Refresh the page, then choose this file again to use the updated uploader.' }, { status: 413 })
+      }
+      const pathname = `${approvalFormPrefix(user.id)}${randomUUID()}/${approvalFormStorageName(file.name)}`
+      const blob = await put(pathname, file, {
+        access: 'public',
+        contentType: APPROVAL_FORM_CONTENT_TYPE,
+        addRandomSuffix: false,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
+      uploaded = { url: blob.downloadUrl, filename: file.name }
     }
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'File size exceeds 4.5 MB limit' }, { status: 400 })
-    }
-
-    const target = blobUploadTarget(`registrations/${application?.id ?? user.id}/${Date.now()}`, file)
-    const blob = await put(target.pathname, file, {
-      access: 'public',
-      contentType: target.contentType,
-      addRandomSuffix: true,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
 
     const complete = Boolean(
       (!application || application.fatherOfConfessionName) &&
@@ -68,12 +109,12 @@ export async function POST(request: NextRequest) {
       if (application) {
         await tx.registrationSubmission.update({
           where: { id: application.id },
-          data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
+          data: { approvalFormUrl: uploaded.url, approvalFormFilename: uploaded.filename },
         })
       } else {
         await tx.studentEnrollment.update({
           where: { studentId: user.id },
-          data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
+          data: { approvalFormUrl: uploaded.url, approvalFormFilename: uploaded.filename },
         })
       }
 
@@ -88,12 +129,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ url: blob.url, filename: file.name, complete })
+    return NextResponse.json({ ...uploaded, complete })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json(
-      { error: message },
-      { status: message === 'Unauthorized' ? 401 : 500 }
-    )
+    return handleApiError(error)
   }
 }
