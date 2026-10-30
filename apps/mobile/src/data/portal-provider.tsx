@@ -22,11 +22,9 @@ import {
 } from "@stmark/domain";
 import { api } from "./auth-provider";
 import { ApiError } from "./api-client";
-import { requestAttendanceReminderRefresh } from "./attendance-reminders";
-import { resolveAttendanceNote, rosterProgress, type AttendanceMarks } from "./attendance-draft";
+import type { AttendanceMarks } from "./attendance-draft";
 import {
   clearResourceCache,
-  invalidateResourceCache,
   prefetchResources,
 } from "./resources";
 
@@ -72,13 +70,6 @@ type PortalState = {
   loadAttendance: (
     classId: string,
     date: string,
-  ) => Promise<SundaySchoolSessionAttendance>;
-  saveAttendance: (
-    classId: string,
-    date: string,
-    loaded: SundaySchoolSessionAttendance,
-    marks: AttendanceMarks,
-    notes?: Record<string, string | null>,
   ) => Promise<SundaySchoolSessionAttendance>;
   markRead: (id: string) => Promise<void>;
 };
@@ -255,59 +246,6 @@ export function PortalProvider({ children }: PropsWithChildren) {
     return result;
   }, []);
 
-  async function saveAttendance(
-    classId: string,
-    date: string,
-    loaded: SundaySchoolSessionAttendance,
-    marks: AttendanceMarks,
-    // A note typed this session for a child, keyed by childId. Any child not
-    // in this map keeps whatever note the record already had.
-    notes: Record<string, string | null> = {},
-  ) {
-    if (!classes.find((cls) => cls.id === classId)?.canServe)
-      throw new Error("You have read-only access to this class.");
-    if (
-      !rosterProgress(
-        loaded.roster.map((child) => child.id),
-        marks,
-      ).complete
-    )
-      throw new Error("Mark every child before saving.");
-    const session =
-      loaded.session ??
-      (await request<SundaySchoolSession>(
-        "/api/sunday-school/sessions",
-        json({ classId, date }),
-      ));
-    await request(
-      "/api/sunday-school/attendance/batch",
-      json({
-        sessionId: session.id,
-        records: loaded.roster.map((child) => ({
-          childId: child.id,
-          status: marks[child.id],
-          notes: resolveAttendanceNote(child.attendance?.notes, notes[child.id]),
-        })),
-      }),
-    );
-    invalidateResourceCache();
-    // The server decides whether this save completed the class; ask it again.
-    requestAttendanceReminderRefresh();
-    const confirmed = await loadAttendance(classId, date);
-    setDrafts((previous) => {
-      const next = { ...previous };
-      delete next[attendanceKey(classId, date)];
-      return next;
-    });
-    setAttendance((previous) => ({
-      ...previous,
-      [attendanceKey(classId, date)]: {
-        marks: { ...marks },
-        savedAt: new Date().toISOString(),
-      },
-    }));
-    return confirmed;
-  }
   async function markRead(id: string) {
     if (notifications.some((item) => item.id === id && item.isPersistent)) return;
     await request(`/api/notifications/${encodeURIComponent(id)}/read`, {
@@ -335,7 +273,6 @@ export function PortalProvider({ children }: PropsWithChildren) {
         attendance,
         drafts,
         loadAttendance,
-        saveAttendance,
         markRead,
         setDraft: (classId, date, marks) =>
           setDrafts((previous) => ({

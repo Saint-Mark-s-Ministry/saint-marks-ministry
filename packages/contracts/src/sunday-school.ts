@@ -399,6 +399,14 @@ export interface AttendanceSaveInfo {
   recorder: { id: string; name: string | null } | null;
 }
 
+/** Answer to POST /api/sunday-school/attendance/batch: who saved, and when, is the server's word. */
+export interface SundaySchoolAttendanceBatchResponse {
+  success: boolean;
+  created?: number;
+  updated?: number;
+  lastSavedBy?: AttendanceSaveInfo | null;
+}
+
 export interface SundaySchoolSessionAttendance {
   lastSavedBy?: AttendanceSaveInfo | null;
   // null while a date has no recorded session yet — the roster is shown

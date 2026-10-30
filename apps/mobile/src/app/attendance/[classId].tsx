@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Keyboard, Linking, Pressable, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, ActivityIndicator, Alert, Image, Keyboard, Linking, Pressable, TextInput, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView } from "@expo/ui/community/menu";
-import type {
-  AttendanceStatus,
-  SundaySchoolChild,
-  SundaySchoolSessionAttendance,
-} from "@stmark/contracts";
+import type { AttendanceStatus, SundaySchoolChild } from "@stmark/contracts";
 import {
   getChildFullName,
   organizeAttendanceRoster,
@@ -22,7 +17,9 @@ import { useAuth } from "@/data/auth-provider";
 import { attendanceKey, usePortal, meetingDate } from "@/data/portal-provider";
 import { historyTarget, useCanOpenStudentHistory, useOpenStudentHistory } from "@/components/student-history-parts";
 import { SplitScreen, useSplitSelection } from "@/components/split-screen";
-import { rosterProgress, restPresent, sameMarks, shiftWeek } from "@/data/attendance-draft";
+import { saveStatusText, shiftWeek, type AttendanceNoticeAction, type SavableStatus } from "@/data/attendance-draft";
+import { useAttendanceEditor } from "@/data/use-attendance-editor";
+import { AttendanceNotices, AttendanceSaveBar } from "@/components/attendance-save-area";
 import { sansRegular, useAppTheme } from "@/theme";
 import { validDate } from "@/data/ministry";
 import { MinistryTintProvider } from "@/theme";
@@ -66,26 +63,12 @@ export default function Attendance() {
 }
 
 function AttendanceRoster({ classId, initialDate }: { classId: string; initialDate?: string }) {
-  const {
-    classes,
-    attendance,
-    drafts,
-    setDraft,
-    saveAttendance,
-    loadAttendance,
-  } = usePortal();
-  const { user } = useAuth();
+  const { classes, setDraft, loadAttendance } = usePortal();
+  const { user, viewingAs } = useAuth();
   const cls = classes.find((item) => item.id === classId)!;
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [date, setDate] = useState(() => initialDate && validDate(initialDate) ? initialDate : meetingDate(cls));
-  const [loaded, setLoaded] = useState<{
-    date: string;
-    value: SundaySchoolSessionAttendance;
-  } | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
-  const [saving, setSaving] = useState(false);
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>("last");
   const [showPhotos, setShowPhotos] = useState(false);
   const [groupByGender, setGroupByGender] = useState(false);
@@ -105,26 +88,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     );
   }, [children.data]);
 
-  useEffect(() => {
-    let active = true;
-    setLoadError(null);
-    setLoaded(null);
-    void loadAttendance(classId, date)
-      .then((value) => {
-        if (active) setLoaded({ date, value });
-      })
-      .catch((error) => {
-        if (active)
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : "Unable to load attendance.",
-          );
-      });
-    return () => {
-      active = false;
-    };
-  }, [classId, date, loadAttendance, retry]);
+  // Marks are kept on this device the moment they are tapped, then saved on their own (attendance-editor.ts).
+  // Read-only access, and any View As preview, never write: the editor does not read, keep or send anything.
+  const canEdit = !!cls.canServe && !viewingAs;
+  const editor = useAttendanceEditor({ userId: user?.id ?? null, classId, date, canEdit });
+  const { state, summary } = editor;
 
   // Recent attendance context: a quick read of last week's session, purely
   // informational — failures here are silent, since the main roster above
@@ -146,8 +114,26 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     };
   }, [classId, date, loadAttendance]);
 
-  const current = loaded?.date === date ? loaded.value : null;
-  const key = attendanceKey(classId, date);
+  // Marks not yet confirmed keep the "Attendance in progress" accessory alive after leaving this screen.
+  // The portal hands out a new setDraft on every render, so it is read through a ref, not listed as a dependency.
+  const setDraftRef = useRef(setDraft);
+  setDraftRef.current = setDraft;
+  useEffect(() => {
+    if (state.phase === "ready") setDraftRef.current(classId, date, state.pending);
+  }, [classId, date, state.phase, state.pending]);
+
+  // Spoken once per change of where the marks are, not on every tap.
+  const announced = useRef(summary.saveState);
+  useEffect(() => {
+    if (announced.current === summary.saveState) return;
+    announced.current = summary.saveState;
+    if (summary.saveState === "saved" || summary.saveState === "failed")
+      AccessibilityInfo.announceForAccessibility(saveStatusText(summary.saveState, summary.pendingCount).title);
+  }, [summary.saveState, summary.pendingCount]);
+
+  const current = state.attendance;
+  const loadError = state.phase === "error" ? state.loadError : null;
+  const marks = state.marks;
   const roster = useMemo(() => current?.roster ?? [], [current?.roster]);
   const q = query.trim().toLowerCase();
   const searchedRoster = useMemo(
@@ -158,96 +144,49 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
     () => organizeAttendanceRoster(searchedRoster, { nameOrder, groupByGender }),
     [groupByGender, nameOrder, searchedRoster],
   );
-  const serverMarks = Object.fromEntries(
-    roster.flatMap((child) =>
-      child.attendance ? [[child.id, child.attendance.status]] : [],
-    ),
-  );
-  const saved = Object.keys(serverMarks).length ? attendance[key] : undefined;
-  const marks = drafts[key] ?? serverMarks;
-  const ids = roster.map((child) => child.id);
-  const progress = rosterProgress(ids, marks);
-  const dirty = !sameMarks(ids, marks, serverMarks);
+  const ids = summary.rosterIds;
   // Editable for any week, not just today's session — the server no longer
   // enforces a same-day window either (app/api/sunday-school/sessions and
   // .../attendance/batch both dropped their own isSessionDateToday checks,
-  // a deliberate policy change, not an oversight).
-  const canEdit = !!current && !!cls.canServe && !saving;
-  const canSave = canEdit && progress.complete && dirty;
+  // a deliberate policy change, not an oversight). Taps stay live during an
+  // automatic save; only the explicit save holds them for its few seconds.
+  const rowsEditable = canEdit && state.phase === "ready" && !state.finalizing;
+  const busy = state.saving;
 
-  // A note typed this session, kept local to this device and separate from the
-  // shared cross-screen `drafts` — persisted so an interruption (app killed,
-  // not just backgrounded) doesn't lose a note the way an in-memory-only
-  // value would. Cleared once a save actually lands.
-  const notesDraftKey = user?.id ? `stmark.attendance-notes.${user.id}.${key}` : null;
-  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (!notesDraftKey) return;
-    let active = true;
-    SecureStore.getItemAsync(notesDraftKey)
-      .then((raw) => {
-        if (!active || !raw) return;
-        try {
-          setNotesDraft(JSON.parse(raw));
-        } catch {
-          /* a corrupt draft is just dropped */
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [notesDraftKey]);
-  useEffect(() => {
-    if (!notesDraftKey) return;
-    const timeout = setTimeout(() => {
-      if (Object.keys(notesDraft).length) void SecureStore.setItemAsync(notesDraftKey, JSON.stringify(notesDraft));
-      else void SecureStore.deleteItemAsync(notesDraftKey).catch(() => undefined);
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [notesDraftKey, notesDraft]);
-
+  // The note shown is what was typed here, else what the server holds.
+  const noteFor = (childId: string) => state.notes[childId] ?? state.savedNotes[childId] ?? undefined;
   function editNote(childId: string, name: string) {
-    if (!canEdit) return;
-    const current = notesDraft[childId] ?? roster.find((c) => c.id === childId)?.attendance?.notes ?? "";
+    if (!rowsEditable) return;
     Alert.prompt(
       `Note for ${name}`,
       undefined,
-      (text) => setNotesDraft((prev) => ({ ...prev, [childId]: text?.trim() ?? "" })),
+      (text) => editor.setNote(childId, text?.trim() ?? ""),
       "plain-text",
-      current,
+      noteFor(childId) ?? "",
     );
   }
 
-  // Short enough to never overflow the bottom bar's Save button.
-  const saveLabel = saving
-    ? "Saving…"
-    : !cls.canServe
-      ? "Read-only"
-      : saved && !dirty
-        ? "Saved"
-        : "Save";
-
-  async function save() {
-    if (!current || !canSave) return;
-    setSaving(true);
-    try {
-      const confirmed = await saveAttendance(classId, date, current, marks, notesDraft);
-      feedback("success");
-      setLoaded({ date, value: confirmed });
-      if (notesDraftKey) {
-        setNotesDraft({});
-        await SecureStore.deleteItemAsync(notesDraftKey).catch(() => undefined);
-      }
-    } catch (error) {
-      feedback("error");
-      Alert.alert(
-        "Unable to save",
-        error instanceof Error ? error.message : "Please try again.",
-      );
-    } finally {
-      setSaving(false);
+  // The explicit save records everyone still unmarked as absent, so it says so first.
+  function confirmAndSave() {
+    if (!summary.canFinalize) return;
+    const unmarked = summary.unmarkedCount;
+    if (!unmarked) {
+      void editor.save(true).then((saved) => feedback(saved ? "success" : "error"));
+      return;
     }
+    Alert.alert(
+      `Mark ${unmarked} ${unmarked === 1 ? "child" : "children"} absent?`,
+      `Saving records the ${unmarked} ${unmarked === 1 ? "child" : "children"} you haven't marked as absent.`,
+      [
+        { text: "Keep marking", style: "cancel" },
+        { text: "Save attendance", onPress: () => void editor.save(true).then((saved) => feedback(saved ? "success" : "error")) },
+      ],
+    );
+  }
+  function onNotice(action: AttendanceNoticeAction) {
+    if (action === "resume") void editor.resume();
+    else if (action === "retry") void editor.retry();
+    else editor.reload();
   }
 
   const totals = {
@@ -296,7 +235,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Previous week"
-              disabled={saving}
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
               onPress={() => setDate(shiftWeek(date, -1))}
               style={{ padding: 12, minHeight: 48 }}
             >
@@ -311,8 +251,8 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Next week"
-              accessibilityState={{ disabled: saving }}
-              disabled={saving}
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
               onPress={() => setDate(shiftWeek(date, 1))}
               style={{ padding: 12, minHeight: 48 }}
             >
@@ -339,6 +279,14 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
           <Copy color={colors.primary} style={{ fontWeight: "600" }}>Individual history</Copy>
         </Pressable>
 
+        {viewingAs && (
+          <Copy kind="caption">
+            Viewing as {user?.name ?? "another person"}: attendance is read-only here.
+          </Copy>
+        )}
+        {state.refreshing && <Copy kind="caption" accessibilityLabel="Refreshing the roster">Refreshing…</Copy>}
+        <AttendanceNotices state={state} summary={summary} canEdit={canEdit} onAction={onNotice} />
+
         {!current && !loadError && (
           <ActivityIndicator
             accessibilityLabel="Loading class roster"
@@ -348,7 +296,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
         {loadError && (
           <View style={{ backgroundColor: colors.dangerSoft, borderRadius: 18, padding: 16, gap: 10 }}>
             <Copy color={colors.danger}>{loadError}</Copy>
-            <Pressable accessibilityRole="button" onPress={() => setRetry((value) => value + 1)}>
+            <Pressable accessibilityRole="button" onPress={() => editor.reload()}>
               <Copy style={{ fontWeight: "600" }} color={colors.primary}>Retry</Copy>
             </Pressable>
           </View>
@@ -363,7 +311,7 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
           <>
             <View style={[styles.row, { gap: 10 }]}>
               <Copy style={{ flex: 1 }}>
-                <Copy style={{ fontWeight: "700" }}>{progress.marked}</Copy> of {roster.length} marked
+                <Copy style={{ fontWeight: "700" }}>{summary.markedCount}</Copy> of {roster.length} marked
               </Copy>
               <Copy kind="caption">Sort</Copy>
               <SegmentedControl
@@ -432,13 +380,13 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
                     <RosterRow
                       key={child.id}
                       name={getChildFullName(child)}
-                      note={notesDraft[child.id] ?? child.attendance?.notes ?? undefined}
+                      note={noteFor(child.id)}
                       photo={showPhotos ? child.profileImageUrl : null}
                       initials={(child.firstName[0] ?? "") + (child.lastName[0] ?? "")}
                       status={marks[child.id]}
-                      canEdit={canEdit}
+                      canEdit={rowsEditable}
                       divider={index < group.entries.length - 1}
-                      onSetStatus={(status) => setDraft(classId, date, { ...marks, [child.id]: status })}
+                      onSetStatus={(status) => editor.mark(child.id, status as SavableStatus)}
                       onEditNote={() => editNote(child.id, getChildFullName(child))}
                       childId={child.id}
                       contact={contacts ? (contacts.get(child.id) ?? null) : undefined}
@@ -454,44 +402,14 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
       {/* A sibling of the scroll view reserves its actual height, so the last
           roster row stays above the actions. */}
       {!!roster.length && (
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: insets.bottom + 18 }}>
-          {/* "Glass belongs to controls. Content cards always use an opaque
-              surface" (chrome.tsx's own rule) — this bar's two solid-colored
-              action buttons are content, not ambient chrome, so it gets the
-              same opaque surface a Card does, not a translucent GlassChrome
-              (which otherwise washed the buttons' own fill colors out). */}
-          <View
-            style={{
-              borderRadius: 32,
-              padding: 8,
-              paddingLeft: 18,
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.border,
-              shadowColor: "#000",
-              shadowOpacity: 0.12,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 4,
-            }}
-          >
-            <View style={[styles.row, { gap: 10 }]}>
-              <View style={{ flex: 1, minWidth: 0 }} accessibilityLiveRegion="polite">
-                {/* Shortened from the artboard's "N children left" — with two
-                    buttons alongside it in the same bar, the fuller wording
-                    had no room and truncated unreadably; "children" is
-                    already established by every other label on this screen. */}
-                <Copy kind="caption" numberOfLines={1}>{roster.length - progress.marked} left</Copy>
-              </View>
-              <BarButton
-                label="Mark rest present"
-                disabled={!canEdit}
-                onPress={() => setDraft(classId, date, restPresent(ids, marks))}
-              />
-              <BarButton label={saveLabel} primary disabled={!canSave} onPress={() => void save()} />
-            </View>
-          </View>
-        </View>
+        <AttendanceSaveBar
+          state={state}
+          summary={summary}
+          canEdit={canEdit}
+          bottomInset={insets.bottom}
+          onMarkRest={editor.markRestPresent}
+          onSave={confirmAndSave}
+        />
       )}
 
         </>
@@ -507,53 +425,6 @@ function StatusCount({ label, value, color }: { label: string; value: number; co
       <Copy kind="caption">{label}</Copy>
       <Copy kind="caption" style={{ fontWeight: "600" }}>{value}</Copy>
     </View>
-  );
-}
-
-// The shared Button component (an @expo/ui SwiftUI Host) only ever renders at
-// a nonzero width when it's the sole child of a column — confirmed live on
-// simulator, and already documented this way on prep-attendance.tsx. Placed
-// as a row sibling (two buttons side by side, as this bottom bar needs), it
-// silently collapses to zero width, so this bar uses a plain Pressable instead.
-function BarButton({
-  label,
-  onPress,
-  disabled = false,
-  primary = false,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  primary?: boolean;
-}) {
-  const { colors } = useAppTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      style={({ pressed }) => ({
-        flexShrink: 1,
-        height: 48,
-        paddingHorizontal: 16,
-        borderRadius: 24,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: primary ? colors.primary : colors.hover,
-        // The secondary fill alone reads too close to this bar's own
-        // surface color to stand out — a border gives it a clear edge,
-        // the same way roster.tsx's FilterChip defines itself.
-        borderWidth: primary ? 0 : 1,
-        borderColor: colors.border,
-        opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
-      })}
-      onPress={onPress}
-    >
-      <Copy style={{ fontWeight: "600" }} color={primary ? colors.onAction : colors.text} numberOfLines={1}>
-        {label}
-      </Copy>
-    </Pressable>
   );
 }
 

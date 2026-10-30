@@ -94,17 +94,23 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   implemented. Push registration requires permission, a physical device, and an
   EAS project ID with platform push credentials; simulators do not register tokens.
   Push tokens are removed on sign-out and account deletion.
-- Attendance loads the selected class/date, preserving all four statuses and
-  existing notes. A session is created only on save. Save waits for confirmation
-  and reloads the saved roster. Failed saves leave the draft available to retry.
+- Attendance loads the selected class/date and keeps existing notes. Marks are
+  kept on the device on every tap (Keychain, scoped to account, class and date) and
+  saved on their own after a short pause; a draft left by an interruption comes back
+  only after a fresh roster loads and is sent only when the servant taps Resume.
+  Automatic saves never mark anyone absent; Save attendance (with a confirmation)
+  records the unmarked children as absent. Transient failures retry while the roster is
+  open; permission and roster failures wait for an explicit retry. The bar shows local
+  only, saving, saved to the church and failed, with the server's recorder and time. See
+  [`docs/ios-attendance-autosave.md`](../../docs/ios-attendance-autosave.md).
 - Account deletion uses `POST /api/account/delete` and the existing admin
   deletion protections. Super Admins cannot delete their own account; accounts
   holding protected records are directed to an administrator. Delete account is
   hidden during View As.
 - Privacy Policy and Terms are reachable on Sign in and public sign-up screens;
   Forgot password opens the existing web reset flow.
-- Draft attendance is memory-only and clears on sign-out/reload. Attendance has
-  no offline write queue. Live exams preserve pending answers and activity in
+- Draft attendance survives interruption (see above) but there is no offline write
+  queue: marks are sent while the screen is open, and a draft is resent only after Resume. Live exams preserve pending answers and activity in
   device-only encrypted storage; resuming after connection loss requires
   proctor clearance before those answers can retry.
 - Glass is limited to navigation and selected controls. Content uses opaque

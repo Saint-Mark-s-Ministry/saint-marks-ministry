@@ -23,7 +23,8 @@ describe("class-attendance reminders on iOS", () => {
   });
 
   it("asks the server again after a confirmed save and on foreground", () => {
-    expect(code("data/portal-provider.tsx")).toContain("requestAttendanceReminderRefresh()");
+    // The editor reports every server-confirmed save (autosave included); the hook hands that to the reminders refresh.
+    expect(code("data/use-attendance-editor.ts")).toContain("onSaved: requestAttendanceReminderRefresh");
     expect(code("data/use-attendance-reminders.ts")).toContain('next === "active"');
   });
 
