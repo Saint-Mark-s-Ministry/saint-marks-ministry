@@ -4,14 +4,15 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), enrollment: vi.fn(), annual: vi.fn(), application: vi.fn(),
   updateEnrollment: vi.fn(), upsertAnnual: vi.fn(), review: vi.fn(),
-  clear: vi.fn(), notify: vi.fn(), put: vi.fn(),
+  clear: vi.fn(), notify: vi.fn(), put: vi.fn(), head: vi.fn(), token: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/authorization', () => ({
   getAuthorizationContext: async () => ({ roleTags: new Set(['SERVANTS_PREP_SERVANT']) }),
   canWriteBusinessData: () => true,
 }))
-vi.mock('@vercel/blob', () => ({ put: mocks.put }))
+vi.mock('@vercel/blob', () => ({ put: mocks.put, head: mocks.head }))
+vi.mock('@vercel/blob/client', () => ({ generateClientTokenFromReadWriteToken: mocks.token }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
   academicYear: { findFirst: async () => ({ id: 'year-1', name: '2026-2027' }) },
   studentEnrollment: { findUnique: mocks.enrollment },
@@ -54,7 +55,7 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
     mocks.upsertAnnual.mockResolvedValue(information)
     mocks.review.mockResolvedValue({ count: 1 })
     mocks.updateEnrollment.mockResolvedValue({ count: 1 })
-    mocks.put.mockResolvedValue({ url: 'https://example.com/approval.pdf' })
+    mocks.put.mockResolvedValue({ url: 'https://example.com/approval.pdf', downloadUrl: 'https://example.com/approval.pdf?download=1' })
   })
 
   it.each([false, true])('offers the annual form while withdrawn (approved admission: %s)', async (hasApplication) => {
@@ -115,14 +116,37 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
   })
 
   it('uploads the signed form for a withdrawn legacy student and still requires staff review', async () => {
-    const response = await upload({ formData: async () => ({
+    const response = await upload({ headers: new Headers(), formData: async () => ({
       get: () => new File(['signed approval'], 'approval.pdf', { type: 'application/pdf' }),
     }) } as unknown as NextRequest)
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ complete: false })
     expect(mocks.updateEnrollment).toHaveBeenCalledExactlyOnceWith({
       where: { studentId: 'student-1' },
-      data: { approvalFormUrl: 'https://example.com/approval.pdf', approvalFormFilename: 'approval.pdf' },
+      data: { approvalFormUrl: 'https://example.com/approval.pdf?download=1', approvalFormFilename: 'approval.pdf' },
+    })
+    expect(mocks.clear).not.toHaveBeenCalled()
+  })
+
+  it('authorizes and confirms a direct iPhone upload through the real withdrawn-student eligibility lookup', async () => {
+    mocks.token.mockResolvedValue('client-token')
+    const prepared = await upload(new NextRequest('http://localhost/api/registration/application/upload', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'prepare', filename: 'scan.HEIC', size: 8000000 }),
+    }))
+    expect(prepared.status).toBe(200)
+    const { pathname } = await prepared.json()
+    expect(mocks.updateEnrollment).not.toHaveBeenCalled()
+    mocks.head.mockResolvedValue({ pathname, size: 8000000, contentType: 'application/octet-stream', downloadUrl: 'https://example.com/scan.HEIC?download=1' })
+    const confirmed = await upload(new NextRequest('http://localhost/api/registration/application/upload', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'complete', filename: 'scan.HEIC', pathname }),
+    }))
+    expect(confirmed.status).toBe(200)
+    expect(await confirmed.json()).toMatchObject({ complete: false })
+    expect(mocks.updateEnrollment).toHaveBeenCalledExactlyOnceWith({
+      where: { studentId: 'student-1' },
+      data: { approvalFormUrl: 'https://example.com/scan.HEIC?download=1', approvalFormFilename: 'scan.HEIC' },
     })
     expect(mocks.clear).not.toHaveBeenCalled()
   })
