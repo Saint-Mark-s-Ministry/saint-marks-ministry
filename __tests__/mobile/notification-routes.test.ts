@@ -15,7 +15,8 @@ const APP = join(__dirname, "../../apps/mobile/src/app");
 
 /** `/prep-mentee/abc` -> `prep-mentee/[id].tsx`; `/(tabs)/classes` -> `(tabs)/classes/index.tsx`. */
 function routeFileExists(route: string): boolean {
-  const parts = route.split("/").filter(Boolean);
+  // A query string (`/feedback?idea=…`) selects what the screen shows, not which file it is.
+  const parts = route.split("?")[0].split("/").filter(Boolean);
   const direct = join(APP, ...parts) + ".tsx";
   const asIndex = join(APP, ...parts, "index.tsx");
   const dynamic = join(APP, ...parts.slice(0, -1), "[id].tsx");
@@ -70,6 +71,13 @@ describe("notification -> native route", () => {
     expect(isTabRoot("/(tabs)/classes")).toBe(true);
     expect(isTabRoot("/(prep)/home")).toBe(true);
     expect(isTabRoot("/visitations")).toBe(false);
+  });
+
+  it("opens the shared feedback board from either ministry's link, on the post when one is named", () => {
+    expect(resolveNotificationRoute({ url: "/dashboard/servants/feedback" })).toBe("/feedback");
+    expect(resolveNotificationRoute({ url: "/dashboard/admin/feedback" })).toBe("/feedback");
+    expect(resolveNotificationRoute({ url: "/dashboard/admin/feedback/cm9idea" })).toBe("/feedback?idea=cm9idea");
+    expect(resolveNotificationRoute({ url: "/dashboard/servants/feedback/cm9idea" })).toBe("/feedback?idea=cm9idea");
   });
 
   it("only ever points at screens that exist in the app", () => {

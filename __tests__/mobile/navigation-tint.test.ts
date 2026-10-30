@@ -12,7 +12,7 @@ describe("which ministry a route is drawn in", () => {
   });
 
   it("keeps the ministry you came from on shared screens (highest-risk path)", () => {
-    for (const shared of ["account", "notifications", "readings", "calendar-day", "profile", "contact-book"]) {
+    for (const shared of ["account", "notifications", "readings", "calendar-day", "profile", "contact-book", "feedback"]) {
       expect(ministryForSegments([shared], "prep")).toBe("prep");
       expect(ministryForSegments([shared], "sundaySchool")).toBe("sundaySchool");
     }

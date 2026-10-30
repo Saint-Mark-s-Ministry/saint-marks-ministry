@@ -83,8 +83,10 @@ describe("priest ministry editing on iOS", () => {
   });
 
   it("leaves feedback moderation and the check-in assignment rule to the server's flags", () => {
-    expect(code("app/feedback/[id].tsx")).toContain("viewer.canModerate");
-    expect(code("app/feedback/[id].tsx")).not.toMatch(/PRIEST|SUPER_ADMIN/);
+    expect(code("data/sunday-school-feedback.ts")).toContain("viewer?.canModerate === true");
+    for (const file of ["app/feedback.tsx", "components/feedback-board-parts.tsx", "components/feedback-reply-sheet.tsx", "data/sunday-school-feedback.ts"]) {
+      expect(code(file)).not.toMatch(/PRIEST|SUPER_ADMIN|isAdminLike/);
+    }
   });
 });
 

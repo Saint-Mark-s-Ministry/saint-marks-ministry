@@ -353,7 +353,13 @@ export interface SundaySchoolFeedbackResponse {
   ideas: SundaySchoolFeedbackIdea[];
   statusCounts: Record<SundaySchoolFeedbackStatus, number>;
   viewer: {
+    /**
+     * Not sent by the deployed route, which answers 403 when the account may not read the board. Declared so a
+     * server that does send it (false) is honoured; absent means "the response itself is the permission".
+     */
+    canRead?: boolean;
     canSubmit: boolean;
+    /** Super Admins only. Moderation is never implied by being able to read or post. */
     canModerate: boolean;
   };
 }

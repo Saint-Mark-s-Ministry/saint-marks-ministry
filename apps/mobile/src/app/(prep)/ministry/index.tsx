@@ -39,6 +39,9 @@ const ADMIN_LINKS: MinistryLink[] = [
   { id: "registrations", title: "Registration review", subtitle: "Applicant queue", href: "/prep-registrations", icon: { ios: "person.badge.plus", android: "person_add" } },
   { id: "activity", title: "Activity", subtitle: "Recent security history", href: "/prep-activity", icon: { ios: "waveform.path.ecg", android: "monitoring" } },
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files", icon: { ios: "folder", android: "folder" } },
+  // Menu visibility only, as on the web's admin navigation. It opens the board both ministries share; the
+  // server decides who can read it, and it grants no Sunday School class access.
+  { id: "feedback", title: "Feedback", subtitle: "Ideas, problems and the roadmap", href: "/feedback", icon: { ios: "bubble.left.and.bubble.right", android: "forum" } },
 ];
 
 const CONTACT_BOOK_LINK: MinistryLink = {

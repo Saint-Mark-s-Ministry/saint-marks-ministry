@@ -81,6 +81,7 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   "admin/async-students": withId("/prep-async-students", (id) => `/prep-async-student/${id}`),
   "admin/curriculum": fixed("/prep-curriculum"),
   "admin/activity": fixed("/prep-activity"),
+  "admin/feedback": withId("/feedback", (id) => `/feedback?idea=${encodeURIComponent(id)}`),
   "admin/servant-applications": fixed("/prep-servant-applications"),
   "admin/users": fixed("/(prep)/ministry"),
   "admin/settings": fixed("/(prep)/ministry"),
@@ -97,7 +98,8 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   "servants/roster": fixed("/roster"),
   "servants/children": withId("/roster", (id) => `/child/${id}`),
   "servants/homework": fixed("/homework"),
-  "servants/feedback": withId("/feedback", (id) => `/feedback/${id}`),
+  // The board is shared: a reply or status change opens the same screen from either ministry's link.
+  "servants/feedback": withId("/feedback", (id) => `/feedback?idea=${encodeURIComponent(id)}`),
   "servants/age-groups": fixed("/age-groups"),
   "servants/activity": fixed("/activity"),
   "servants/birthdays": fixed("/sunday-birthdays"),

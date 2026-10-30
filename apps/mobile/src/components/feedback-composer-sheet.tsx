@@ -7,8 +7,11 @@ import { Copy, Icon } from "@/components/ui";
 import { Field, confirmAction, useAction } from "@/components/forms";
 import { endpoint, request } from "@/data/resources";
 import {
+  FEEDBACK_DESCRIPTION_MAX_LENGTH,
+  FEEDBACK_TITLE_MAX_LENGTH,
   emptyComposerDraft,
   isComposerDraftDirty,
+  validateFeedbackTitle,
   type FeedbackComposerDraft,
 } from "@/data/sunday-school-feedback";
 import { useAppTheme } from "@/theme";
@@ -35,6 +38,8 @@ export function FeedbackComposerSheet({
   const [draft, setDraft] = useState(original);
   const draftReady = useRef(false);
   const action = useAction();
+  const titleProblem = validateFeedbackTitle(draft.title);
+  const blocked = action.busy || !!titleProblem;
 
   // Restore a draft left over from a dismissal or interruption, same pattern
   // every other composer in this app uses (servant attendance, visitation
@@ -65,6 +70,7 @@ export function FeedbackComposerSheet({
   }
 
   function requestClose() {
+    if (action.busy) return;
     if (isComposerDraftDirty(draft, original)) {
       confirmAction(
         "Discard changes?",
@@ -78,6 +84,7 @@ export function FeedbackComposerSheet({
   }
 
   function submit() {
+    if (blocked) return;
     void action.run(async () => {
       await request(endpoint("feedback", idea?.id), isEdit ? "PATCH" : "POST", {
         type: draft.type,
@@ -106,9 +113,10 @@ export function FeedbackComposerSheet({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={isEdit ? "Save feedback" : "Post feedback"}
-            disabled={action.busy || !draft.title.trim()}
+            accessibilityState={{ disabled: blocked, busy: action.busy }}
+            disabled={blocked}
             onPress={submit}
-            style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.text, opacity: action.busy || !draft.title.trim() ? 0.4 : 1 }}
+            style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.text, opacity: blocked ? 0.4 : 1 }}
           >
             <Icon ios="checkmark" android="check" size={18} color={colors.surface} />
           </Pressable>
@@ -130,16 +138,24 @@ export function FeedbackComposerSheet({
             value={draft.title}
             onChange={(title) => setDraft((d) => ({ ...d, title }))}
             placeholder="Summarize the idea or bug"
+            maxLength={FEEDBACK_TITLE_MAX_LENGTH}
             disabled={action.busy}
           />
+          <Copy kind="caption" accessibilityLabel={`${draft.title.length} of ${FEEDBACK_TITLE_MAX_LENGTH} characters`} style={{ textAlign: "right" }}>
+            {draft.title.length}/{FEEDBACK_TITLE_MAX_LENGTH}
+          </Copy>
           <Field
             label="Details (optional)"
             value={draft.description}
             onChange={(description) => setDraft((d) => ({ ...d, description }))}
             placeholder="For bugs: what happened, what you expected, how to reproduce it."
             multiline
+            maxLength={FEEDBACK_DESCRIPTION_MAX_LENGTH}
             disabled={action.busy}
           />
+          <Copy kind="caption" accessibilityLabel={`${draft.description.length} of ${FEEDBACK_DESCRIPTION_MAX_LENGTH} characters`} style={{ textAlign: "right" }}>
+            {draft.description.length}/{FEEDBACK_DESCRIPTION_MAX_LENGTH}
+          </Copy>
         </ScrollView>
       </View>
     </Modal>

@@ -84,6 +84,8 @@ const SHARED_ROUTES = new Set([
   "calendar-day",
   "academic-years",
   "contact-book",
+  // The feedback board is one screen for both ministries: it keeps the accent of the one you opened it from.
+  "feedback",
   "index",
   "sign-in",
   "+not-found",

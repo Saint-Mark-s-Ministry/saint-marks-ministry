@@ -1,72 +1,105 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { router, Stack } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, View } from "react-native";
+import { Stack, useLocalSearchParams } from "expo-router";
+import type { SearchBarCommands } from "react-native-screens";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import type { SundaySchoolFeedbackIdea, SundaySchoolFeedbackResponse } from "@stmark/contracts";
-import { Copy, Icon, InitialsAvatar, ListSurface, Screen } from "@/components/ui";
-import { ResourceState, useAction } from "@/components/forms";
-import { endpoint, query, request, useResource } from "@/data/resources";
-import { useAuth } from "@/data/auth-provider";
-import {
-  applyFeedbackView,
-  DEVELOPMENT_TEAM_LABEL,
-  filterByCategory,
-  matchesSearch,
-  responsePreview,
-  statusLabel,
-  submittedLabel,
-  typeLabel,
-  type FeedbackCategory,
-  type FeedbackView,
-} from "@/data/sunday-school-feedback";
+import { Button, Copy, Icon, ListSurface, Screen } from "@/components/ui";
+import { Choice, ResourceState } from "@/components/forms";
 import { FeedbackComposerSheet } from "@/components/feedback-composer-sheet";
-import { FeedbackStatus } from "@/components/feedback-status";
+import { FeedbackFilterSheet } from "@/components/feedback-filter-sheet";
+import { FeedbackReplySheet } from "@/components/feedback-reply-sheet";
+import { FeedbackEntry, RoadmapStage } from "@/components/feedback-board-parts";
+import { endpoint, query, useResource } from "@/data/resources";
+import { useAuth } from "@/data/auth-provider";
 import { feedback } from "@/data/haptics";
-import { MinistryTintProvider, useAppTheme } from "@/theme";
+import {
+  activeFilterCount,
+  clearFeedbackFilters,
+  feedbackCapabilities,
+  feedbackLoadMessage,
+  filterFeedback,
+  hasActiveFilters,
+  recallBoard,
+  rememberBoard,
+  roadmapColumns,
+  roadmapEmptyMessage,
+  type BoardMode,
+  type FeedbackFilters,
+} from "@/data/sunday-school-feedback";
+import { useAppTheme } from "@/theme";
 
 const OFFLINE = "Could not reach the server. Check your connection and try again.";
-const VIEWS: FeedbackView[] = ["top", "newest", "mine"];
-const CATEGORIES: { value: FeedbackCategory; label: string }[] = [
-  { value: "ALL", label: "All" },
-  { value: "IDEA", label: "Ideas" },
-  { value: "PROBLEM", label: "Problems" },
-];
+const MODES: BoardMode[] = ["board", "roadmap"];
+const PAGE_SIZE = 20;
 
+/**
+ * The shared feedback board and roadmap. Sunday School servants and Servants Prep staff open this same screen,
+ * read the same ideas from the same endpoint and see the same replies: it belongs to neither ministry, and being
+ * able to read it grants no access to any class roster.
+ */
 export default function Feedback() {
-  return (
-    <MinistryTintProvider ministry="sundaySchool">
-      <FeedbackScreen />
-    </MinistryTintProvider>
-  );
-}
-
-function FeedbackScreen() {
   const { colors } = useAppTheme();
-  const { user } = useAuth();
-  const [viewIndex, setViewIndex] = useState(0);
-  const [category, setCategory] = useState<FeedbackCategory>("ALL");
-  const [search, setSearch] = useState("");
+  const { user, viewingAs } = useAuth();
+  const { idea: openedIdeaId } = useLocalSearchParams<{ idea?: string }>();
+  const searchRef = useRef<SearchBarCommands>(null);
+  const initial = useMemo(() => recallBoard(user?.id), [user?.id]);
+  const [mode, setMode] = useState<BoardMode>(initial.mode);
+  const [filters, setFilters] = useState<FeedbackFilters>(initial.filters);
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
-  // "ACTIVE" vs "ALL" server status scope stays fixed here — the real
-  // filtering this screen's three controls (Top/Newest/Mine, category,
-  // search) all happen client-side over one "ALL" fetch, same as every
-  // other list screen's convention in this app (fetch once, filter locally).
-  const resource = useResource<SundaySchoolFeedbackResponse>(`${endpoint("feedback")}?${query({ status: "ALL", sort: "TOP" })}`);
-  const offline = resource.error === OFFLINE;
-  const view = VIEWS[viewIndex];
+  const [editing, setEditing] = useState<SundaySchoolFeedbackIdea | null>(null);
+  const [replying, setReplying] = useState<SundaySchoolFeedbackIdea | null>(null);
 
-  const rows = useMemo(() => {
-    const ideas = resource.data?.ideas ?? [];
-    const categorized = filterByCategory(ideas, category);
-    const searched = categorized.filter((idea) => matchesSearch(idea, search));
-    return applyFeedbackView(searched, view, user?.id);
-  }, [resource.data, category, search, view, user?.id]);
+  // One fetch of everything, scoped to the viewer: the flags (can vote, can edit, can moderate) are theirs, and
+  // a preview as someone else must never be served the previewer's answer. Filtering is local, so it is instant
+  // and survives a refresh.
+  const resource = useResource<SundaySchoolFeedbackResponse>(
+    `${endpoint("feedback")}?${query({ status: "ALL", sort: "TOP" })}`,
+    user ? `feedback:${user.id}` : undefined,
+  );
+  const offline = resource.error === OFFLINE;
+  const caps = feedbackCapabilities(resource.data?.viewer, !!viewingAs);
+  const ideas = resource.data?.ideas ?? [];
+
+  useEffect(() => {
+    if (user) rememberBoard(user.id, mode, filters);
+  }, [user, mode, filters]);
+
+  // The search bar belongs to the navigation header, so a remembered search is put back into it.
+  useEffect(() => {
+    if (initial.filters.search) searchRef.current?.setText(initial.filters.search);
+  }, [initial]);
+
+  useEffect(() => setShown(PAGE_SIZE), [mode, filters]);
+
+  const visible = useMemo(() => filterFeedback(ideas, filters, mode, user?.id), [ideas, filters, mode, user?.id]);
+  const pinned = openedIdeaId ? ideas.find((idea) => idea.id === openedIdeaId) : undefined;
+  const rest = pinned ? visible.filter((idea) => idea.id !== pinned.id) : visible;
+  const filtered = hasActiveFilters(filters, mode);
+  const badge = activeFilterCount(filters, mode);
+
+  const patch = (next: Partial<FeedbackFilters>) => setFilters((current) => ({ ...current, ...next }));
+  const clear = () => {
+    searchRef.current?.clearText();
+    setFilters(clearFeedbackFilters);
+  };
+  const closeComposer = () => setComposerOpen(false);
+  const refresh = resource.refresh;
+
+  const entry = (idea: SundaySchoolFeedbackIdea) => (
+    <FeedbackEntry key={idea.id} idea={idea} caps={caps} viewerId={user?.id} refresh={refresh} onEdit={setEditing} onReply={setReplying} />
+  );
+  const message = feedbackLoadMessage(resource.errorStatus, offline ? undefined : resource.error);
+  const refused = resource.errorStatus === 403;
 
   return (
     <>
       <Stack.Screen
         options={{
           title: "Feedback",
-          headerRight: resource.data?.viewer.canSubmit
+          headerRight: caps.canSubmit
             ? () => (
                 <Pressable accessibilityRole="button" accessibilityLabel="Post feedback" onPress={() => setComposerOpen(true)} hitSlop={10}>
                   <Icon ios="plus" android="add" size={22} color={colors.primary} />
@@ -76,199 +109,174 @@ function FeedbackScreen() {
         }}
       />
       <Stack.SearchBar
+        ref={searchRef}
         autoCapitalize="none"
         placement="stacked"
         hideWhenScrolling={false}
         placeholder="Search feedback"
-        onChangeText={(event) => setSearch(event.nativeEvent.text)}
-        onCancelButtonPress={() => setSearch("")}
+        onChangeText={(event) => patch({ search: event.nativeEvent.text })}
+        onCancelButtonPress={() => patch({ search: "" })}
       />
       <Screen refreshing={resource.loading || resource.refreshing} onRefresh={() => void resource.refresh()}>
+        {!refused && (
         <ListSurface style={{ padding: 20, borderRadius: 18, gap: 14 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View style={{ padding: 7, borderRadius: 10, backgroundColor: colors.primarySoft }}>
-              <Icon ios="bubble.left.and.bubble.right" android="forum" size={18} />
-            </View>
-            <Copy kind="caption" style={{ flex: 1, fontWeight: "500" }}>St. Mark Ministry · Feedback board</Copy>
-          </View>
           <View style={{ gap: 6 }}>
             <Copy kind="heading" style={{ fontSize: 24, lineHeight: 30 }}>Help shape what’s next</Copy>
             <Copy color={colors.text2} style={{ fontSize: 14, lineHeight: 21 }}>
-              Share ideas, report problems, and vote on what matters to you.
+              Share ideas, report problems, and vote on what matters. Servants Prep and Sunday School see the same board.
             </Copy>
           </View>
-          {resource.data?.viewer.canSubmit && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Post feedback"
-              onPress={() => { feedback("action"); setComposerOpen(true); }}
-              style={({ pressed }) => ({
-                minHeight: 46, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12,
-                flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                backgroundColor: colors.text, opacity: pressed ? 0.75 : 1,
-              })}
-            >
-              <Icon ios="plus" android="add" size={17} color={colors.surface} />
-              <Copy color={colors.surface} style={{ fontSize: 14, fontWeight: "600" }}>Post feedback</Copy>
-            </Pressable>
+          {caps.canSubmit && (
+            <Button label="Post feedback" onPress={() => { feedback("action"); setComposerOpen(true); }} />
           )}
         </ListSurface>
-
-        <View style={{ gap: 12 }}>
-          <View accessibilityRole="tablist" style={{ flexDirection: "row", borderBottomWidth: 1, borderColor: colors.border }}>
-            {["Top", "Newest", "Mine"].map((label, index) => (
-              <Pressable
-                key={label}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: viewIndex === index }}
-                onPress={() => { feedback("selection"); setViewIndex(index); }}
-                style={{ flex: 1, minHeight: 46, justifyContent: "center", alignItems: "center", paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: viewIndex === index ? colors.text : "transparent" }}
-              >
-                <Copy style={{ fontSize: 14, fontWeight: viewIndex === index ? "600" : "400" }} color={viewIndex === index ? colors.text : colors.muted}>{label}</Copy>
-              </Pressable>
-            ))}
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {CATEGORIES.map((c) => (
-              <FilterChip key={c.value} label={c.label} active={category === c.value} onPress={() => { feedback("selection"); setCategory(c.value); }} />
-            ))}
-          </ScrollView>
-        </View>
-
-        {offline && resource.stale && (
-          <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
-            <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
-            <Copy kind="caption">Showing the last feedback we had. Pull down to try again.</Copy>
-          </View>
-        )}
-        {!resource.stale && (
-          <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
         )}
 
-        {resource.data && !rows.length && (
+        {caps.previewing && (
+          <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 16, backgroundColor: colors.hover }}>
+            <Copy kind="caption">View as is read-only. You can read the board, but posting, voting, replying and status changes are off.</Copy>
+          </View>
+        )}
+
+        {refused ? (
           <ListSurface style={{ padding: 24, gap: 8, alignItems: "center" }}>
-            <Icon ios="bubble.left" android="chat_bubble_outline" size={28} color={colors.muted} />
-            <Copy style={{ fontWeight: "600", textAlign: "center" }}>{resource.data.ideas.length ? "No matching feedback" : "Start the conversation"}</Copy>
-            <Copy kind="caption" style={{ textAlign: "center" }}>{resource.data.ideas.length ? "Try another search or category." : "Be the first to share an idea or report a problem."}</Copy>
+            <Icon ios="lock" android="lock" size={26} color={colors.muted} />
+            <Copy style={{ fontWeight: "600", textAlign: "center" }}>Feedback isn’t available</Copy>
+            <Copy kind="caption" style={{ textAlign: "center" }}>{message}</Copy>
           </ListSurface>
-        )}
+        ) : (
+          <>
+            <SegmentedControl
+              values={["Feedback board", "Roadmap"]}
+              selectedIndex={MODES.indexOf(mode)}
+              onChange={({ nativeEvent }) => { feedback("selection"); setMode(MODES[nativeEvent.selectedSegmentIndex]); }}
+              style={{ width: "100%", minHeight: 36 }}
+            />
 
-        {!!rows.length && (
-          <View style={{ gap: 12 }}>
-            <Copy kind="caption" accessibilityLabel={`${rows.length} feedback posts`}>{rows.length} {rows.length === 1 ? "post" : "posts"}</Copy>
-            {rows.map((idea) => <FeedbackRow key={idea.id} idea={idea} refresh={resource.refresh} />)}
-          </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={badge ? `Filters, ${badge} applied` : "Filters"}
+                accessibilityHint={`Sorted by ${filters.sort === "TOP" ? "top voted" : "newest"}`}
+                onPress={() => { feedback("selection"); setFiltersOpen(true); }}
+                style={{
+                  minHeight: 44, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, borderWidth: 1,
+                  borderColor: badge ? colors.borderStrong : colors.border, backgroundColor: badge ? colors.hover : colors.surface,
+                }}
+              >
+                <Icon ios="line.3.horizontal.decrease" android="filter_list" size={15} color={colors.primary} />
+                <Copy style={{ fontSize: 13, fontWeight: "600" }} color={colors.text}>{badge ? `Filters (${badge})` : "Filters"}</Copy>
+              </Pressable>
+              <Copy kind="caption">{filters.sort === "TOP" ? "Top voted" : "Newest"}</Copy>
+              {!!filters.search.trim() && <Copy kind="caption" accessibilityLabel={`Searching for ${filters.search.trim()}`}>Search: “{filters.search.trim()}”</Copy>}
+              {filtered && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Clear filters" onPress={clear} hitSlop={8} style={{ minHeight: 44, justifyContent: "center" }}>
+                  <Copy color={colors.primary} style={{ fontWeight: "600" }}>Clear filters</Copy>
+                </Pressable>
+              )}
+            </View>
+
+            {offline && resource.stale && (
+              <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.warningSoft, gap: 4 }}>
+                <Copy style={{ fontWeight: "600" }} color={colors.warning}>You're offline</Copy>
+                <Copy kind="caption">Showing the last feedback we had. Pull down to try again.</Copy>
+              </View>
+            )}
+            {!resource.stale && <ResourceState loading={resource.loading} error={message} retry={() => void resource.refresh()} />}
+
+            {resource.data && !visible.length && !pinned && (
+              <ListSurface style={{ padding: 24, gap: 10, alignItems: "center" }}>
+                <Icon ios="bubble.left" android="chat_bubble_outline" size={28} color={colors.muted} />
+                <Copy style={{ fontWeight: "600", textAlign: "center" }}>{ideas.length ? "No matching feedback" : "Start the conversation"}</Copy>
+                <Copy kind="caption" style={{ textAlign: "center" }}>
+                  {ideas.length ? "Try another search or clear your filters." : "Share an idea or report a problem to help improve the app."}
+                </Copy>
+                {filtered ? (
+                  <Button secondary label="Clear filters" onPress={clear} />
+                ) : caps.canSubmit ? (
+                  <Button label="Post the first feedback" onPress={() => setComposerOpen(true)} />
+                ) : null}
+              </ListSurface>
+            )}
+
+            {pinned && (
+              <View style={{ gap: 8 }}>
+                <Copy kind="caption" style={{ fontWeight: "600" }}>Opened from a notification</Copy>
+                {entry(pinned)}
+              </View>
+            )}
+
+            {resource.data && mode === "board" && !!rest.length && (
+              <View style={{ gap: 12 }}>
+                <View accessibilityLiveRegion="polite">
+                  <Copy kind="caption">{visible.length} {visible.length === 1 ? "post" : "posts"}</Copy>
+                </View>
+                {rest.slice(0, shown).map(entry)}
+                {rest.length > shown && <Button secondary label={`Show more (${rest.length - shown})`} onPress={() => setShown((count) => count + PAGE_SIZE)} />}
+              </View>
+            )}
+
+            {resource.data && mode === "roadmap" && (
+              <View style={{ gap: 22 }}>
+                <Copy kind="caption">See what’s planned, what’s being worked on, and what’s ready to use.</Copy>
+                {roadmapColumns(rest).map((column) => (
+                  <RoadmapStage key={column.status} column={column} emptyMessage={roadmapEmptyMessage(column.status, filtered)}>
+                    {column.ideas.slice(0, shown).map(entry)}
+                    {column.ideas.length > shown && (
+                      <Button secondary label={`Show more (${column.ideas.length - shown})`} onPress={() => setShown((count) => count + PAGE_SIZE)} />
+                    )}
+                  </RoadmapStage>
+                ))}
+              </View>
+            )}
+          </>
         )}
       </Screen>
 
-      {composerOpen && user && (
+      {filtersOpen && (
+        <FeedbackFilterSheet
+          mode={mode}
+          filters={filters}
+          onChange={(next) => {
+            // The header search bar owns the text, so a clear from the sheet empties it too.
+            if (!next.search && filters.search) searchRef.current?.clearText();
+            setFilters(next);
+          }}
+          onClose={() => setFiltersOpen(false)}
+        />
+      )}
+      {composerOpen && user && caps.canSubmit && (
         <FeedbackComposerSheet
           userId={user.id}
-          onClose={() => setComposerOpen(false)}
+          onClose={closeComposer}
           onSaved={async () => {
-            setComposerOpen(false);
-            await resource.refresh();
+            closeComposer();
+            await refresh();
+          }}
+        />
+      )}
+      {editing && user && (
+        <FeedbackComposerSheet
+          idea={editing}
+          userId={user.id}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await refresh();
+          }}
+        />
+      )}
+      {replying && user && caps.canModerate && (
+        <FeedbackReplySheet
+          idea={replying}
+          userId={user.id}
+          onClose={() => setReplying(null)}
+          onSaved={async () => {
+            setReplying(null);
+            await refresh();
           }}
         />
       )}
     </>
-  );
-}
-
-function FeedbackRow({ idea, refresh }: { idea: SundaySchoolFeedbackIdea; refresh: () => Promise<void> }) {
-  const { colors } = useAppTheme();
-  const voteAction = useAction();
-  const preview = responsePreview(idea);
-  const upvoted = idea.viewerVote === "UP";
-
-  const toggleUpvote = async () => {
-    if (!idea.canVote || voteAction.busy) return;
-    feedback("selection");
-    await voteAction.run(async () => {
-      await request(`${endpoint("feedback", idea.id)}/vote`, "PUT", { vote: idea.viewerVote === "UP" ? null : "UP" });
-      await refresh();
-    });
-  };
-
-  return (
-    <ListSurface style={{ padding: 16, borderRadius: 16 }}>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${upvoted ? "Remove your upvote for" : "Upvote"} ${idea.title}, ${idea.score} net votes`}
-          accessibilityState={{ disabled: !idea.canVote || voteAction.busy, selected: upvoted, busy: voteAction.busy }}
-          disabled={!idea.canVote || voteAction.busy}
-          onPress={() => void toggleUpvote()}
-          style={({ pressed }) => ({
-            width: 50,
-            minHeight: 66,
-            paddingVertical: 8,
-            gap: 3,
-            borderWidth: 1,
-            borderColor: upvoted ? colors.primary : colors.border,
-            borderRadius: 10,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: upvoted ? colors.primarySoft : pressed ? colors.hover : colors.surface,
-            opacity: !idea.canVote || voteAction.busy ? 0.5 : 1,
-          })}
-        >
-          <Icon ios="chevron.up" android="keyboard_arrow_up" size={16} color={upvoted ? colors.primary : colors.muted} />
-          <Copy style={{ fontWeight: "600", fontSize: 15 }} color={upvoted ? colors.primary : colors.text}>{idea.score}</Copy>
-        </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${idea.title}. ${typeLabel(idea.type)}, ${statusLabel(idea.status)}. ${submittedLabel(idea)}`}
-        accessibilityHint="Opens feedback details and voting options"
-        onPress={() => router.push({ pathname: "/feedback/[id]", params: { id: idea.id } })}
-        style={({ pressed }) => ({ flex: 1, minWidth: 0, gap: 10, opacity: pressed ? 0.7 : 1 })}
-      >
-        <Copy style={{ fontWeight: "600", fontSize: 16, lineHeight: 22 }}>{idea.title}</Copy>
-        {idea.description && <Copy color={colors.text2} style={{ fontSize: 14, lineHeight: 20 }} numberOfLines={2}>{idea.description}</Copy>}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Icon ios={idea.type === "PROBLEM" ? "ladybug" : "lightbulb"} android={idea.type === "PROBLEM" ? "bug_report" : "lightbulb_outline"} size={13} color={colors.muted} />
-            <Copy kind="caption">{typeLabel(idea.type)}</Copy>
-          </View>
-          <FeedbackStatus status={idea.status} />
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <InitialsAvatar name={idea.submitter?.name} size={22} variant="neutral" />
-          <Copy kind="caption" style={{ flex: 1, fontSize: 12 }}>{submittedLabel(idea)}</Copy>
-        </View>
-        {preview && (
-          <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 10, gap: 4 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <Icon ios="bubble.left" android="chat_bubble_outline" size={12} color={colors.primary} />
-              <Copy kind="caption" color={colors.primary} style={{ fontWeight: "600", fontSize: 12 }}>{DEVELOPMENT_TEAM_LABEL}</Copy>
-            </View>
-            <Copy kind="caption" color={colors.text2} numberOfLines={2}>{preview}</Copy>
-          </View>
-        )}
-      </Pressable>
-      </View>
-    </ListSurface>
-  );
-}
-
-function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  const { colors } = useAppTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{
-        minHeight: 44,
-        paddingHorizontal: 14,
-        justifyContent: "center",
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: active ? colors.borderStrong : colors.border,
-        backgroundColor: active ? colors.hover : colors.surface,
-      }}
-    >
-      <Copy style={{ fontSize: 13, fontWeight: active ? "600" : "400", color: active ? colors.text : colors.muted }}>{label}</Copy>
-    </Pressable>
   );
 }

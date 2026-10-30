@@ -30,6 +30,7 @@ const TOOLS: Tool[] = [
   { id: "async-students", title: "Async students", subtitle: "Review signed rotation forms", href: "/prep-async-students" },
   { id: "registrations", title: "Registration review", subtitle: "Applicant queue", href: "/prep-registrations" },
   { id: "files", title: "Files", subtitle: "Shared documents", href: "/prep-files" },
+  { id: "feedback", title: "Feedback", subtitle: "Ideas, problems and the roadmap", href: "/feedback" },
 ];
 
 export default function PrepSearch() {

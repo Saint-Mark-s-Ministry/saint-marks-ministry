@@ -326,6 +326,37 @@ each with native Call, Message and Email actions. A missing value reads "Not pro
 - After a reassignment or removal the enrollment, the mentor views and the student's own screen
   are refetched. Shapes are in `packages/contracts/src/prep-roster.ts`.
 
+### The shared feedback board and roadmap
+
+Feedback is one board for the whole app (web #236, #237, #240, #241, #248). Servants Prep staff
+(Super Admin, priest, Servants Prep servant) open it from **More**, Sunday School servants from
+**Ministry**, and both read the same ideas, votes and replies from `GET /api/sunday-school/feedback`.
+Being able to read it grants no Sunday School class or roster access; the server decides who may
+read, and a refused account sees "Feedback isn't available" instead of a retry loop. The screen keeps
+the accent of the ministry it was opened from.
+
+- **Board and Roadmap.** A segmented control switches between the full board and the roadmap, which
+  groups ideas into Planned, In progress and Completed (open and declined ideas stay on the board).
+  Search covers the title, the post, the team's reply and the author's name. A Filters sheet holds
+  type, status (board only), sort (Top voted or Newest) and "Only my posts". The view and filters
+  are remembered per person for the session, so leaving for another screen and coming back, a refresh,
+  a vote or a sheet closing never resets them.
+- **Everything is inline.** Each post shows its full text and the Development Team's reply in place,
+  as the web board does since it dropped its detail popup; there is no separate detail screen.
+  Notification links open the board with that post on top.
+- **Native sheets for editing.** Posting and editing use the composer sheet (3 to 120 character title,
+  2,000 character details, counters, draft kept on this device). A moderator replies in a reply sheet
+  (2,000 characters, draft kept until published or removed). Status moves use the system action
+  sheet and a confirmation.
+- **Permissions come from the server.** `viewer.canSubmit`, `viewer.canModerate` and each post's
+  `canVote`, `canEdit` and `canDelete` decide what appears. Moderation is Super Admin only. View as
+  can read the board but every post, vote, reply, edit, delete and status control is off.
+- **Attribution.** Replies are always "Development Team". The server never sends who wrote one and
+  the app never asks.
+- **No double sends.** Each post's controls lock while its request is in flight, the sheets disable
+  their save while saving, and a failed send keeps the draft.
+- Types: `SundaySchoolFeedbackIdea` and `SundaySchoolFeedbackResponse` in `packages/contracts`.
+
 ## Remote push temporarily disabled
 
 `extra.remotePushEnabled` is currently `false` in `app.json`. The app skips

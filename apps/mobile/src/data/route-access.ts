@@ -17,7 +17,6 @@ export const authenticatedRoutes = [
   "child/[id]",
   "class/[id]",
   "feedback",
-  "feedback/[id]",
   "homework",
   "index",
   "lesson/[id]",

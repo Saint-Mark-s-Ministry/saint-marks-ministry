@@ -10,6 +10,8 @@ import { feedback } from "@/data/haptics";
 export const Field = forwardRef<TextInput, {
   label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean;
   keyboardType?: "default" | "email-address" | "phone-pad" | "numeric" | "url"; placeholder?: string; secureTextEntry?: boolean;
+  /** Stops typing at the limit, for fields the server caps. */
+  maxLength?: number;
   /** Shown below the input in the danger color, and announced to VoiceOver as it appears. */
   error?: string;
 }>(function Field({ label, value, onChange, multiline = false, disabled = false, secureTextEntry = false, error, ...rest }, ref) {
