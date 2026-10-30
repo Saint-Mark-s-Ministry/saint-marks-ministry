@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Circle, Download, Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { mutate } from 'swr'
+import { put as uploadBlob } from '@vercel/blob/client'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
 import { PageHeader } from '@/components/ds/page-header'
@@ -14,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
+import { APPROVAL_FORM_CONTENT_TYPE, approvalFormFileError, readApprovalFormResponse, readApprovalFormUploadResponse } from '@/lib/approval-form-upload'
 
 interface ApplicationDetails {
   fatherOfConfessionName: string | null
@@ -71,16 +73,35 @@ export default function CompleteApplicationPage() {
     event.target.value = ''
     if (!file) return
 
+    const fileError = approvalFormFileError(file)
+    if (fileError) {
+      toast.error(fileError)
+      return
+    }
+
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      const prepareResponse = await fetch('/api/registration/application/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'prepare', filename: file.name, size: file.size }),
+      })
+      const prepared = await readApprovalFormResponse(prepareResponse)
+      if (typeof prepared.pathname !== 'string' || typeof prepared.clientToken !== 'string') {
+        throw new Error('Unable to start the upload. Please refresh the page and try again.')
+      }
+      const blob = await uploadBlob(prepared.pathname, file, {
+        access: 'public',
+        token: prepared.clientToken,
+        contentType: APPROVAL_FORM_CONTENT_TYPE,
+        multipart: file.size > 4 * 1024 * 1024,
+      })
       const response = await fetch('/api/registration/application/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', pathname: blob.pathname, filename: file.name }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Upload failed')
+      const data = await readApprovalFormUploadResponse(response)
 
       setDetails((current) => current && ({
         ...current,
@@ -92,7 +113,9 @@ export default function CompleteApplicationPage() {
       if (data.complete) void mutate('/api/notifications?limit=15')
       toast.success('Approval form uploaded')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Upload failed')
+      toast.error(error instanceof TypeError
+        ? 'Unable to upload the form. Check your connection and try again.'
+        : error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setUploading(false)
     }
@@ -301,12 +324,11 @@ export default function CompleteApplicationPage() {
               <Input
                 id="approval-form"
                 type="file"
-                accept="image/*,application/pdf"
                 className="hidden"
                 onChange={uploadApprovalForm}
                 disabled={uploading}
               />
-              <p className="mt-2 text-xs text-ink-3">PNG, JPG, GIF, or PDF (maximum 4.5 MB)</p>
+              <p className="mt-2 text-xs text-ink-3">Any file type, including iPhone photos and PDFs (maximum 100 MB). Uploaded forms are available to download.</p>
             </div>
           </CardContent>
         </Card>}

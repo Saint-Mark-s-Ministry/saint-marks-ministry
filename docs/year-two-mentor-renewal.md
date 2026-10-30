@@ -73,3 +73,33 @@ with the current Prisma schema. It clears that schema's fixtures between tests.
 ```sh
 RUN_MENTOR_RENEWAL_DB_TESTS=1 bun test:run __tests__/integration/year-two-mentor-renewal.test.ts
 ```
+
+## Signed approval form uploads
+
+Application accepts any file format, including iPhone HEIC/HEIF photos, PDFs,
+Office documents and files without a reported MIME type, up to 100 MB. New pages
+request an authenticated, short-lived token for a server-generated pathname,
+upload directly to Vercel Blob (multipart above 4 MB), then ask the API to verify
+and save the uploaded reference. Only small JSON requests reach the application
+server, avoiding Vercel's 4.5 MB request-body limit. The existing Blob read/write
+configuration is reused; no schema or environment-variable change is required.
+
+Token generation and completion both recheck application/annual-mentor
+eligibility, including withdrawn Year 2 students. Tokens allow only one random
+pathname, cannot overwrite existing blobs, and require an octet-stream content
+type. Completion resolves the pathname in our own Blob store, checks ownership,
+size and content type, and saves the provider's download URL and original display
+filename. Arbitrary formats are downloaded rather than rendered as active content.
+A failed upload or verification leaves the previous saved form intact. Uploading
+alone does not verify the mentor information or reactivate the student.
+
+The old multipart API remains for previously opened pages, with a 4 MB file cap
+and a refresh instruction for larger files. New pages accept 100 MB directly.
+Non-JSON hosting errors, expired sessions and invalid success responses produce
+an actionable message rather than Safari's vague JSON parsing error. The exact
+reported incident could not be confirmed without its file or request details;
+regression tests simulate that Safari error and non-JSON hosting responses.
+
+Before production release, check an authenticated iPhone upload/replacement of
+HEIC and PDF files, including a file above 4.5 MB, and download the saved form as
+staff. Check failed upload retry and withdrawn-student submission as well.
