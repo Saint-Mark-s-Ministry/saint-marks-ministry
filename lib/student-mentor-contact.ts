@@ -1,4 +1,5 @@
 import { RegistrationStatus } from '@prisma/client'
+import { requiresAnnualMentorUpdate } from '@/lib/annual-mentor-requirement'
 import { prisma } from '@/lib/prisma'
 import { resolveMentorContact, type MentorEnrollment, type SubmittedMentor, type MentorFormState } from '@/lib/mentor-contact'
 
@@ -8,7 +9,7 @@ type ContactSubmission = SubmittedMentor & (
 )
 
 function mentorFormState(enrollment: MentorEnrollment, submitted: ContactSubmission | undefined): MentorFormState | null {
-  if (enrollment.yearLevel !== 'YEAR_2' || enrollment.isActive === false) return null
+  if (!requiresAnnualMentorUpdate(enrollment)) return null
   if (submitted?.source !== 'annual') return { status: 'REQUIRED', submission: null }
   return {
     status: submitted.reviewedAt ? 'REVIEWED' : 'PENDING_REVIEW',
@@ -38,7 +39,7 @@ function withMentorState<T extends MentorEnrollment>(enrollment: T, submitted: C
 function currentMentorContact(enrollment: MentorEnrollment, submitted: ContactSubmission | undefined) {
   // A Year 1 application and the previous assigned account cannot stand in for
   // the fresh confirmation required after promotion.
-  if (enrollment.yearLevel === 'YEAR_2' && enrollment.isActive !== false) {
+  if (requiresAnnualMentorUpdate(enrollment)) {
     return submitted?.source === 'annual' && submitted.mentorName
       ? { name: submitted.mentorName, email: submitted.mentorEmail ?? null, phone: submitted.mentorPhone }
       : null
@@ -62,7 +63,7 @@ export async function getSubmittedMentorContacts(studentIds: string[]) {
       select: { createdUserId: true, mentorName: true, mentorEmail: true, mentorPhone: true },
     }),
   ])
-  // Year 1 and historical views can use the approved application. Active Year 2
+  // Year 1 and historical views can use the approved application. Active/withdrawn Year 2
   // students require their current-year confirmation instead.
   for (const entry of applications) {
     if (entry.createdUserId && entry.mentorName && !contacts.has(entry.createdUserId)) {

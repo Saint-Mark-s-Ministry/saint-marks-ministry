@@ -40,7 +40,11 @@ describe('Year 2 mentor information reminder', () => {
     mocks.createReminder.mockResolvedValue({ id: 'reminder-1' })
   })
 
-  it('creates a persistent prompt for a promoted student missing this year information', async () => {
+  it.each([
+    { isActive: true, status: 'ACTIVE' },
+    { isActive: false, status: 'WITHDRAWN' },
+  ])('keeps the current-year submission link available: %o', async (state) => {
+    mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', yearLevel: 'YEAR_2', ...state })
     await ensureAnnualMentorReminder('student-1')
 
     expect(mocks.createReminder).toHaveBeenCalledWith({
@@ -68,6 +72,7 @@ describe('Year 2 mentor information reminder', () => {
       select: {
         id: true,
         isActive: true,
+        status: true,
         isAsyncStudent: true,
         yearLevel: true,
         mentorName: true,

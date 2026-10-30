@@ -6,7 +6,7 @@ are ended with the promotion reason and retained as history. Assignment-derived
 access is recalculated; the mentor keeps access to any other active mentees.
 Saving a student who is already in Year 2 does not repeat the reset.
 
-An active Year 2 student's mentor is populated only from their submitted form for
+An active or withdrawn Year 2 student's mentor is populated only from their submitted form for
 the active academic year. The original application, enrollment fields and previous
 account cannot supply a fallback. Until submission, the roster displays **Form
 not submitted** and account assignment is unavailable.
@@ -23,6 +23,19 @@ requires verification again and replaces earlier review notifications.
 The submitted mentor contact and assigned app account remain separate: mentors
 without an app account can still be submitted and verified. Assignment of an app
 account to an active Year 2 student requires a submitted current-year form.
+
+## Late submissions from withdrawn students
+
+Withdrawn Year 2 students can still open Application, submit their current-year
+mentor contact details, and upload the signed approval form, including legacy
+students without an approved registration record. Submission creates the usual
+staff verification notification. Staff can select Withdrawn on Student roster
+(or follow the notification) and verify the form there.
+
+Submission and verification do not reactivate the enrollment or change attendance.
+Staff must separately change the student's status to Active when ready to include
+them again. Graduated students and other inactive enrollments do not gain the
+Year 2 renewal flow. No database migration is required.
 
 ## Existing records before deployment
 

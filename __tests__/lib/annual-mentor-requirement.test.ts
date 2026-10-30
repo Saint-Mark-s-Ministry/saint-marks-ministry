@@ -9,7 +9,11 @@ describe('annual mentor renewal eligibility shared by server and roster', () => 
     { yearLevel: 'YEAR_2', isActive: true, isAsyncStudent: false, expected: true },
     { yearLevel: 'YEAR_2', isActive: true, isAsyncStudent: true, expected: true },
     { yearLevel: 'YEAR_2', isActive: false, isAsyncStudent: false, expected: false },
-  ] as const)('requires active Year 2 enrollment: %o', ({ expected, ...enrollment }) => {
+    { yearLevel: 'YEAR_2', isActive: false, status: 'WITHDRAWN', expected: true },
+    { yearLevel: 'YEAR_1', isActive: false, status: 'WITHDRAWN', expected: false },
+    { yearLevel: null, isActive: false, status: 'WITHDRAWN', expected: false },
+    { yearLevel: 'YEAR_2', isActive: false, status: 'GRADUATED', expected: false },
+  ] as const)('requires active or withdrawn Year 2 enrollment: %o', ({ expected, ...enrollment }) => {
     expect(requiresAnnualMentorUpdate(enrollment)).toBe(expected)
   })
 

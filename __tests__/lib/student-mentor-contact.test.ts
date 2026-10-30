@@ -89,18 +89,33 @@ describe('mentor contacts across all student views', () => {
     expect(await getStudentMentorContact('mark', { mentor: null, mentorName: null, mentorPhone: null })).toBeNull()
   })
 
-  it('keeps active Year 2 contacts and assignments empty without this year form', async () => {
+  it.each([
+    { isActive: true, status: 'ACTIVE' as const },
+    { isActive: false, status: 'WITHDRAWN' as const },
+  ])('keeps Year 2 contacts and assignments empty without this year form: %o', async (state) => {
     mocks.applications.mockResolvedValue([{ ...confirmed, createdUserId: 'mark' }])
-    const yearTwo = { ...enrollment, yearLevel: 'YEAR_2' as const, isActive: true }
+    const yearTwo = { ...enrollment, yearLevel: 'YEAR_2' as const, ...state }
     expect(await getStudentMentorContact('mark', yearTwo)).toBeNull()
     const [row] = await withEnrollmentMentorContacts([yearTwo])
     expect(row).toMatchObject({ mentor: null, mentorId: null, mentorName: null, mentorPhone: null, mentorContact: null, mentorForm: { status: 'REQUIRED', submission: null } })
   })
 
-  it('populates active Year 2 only from its submitted form and exposes the version for review', async () => {
+  it.each([
+    { isActive: true, status: 'ACTIVE' as const },
+    { isActive: false, status: 'WITHDRAWN' as const },
+  ])('exposes the Year 2 submission version for review: %o', async (state) => {
     mocks.annual.mockResolvedValue([confirmed])
-    const [row] = await withEnrollmentMentorContacts([{ ...enrollment, yearLevel: 'YEAR_2' as const, isActive: true }])
+    const [row] = await withEnrollmentMentorContacts([{ ...enrollment, yearLevel: 'YEAR_2' as const, ...state }])
     expect(row.mentorContact).toEqual(expected)
     expect(row.mentorForm).toMatchObject({ status: 'PENDING_REVIEW', submission: { ...expected, updatedAt: confirmed.updatedAt.toISOString() } })
   })
+  it('preserves historical contacts without renewal controls for graduated Year 2 students', async () => {
+    mocks.applications.mockResolvedValue([{ ...confirmed, createdUserId: 'mark' }])
+    const [row] = await withEnrollmentMentorContacts([{
+      ...enrollment, yearLevel: 'YEAR_2' as const, isActive: false, status: 'GRADUATED' as const,
+    }])
+    expect(row.mentorContact).toEqual(expected)
+    expect(row.mentorForm).toBeNull()
+  })
+
 })
