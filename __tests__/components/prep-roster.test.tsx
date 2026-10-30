@@ -44,6 +44,47 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Servants Prep roster', () => {
+  it('counts only active students in mentor workload and preserves the roster status when selecting mentors', async () => {
+    const mentor = { id: 'mentor-1', name: 'Current Mentor', email: 'mentor@example.com' }
+    const formerMentor = { id: 'mentor-2', name: 'Former Mentor', email: 'former@example.com' }
+    const mixedRecords = [
+      { ...enrollment('active', 'Active Student'), mentor },
+      { ...enrollment('async', 'Async Student'), isAsyncStudent: true, mentor },
+      { ...enrollment('graduated', 'Graduated Student'), status: 'GRADUATED', isActive: false, mentor },
+      { ...enrollment('withdrawn', 'Withdrawn Student'), status: 'WITHDRAWN', isActive: false, mentor },
+      { ...enrollment('former', 'Former Student'), status: 'GRADUATED', isActive: false, mentor: formerMentor },
+      enrollment('unassigned', 'Unassigned Student'),
+    ]
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(
+      url === '/api/enrollments' ? mixedRecords : url === '/api/mentor-options' ? [mentor, formerMentor] : []
+    )))
+    render(<EnrollmentsPage />)
+    await screen.findByRole('table')
+
+    const workload = within(screen.getByRole('heading', { name: 'Mentor workload' }).closest('section')!)
+    const current = workload.getByRole('button', { name: /Current Mentor/ })
+    expect(current).toHaveTextContent('Current Mentor2')
+    expect(workload.getByRole('button', { name: /Former Mentor/ })).toHaveTextContent('Former Mentor0')
+
+    fireEvent.click(current)
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('ACTIVE')
+    expect(desktopNames()).toEqual(['Active Student', 'Async Student'])
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Filter by mentor' }))
+    const mentorOptions = within(screen.getByRole('listbox'))
+    expect(mentorOptions.getByRole('option', { name: /Current Mentor/ })).toHaveTextContent('Current Mentor2')
+    fireEvent.click(mentorOptions.getByRole('option', { name: /Former Mentor/ }))
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('ACTIVE')
+    expect(screen.queryByText('Former Student')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'GRADUATED' } })
+    expect(desktopNames()).toEqual(['Former Student'])
+    fireEvent.click(current)
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('GRADUATED')
+    expect(desktopNames()).toEqual(['Graduated Student'])
+    expect(current).toHaveTextContent('Current Mentor2')
+  })
+
   const pending = {
     ...records[2],
     mentorContact: { name: 'Current Mentor', email: 'current@example.com', phone: '2015550123' },
@@ -63,11 +104,13 @@ describe('Servants Prep roster', () => {
     expect(screen.queryByRole('button', { name: 'Verify mentor form for Anna George' })).not.toBeInTheDocument()
   })
 
-  it('lets Prep staff verify the exact submitted version on the roster and refreshes both layouts', async () => {
+  it.each(['ACTIVE', 'WITHDRAWN'])('lets Prep staff verify a notified %s student and refreshes both layouts', async (status) => {
+    auth.query = 'studentId=anna'
+    const student = { ...pending, status, isActive: status === 'ACTIVE' }
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
-      if (options?.method === 'POST') return Response.json({ reviewed: true })
-      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...pending, mentorForm: { ...pending.mentorForm, status: 'REVIEWED' } }])
-      return Response.json(url === '/api/enrollments' ? [pending] : [])
+      if (options?.method === 'POST') return Response.json({ reviewed: true, reactivated: status === 'WITHDRAWN' })
+      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...student, status: 'ACTIVE', isActive: true, mentorForm: { ...student.mentorForm, status: 'REVIEWED' } }])
+      return Response.json(url === '/api/enrollments' ? [student] : [])
     })
     vi.stubGlobal('fetch', fetch)
     render(<EnrollmentsPage />)
@@ -81,6 +124,8 @@ describe('Servants Prep roster', () => {
       body: JSON.stringify({ updatedAt: pending.mentorForm.submission.updatedAt }),
     })
     expect(screen.queryByRole('button', { name: 'Verify mentor form for Anna George' })).not.toBeInTheDocument()
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false)
+    expect(within(screen.getByRole('table')).getByText('Active')).toBeInTheDocument()
   })
 
   it('keeps a stale submission pending when the server rejects verification', async () => {

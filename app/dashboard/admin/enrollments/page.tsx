@@ -230,7 +230,7 @@ function EnrollmentsContent() {
       if (!refreshed.ok) throw new Error('Mentor form verified. Refresh the roster to see the latest status.')
       const current = await refreshed.json() as Enrollment[]
       setEnrollments(previous => previous.map(row => current.find(item => item.id === row.id) ?? row))
-      toast.success('Mentor form verified')
+      toast.success(result.reactivated ? 'Mentor form verified. Student returned to active attendance.' : 'Mentor form verified')
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not verify mentor form')
     } finally {
@@ -329,14 +329,9 @@ function EnrollmentsContent() {
   // SUPER_ADMIN, PRIEST, and SERVANT_PREP can manage enrollments
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
-  // A mentor's count covers every student they mentor, withdrawn and graduated
-  // included, so picking one shows all statuses; clearing it goes back to Active.
-  // A status the admin chose by hand is left alone.
+  // Selecting a mentor preserves the status filter (Active by default).
   const selectMentor = (mentorId: string) => {
     setFilterMentor(mentorId)
-    const isMentor = mentorId !== 'all' && mentorId !== 'unassigned'
-    if (isMentor && filterStatus === 'ACTIVE') setFilterStatus('all')
-    if (!isMentor && filterStatus === 'all') setFilterStatus('ACTIVE')
   }
 
   if (loading || status === 'loading') {
@@ -357,7 +352,8 @@ function EnrollmentsContent() {
     if (filterYear !== 'all' && enrollment.yearLevel !== filterYear) {
       return false
     }
-    if (filterStatus !== 'all' && enrollment.status !== filterStatus) {
+    // Review notifications must also open students outside the default Active roster.
+    if (!requestedStudentId && filterStatus !== 'all' && enrollment.status !== filterStatus) {
       return false
     }
     if (filterAcademicYear !== 'all') {
@@ -371,11 +367,11 @@ function EnrollmentsContent() {
     return true
   }).sort((left, right) => comparePersonNames(left.student.name, right.student.name, nameOrder))
 
-  // Calculate workload per mentor
+  // Workload counts active students, independently of the roster filters.
   const mentorWorkload = new Map<string, number>()
   if (Array.isArray(enrollments)) {
     enrollments.forEach(enrollment => {
-      if (enrollment.mentor) {
+      if (enrollment.status === 'ACTIVE' && enrollment.mentor) {
         const count = mentorWorkload.get(enrollment.mentor.id) || 0
         mentorWorkload.set(enrollment.mentor.id, count + 1)
       }
@@ -393,7 +389,7 @@ function EnrollmentsContent() {
 
   const mentorSelect = (enrollment: Enrollment) => (
     <div className="flex flex-col gap-1">
-      <span>{enrollment.mentorContact?.name ?? (enrollment.isActive && enrollment.yearLevel === 'YEAR_2' ? 'Year 2 mentor form pending' : 'Not provided')}</span>
+      <span>{enrollment.mentorContact?.name ?? (enrollment.mentorForm?.status === 'REQUIRED' ? 'Year 2 mentor form pending' : 'Not provided')}</span>
       {enrollment.mentorForm && (
         <div className="flex flex-col items-start gap-1.5">
           <StatusBadge tone={enrollment.mentorForm.status === 'REVIEWED' ? 'ok' : 'warn'}>
@@ -401,6 +397,9 @@ function EnrollmentsContent() {
           </StatusBadge>
           {enrollment.mentorForm.submission?.email && <ContactLink kind="email" value={enrollment.mentorForm.submission.email} name={enrollment.mentorForm.submission.name} className="text-xs" />}
           {enrollment.mentorForm.submission?.phone && <ContactLink kind="phone" value={enrollment.mentorForm.submission.phone} name={enrollment.mentorForm.submission.name} className="text-xs" />}
+          {enrollment.mentorForm.status === 'PENDING_REVIEW' && enrollment.status === 'WITHDRAWN' && (
+            <p className="text-xs text-ink-3">Verification returns this student to active attendance.</p>
+          )}
           {enrollment.mentorForm.status === 'PENDING_REVIEW' && canEdit && session?.user?.role !== 'PRIEST' && !session?.impersonating && (
             <Button type="button" variant="outline" disabled={verifyingStudentId !== null}
               aria-label={`Verify mentor form for ${enrollment.student.name}`}
@@ -618,7 +617,7 @@ function EnrollmentsContent() {
           )}
         </Panel>
 
-        <Panel title="Mentor workload" description="Assigned accounts · select a mentor to filter the roster">
+        <Panel title="Mentor workload" description="Active students · select a mentor to filter the roster">
           <ul className="flex flex-col py-1.5">
             {[...mentors]
               .sort((a, b) => (mentorWorkload.get(b.id) || 0) - (mentorWorkload.get(a.id) || 0))

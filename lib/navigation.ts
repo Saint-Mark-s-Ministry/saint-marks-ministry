@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   BookOpen,
+  BookOpenCheck,
   BookOpenText,
   ContactRound,
   CalendarCheck,
@@ -203,6 +204,7 @@ function sundaySchoolNav(user: NavUser): NavGroup[] {
       tab: true,
       also: user.sundaySchool?.hasHomeworkAccess ? ['/dashboard/servants/homework'] : undefined,
     },
+    { href: '/dashboard/servants/memorization', label: 'Memorization', icon: BookOpenCheck },
   ]
 
   const ministry: NavItem[] = coordinates

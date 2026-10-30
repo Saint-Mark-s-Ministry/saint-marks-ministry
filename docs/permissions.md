@@ -46,6 +46,24 @@ Tags grant participation, not record scope. A `SUNDAY_SCHOOL_SERVANT` tag alone
 cannot reveal a class, and a `MENTOR` tag alone cannot reveal a student. Active
 assignments or guardian relationships grant that scope.
 
+Mentors can expand **My mentees → Show details → Attendance history** to read
+the dates, lesson titles, and recorded attendance marks for their assigned Prep
+students. `GET /api/students/[id]/attendance` reloads `AuthorizationContext` on
+every request: disabled accounts are denied, current Prep staff tags allow all
+Prep students, and other accounts need the current active `MentorAssignment`
+and active enrollment represented by `prepStudentScope`. JWT role claims and
+Sunday School assignments cannot grant this access. Reconcile durable mentor
+assignments and role tags before rollout, as required by the compatibility
+workflow. Ending an assignment removes access on the next request.
+
+This read-only endpoint returns only recorded lesson dates/titles, marks, and
+the flags needed to distinguish N/A records. It excludes exam days and cancelled
+or no-class lessons, never invents absences for unrecorded lessons, and returns
+no lesson records for current async students. The panel fetches on expansion,
+rechecks on reopening/focus, isolates caches by viewer, and hides cached history
+while revalidating or after denial. No attendance edits or broader profile
+access are added. No schema or configuration change is required.
+
 Mentor candidate selection uses `lib/mentor-eligibility.ts`, rather than the
 legacy `canBeMentor(role)` helper alone. Enabled accounts with an active
 `SUPER_ADMIN`, `PRIEST`, `SERVANTS_PREP_SERVANT`, or `SUNDAY_SCHOOL_SERVANT` tag

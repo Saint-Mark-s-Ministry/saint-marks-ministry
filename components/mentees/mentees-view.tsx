@@ -20,6 +20,7 @@ import { getRoleDisplayName, isAdmin } from '@/lib/roles'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { MenteeAnalytics } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { MenteeAttendanceHistory } from './attendance-history'
 
 interface StudentNote {
   id: string
@@ -195,6 +196,7 @@ export function MenteesView({ session }: { session: Session | null }) {
             <MenteeCard
               key={mentee.id}
               mentee={mentee}
+              viewerId={userId}
               expanded={expanded === mentee.id}
               onToggle={() => toggle(mentee)}
               notes={
@@ -231,11 +233,13 @@ function Requirement({ met, label }: { met: boolean | undefined; label: string }
 
 function MenteeCard({
   mentee,
+  viewerId,
   expanded,
   onToggle,
   notes,
 }: {
   mentee: Mentee
+  viewerId?: string
   expanded: boolean
   onToggle: () => void
   notes: React.ReactNode
@@ -363,6 +367,7 @@ function MenteeCard({
             </section>
           )}
           {notes}
+          <MenteeAttendanceHistory studentId={mentee.student.id} studentName={mentee.student.name} viewerId={viewerId} />
         </div>
       )}
     </Panel>

@@ -1,3 +1,5 @@
+import type { EnrollmentStatus } from '@prisma/client'
+
 export type MentorContact = {
   name: string
   email: string | null
@@ -19,6 +21,7 @@ export type MentorEnrollment = SubmittedMentor & {
   mentor: { name: string; email?: string | null; phone?: string | null } | null
   mentorId?: string | null
   yearLevel?: 'YEAR_1' | 'YEAR_2' | null
+  status?: EnrollmentStatus
   isActive?: boolean
 }
 
