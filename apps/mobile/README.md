@@ -360,7 +360,7 @@ the accent of the ministry it was opened from.
 ### Passkeys (web #242)
 
 Passkeys are an extra way to sign in; the password, Google and recovery paths are unchanged. The
-design and every server requirement are in [`docs/passkeys.md`](../../docs/passkeys.md), "Native iOS app".
+design, setup, screenshots and test recipe are in [`docs/ios-passkeys.md`](../../docs/ios-passkeys.md); server settings in [`docs/passkeys.md`](../../docs/passkeys.md).
 
 - **When they show.** The app asks `GET /api/public/passkeys` and offers passkeys only when the
   server says `enabled` and `ios`, and its `rpId` is the domain this build was associated with.
