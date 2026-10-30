@@ -19,6 +19,8 @@ interface AttendanceRecord {
 interface BatchRequest {
   lessonId: string
   records: AttendanceRecord[]
+  expectedUserId?: string
+  finalize?: boolean
 }
 
 // POST /api/attendance/batch - Save multiple attendance records in one request
@@ -35,6 +37,12 @@ export async function POST(request: Request) {
     }
 
     const body: BatchRequest = await request.json()
+    if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+      return NextResponse.json({ error: 'Your signed-in account changed. Reload attendance before saving.' }, { status: 403 })
+    }
+    if (body.finalize !== undefined && typeof body.finalize !== 'boolean') {
+      return NextResponse.json({ error: 'Invalid attendance save mode' }, { status: 400 })
+    }
     const { lessonId } = body
     let { records } = body
 
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
     // Get existing attendance records for this lesson
     const existingRecords = await prisma.attendanceRecord.findMany({
       where: { lessonId },
-      select: { id: true, studentId: true }
+      select: { id: true, studentId: true, conductRemoval: true }
     })
 
     const existingByStudent = new Map(
@@ -86,17 +94,18 @@ export async function POST(request: Request) {
     const lessonDateValue = new Date(lesson.scheduledDate)
     const enrollmentsForStudents = await prisma.studentEnrollment.findMany({
       where: { studentId: { in: studentIdSet } },
-      select: { studentId: true, attendanceStartDate: true, isAsyncStudent: true },
+      select: { studentId: true, attendanceStartDate: true, isAsyncStudent: true, isActive: true, status: true },
     })
 
-    // Current async students never belong on prep lesson roll call, including
-    // backdated saves from a stale page.
-    const asyncForLesson = new Set(
+    // Recheck active in-person enrollment for every save, including autosaves
+    // from a page opened before a withdrawal or async approval.
+    const eligibleForLesson = new Set(
       enrollmentsForStudents
-        .filter(e => e.isAsyncStudent)
+        .filter(e => !e.isAsyncStudent && e.isActive && e.status === 'ACTIVE')
         .map(e => e.studentId)
     )
-    records = records.filter(r => !asyncForLesson.has(r.studentId))
+    const skippedStudentIds = records.filter(r => !eligibleForLesson.has(r.studentId)).map(r => r.studentId)
+    records = records.filter(r => eligibleForLesson.has(r.studentId))
     const attendanceStartByStudent = new Map<string, Date | null>(
       enrollmentsForStudents.map(e => [e.studentId, e.attendanceStartDate])
     )
@@ -258,7 +267,7 @@ export async function POST(request: Request) {
           if (groupedRecords.length > 0) {
             await tx.attendanceRecord.updateMany({
               where: { id: { in: groupedRecords.map(r => r.id) } },
-              data: { recordedBy: user.id, updatedAt: savedAt, status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null, expectedAbsenceNA: false }
+              data: { recordedBy: user.id, updatedAt: savedAt, status: status as AttendanceStatus, arrivedAt: null, notes: null, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null, expectedAbsenceNA: false }
             })
           }
         }
@@ -290,8 +299,9 @@ export async function POST(request: Request) {
 
     // Send notifications to mentors (non-blocking)
     const studentIds = records.map((r: AttendanceRecord) => r.studentId)
-    const conductRemovals = records.filter((r: AttendanceRecord) => r.conductRemoval === true)
-    prisma.user.findMany({
+    const conductRemovals = records.filter((r: AttendanceRecord) => r.conductRemoval === true &&
+      !existingRecords.find(existing => existing.studentId === r.studentId)?.conductRemoval)
+    if (body.finalize !== false || conductRemovals.length > 0) prisma.user.findMany({
       where: { id: { in: studentIds } },
       select: { id: true, name: true },
     }).then(async (students) => {
@@ -303,7 +313,8 @@ export async function POST(request: Request) {
       const lessonDate = lesson.scheduledDate
         ? new Date(lesson.scheduledDate).toLocaleDateString()
         : 'N/A'
-      await notifyAttendanceRecorded({
+      // Quiet autosaves must not send a whole-lesson mentor alert on every tap.
+      if (body.finalize !== false) await notifyAttendanceRecorded({
         lessonTitle: lesson.title,
         lessonDate,
         studentRecords,
@@ -327,6 +338,7 @@ export async function POST(request: Request) {
       success: true,
       created: toCreate.length,
       updated: toUpdate.length,
+      skippedStudentIds,
       lastSavedBy: records.length ? { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } : null,
     })
   } catch (error: unknown) {

@@ -2,7 +2,8 @@
 
 import { StudentProfileLink } from '@/components/student-profile-link'
 
-import { latestAttendanceSave, type AttendanceSaveInfo } from '@/lib/attendance-save-info'
+import { usePrepAttendance } from '@/hooks/usePrepAttendance'
+import type { PrepAttendanceRecord as AttendanceRecord } from '@/lib/prep-attendance-draft'
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
 import { useEffect, useRef, useState, useMemo } from 'react'
@@ -24,7 +25,7 @@ import { LastSaved } from '@/components/ui/last-saved'
 import { isAdmin, canManageData } from '@/lib/roles'
 import { ChevronDown, ChevronRight, CheckCheck, Rows3, UserX, Plane } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDateUTC, formatUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+import { formatDateUTC, formatUTC, buildStudentMapFromEnrollments } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -60,43 +61,44 @@ interface Student {
   }>
 }
 
-interface AttendanceRecord {
-  updatedAt?: string
-  recorder?: AttendanceSaveInfo['recorder']
-  studentId: string
-  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
-  arrivedAt?: string
-  notes?: string
-  conductRemoval?: boolean
-  conductNote?: string
-}
-
 export default function AttendancePage() {
   const { session, status } = useAdminGuard(isAdmin)
-  const [savedByLesson, setSavedByLesson] = useState<{ lessonId: string; info: AttendanceSaveInfo | null } | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [selectedYearId, setSelectedYearId] = useState<string>('')
-  const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map())
-  const [, setExistingAttendance] = useState<Map<string, AttendanceRecord>>(new Map())
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterMentees, setFilterMentees] = useState(false)
   const [lessonStatusFilter, setLessonStatusFilter] = useState<string>('all')
   const [lessonView, setLessonView] = useState<'needs' | 'done'>('needs')
   const deepLinkApplied = useRef(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [compactMode, setCompactMode] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
   const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
   const [conductNoteInput, setConductNoteInput] = useState('')
-  // Expected absences covering the selected lesson, keyed by studentId
-  const [expectedAbsences, setExpectedAbsences] = useState<Map<string, { id: string; reason: string; markAsNA: boolean }>>(new Map())
+
+  // Check if user can manage data
+  const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
+
+  // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)
+  const isLessonEditable = useMemo(() => {
+    if (!selectedLesson) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const lessonDate = new Date(selectedLesson.scheduledDate)
+    lessonDate.setHours(0, 0, 0, 0)
+    return lessonDate <= today
+  }, [selectedLesson])
+
+  const eligibleIds = students.filter(student => !student.enrollments.some(e => e.isAsyncStudent)).map(student => student.id)
+  const editor = usePrepAttendance(session?.user?.id ?? '', selectedLesson?.id ?? '', eligibleIds,
+    userCanManageData && isLessonEditable && !session?.impersonating, !loading)
+  const attendance = useMemo(() => new Map(Object.entries(editor.records)), [editor.records])
+  const { expectedAbsences, saving, lastSaved } = editor
+  const pendingCount = Object.keys(editor.pending).length
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -176,188 +178,36 @@ export default function AttendancePage() {
     }
 
     fetchLessons()
-  }, [selectedYearId])
-
-  useEffect(() => {
-    const fetchAttendance = async () => {
-      if (!selectedLesson) return
-
-      try {
-        const [attRes, eaRes] = await Promise.all([
-          fetch(`/api/attendance?lessonId=${selectedLesson.id}`),
-          fetch(`/api/expected-absences?lessonId=${selectedLesson.id}`),
-        ])
-        const records = await attRes.json()
-        setSavedByLesson({ lessonId: selectedLesson.id, info: latestAttendanceSave(records) })
-
-        // Build a map of expected absences covering this lesson, keyed by student
-        const eaMap = new Map<string, { id: string; reason: string; markAsNA: boolean }>()
-        if (eaRes.ok) {
-          const eaData: Array<{ id: string; studentId: string; reason: string; markAsNA?: boolean }> = await eaRes.json()
-          eaData.forEach((ea) => eaMap.set(ea.studentId, { id: ea.id, reason: ea.reason, markAsNA: ea.markAsNA === true }))
-        }
-        setExpectedAbsences(eaMap)
-
-        const recordsMap = new Map<string, AttendanceRecord>()
-        records.forEach((record: AttendanceRecord & { studentId: string; conductRemoval?: boolean; conductNote?: string }) => {
-          recordsMap.set(record.studentId, record)
-        })
-        setExistingAttendance(recordsMap)
-
-        const attendanceMap = new Map<string, AttendanceRecord>()
-        records.forEach((record: AttendanceRecord & { studentId: string }) => {
-          attendanceMap.set(record.studentId, {
-            studentId: record.studentId,
-            status: record.status,
-            arrivedAt: record.arrivedAt,
-            notes: record.notes,
-            conductRemoval: record.conductRemoval,
-            conductNote: record.conductNote,
-          })
-        })
-
-        // Pre-fill students with an expected absence that have no record yet:
-        // Absent by default (counts until manually excused), or Excused (shown
-        // as N/A, not counted) when the absence is marked N/A. The reason is
-        // pre-filled into notes and admins can still override before saving.
-        eaMap.forEach((ea, studentId) => {
-          if (!attendanceMap.has(studentId)) {
-            attendanceMap.set(studentId, {
-              studentId,
-              status: ea.markAsNA ? 'EXCUSED' : 'ABSENT',
-              notes: ea.reason,
-            })
-          }
-        })
-
-        setAttendance(attendanceMap)
-      } catch (error) {
-        console.error('Failed to fetch attendance:', error)
-      }
-    }
-
-    fetchAttendance()
-  }, [selectedLesson])
+  }, [selectedYearId, selectedLesson?.id])
 
   const updateAttendance = (studentId: string, field: keyof AttendanceRecord, value: string) => {
-    const record = attendance.get(studentId) || {
-      studentId,
-      status: 'PRESENT' as const,
-    }
-
-    // Changing the status directly clears any conduct removal
-    const updates: Partial<AttendanceRecord> = { [field]: value }
-    if (field === 'status') {
-      updates.conductRemoval = false
-      updates.conductNote = undefined
-    }
-
-    setAttendance(new Map(attendance.set(studentId, {
-      ...record,
-      ...updates,
-    })))
-    setHasUnsavedChanges(true)
+    editor.mark(studentId, { [field]: value, ...(field === 'status' ? { conductRemoval: false, conductNote: null } : {}) })
   }
 
   const handleMarkAllPresent = () => {
-    const newAttendance = new Map(attendance)
-    filteredStudents.forEach(student => {
-      const existing = attendance.get(student.id)
-      newAttendance.set(student.id, {
-        studentId: student.id,
-        status: 'PRESENT',
-        arrivedAt: existing?.arrivedAt,
-        notes: existing?.notes
-      })
-    })
-    setAttendance(newAttendance)
-    setHasUnsavedChanges(true)
+    filteredStudents.forEach(student => editor.mark(student.id, { status: 'PRESENT', conductRemoval: false, conductNote: null }))
   }
 
   const handleConductRemovalClick = (studentId: string, studentName: string) => {
-    const record = attendance.get(studentId)
-    if (record?.conductRemoval) {
-      // Toggle off - clear the conduct removal
-      setAttendance(new Map(attendance.set(studentId, {
-        ...record,
-        status: 'ABSENT',
-        conductRemoval: false,
-        conductNote: undefined,
-      })))
-      setHasUnsavedChanges(true)
+    if (attendance.get(studentId)?.conductRemoval) {
+      editor.mark(studentId, { status: 'ABSENT', conductRemoval: false, conductNote: null })
     } else {
-      // Open dialog to get reason
       setConductNoteInput('')
       setConductRemovalDialog({ studentId, studentName })
     }
   }
 
   const confirmConductRemoval = () => {
-    if (!conductRemovalDialog) return
-    if (!conductNoteInput.trim()) {
-      toast.error('A reason is required', { description: 'Please provide a reason for removing the student.' })
-      return
-    }
-    const { studentId } = conductRemovalDialog
-    const record = attendance.get(studentId) || { studentId, status: 'ABSENT' as const }
-    setAttendance(new Map(attendance.set(studentId, {
-      ...record,
-      status: 'ABSENT',
-      conductRemoval: true,
-      conductNote: conductNoteInput.trim(),
-    })))
-    setHasUnsavedChanges(true)
+    if (!conductRemovalDialog || !conductNoteInput.trim()) return
+    editor.mark(conductRemovalDialog.studentId, { status: 'ABSENT', conductRemoval: true, conductNote: conductNoteInput.trim() })
     setConductRemovalDialog(null)
     setConductNoteInput('')
   }
 
   const saveAttendance = async () => {
-    if (!selectedLesson) return
-
-    setSaving(true)
-    try {
-      // Prepare batch payload - all students in one request (much faster!)
-      const records = filteredStudents.map(student => {
-        const record = attendance.get(student.id)
-        return {
-          studentId: student.id,
-          status: record?.status || 'ABSENT',
-          arrivedAt: record?.arrivedAt || null,
-          notes: record?.notes || null,
-          conductRemoval: record?.conductRemoval || false,
-          conductNote: record?.conductNote || null,
-        }
-      })
-
-      const res = await fetch('/api/attendance/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lessonId: selectedLesson.id,
-          records
-        })
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to save attendance')
-      }
-
-      const result = await res.json()
-      const now = new Date()
-      setLastSaved(now)
-      setHasUnsavedChanges(false)
-      toast.success('Attendance saved successfully!', {
-        description: `${result.created} created, ${result.updated} updated • ${formatToastTimestamp(now)}`
-      })
+    if (await editor.save(filteredStudents.map(student => student.id))) {
+      toast.success('Attendance finished')
       setSelectedLesson(null)
-    } catch (error) {
-      console.error('Failed to save attendance:', error)
-      toast.error('Failed to save attendance', {
-        description: error instanceof Error ? error.message : 'Please try again.'
-      })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -368,7 +218,7 @@ export default function AttendancePage() {
   const asyncOffRollCall = students.filter(isAsyncForLesson)
 
   const filteredStudents = students.filter(student => {
-    if (isAsyncForLesson(student)) return false
+    if (isAsyncForLesson(student) || editor.excludedIds.includes(student.id)) return false
     if (searchTerm && !student.name.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false
     }
@@ -417,19 +267,6 @@ export default function AttendancePage() {
     .filter(l => (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
-  // Check if user can manage data
-  const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
-
-  // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)
-  const isLessonEditable = useMemo(() => {
-    if (!selectedLesson) return false
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const lessonDate = new Date(selectedLesson.scheduledDate)
-    lessonDate.setHours(0, 0, 0, 0)
-    return lessonDate <= today
-  }, [selectedLesson])
-
   if (loading || status === 'loading') {
     return <PageLoading />
   }
@@ -444,7 +281,7 @@ export default function AttendancePage() {
     { PRESENT: 0, LATE: 0, ABSENT: 0, EXCUSED: 0, unmarked: 0 }
   )
   const yearName = selectedYearId === 'all' ? 'All years' : academicYears.find((y) => y.id === selectedYearId)?.name.replace('-', '–')
-  const controlsDisabled = !userCanManageData || !isLessonEditable
+  const controlsDisabled = !userCanManageData || !isLessonEditable || !!session?.impersonating || editor.loading || !!editor.error || editor.finalizing
   const visibleLessons = lessonView === 'needs' ? scheduledLessons : completedLessons
 
   return (
@@ -541,7 +378,7 @@ export default function AttendancePage() {
                 <span className="truncate text-[15px] font-semibold text-ink">
                   Lesson {selectedLesson.lessonNumber} · {selectedLesson.title}
                 </span>
-                <AttendanceSavedBy info={savedByLesson?.lessonId === selectedLesson.id ? savedByLesson.info : undefined} />
+                <AttendanceSavedBy info={editor.lastSavedBy} />
                 {selectedLesson.speaker && <span className="text-[13px] text-ink-2">{selectedLesson.speaker}</span>}
               </div>
               <span className="tabular text-[13px] text-ink-2">
@@ -549,6 +386,16 @@ export default function AttendancePage() {
               </span>
             </div>
           </Panel>
+
+          <div role="status" className="space-y-2 text-sm text-ink-2">
+            {editor.loading && <p>Loading attendance…</p>}
+            {!editor.loading && !editor.error && !editor.recovered && !editor.saveError && <p>Changes save automatically. Use Finish attendance when roll call is complete.</p>}
+            {editor.error && <p>{editor.error} <Button variant="outline" onClick={editor.retryLoad}>Retry loading</Button></p>}
+            {editor.recovered && <p>Recovered unsaved edits. Review them before saving. <Button variant="outline" disabled={controlsDisabled || saving} onClick={() => void editor.save()}>Save recovered edits</Button></p>}
+            {editor.saveError && <p>{editor.saveError} Your edits are still pending. <Button variant="outline" disabled={controlsDisabled || saving} onClick={() => void editor.save()}>Retry save</Button></p>}
+            {editor.storageError && <p>Keep this page open until your edits are saved; this browser could not keep a recovery copy.</p>}
+            {editor.excludedIds.length > 0 && <p>Students who are no longer on active in-person roll call were excluded from this save.</p>}
+          </div>
 
           {!isLessonEditable && (
             <div role="status" className="flex items-center gap-2 rounded-lg bg-warn-tint px-4 py-2.5 text-[13px] text-warn">
@@ -764,12 +611,12 @@ export default function AttendancePage() {
               <span><b className="font-semibold text-warn">{marked.LATE}</b> late</span>·
               <span><b className="font-semibold text-bad">{marked.ABSENT}</b> absent</span>·
               <span><b className="font-semibold text-ink">{marked.unmarked}</b> unmarked</span>
-              {hasUnsavedChanges && <StatusBadge tone="warn" className="ml-1">Unsaved</StatusBadge>}
-              {marked.unmarked > 0 && <span className="w-full text-xs text-ink-3">Unmarked students are saved as absent.</span>}
+              {pendingCount > 0 && <StatusBadge tone="warn" className="ml-1">{saving ? 'Saving…' : `${pendingCount} pending`}</StatusBadge>}
+              {marked.unmarked > 0 && <span className="w-full text-xs text-ink-3">Finish marks unmarked students in this view as absent.</span>}
             </p>
             {userCanManageData && (
-              <Button onClick={saveAttendance} disabled={saving || !isLessonEditable} className="ml-auto">
-                {saving ? 'Saving…' : !isLessonEditable ? 'Future lesson' : 'Save attendance'}
+              <Button onClick={saveAttendance} disabled={controlsDisabled || saving || filteredStudents.length === 0} className="ml-auto">
+                {editor.finalizing ? 'Finishing…' : !isLessonEditable ? 'Future lesson' : 'Finish attendance'}
               </Button>
             )}
           </div>
@@ -815,7 +662,7 @@ export default function AttendancePage() {
   )
 }
 
-function ConductButton({ active, note, disabled, onClick }: { active: boolean; note?: string; disabled: boolean; onClick: () => void }) {
+function ConductButton({ active, note, disabled, onClick }: { active: boolean; note?: string | null; disabled: boolean; onClick: () => void }) {
   const label = active ? `Removed from lesson: ${note ?? ''}` : 'Remove from lesson (conduct)'
   return (
     <button
@@ -838,7 +685,7 @@ function RowNote({
   conductNote,
   expected,
 }: {
-  conductNote?: string
+  conductNote?: string | null
   expected?: { reason: string; markAsNA: boolean }
 }) {
   if (conductNote) {
