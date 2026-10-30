@@ -357,6 +357,39 @@ the accent of the ministry it was opened from.
   their save while saving, and a failed send keeps the draft.
 - Types: `SundaySchoolFeedbackIdea` and `SundaySchoolFeedbackResponse` in `packages/contracts`.
 
+### Passkeys (web #242)
+
+Passkeys are an extra way to sign in; the password, Google and recovery paths are unchanged. The
+design, setup, screenshots and test recipe are in [`docs/ios-passkeys.md`](../../docs/ios-passkeys.md); server settings in [`docs/passkeys.md`](../../docs/passkeys.md).
+
+- **When they show.** The app asks `GET /api/public/passkeys` and offers passkeys only when the
+  server says `enabled` and `ios`, and its `rpId` is the domain this build was associated with.
+  Otherwise the sign-in button and the Account row are absent and nothing else changes. An older
+  server, an unreachable one, a build with no associated domain and a build without the native module
+  all read the same way.
+- **Sign in.** "Sign in with a passkey" on the sign-in screen needs no email. The system sheet
+  (`modules/passkeys`, AuthenticationServices) returns the credential, `data/passkeys.ts` converts it
+  to the browser-shaped JSON the server verifies, and `PortalApi.signInWithPasskey` runs the web's
+  sequence: challenge, CSRF, the NextAuth `passkey` callback, session. Unknown, disabled, replayed and
+  expired all read as one message; cancelling is a quiet message and signs nobody in. A forced
+  password change is handled by the existing sign-in gate.
+- **Account → Passkeys.** Lists the person's own passkeys with the date added and last used, adds one
+  with a friendly name (1 to 80 characters), and removes one after a confirmation. The ten-passkey
+  limit disables Add with an explanation. Adding and removing need a real sign-in within the last ten
+  minutes: the screen says so up front from the session's `authenticatedAt`, and also when the server
+  refuses, with a Sign out button. A cancelled or failed attempt keeps the typed name.
+- **View as.** The row is hidden and the screen is read-only. The client also refuses every
+  `/api/passkeys` call itself, because the server answers those with a 401 that the app would read as
+  an expired session and sign the person out.
+- **What stays off the device.** The challenge cookie lives in memory for one exchange and is never
+  stored; only the session token is persisted. Nothing in the passkey code logs. Removal sends only the
+  passkey id; the server scopes the delete to the signed-in owner.
+- **Build requirements.** `plugins/withPasskeyDomain.js` adds the `webcredentials:` associated domain
+  from the host of `EXPO_PUBLIC_API_URL` (or `PASSKEY_ASSOCIATED_DOMAIN` for a parent RP ID) at
+  prebuild; `PASSKEY_ASSOCIATED_MODE=developer` adds `?mode=developer` for testing only. This needs a
+  paid Apple Developer team, not a personal one.
+- Types: `packages/contracts/src/passkeys.ts`.
+
 ## Remote push temporarily disabled
 
 `extra.remotePushEnabled` is currently `false` in `app.json`. The app skips

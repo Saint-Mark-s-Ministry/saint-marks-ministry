@@ -1,3 +1,5 @@
+import type { PasskeyAuthenticationOptions, PasskeyAuthenticationResponseJSON } from "@stmark/contracts";
+
 // Native transport for the existing NextAuth REST API. Credentials never persist.
 // Keep a private, origin-bound cookie jar instead of the shared Expo Go cookie store.
 export type StoredCookie = { value: string; expires?: number; secure: boolean };
@@ -27,7 +29,12 @@ export type ViewAsSession = {
   expiresAt: number;
   readOnly: true;
 };
-export type PortalSession = { user?: PortalUser; impersonating?: ViewAsSession | null };
+export type PortalSession = {
+  user?: PortalUser;
+  impersonating?: ViewAsSession | null;
+  /** When this session was created by a real sign-in (server clock); a refresh never renews it. */
+  authenticatedAt?: number;
+};
 
 export class ApiError extends Error {
   constructor(
@@ -50,8 +57,17 @@ export function isAuthorizationRevoked(error: unknown): boolean {
   return error instanceof ApiError && error.status === 403;
 }
 
+// The two passkey challenge cookies are held in memory for the length of one sign-in or enrollment; only the
+// session token is ever persisted (see PortalApi.persist).
+const passkeyCookie = /^(?:__Host-)?passkey-(?:register|authenticate)$/;
 const cookieName =
-  /^(?:__Secure-|__Host-)?next-auth\.(?:session-token(?:\.\d+)?|csrf-token)$/;
+  /^(?:(?:__Secure-|__Host-)?next-auth\.(?:session-token(?:\.\d+)?|csrf-token)|(?:__Host-)?passkey-(?:register|authenticate))$/;
+
+/** The only requests that carry a passkey challenge cookie, and that must name the API origin as their Origin. */
+const underRoute = (path: string, route: string) => path === route || path.startsWith(`${route}/`);
+export const isPasskeyManagementPath = (path: string) => underRoute(path, "/api/passkeys");
+export const isPasskeyPath = (path: string) =>
+  path === "/api/auth/callback/passkey" || isPasskeyManagementPath(path) || underRoute(path, "/api/public/passkeys");
 export function mergeCookies(
   jar: CookieJar,
   headers: string[],
@@ -191,13 +207,24 @@ export class PortalApi {
       throw new ApiError("The viewed account is changing. Please wait.", 409);
     if (this.currentSession.impersonating && !safe && !sessionControl)
       throw new ApiError("View as is read-only. Stop viewing as this user before making changes.", 403, "ViewAsReadOnly");
+    // The server answers every passkey call made while viewing as another user with a 401, which this client
+    // treats as an expired session. Refuse here, before the network, so looking never signs the actor out.
+    if (this.currentSession.impersonating && isPasskeyManagementPath(path))
+      throw new ApiError("Passkeys can't be managed while you are using View as. Stop viewing as this user first.", 403, "ViewAsReadOnly");
     const generation = this.generation;
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
+    const passkeyRequest = isPasskeyPath(path);
     headers.set(
       "Cookie",
-      cookieHeader(this.jar, this.origin.startsWith("https:")),
+      cookieHeader(
+        passkeyRequest ? this.jar : Object.fromEntries(Object.entries(this.jar).filter(([name]) => !passkeyCookie.test(name))),
+        this.origin.startsWith("https:"),
+      ),
     );
+    // A browser sends its page's origin, which the server compares with its configured one. The app is
+    // served by that same origin, so it names it. Nothing else carries it.
+    if (passkeyRequest) headers.set("Origin", this.origin);
     const controller = new AbortController();
     const externalSignal = init.signal;
     const abortFromCaller = () => controller.abort();
@@ -247,6 +274,11 @@ export class PortalApi {
             rateLimited ? rawError! : "Sign-in failed. Check your email and password, or try again later.",
             response.status,
           );
+        }
+        if (path === "/api/auth/callback/passkey") {
+          await this.clear();
+          // Unknown, disabled, replayed and invalid all share one answer on purpose.
+          throw new ApiError("Unable to sign in with this passkey. Try again or use your password.", response.status);
         }
         if (response.status === 401 && !path.startsWith("/api/auth/")) {
           await this.clear();
@@ -335,6 +367,46 @@ export class PortalApi {
     if (!user)
       throw new Error("Sign-in failed. Check your email and password.");
     return user;
+  }
+  /**
+   * Signs in with a passkey: the same challenge, verification and NextAuth callback the web uses. The
+   * challenge cookie only ever lives in this client's in-memory jar, and goes with the callback request.
+   * `authenticate` shows the system sheet and returns the WebAuthn JSON; cancelling rejects out of here
+   * with nothing signed in.
+   */
+  async signInWithPasskey(
+    rpId: string,
+    authenticate: (options: PasskeyAuthenticationOptions, rpId: string) => Promise<PasskeyAuthenticationResponseJSON>,
+  ) {
+    await this.clear();
+    try {
+      const options = await this.request<PasskeyAuthenticationOptions>("/api/public/passkeys/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const response = await authenticate(options, rpId);
+      const { csrfToken } = await this.request<{ csrfToken: string }>("/api/auth/csrf");
+      const result = await this.request<{ url?: string }>("/api/auth/callback/passkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          response: JSON.stringify(response),
+          csrfToken,
+          callbackUrl: this.origin,
+          json: "true",
+        }).toString(),
+      });
+      if (result.url && new URL(result.url, this.origin).searchParams.has("error")) {
+        await this.clear();
+        throw new Error("Unable to sign in with this passkey. Try again or use your password.");
+      }
+      const user = await this.session();
+      if (!user) throw new Error("Unable to sign in with this passkey. Try again or use your password.");
+      return user;
+    } finally {
+      for (const name of Object.keys(this.jar)) if (passkeyCookie.test(name)) delete this.jar[name];
+    }
   }
   async signOut() {
     try {

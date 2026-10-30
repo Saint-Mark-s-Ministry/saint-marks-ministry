@@ -3,7 +3,7 @@ import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthe
 import type { AuthenticationResponseJSON, RegistrationResponseJSON, AuthenticatorTransportFuture } from '@simplewebauthn/server'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getPasskeyConfig, PasskeyError } from '@/lib/passkey-config'
+import { expectedPasskeyOrigins, getPasskeyConfig, PasskeyError } from '@/lib/passkey-config'
 
 export const PASSKEY_CHALLENGE_SECONDS = 300
 type Purpose = 'register' | 'authenticate'
@@ -62,12 +62,12 @@ export async function authenticationOptions() {
 }
 
 export async function registerPasskey(user: { id: string; authVersion: number }, token: string | undefined, response: RegistrationResponseJSON, name: string) {
-  const { rpID, origin } = getPasskeyConfig()
+  const { rpID } = getPasskeyConfig()
   const challenge = await consumePasskeyChallenge(token, 'register')
   if (challenge.userId !== user.id || challenge.authVersion !== user.authVersion) throw new PasskeyError('Passkey request expired. Please try again.')
   let result
   try {
-    result = await verifyRegistrationResponse({ response, expectedChallenge: challenge.challenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true })
+    result = await verifyRegistrationResponse({ response, expectedChallenge: challenge.challenge, expectedOrigin: expectedPasskeyOrigins(), expectedRPID: rpID, requireUserVerification: true })
   } catch { throw new PasskeyError('Could not verify this passkey. Please try again.') }
   if (!result.verified || !result.registrationInfo) throw new PasskeyError('Could not verify this passkey.')
   const { credential, credentialDeviceType, credentialBackedUp } = result.registrationInfo
@@ -87,7 +87,7 @@ export async function registerPasskey(user: { id: string; authVersion: number },
 // Called only inside NextAuth's CSRF-protected Credentials callback. A verified
 // assertion becomes an ordinary NextAuth session; no parallel session cookies.
 export async function authenticatePasskey(token: string | undefined, responseJSON: string) {
-  const { rpID, origin } = getPasskeyConfig()
+  const { rpID } = getPasskeyConfig()
   if (responseJSON.length > 32_768) throw new PasskeyError('Invalid passkey response.')
   let response: AuthenticationResponseJSON
   try { response = JSON.parse(responseJSON) } catch { throw new PasskeyError('Invalid passkey response.') }
@@ -100,7 +100,7 @@ export async function authenticatePasskey(token: string | undefined, responseJSO
   let result
   try {
     result = await verifyAuthenticationResponse({
-      response, expectedChallenge: challenge.challenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true,
+      response, expectedChallenge: challenge.challenge, expectedOrigin: expectedPasskeyOrigins(), expectedRPID: rpID, requireUserVerification: true,
       credential: { id: key.credentialId, publicKey: new Uint8Array(Buffer.from(key.publicKey, 'base64url')), counter: Number(key.counter), transports: key.transports as AuthenticatorTransportFuture[] },
     })
   } catch { throw new PasskeyError('Unable to sign in with this passkey.') }

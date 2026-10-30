@@ -135,6 +135,7 @@
     },
     "plugins": [
       "./plugins/withOptionalRemotePush.js",
+      "./plugins/withPasskeyDomain.js",
       "expo-router",
       "expo-font",
       "expo-system-ui",
