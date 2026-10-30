@@ -352,7 +352,8 @@ function EnrollmentsContent() {
     if (filterYear !== 'all' && enrollment.yearLevel !== filterYear) {
       return false
     }
-    if (filterStatus !== 'all' && enrollment.status !== filterStatus) {
+    // Review notifications must also open students outside the default Active roster.
+    if (!requestedStudentId && filterStatus !== 'all' && enrollment.status !== filterStatus) {
       return false
     }
     if (filterAcademicYear !== 'all') {
@@ -388,7 +389,7 @@ function EnrollmentsContent() {
 
   const mentorSelect = (enrollment: Enrollment) => (
     <div className="flex flex-col gap-1">
-      <span>{enrollment.mentorContact?.name ?? (enrollment.isActive && enrollment.yearLevel === 'YEAR_2' ? 'Year 2 mentor form pending' : 'Not provided')}</span>
+      <span>{enrollment.mentorContact?.name ?? (enrollment.mentorForm?.status === 'REQUIRED' ? 'Year 2 mentor form pending' : 'Not provided')}</span>
       {enrollment.mentorForm && (
         <div className="flex flex-col items-start gap-1.5">
           <StatusBadge tone={enrollment.mentorForm.status === 'REVIEWED' ? 'ok' : 'warn'}>

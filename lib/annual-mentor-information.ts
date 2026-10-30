@@ -43,7 +43,7 @@ export async function queueAnnualMentorReview(
 }
 
 /**
- * Active Year 2 students confirm their mentor contact information each year.
+ * Active and withdrawn Year 2 students confirm their mentor contact information each year.
  * Looking this up from current state (rather than only at promotion time)
  * also covers students promoted before this feature was deployed.
  */
@@ -58,6 +58,7 @@ export async function getAnnualMentorRequirement(userId: string) {
       select: {
         id: true,
         isActive: true,
+        status: true,
         isAsyncStudent: true,
         yearLevel: true,
         mentorName: true,

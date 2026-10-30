@@ -1,8 +1,11 @@
-import type { YearLevel } from '@prisma/client'
+import type { EnrollmentStatus, YearLevel } from '@prisma/client'
 
-/** Async attendance alone does not create a Year 2 renewal requirement. */
+/** Withdrawn Year 2 students may finish renewal before staff reactivate them. */
 export function requiresAnnualMentorUpdate(
-  enrollment: { isActive: boolean; yearLevel: YearLevel | null } | null | undefined
+  enrollment: { isActive?: boolean; status?: EnrollmentStatus; yearLevel?: YearLevel | null } | null | undefined
 ): boolean {
-  return Boolean(enrollment?.isActive && enrollment.yearLevel === 'YEAR_2')
+  return Boolean(enrollment?.yearLevel === 'YEAR_2' && (
+    enrollment.status === 'WITHDRAWN' ||
+    (enrollment.isActive && enrollment.status !== 'GRADUATED')
+  ))
 }

@@ -104,11 +104,13 @@ describe('Servants Prep roster', () => {
     expect(screen.queryByRole('button', { name: 'Verify mentor form for Anna George' })).not.toBeInTheDocument()
   })
 
-  it('lets Prep staff verify the exact submitted version on the roster and refreshes both layouts', async () => {
+  it.each(['ACTIVE', 'WITHDRAWN'])('lets Prep staff verify a notified %s student and refreshes both layouts', async (status) => {
+    auth.query = 'studentId=anna'
+    const student = { ...pending, status, isActive: status === 'ACTIVE' }
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
       if (options?.method === 'POST') return Response.json({ reviewed: true })
-      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...pending, mentorForm: { ...pending.mentorForm, status: 'REVIEWED' } }])
-      return Response.json(url === '/api/enrollments' ? [pending] : [])
+      if (url.startsWith('/api/enrollments?')) return Response.json([{ ...student, mentorForm: { ...student.mentorForm, status: 'REVIEWED' } }])
+      return Response.json(url === '/api/enrollments' ? [student] : [])
     })
     vi.stubGlobal('fetch', fetch)
     render(<EnrollmentsPage />)
@@ -122,6 +124,8 @@ describe('Servants Prep roster', () => {
       body: JSON.stringify({ updatedAt: pending.mentorForm.submission.updatedAt }),
     })
     expect(screen.queryByRole('button', { name: 'Verify mentor form for Anna George' })).not.toBeInTheDocument()
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false)
+    if (status === 'WITHDRAWN') expect(within(screen.getByRole('table')).getByText('Withdrawn')).toBeInTheDocument()
   })
 
   it('keeps a stale submission pending when the server rejects verification', async () => {
