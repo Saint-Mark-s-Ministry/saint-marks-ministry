@@ -277,6 +277,9 @@ trusted by the simulator:
 
 ### Physical device smoke test
 
+The full production order (migration, settings, signed build) is in
+[`ios-passkeys-rollout.md`](ios-passkeys-rollout.md).
+
 With a build signed by the team named in `PASSKEY_IOS_APP_IDS`, against the
 production domain:
 

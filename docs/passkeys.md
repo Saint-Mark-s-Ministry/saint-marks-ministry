@@ -58,7 +58,7 @@ credentials. Existing sessions and other sign-in methods continue to work.
 
 The iOS app uses the same endpoints and the same NextAuth `passkey` provider.
 Full design, setup, behavior, security notes, screenshots and a test recipe are
-in [`docs/ios-passkeys.md`](ios-passkeys.md). What the deployment must provide:
+in [`docs/ios-passkeys.md`](ios-passkeys.md); the production checklist is [`docs/ios-passkeys-rollout.md`](ios-passkeys-rollout.md). What the deployment must provide:
 
 - **`PASSKEY_RP_ID` and `PASSKEY_ORIGIN` on `www.stmarkministry.app`.** iOS reads
   `/.well-known/apple-app-site-association` from the RP ID host without following
