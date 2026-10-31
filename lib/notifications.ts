@@ -23,7 +23,7 @@ interface NotificationPayload {
 /**
  * Send push notification to a specific user (all their subscriptions)
  */
-async function sendPushToUser(userId: string, payload: NotificationPayload) {
+export async function sendPushToUser(userId: string, payload: NotificationPayload) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const subscriptions = await prisma.pushSubscription.findMany({
