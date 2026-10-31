@@ -134,6 +134,14 @@ moderation remain separately restricted to their existing account permissions.
 
 ---
 
+Enabled Super Admins and Servants Prep servants can correct eligible students’
+mentor contact fields and replace their signed approval forms through
+`/api/students/[id]/mentor-information` and its `/upload` endpoint. The routes
+resolve live role tags, reject View as/read-only/disabled actors and priests,
+validate source versions and audit changes. Current-year corrections return to
+pending verification; they grant no account access and never reactivate an
+enrollment. Approval stays in the existing guarded review endpoint.
+
 ## Servants Prep: role helpers
 
 All in `lib/roles.ts`. Each is a pure function of the role, safe to call on the

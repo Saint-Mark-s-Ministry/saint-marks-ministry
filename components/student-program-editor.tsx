@@ -14,6 +14,7 @@ import { canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplay
 import { formatToastTimestamp, withCurrentOption } from '@/lib/utils'
 import { fetcher, staticDataConfig } from '@/lib/swr'
 import type { MentorContact } from '@/lib/mentor-contact'
+import { StudentMentorFormEditor } from '@/components/student-mentor-form-editor'
 import { ContactLink } from '@/components/contact-link'
 
 /** The student record returned by /api/students/[id]/details */
@@ -341,6 +342,10 @@ export function StudentProgramEditor({ student, onRefresh, readOnly = false }: {
           )}
         </CardContent>
       </Card>
+
+      {canEdit && (renewal || registration?.status === RegistrationStatus.APPROVED) && <StudentMentorFormEditor
+        studentId={student.id} studentName={student.name} onSaved={onRefresh} disabled={saving}
+      />}
 
       {renewal && <Card>
         <CardContent className="pt-6 space-y-3">

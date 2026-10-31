@@ -25,6 +25,7 @@ import { Initials, PersonCell } from '@/components/ds/person'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { comparePersonNames, type PersonNameOrder } from '@/lib/person-name'
+import { StudentMentorFormEditor } from '@/components/student-mentor-form-editor'
 import type { MentorFormState } from '@/lib/mentor-contact'
 
 const inlineSelect =
@@ -400,6 +401,13 @@ function EnrollmentsContent() {
           {enrollment.mentorForm.status === 'PENDING_REVIEW' && enrollment.status === 'WITHDRAWN' && (
             <p className="text-xs text-ink-3">Verification returns this student to active attendance.</p>
           )}
+          {canEdit && <StudentMentorFormEditor studentId={enrollment.student.id} studentName={enrollment.student.name}
+            onSaved={async () => {
+              const response = await fetch('/api/enrollments')
+              if (!response.ok) throw new Error('Form saved. Refresh the roster to see the latest status.')
+              const data = await response.json()
+              setEnrollments(Array.isArray(data) ? data : [])
+            }} />}
           {enrollment.mentorForm.status === 'PENDING_REVIEW' && canEdit && session?.user?.role !== 'PRIEST' && !session?.impersonating && (
             <Button type="button" variant="outline" disabled={verifyingStudentId !== null}
               aria-label={`Verify mentor form for ${enrollment.student.name}`}
