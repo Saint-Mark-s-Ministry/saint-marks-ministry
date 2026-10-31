@@ -52,6 +52,7 @@ import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-e
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
 import { servantsMeetingGroups } from '@/lib/sunday-school-meeting-groups'
+import { StudentName } from '@/components/student-history-provider'
 
 const UNBANDED = '__unbanded__'
 const shortDate = (day: string) => formatUTC(day, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -395,7 +396,7 @@ export default function SundaySchoolDashboardPage() {
                     {followUps.slice(0, 5).map((item) => (
                       <li key={item.childId} className="flex items-center justify-between gap-3 px-4 py-2.5">
                         <span className="flex min-w-0 flex-col">
-                          <span className="truncate text-[13.5px] font-medium text-ink">{item.name}</span>
+                          <StudentName id={item.childId} name={item.name} className="truncate text-[13.5px]" />
                           <span className="truncate text-xs text-ink-3">
                             {item.reasons.includes('absent') ? `Absent ${item.absentWeeks} weeks in a row` : 'Priority visit'} · {item.className}
                           </span>
