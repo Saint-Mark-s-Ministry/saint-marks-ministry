@@ -32,7 +32,7 @@ export default function StudentHistoryDialog({ target, onClose, onRestoreFocus }
 }) {
   const { data: session } = useSession()
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
+    <DialogContent scrollable className="sm:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus() }}>
       {session?.user?.id
         ? <HistoryContent key={session.user.id} target={target} viewerId={session.user.id} />
         : <HistoryHeader target={target} />}

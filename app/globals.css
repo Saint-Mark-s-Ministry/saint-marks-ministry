@@ -712,6 +712,29 @@
   background: transparent;
 }
 
+/* Use the visible rectangle rather than Safari's larger layout viewport. The
+   hook also tracks keyboard panning and pinch zoom; dvh is the CSS fallback. */
+.dialog-scrollable {
+  --dialog-viewport-height: 100vh;
+  --dialog-viewport-width: 100vw;
+  --dialog-top-gap: max(0.75rem, env(safe-area-inset-top, 0px));
+  --dialog-bottom-gap: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  --dialog-left-gap: max(0.75rem, env(safe-area-inset-left, 0px));
+  --dialog-right-gap: max(0.75rem, env(safe-area-inset-right, 0px));
+  top: calc(var(--dialog-viewport-top, 0px) + var(--dialog-top-gap) + (var(--dialog-viewport-height) - var(--dialog-top-gap) - var(--dialog-bottom-gap)) / 2);
+  left: calc(var(--dialog-viewport-left, 0px) + var(--dialog-left-gap) + (var(--dialog-viewport-width) - var(--dialog-left-gap) - var(--dialog-right-gap)) / 2);
+  width: calc(var(--dialog-viewport-width) - var(--dialog-left-gap) - var(--dialog-right-gap));
+  max-height: calc(var(--dialog-viewport-height) - var(--dialog-top-gap) - var(--dialog-bottom-gap));
+  translate: -50% -50%;
+}
+
+@supports (height: 100dvh) {
+  .dialog-scrollable {
+    --dialog-viewport-height: 100dvh;
+    --dialog-viewport-width: 100dvw;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

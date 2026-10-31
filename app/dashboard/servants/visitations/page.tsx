@@ -354,7 +354,7 @@ function VisitationsContent() {
       </div>
 
       <Dialog open={Boolean(selectedChildId)} onOpenChange={open => !open && setSelectedChildId(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent scrollable className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {selectedChild
