@@ -303,6 +303,13 @@ on "All classes" picks a class and saves it, so the picker always names the
 class on screen. Someone with one class just sees its name. The choice is a
 display preference kept in `localStorage` (`sunday-school.viewing`), never an
 authority: every API still re-derives what the person may see and change.
+Priests start with their active overseen age groups, stored per account for the
+browser tab. Opening a class or child link keeps that class local to the page
+instead of replacing the priest's broader Viewing choice, so Back returns to
+the group (High School for Fr. Isaac). An explicit choice in the Viewing picker
+still takes over. The versioned priest storage key resets older incidental
+class choices once; other roles keep their existing device preferences. This
+changes display defaults only and grants no access.
 Pages do not add their own class picker, except Servant attendance and
 Homework, which list only the classes they apply to.
 

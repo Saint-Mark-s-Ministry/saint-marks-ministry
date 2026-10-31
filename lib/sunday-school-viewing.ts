@@ -18,12 +18,15 @@ export const ALL_CLASSES = 'all'
 
 const STORAGE_KEY = 'sunday-school.viewing'
 const CHANGE_EVENT = 'sunday-school-viewing-change'
+// Older tabs saved incidental class links here. Start priest preferences fresh
+// once so Back returns to their overseen bands rather than that old class.
+const priestStorageKey = (id: string) => `${STORAGE_KEY}:priest:${id}:v2`
 
 /** The stored choice, or undefined when this browser blocks storage. */
 function read(priestId?: string): string | null | undefined {
   try {
     return priestId
-      ? window.sessionStorage.getItem(`${STORAGE_KEY}:${priestId}`)
+      ? window.sessionStorage.getItem(priestStorageKey(priestId))
       : window.localStorage.getItem(STORAGE_KEY)
   } catch {
     return undefined
@@ -41,7 +44,7 @@ function current(priestId?: string): string | null {
 
 function setViewing(value: string, priestId?: string) {
   try {
-    if (priestId) window.sessionStorage.setItem(`${STORAGE_KEY}:${priestId}`, value)
+    if (priestId) window.sessionStorage.setItem(priestStorageKey(priestId), value)
     else window.localStorage.setItem(STORAGE_KEY, value)
   } catch {
     if (priestId) priestMemory.set(priestId, value)
@@ -110,20 +113,29 @@ export function useViewingClassId<T extends { id: string; level?: SundaySchoolLe
   const allIds = (classes ?? []).map(cls => cls.id)
   // A link to a class applies once; after that the Viewing picker is in charge again.
   const [appliedRequest, setAppliedRequest] = useState<string | null>(null)
+  const [pageRequest, setPageRequest] = useState<{ id: string; viewing: string | null } | null>(null)
   const pending = requested && requested !== appliedRequest && allIds.includes(requested) ? requested : null
-  const value = resolveViewingClassId(pending ? allIds : classIds, stored, pending, allowAll, preferred)
+  const retained = pageRequest && pageRequest.id === requested && pageRequest.viewing === stored && allIds.includes(pageRequest.id)
+    ? pageRequest.id : null
+  const request = pending ?? retained
+  const preservePriestScope = defaultPriestViewing(session?.user, (groups as ViewingAgeGroup[] | undefined) ?? []) !== null
+  const value = resolveViewingClassId(request ? allIds : classIds, stored, request, allowAll, preferred)
 
   useEffect(() => {
+    if (preservePriestScope && !requested && appliedRequest !== null) setAppliedRequest(null)
     if (pending) {
+      // Wait for the overseer default before capturing the page-local context.
+      if (waitingForDefault) return
       setAppliedRequest(pending)
-      if (stored !== pending) store(pending)
+      if (preservePriestScope) setPageRequest({ id: pending, viewing: stored })
+      else if (stored !== pending) store(pending)
       return
     }
-    // A one-class page showing "All classes" picks a class; save it so the
-    // picker says what the page shows. A specific class chosen elsewhere is
-    // left alone, so pages that list only some classes never fight over it.
-    if (!waitingForDefault && !allowAll && value && (stored === null || stored === ALL_CLASSES)) store(value)
-  }, [allowAll, pending, store, stored, value, waitingForDefault])
+    if (pageRequest && (pageRequest.id !== requested || pageRequest.viewing !== stored)) setPageRequest(null)
+    // Other users' one-class pages save their fallback as before. Priests keep
+    // their broader choice until they explicitly change the Viewing picker.
+    if (!request && !preservePriestScope && !waitingForDefault && !allowAll && value && (stored === null || stored === ALL_CLASSES)) store(value)
+  }, [allowAll, appliedRequest, pageRequest, pending, preservePriestScope, request, requested, store, stored, value, waitingForDefault])
 
-  return [value, store, pending ? (classes ?? []) : scopedClasses, !pending && hasAgeGroupScope]
+  return [value, store, request ? (classes ?? []) : scopedClasses, !request && hasAgeGroupScope]
 }
