@@ -34,6 +34,7 @@ export async function GET(
         phone: true,
         canAccessContactBook: true,
         canUseViewAs: true,
+        makeupExamNotifications: true,
         profileImageUrl: true,
         role: true,
         roleAssignments: {
@@ -71,6 +72,9 @@ export async function PATCH(
     const currentUser = await requireAuth()
     const { id } = await params
     const body = await request.json()
+    if (Object.prototype.hasOwnProperty.call(body, 'makeupExamNotifications')) {
+      return NextResponse.json({ error: 'Use the makeup notification settings endpoint to change this setting' }, { status: 403 })
+    }
     if (Object.prototype.hasOwnProperty.call(body, 'canUseViewAs')) {
       return NextResponse.json({ error: 'Use the View as access endpoint to change this permission' }, { status: 403 })
     }

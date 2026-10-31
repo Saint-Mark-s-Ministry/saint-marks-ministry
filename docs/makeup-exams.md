@@ -59,27 +59,36 @@ The grading migration has not been applied to production.
 
 ## Booking coordinator notifications
 
-New makeup bookings and changes to their Friday notify Joshua Kaisar and Karen
-Ayoub in the app, by email, and by push on devices where notifications are
-configured and enabled. Each alert names the student and exam, shows the chosen
+New makeup bookings and changes to their Friday notify subscribed staff in the
+app, by email, and by push on devices where notifications are configured and
+enabled. Super Admins choose recipients in **Users → Edit → Makeup exam
+notifications** (available in both Prep and Sunday School Users views). Each
+alert names the student and exam, shows the chosen
 Friday (and previous Friday for a reschedule), and links to Exam Management.
-The two account IDs are configured in `lib/makeup-exam-notifications.ts`;
-contact emails are read from the current account records rather than hardcoded.
-Only enabled recipients with a current Prep staff/priest role tag are included.
-No other administrator is subscribed automatically and no access is granted.
+The subscription is stored on `User.makeupExamNotifications`; contact emails
+are read from current account records. The initial migration preserves Joshua
+Kaisar and Karen Ayoub as subscribed; other accounts default to off.
+Only enabled subscribers with a current Prep staff/priest role tag are included.
+Changing the setting requires an active Super Admin, is blocked during View as,
+and records an audit event. Subscribing never grants access. Both creation and
+external delivery recheck the current subscription and staff access.
 
 The booking and in-app alerts save in one serializable transaction. Saving the
 same exam for the same Friday is a no-op, including after a retry. Concurrent
-write conflicts are retried up to three times; a remaining conflict returns a
+write conflicts allow up to three save attempts; a remaining conflict returns a
 refresh/retry message. Push and email run with Next.js `after()` only after a
 successful commit, rechecking recipient access before sending. External delivery
 is best-effort and does not undo a successful booking. In-app alerts remain if
 push or email delivery fails. No historical bookings are backfilled.
 
 This uses the existing ANNOUNCEMENT notification category, Resend mail sender
-and VAPID push configuration. No schema migration, new environment variable,
-recipient DB update or manual notification send is required. Existing sandbox
+and VAPID push configuration. Apply the additive migration
+`20261031233000_makeup_notification_recipients` before deploying this feature;
+it adds the default-off subscription and preserves the two existing recipients.
+No new environment variable or manual notification send is required. Builds
+never change the database. Rehearse the migration on an isolated branch and
+back up production before the explicit production migration step. Existing sandbox
 email restrictions remain in force: preview/local deployments do not email real
 accounts unless allowlisted. Before release, check a new booking and a changed
 Friday in the authenticated preview and verify production email/push delivery
-for the two coordinators after deployment.
+for subscribed coordinators after deployment.

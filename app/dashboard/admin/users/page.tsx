@@ -2,6 +2,7 @@
 
 import { StudentProfileLink } from '@/components/student-profile-link'
 import { useSession } from 'next-auth/react'
+import { MakeupNotificationSwitch } from '@/components/makeup-notification-switch'
 import { ViewAsAccessSwitch } from '@/components/view-as-access-switch'
 import { ContactBookAccessSwitch } from '@/components/contact-book-access-switch'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
@@ -65,6 +66,7 @@ interface User {
   isDisabled?: boolean
   canUseViewAs?: boolean
   canAccessContactBook?: boolean
+  makeupExamNotifications?: boolean
   _count?: {
     mentoredStudents: number
   }
@@ -122,7 +124,7 @@ export default function UsersPage() {
     role: 'STUDENT' as UserRole,
     roleTags: [RoleTag.SERVANTS_PREP_STUDENT] as RoleTag[],
     roleAuditNote: '',
-    canUseViewAs: false, canAccessContactBook: false,
+    canUseViewAs: false, canAccessContactBook: false, makeupExamNotifications: false,
   })
   const [formError, setFormError] = useState('')
 
@@ -192,7 +194,7 @@ export default function UsersPage() {
 
       await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false, makeupExamNotifications: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user')
     }
@@ -273,6 +275,17 @@ export default function UsersPage() {
         }
       }
 
+      if (isSuperAdmin && formData.makeupExamNotifications !== (editingUser.makeupExamNotifications ?? false)) {
+        const notificationResponse = await fetch(`/api/admin/users/${editingUser.id}/makeup-notifications`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ makeupExamNotifications: formData.makeupExamNotifications }),
+        })
+        if (!notificationResponse.ok) {
+          const notificationData = await notificationResponse.json()
+          throw new Error(`Profile fields were saved, but makeup exam notifications were not updated: ${notificationData.error || 'Unknown error'}`)
+        }
+      }
+
       await fetchUsers(debouncedSearch, roleFilter)
 
       // Show appropriate success message
@@ -285,7 +298,7 @@ export default function UsersPage() {
       }
 
       setEditingUser(null)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false, makeupExamNotifications: false })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to update user')
     }
@@ -350,6 +363,7 @@ export default function UsersPage() {
       roleAuditNote: '',
       canAccessContactBook: user.canAccessContactBook ?? false,
       canUseViewAs: user.canUseViewAs ?? false,
+      makeupExamNotifications: user.makeupExamNotifications ?? false,
     })
     setShowCreateForm(false)
     setFormError('')
@@ -362,7 +376,7 @@ export default function UsersPage() {
   const cancelForm = () => {
     setShowCreateForm(false)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false, makeupExamNotifications: false })
     setFormError('')
   }
 
@@ -573,7 +587,7 @@ export default function UsersPage() {
   const openCreate = () => {
     setShowCreateForm(true)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '', canUseViewAs: false, canAccessContactBook: false, makeupExamNotifications: false })
   }
 
   return (
@@ -908,6 +922,12 @@ export default function UsersPage() {
                                           onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })}
                                           disabled={!!session?.impersonating}
                                         />
+                                        <MakeupNotificationSwitch
+                                          checked={formData.makeupExamNotifications}
+                                          onChange={(makeupExamNotifications) => setFormData({ ...formData, makeupExamNotifications })}
+                                          eligible={!editingUser.isDisabled && formData.roleTags.some(tag => tag === RoleTag.SUPER_ADMIN || tag === RoleTag.SERVANTS_PREP_SERVANT || tag === RoleTag.PRIEST)}
+                                          disabled={!!session?.impersonating}
+                                        />
                                       </UserRoleTagEditor>
                                       <div>
                                         <Label htmlFor="edit-role-note" className="text-xs">Audit note (optional)</Label>
@@ -1097,6 +1117,12 @@ export default function UsersPage() {
                                   checked={formData.canUseViewAs}
                                   hasAutomaticAccess={editingUser.role === UserRole.SUPER_ADMIN}
                                   onChange={(canUseViewAs) => setFormData({ ...formData, canUseViewAs })}
+                                  disabled={!!session?.impersonating}
+                                />
+                                <MakeupNotificationSwitch
+                                  checked={formData.makeupExamNotifications}
+                                  onChange={(makeupExamNotifications) => setFormData({ ...formData, makeupExamNotifications })}
+                                  eligible={!editingUser.isDisabled && formData.roleTags.some(tag => tag === RoleTag.SUPER_ADMIN || tag === RoleTag.SERVANTS_PREP_SERVANT || tag === RoleTag.PRIEST)}
                                   disabled={!!session?.impersonating}
                                 />
                               </UserRoleTagEditor>
