@@ -1,11 +1,12 @@
 import { applicableExamYears } from '@/lib/enrollment-year'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { Prisma, RoleTag } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext, assertCanWriteBusinessData } from '@/lib/authorization'
 import { handleApiError } from '@/lib/api-utils'
 import { upcomingMakeupFridays, makeupToday, isMakeupFriday, makeupExamReason } from '@/lib/makeup-exams'
+import { createMakeupBookingNotifications, deliverMakeupBookingNotifications } from '@/lib/makeup-exam-notifications'
 
 async function access(write = false) {
   const user = await requireAuth()
@@ -66,14 +67,39 @@ export async function POST(request: Request) {
     if (!exams.some(exam => exam.id === body.examId)) {
       return NextResponse.json({ error: 'This exam is not eligible for a makeup.' }, { status: 400 })
     }
-    const booking = await prisma.makeupExamBooking.upsert({
-      where: { studentId_examId: { studentId: user.id, examId: body.examId } },
-      create: { studentId: user.id, examId: body.examId, scheduledDate: new Date(`${body.scheduledDate}T00:00:00Z`) },
-      update: { scheduledDate: new Date(`${body.scheduledDate}T00:00:00Z`) },
+    const save = () => prisma.$transaction(async tx => {
+      const where = { studentId_examId: { studentId: user.id, examId: body.examId } }
+      const existing = await tx.makeupExamBooking.findUnique({ where })
+      const scheduledDate = new Date(`${body.scheduledDate}T00:00:00Z`)
+      if (existing?.scheduledDate.getTime() === scheduledDate.getTime()) {
+        return { booking: existing, deliveries: [] }
+      }
+      const saved = await tx.makeupExamBooking.upsert({
+        where,
+        create: { studentId: user.id, examId: body.examId, scheduledDate },
+        update: { scheduledDate },
+        include: { student: { select: { name: true } }, exam: { include: examInclude } },
+      })
+      const deliveries = await createMakeupBookingNotifications(tx, saved, existing?.scheduledDate)
+      const { student: _student, exam: _exam, ...booking } = saved
+      return { booking, deliveries }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+    let result: Awaited<ReturnType<typeof save>> | undefined
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { result = await save(); break } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2034' || attempt === 2) throw error
+      }
+    }
+    if (!result) throw new Error('Booking could not be saved')
+    const { booking, deliveries } = result
+    if (deliveries.length) after(async () => {
+      try { await deliverMakeupBookingNotifications(deliveries) }
+      catch { console.error('[makeup-booking] could not deliver external notifications') }
     })
     return NextResponse.json(booking)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'This exam is already booked. Refresh and try again.' }, { status: 409 })
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') return NextResponse.json({ error: 'Your booking changed while saving. Refresh and try again.' }, { status: 409 })
     return handleApiError(error)
   }
 }
