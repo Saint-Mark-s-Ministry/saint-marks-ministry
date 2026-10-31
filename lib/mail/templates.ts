@@ -62,6 +62,28 @@ function text(lines: (string | false | undefined)[]): string {
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'there'
 
+export function makeupExamBooked({ name, studentName, examName, scheduledDate, previousDate, bookingsUrl }: {
+  name: string
+  studentName: string
+  examName: string
+  scheduledDate: string
+  previousDate?: string
+  bookingsUrl: string
+}): Content {
+  const heading = previousDate ? 'Makeup exam rescheduled' : 'Makeup exam scheduled'
+  const details = `${studentName} ${previousDate ? 'rescheduled' : 'scheduled'} a makeup exam.`
+  const date = previousDate ? `Changed from ${previousDate} to ${scheduledDate}.` : `Scheduled for ${scheduledDate}.`
+  return {
+    tag: 'makeup-exam-booking', subject: `${heading}: ${studentName}`,
+    html: layout({
+      preheader: `${details} ${date}`, heading,
+      paragraphs: [`Hi ${escapeHtml(firstName(name))},`, escapeHtml(details), escapeHtml(examName), escapeHtml(date)],
+      action: { label: 'View makeup exam bookings', url: bookingsUrl },
+    }),
+    text: text([`Hi ${firstName(name)},`, '', details, examName, date, '', `View makeup exam bookings: ${bookingsUrl}`]),
+  }
+}
+
 // ------------------------------------------------------------ Servants Prep registration
 
 export function registrationReceived({ name }: { name: string }): Content {
