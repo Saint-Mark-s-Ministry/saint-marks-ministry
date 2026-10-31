@@ -5,15 +5,9 @@ import { appUrl, sendEmail } from '@/lib/mail/send'
 import { makeupExamBooked } from '@/lib/mail/templates'
 import { formatDateUTC } from '@/lib/utils'
 
-// Explicitly requested booking coordinators: Joshua Kaisar and Karen Ayoub.
-// IDs keep routing stable when an account changes its email or display name.
-export const MAKEUP_BOOKING_RECIPIENT_IDS = [
-  'cmjewco6u0004kw0412nr59ib',
-  'cmjewabag0002kw04rbwy1qg8',
-] as const
-
+// Recipient subscriptions are managed on Users, alongside existing account settings.
 const recipientWhere = {
-  id: { in: [...MAKEUP_BOOKING_RECIPIENT_IDS] },
+  makeupExamNotifications: true,
   isDisabled: false,
   roleAssignments: { some: {
     revokedAt: null,
@@ -84,7 +78,7 @@ export async function createMakeupBookingNotifications(
 export async function deliverMakeupBookingNotifications(deliveries: BookingDelivery[]) {
   // Recheck current staff access before sending student details outside the app.
   const recipients = await prisma.user.findMany({
-    where: { ...recipientWhere, id: { in: deliveries.map(d => d.userId).filter(id => MAKEUP_BOOKING_RECIPIENT_IDS.some(allowed => allowed === id)) } },
+    where: { ...recipientWhere, id: { in: deliveries.map(d => d.userId) } },
     select: { id: true, name: true, email: true },
   })
   const tasks: Promise<unknown>[] = []

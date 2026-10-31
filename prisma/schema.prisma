@@ -304,6 +304,7 @@ model User {
   isDisabled         Boolean   @default(false)
   canAccessContactBook Boolean @default(false)
   canUseViewAs       Boolean   @default(false)
+  makeupExamNotifications Boolean @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
