@@ -115,7 +115,12 @@ from the database, filters eligible failed or missed exams to the student's prog
 years (both curriculum years for async students) and enrollment academic years (the active academic year when the
 starting year is unknown), and ignores client-supplied student identities.
 Only prep administrators and priests can read the full booking list; mentors
-and Sunday School-only participants have no access to it.
+and Sunday School-only participants have no access to it. Active Super Admins
+may configure an enabled staff/priest account’s makeup booking notification
+subscription on Users, through the audited `/api/admin/users/[id]/makeup-notifications`
+endpoint. View as and priest read-only sessions cannot change subscriptions. The
+setting grants no role or exam access; delivery checks current subscription and
+staff tags again.
 
 Original grade writes and `/api/exams/[id]/makeup-scores` resolve current
 role tags from the database. `SUPER_ADMIN`, `PRIEST`, and

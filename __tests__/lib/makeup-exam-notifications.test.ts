@@ -5,11 +5,12 @@ const mocks = vi.hoisted(() => ({ recipients: vi.fn(), create: vi.fn(), current:
 vi.mock('@/lib/prisma', () => ({ prisma: { user: { findMany: mocks.current } } }))
 vi.mock('@/lib/notifications', () => ({ sendPushToUser: mocks.push }))
 vi.mock('@/lib/mail/send', () => ({ sendEmail: mocks.email, appUrl: () => 'https://app.example.com' }))
-import { createMakeupBookingNotifications, deliverMakeupBookingNotifications, MAKEUP_BOOKING_RECIPIENT_IDS } from '@/lib/makeup-exam-notifications'
+import { createMakeupBookingNotifications, deliverMakeupBookingNotifications } from '@/lib/makeup-exam-notifications'
 import { makeupExamBooked } from '@/lib/mail/templates'
 import type { Prisma } from '@prisma/client'
 
-const [joshua, karen] = MAKEUP_BOOKING_RECIPIENT_IDS
+const joshua = 'coordinator-joshua'
+const karen = 'coordinator-karen'
 const booking = {
   id: 'booking-1', studentId: 'student-1', examId: 'exam-1', scheduledDate: new Date('2026-11-06T00:00:00Z'),
   student: { name: 'Student Name' },
@@ -28,10 +29,10 @@ beforeEach(() => {
 })
 
 describe('makeup booking in-app notifications', () => {
-  it('targets only the two named coordinators with current Prep staff access', async () => {
+  it('targets subscribed users with current Prep staff access', async () => {
     const notices = await createMakeupBookingNotifications(tx, booking)
     expect(mocks.recipients).toHaveBeenCalledWith({ where: {
-      id: { in: [joshua, karen] }, isDisabled: false,
+      makeupExamNotifications: true, isDisabled: false,
       roleAssignments: { some: { revokedAt: null, tag: { in: [RoleTag.SUPER_ADMIN, RoleTag.SERVANTS_PREP_SERVANT, RoleTag.PRIEST] } } },
     }, select: { id: true } })
     expect(notices.map(n => n.userId)).toEqual([joshua, karen])
@@ -56,12 +57,12 @@ describe('makeup booking in-app notifications', () => {
     expect(mocks.create.mock.calls[0][0].data.metadata.previousDate).toBe('2026-10-30')
   })
 
-  it('does not add other staff when a named recipient is unavailable', async () => {
+  it('does not add other staff outside the subscribed recipient lookup', async () => {
     mocks.recipients.mockResolvedValue([{ id: karen }])
     expect((await createMakeupBookingNotifications(tx, booking)).map(n => n.userId)).toEqual([karen])
   })
 
-  it('returns no deliveries when both named accounts lack access', async () => {
+  it('returns no deliveries when no enabled authorized users subscribe', async () => {
     mocks.recipients.mockResolvedValue([])
     expect(await createMakeupBookingNotifications(tx, booking)).toEqual([])
     expect(mocks.create).not.toHaveBeenCalled()
