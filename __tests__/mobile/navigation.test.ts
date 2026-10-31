@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import {
+  availableMinistries,
+  defaultMinistry,
+  MINISTRY_NAMES,
+} from "../../apps/mobile/src/data/navigation";
+
+const roles = [
+  "SUPER_ADMIN",
+  "PRIEST",
+  "SERVANT_PREP",
+  "MENTOR",
+  "STUDENT",
+  "SERVANT",
+  "PARENT",
+] as const;
+
+describe("mobile ministry switching", () => {
+  it.each(roles.filter((role) => role !== "SERVANT" && role !== "PARENT" && role !== "STUDENT"))(
+    "gives %s both ministries once they have Sunday School access, defaulting to Sunday School",
+    (role) => {
+      const options = availableMinistries({ role }, true);
+      expect(options.map((o) => o.id)).toEqual(["prep", "sundaySchool"]);
+      // Sunday School is this app's pre-existing default — a cold start must
+      // not silently drop an admin/priest/leader into the new Prep shell
+      // just because Prep is technically "available" to them too.
+      expect(defaultMinistry({ role }, true)).toBe("sundaySchool");
+    },
+  );
+
+  it.each(roles.filter((role) => role !== "SERVANT" && role !== "PARENT"))(
+    "gives %s only Prep without Sunday School access",
+    (role) => {
+      const options = availableMinistries({ role }, false);
+      expect(options.map((o) => o.id)).toEqual(["prep"]);
+      expect(defaultMinistry({ role }, false)).toBe("prep");
+    },
+  );
+
+  it("keeps a STUDENT in Prep even when they are assigned to a Sunday School class (highest-risk path)", () => {
+    // An async student does their rotation in a class; that is not servant
+    // access, and must not open Roster/Visitations to them.
+    expect(availableMinistries({ role: "STUDENT" }, true).map((o) => o.id)).toEqual(["prep"]);
+    expect(defaultMinistry({ role: "STUDENT" }, true)).toBe("prep");
+  });
+
+  it("never gives a SERVANT the Prep ministry", () => {
+    expect(availableMinistries({ role: "SERVANT" }, true)).toEqual([
+      { id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool },
+    ]);
+    expect(defaultMinistry({ role: "SERVANT" }, true)).toBe("sundaySchool");
+  });
+
+  it("gives a SERVANT nothing without Sunday School access (fails closed, not into Prep)", () => {
+    expect(availableMinistries({ role: "SERVANT" }, false)).toEqual([]);
+  });
+
+  it("never gives a PARENT the Prep ministry", () => {
+    expect(availableMinistries({ role: "PARENT" }, true)).toEqual([
+      { id: "sundaySchool", name: MINISTRY_NAMES.sundaySchool },
+    ]);
+  });
+
+  it("collapses to a single option for a SUPER_ADMIN with no Sunday School access", () => {
+    const options = availableMinistries({ role: "SUPER_ADMIN" }, false);
+    expect(options).toHaveLength(1);
+    expect(options[0].id).toBe("prep");
+  });
+});

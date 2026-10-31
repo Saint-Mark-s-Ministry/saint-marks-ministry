@@ -1,0 +1,7 @@
+{
+  "name": "@stmark/domain",
+  "version": "0.1.0",
+  "private": true,
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@stmark/contracts": "workspace:*" }
+}

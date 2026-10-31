@@ -1,4 +1,5 @@
 import type { AttendanceStatus } from '@prisma/client'
+import type { IndividualAttendanceHistory } from '@stmark/contracts'
 import { calculateAttendanceFromRecords, countAttendanceStatuses } from '@/lib/attendance-utils'
 
 interface ChildName { id: string; firstName: string; lastName: string }
@@ -11,7 +12,7 @@ export function buildIndividualAttendance(
   roster: ChildName[],
   sessions: HistorySession[],
   scheduledDates: Array<Date | string> = []
-) {
+): IndividualAttendanceHistory {
   const dateKey = (date: Date | string) => new Date(date).toISOString().slice(0, 10)
   const dates = [...new Set([...scheduledDates.map(dateKey), ...sessions.map(session => dateKey(session.date))])].sort()
   const children = new Map(roster.map(child => [child.id, child]))
@@ -41,4 +42,4 @@ export function buildIndividualAttendance(
   }
 }
 
-export type IndividualAttendanceHistory = ReturnType<typeof buildIndividualAttendance>
+export type { IndividualAttendanceHistory }

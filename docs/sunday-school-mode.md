@@ -117,7 +117,23 @@ date, optional title, and a link to the lesson page. Stable notification IDs and
 duplicate-skipping inserts prevent repeat delivery while the notification exists;
 push is awaited before the cron response. No database migration is required.
 Deploy the code and Vercel cron configuration to activate the schedule; device
-push requires configured VAPID keys and a teacher's browser subscription.
+push requires configured VAPID keys and a teacher's browser subscription, or, in
+the native app, a registered Expo push token (`MobilePushToken`). The native
+payload carries `kind: sunday-school-lesson-reminder` and `lessonId` so a tap opens
+that lesson; the same fields are in the notification's `metadata`, so the in-app
+feed opens it too whether or not push was delivered.
+
+**In the iOS app,** the `sunday-school-absence` notification shows the server's own title and
+body (student, class, consecutive weeks) plus a **Follow-up** or **Escalation** tag and the
+week count from its metadata (`threshold` 2 is the three-week follow-up for direct class
+staff; 4 is the escalation to active band coordinators and that band's priest overseer).
+Tapping it, or the push, opens that child's Visitations record. From the feed the
+metadata supplies the child and class; a push carries only the web link, so it names the
+child alone. The record is asked for again before it is shown (the alert may be days old),
+and the lookup is limited to the classes this person can see: a child who moved to a class
+they cannot see, an archived child, or removed access shows "Child unavailable" or an access
+error instead of the cached record. The app never counts streaks or picks recipients, and the
+server's stable notification ids and `skipDuplicates` are what prevent duplicates.
 
 Absence follow-up runs daily at 15:00 UTC through the `CRON_SECRET`-protected
 `GET /api/cron/sunday-school-absence-notifications`. Three consecutive explicit
@@ -322,7 +338,7 @@ Homework, which list only the classes they apply to.
 | `roster/page.tsx` | Children: roster CRUD (Add child asks for the essentials; the rest is under **More details**) (name, grade, class, birth date, child cell number, father of confession, guardian contact), family/parent details, sibling connections, CSV import, class contact-update QR codes, and coordinator-only child-account linking. Tapping a name opens the child profile in a centered, scrollable modal with shared opening, closing and resize animations, with attendance rate, last visit and call, **Call mother/father/guardian**, a link to log a call or visit, and a priority-visit button for people who serve the class; tabs Family, Attendance, Care, Notes. |
 | `care/page.tsx` | Follow up: children absent 3+ meetings in a row (the absence-notice threshold), starred for a priority visit, or with a birthday in the next 7 days, one row per child with every reason. Built from the `visitations` response (which now includes each child's `absentStreak`) and the birthdays API; nothing is stored separately. |
 | `birthdays/page.tsx` | Assignment-scoped child birthdays with month and class filters; backed by a summary-only API that excludes family and contact details |
-| `visitations/page.tsx` | Per-child visitation status and dated phone-call history across the viewer's class scope. `?childId=` opens that child's record. |
+| `visitations/page.tsx` | Per-child visitation status, dated history and notes, and a separate dated phone-call follow-up history, across the viewer's assigned class scope. `?childId=` opens that child's record. |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
@@ -344,6 +360,18 @@ camera is preferred on phones; **Switch camera** selects the front or rear camer
 The camera stops on capture or dismissal. Denied permission, missing cameras,
 and unsupported browsers leave file upload available. Saving uses the existing
 child-photo endpoint and class-serving permission; no database migration is needed.
+
+**In the iOS app,** each roster row (for people who can edit that child and not in View as)
+has a camera button, and the child's profile has **Take photo**, **Choose from library** and
+**Remove photo**. Take photo asks for camera access only when tapped, then opens the system
+camera in the app (it can switch cameras and retake; **Use Photo** then leads to a square
+crop and confirm) and uploads to the same `POST /api/sunday-school/children/[id]/photo`
+(multipart field `file`); removal is `DELETE` on that route. If camera access is refused the app
+says so and offers Settings and the library, which needs no permission. Cancelling at any
+step changes nothing, and a failed upload says the saved photo is unchanged. The temporary
+picker file is deleted afterwards and nothing is saved to the Photos library. After the server
+confirms, the roster and profile are read again; a child without their own photo still shows
+the linked account's photo, and removing the child's photo brings that back.
 
 The app shell shows a **mode switcher** between Servants Prep and Sunday School
 for anyone with access to both. A Sunday School servant without an active
@@ -682,12 +710,36 @@ resolver, matching the existing attendance editor while year backfills are being
 reconciled. It returns names and class-scoped attendance marks without contact,
 attendance notes, or pastoral notes.
 
+**The iOS app** reads the same endpoint (types in `@stmark/contracts`:
+`IndividualAttendanceResponse`). **Take attendance → ⋯ → Individual history**, or
+**Individual attendance history** on a class, pushes a read-only screen over the
+attendance editor, which stays mounted, so pending marks and notes are never
+read or changed. Each child is a row with the server's rate and Present / Late /
+Absent counts (no Excused total) and a strip of the latest meetings; blank cells
+show a dash and read "Unrecorded". Former roster members carry a **Former**
+badge. Search and first/last-name sort match the web view. Tapping a name opens
+that child's saved weeks, newest first, as a sheet built from the same payload,
+so former members open too. The class picker only changes what this screen
+asks for. The cache is keyed by viewer (and View as original) and class; the
+screen asks again on every open, so a confirmed attendance save is reflected, and
+a 403 or 404 clears the cached answer. Contacts, attendance notes and pastoral
+notes are not in the payload and not shown.
+
 On **Visitations**, servants can star a child and use **Priority visits** to see
 that class's shared follow-up list. Stars persist across devices for the whole
 class team, separately from visit and phone-call histories. Recording a visit
 never clears a star automatically. Priests can view and change priorities across classes. `PATCH /api/sunday-school/visitations` accepts `{ childId, priority }` and
 requires current class-serving authority; an atomic update rejects concurrent
 class transfers. The child flag follows the child if the roster is transferred.
+
+**The iOS app** shows the flag on **Visitations**: a **Priority visit** label on each
+starred child, a **Priority visits · N** filter that combines with the Done / Not done
+filter, and a star beside the row (a switch on the child's record) for people the
+response lets edit (`classes[].canEdit`, so priests and admins in every class; never
+in View as). A tap shows at once and is saved with `PATCH`; if the save fails the star
+returns to what the server has and a message says why. A 403 or a 409 (the child moved
+class) also refreshes the list. Recording a visit or call never sends the flag. The
+list keeps its filters and scroll position after opening a child.
 
 Migration: `20261014120000_add_visitation_priority` adds a non-null boolean with
 `false` as its default. Apply the committed migration with the direct connection
@@ -726,6 +778,20 @@ Stable notification IDs suppress duplicate deliveries on retries and overlapping
 runs. Existing push configuration and user subscriptions apply. The cron becomes
 active when the updated Vercel configuration is deployed; no database migration
 is required.
+
+**The iOS app** loads `GET /api/sunday-school/attendance/reminders` and shows a
+non-dismissible banner on every Sunday School screen (not Servants Prep) for each
+returned class, until the server stops returning it. It asks again when the app
+returns to the foreground and after a confirmed attendance save. It never decides
+completion itself: a local draft, a session or a partial save changes nothing. A 403
+(for instance a revoked assignment) clears it; a bad connection keeps the last answer.
+Tapping a reminder opens Take attendance for the returned `classId` and exact
+`sessionDate`. The `sunday-school-attendance-reminder` notification opens the same
+place from its metadata in the feed, or from the web link's `classId` and `date` when it
+arrives as a push (a push carries no metadata), so an older notification still opens
+its original meeting. Push uses the existing transport; with push denied or failing,
+the banner and the feed still show the reminder. Banner text stops scaling at 1.3×,
+because it is always on screen.
 
 The personal reminder endpoint reloads database authorization and current direct
 assignments. It uses the active compatibility academic year and class roster,

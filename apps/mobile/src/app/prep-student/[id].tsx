@@ -1,0 +1,375 @@
+import { formatPercent } from "@/data/format-percent";
+import { useState } from "react";
+import { Alert, Linking, Pressable, View } from "react-native";
+import { yearLevelLabel } from "@/data/year-level";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { CircleIconButton, Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
+import { ResourceState } from "@/components/forms";
+import { useResource } from "@/data/resources";
+import { useAuth } from "@/data/auth-provider";
+import { useAppTheme, serifHero } from "@/theme";
+import { AsyncBasisNote, RotationStatus } from "@/components/rotation-attendance";
+import { EnrollmentPeople, MentorPickerSheet } from "@/components/enrollment-people";
+import { canAssignMentors, type PrepEnrollmentPeople } from "@/data/roster-contacts";
+import { useLargeType } from "@/components/attendance-history-parts";
+import {
+  attendanceTerms,
+  isAsyncRow,
+  rotationRequirement,
+  type PrepAnalyticsSundaySchool,
+} from "@/data/rotation-attendance";
+import {
+  canManageStudentRecord,
+  eligibilityLabel,
+  isAdminLike,
+  recentActivity,
+  type AttendanceRecordInput,
+  type ExamScoreInput,
+  type RecentActivity,
+} from "@/data/prep-students";
+
+const ATTENDANCE_LABEL: Record<string, string> = {
+  PRESENT: "Present",
+  LATE: "Late",
+  ABSENT: "Absent",
+  EXCUSED: "Excused",
+};
+
+type StudentAnalytics = {
+  studentId: string;
+  studentName: string;
+  yearLevel: string | null;
+  isAsyncStudent?: boolean;
+  sundaySchoolMet?: boolean;
+  /** Rotation attendance when async, lesson attendance otherwise. */
+  attendancePercentage: number | null;
+  totalLessons: number;
+  examAverage: number | null;
+  examCount: number;
+  graduationEligible: boolean;
+};
+
+type StudentDetails = {
+  student: { id: string; name: string; email: string | null; phone: string | null };
+  attendanceRecords: AttendanceRecordInput[];
+  examScores: ExamScoreInput[];
+};
+
+type EnrollmentDetail = PrepEnrollmentPeople & {
+  id: string;
+  isActive: boolean;
+};
+
+export default function PrepStudentDetail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  const { colors } = useAppTheme();
+  const canManage = canManageStudentRecord(user?.role);
+  // Contact fields, father of confession, and recent activity all come from
+  // this admin-only endpoint — a mentor viewing their own mentee never
+  // reaches this screen (see the students list/search), but skip the fetch
+  // and its error entirely rather than let a stray deep link blank the page.
+  const canViewDetails = isAdminLike(user?.role);
+  const canAssign = canAssignMentors(user?.role);
+  const [pickingMentor, setPickingMentor] = useState(false);
+
+  const analytics = useResource<StudentAnalytics[]>(`/api/students/analytics/batch?studentIds=${encodeURIComponent(id)}`);
+  const details = useResource<StudentDetails & { student: { enrollments: EnrollmentDetail[] } }>(
+    canViewDetails ? `/api/students/${encodeURIComponent(id)}/details` : null,
+  );
+  const student = analytics.data?.[0];
+  const isAsync = isAsyncRow(student);
+  // The rotation weeks and whether a rotation is assigned come from the per-student
+  // analytics, which only an async student needs. Staff can already open it.
+  const rotation = useResource<{ sundaySchool?: PrepAnalyticsSundaySchool | null }>(
+    isAsync ? `/api/students/${encodeURIComponent(id)}/analytics` : null,
+  );
+  const terms = attendanceTerms(isAsync);
+  const enrollment = details.data?.student.enrollments.find((e) => e.isActive) ?? details.data?.student.enrollments[0];
+
+  const offline = analytics.error === "Could not reach the server. Check your connection and try again.";
+  const activity: RecentActivity[] = details.data
+    ? recentActivity(details.data.attendanceRecords, details.data.examScores)
+    : [];
+
+  const refresh = () => {
+    void analytics.refresh();
+    void details.refresh();
+    void rotation.refresh();
+  };
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: student?.studentName ?? "Student",
+          headerRight: canManage
+            ? () => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit student"
+                  hitSlop={8}
+                  onPress={() => router.push("/prep-roster")}
+                >
+                  <Copy style={{ fontWeight: "600", color: colors.primary }}>Edit</Copy>
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
+      <Screen refreshing={analytics.loading || analytics.refreshing} onRefresh={refresh}>
+        {offline && (
+          <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>
+            <Copy style={{ fontWeight: "600" }} color={colors.danger}>
+              You're offline
+            </Copy>
+            <Copy kind="caption">Showing the last data we had. Pull down to try again once you're back online.</Copy>
+          </View>
+        )}
+        <ResourceState loading={analytics.loading} error={offline ? undefined : analytics.error || details.error || rotation.error} retry={refresh} />
+
+        {student && (
+          <>
+            <View style={{ alignItems: "center", gap: 10, paddingTop: 4 }}>
+              <InitialsAvatar name={student.studentName} size={84} />
+              <Copy
+                style={{ ...serifHero, }}
+              >
+                {student.studentName}
+              </Copy>
+              <View style={[styles.row, { gap: 6, flexWrap: "wrap", justifyContent: "center" }]}>
+                <StatusPill
+                  label={enrollment?.isActive === false ? "Inactive" : "Active"}
+                  color={enrollment?.isActive === false ? colors.muted : colors.success}
+                  soft={enrollment?.isActive === false ? colors.hover : colors.successSoft}
+                />
+                {((student.attendancePercentage !== null && student.attendancePercentage !== undefined) || (student.examAverage !== null && student.examAverage !== undefined)) && (
+                  <StatusPill
+                    label={eligibilityLabel(student.graduationEligible)}
+                    color={student.graduationEligible ? colors.success : colors.warning}
+                    soft={student.graduationEligible ? colors.successSoft : colors.warningSoft}
+                  />
+                )}
+                <View style={[styles.pill, { backgroundColor: colors.hover }]}>
+                  <Copy kind="caption">{isAsync ? "Async student" : yearLevelLabel(student.yearLevel)}</Copy>
+                </View>
+              </View>
+              {details.data?.student && (
+                <View style={[styles.row, { gap: 12, marginTop: 6 }]}>
+                  {!!details.data.student.phone && (
+                    <CircleIconButton
+                      ios="phone.fill"
+                      android="call"
+                      label="Call"
+                      onPress={() => void Linking.openURL(`tel:${details.data!.student.phone}`)}
+                    />
+                  )}
+                  {!!details.data.student.phone && (
+                    <CircleIconButton
+                      ios="message.fill"
+                      android="sms"
+                      label="Message"
+                      onPress={() => void Linking.openURL(`sms:${details.data!.student.phone}`)}
+                    />
+                  )}
+                  {!!details.data.student.email && (
+                    <CircleIconButton
+                      ios="envelope.fill"
+                      android="mail"
+                      label="Email"
+                      onPress={() => void Linking.openURL(`mailto:${details.data!.student.email}`)}
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <StatCard
+                label={terms.title}
+                value={student.attendancePercentage}
+                sublabel={
+                  isAsync && student.attendancePercentage === null
+                    ? "No rotation weeks counted yet"
+                    : `${student.totalLessons} ${student.totalLessons === 1 && isAsync ? "rotation week" : terms.unit}`
+                }
+              />
+              <StatCard label="Exam average" value={student.examAverage} sublabel={`${student.examCount} exams`} />
+            </View>
+
+            {isAsync && (
+              <View style={{ gap: 10 }}>
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Sunday School rotation</Copy>
+                <AsyncBasisNote />
+                {rotation.data && <RotationStatus sundaySchool={rotation.data.sundaySchool} now={new Date()} audience="staff" />}
+                {student.sundaySchoolMet !== undefined && (
+                  <RotationRequirementRow
+                    requirement={rotationRequirement(rotation.data?.sundaySchool, student.sundaySchoolMet, "staff")}
+                  />
+                )}
+              </View>
+            )}
+
+            {details.data?.student && (
+              <ListSurface>
+                <FieldRow label="Email" value={details.data.student.email} />
+                <FieldRow label="Phone" value={details.data.student.phone} last />
+              </ListSurface>
+            )}
+
+            {enrollment && (
+              <View style={{ gap: 10 }}>
+                <Copy style={{ fontSize: 17, fontWeight: "600" }}>Mentor and father of confession</Copy>
+                <EnrollmentPeople enrollment={enrollment} onChangeMentor={canAssign && enrollment.isActive ? () => setPickingMentor(true) : undefined} />
+              </View>
+            )}
+
+            <View style={{ gap: 10 }}>
+              <Copy style={{ fontSize: 17, fontWeight: "600" }}>Recent</Copy>
+              {!activity.length && details.data && (
+                <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 18 }}>
+                  <Copy kind="caption">No attendance or exam activity yet.</Copy>
+                </View>
+              )}
+              {!!activity.length && (
+                <ListSurface>
+                  {activity.map((entry, index) => (
+                    <ActivityRow key={`${entry.kind}-${entry.id}`} entry={entry} divider={index < activity.length - 1} />
+                  ))}
+                </ListSurface>
+              )}
+            </View>
+          </>
+        )}
+      </Screen>
+      {pickingMentor && enrollment && student && (
+        <MentorPickerSheet
+          enrollmentId={enrollment.id}
+          studentName={student.studentName}
+          currentMentorId={enrollment.mentorId ?? enrollment.mentor?.id ?? null}
+          // What is being replaced is the assigned account, which can differ from the confirmed contact shown above.
+          currentMentorName={enrollment.mentor?.name ?? null}
+          onClose={() => setPickingMentor(false)}
+          onChanged={(message) => {
+            setPickingMentor(false);
+            // The change reaches the enrollment, the mentor's views and the student's own screen.
+            refresh();
+            Alert.alert(message);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function RotationRequirementRow({ requirement }: { requirement: ReturnType<typeof rotationRequirement> }) {
+  const { colors } = useAppTheme();
+  const stacked = useLargeType();
+  return (
+    <ListSurface>
+      <View style={[styles.compactRow, stacked && { flexDirection: "column", alignItems: "flex-start", gap: 8 }]}>
+        <View style={{ flex: stacked ? undefined : 1, gap: 2 }}>
+          <Copy style={{ fontWeight: "500" }}>{requirement.title}</Copy>
+          <Copy kind="caption">{requirement.caption}</Copy>
+        </View>
+        <StatusPill
+          label={requirement.met ? requirement.metLabel : requirement.unmetLabel}
+          color={requirement.met ? colors.success : colors.warning}
+          soft={requirement.met ? colors.successSoft : colors.warningSoft}
+        />
+      </View>
+    </ListSurface>
+  );
+}
+
+function StatCard({ label, value, sublabel }: { label: string; value: number | null; sublabel: string }) {
+  const { colors } = useAppTheme();
+  const tone = (value === null || value === undefined) ? colors.text : value >= 75 ? colors.success : value >= 60 ? colors.warning : colors.danger;
+  return (
+    <View
+      style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 22, padding: 14, gap: 8 }}
+      accessible
+      accessibilityLabel={`${label}: ${(value !== null && value !== undefined) ? formatPercent(value) : "no data"}, ${sublabel}`}
+    >
+      <Copy kind="caption" style={{ fontWeight: "500" }}>
+        {label}
+      </Copy>
+      <Copy style={{ fontSize: 28, lineHeight: 32, fontWeight: "600" }} color={tone}>
+        {(value !== null && value !== undefined) ? formatPercent(value) : "—"}
+      </Copy>
+      {(value !== null && value !== undefined) && (
+        <View style={{ height: 5, borderRadius: 2.5, backgroundColor: colors.border, overflow: "hidden" }}>
+          <View style={{ width: `${Math.min(100, value)}%`, height: "100%", borderRadius: 2.5, backgroundColor: tone }} />
+        </View>
+      )}
+      <Copy kind="caption">{sublabel}</Copy>
+    </View>
+  );
+}
+
+function FieldRow({ label, value, fallback = "—", last = false }: { label: string; value?: string | null; fallback?: string; last?: boolean }) {
+  const { colors } = useAppTheme();
+  return (
+    <View
+      style={[
+        { paddingVertical: 10, paddingHorizontal: 16, gap: 2 },
+        !last && { borderBottomWidth: 0.5, borderBottomColor: colors.border, marginBottom: 0 },
+      ]}
+    >
+      <Copy kind="caption">{label}</Copy>
+      <Copy color={value ? undefined : colors.muted}>{value || fallback}</Copy>
+    </View>
+  );
+}
+
+// A static row, not CompactRow — these entries are history, not navigable
+// destinations, so they skip the Pressable/chevron affordance that implies one.
+function ActivityRow({ entry, divider }: { entry: RecentActivity; divider: boolean }) {
+  const { colors } = useAppTheme();
+  const dateLabel = new Date(entry.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const isAttendance = entry.kind === "attendance";
+  const tone = isAttendance
+    ? entry.status === "PRESENT" || entry.status === "LATE"
+      ? colors.success
+      : entry.status === "ABSENT"
+        ? colors.danger
+        : colors.muted
+    : entry.percentage >= 75
+      ? colors.success
+      : entry.percentage >= 60
+        ? colors.warning
+        : colors.danger;
+  const soft = isAttendance
+    ? entry.status === "PRESENT" || entry.status === "LATE"
+      ? colors.successSoft
+      : entry.status === "ABSENT"
+        ? colors.dangerSoft
+        : colors.hover
+    : entry.percentage >= 75
+      ? colors.successSoft
+      : entry.percentage >= 60
+        ? colors.warningSoft
+        : colors.dangerSoft;
+  const title = isAttendance ? `Lesson ${entry.lessonNumber}` : entry.sectionName;
+  const badgeLabel = isAttendance ? ATTENDANCE_LABEL[entry.status] ?? entry.status : formatPercent(entry.percentage);
+
+  return (
+    <View
+      style={[
+        styles.compactRow,
+        divider && { borderBottomWidth: 0.5, borderBottomColor: colors.border },
+      ]}
+      accessible
+      accessibilityLabel={`${title}, ${dateLabel}, ${badgeLabel}`}
+    >
+      <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: soft }}>
+        <Icon ios={isAttendance ? "checkmark.circle" : "graduationcap"} android={isAttendance ? "check_circle" : "school"} size={16} color={tone} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Copy style={{ fontWeight: "600" }}>{title}</Copy>
+        <Copy kind="caption">{dateLabel}</Copy>
+      </View>
+      <StatusPill label={badgeLabel} color={tone} soft={soft} />
+    </View>
+  );
+}

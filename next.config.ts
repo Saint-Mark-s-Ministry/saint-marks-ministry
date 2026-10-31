@@ -13,6 +13,7 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@stmark/contracts', '@stmark/domain'],
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }]

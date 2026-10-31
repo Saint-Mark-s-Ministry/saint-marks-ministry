@@ -1,17 +1,9 @@
 import type { Prisma } from '@prisma/client'
+import type { SundaySchoolFamilyDetails } from '@stmark/contracts'
 import { normalizeOptionalEmail } from './email'
 import { normalizeHomeAddress } from './address'
 
-export interface SundaySchoolFamilyDetails {
-  name: string | null
-  homeAddress: string | null
-  motherName: string | null
-  motherPhone: string | null
-  motherEmail: string | null
-  fatherName: string | null
-  fatherPhone: string | null
-  fatherEmail: string | null
-}
+export type { SundaySchoolFamilyDetails }
 
 export const sundaySchoolFamilyInclude = {
   children: {

@@ -6,6 +6,11 @@ export default tseslint.config(
   {
     ignores: [
       "node_modules/**",
+      "**/node_modules/**",
+      "apps/mobile/.expo/**",
+      "apps/mobile/dist/**",
+      "apps/mobile/ios/**",
+      "apps/mobile/android/**",
       ".next/**",
       "out/**",
       "build/**",
@@ -15,6 +20,17 @@ export default tseslint.config(
     ],
   },
   ...tseslint.configs.recommended,
+  {
+    files: ["apps/mobile/**/*.tsx"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
+    // Expo config plugins are loaded by Node's own `require()` directly from
+    // app.json, outside the bundler/TS pipeline — CommonJS is the correct
+    // format here, not a style choice.
+    files: ["apps/mobile/plugins/**/*.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   {
     plugins: {
       "@next/next": nextPlugin,

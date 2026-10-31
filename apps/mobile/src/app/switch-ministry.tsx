@@ -1,0 +1,104 @@
+import { Platform, Pressable, View } from "react-native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { feedback } from "@/data/haptics";
+import { Copy, Icon, ListSurface, Screen, styles } from "@/components/ui";
+import { useAppTheme } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
+import { usePortal } from "@/data/portal-provider";
+import { availableMinistries, type Ministry } from "@/data/navigation";
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  PRIEST: "Priest",
+  SERVANT_PREP: "Servant",
+  MENTOR: "Mentor",
+  STUDENT: "Student",
+  SERVANT: "Servant",
+  PARENT: "Parent",
+};
+
+/**
+ * Formsheet presented from the ministry switcher pill on "More". Picking a
+ * different ministry replaces the whole stack with that ministry's tab
+ * group — native tab bars can't swap their own trigger set at runtime, so
+ * this is the same route-replace the old toolbar switcher used.
+ */
+export default function SwitchMinistry() {
+  const { current } = useLocalSearchParams<{ current: Ministry }>();
+  const { user } = useAuth();
+  const { classes } = usePortal();
+  const { colors } = useAppTheme();
+  const options = user ? availableMinistries(user, classes.length > 0) : [];
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: "Ministries",
+          headerRight:
+            Platform.OS === "android"
+              ? () => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                    onPress={() => router.back()}
+                    style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Icon ios="xmark" android="close" />
+                  </Pressable>
+                )
+              : undefined,
+        }}
+      />
+      {Platform.OS === "ios" && (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button accessibilityLabel="Close" icon="xmark" onPress={() => router.back()} />
+        </Stack.Toolbar>
+      )}
+      <Screen>
+        <View style={{ gap: 10 }}>
+          <ListSurface>
+            {options.map((option, index) => {
+              const roleLabel = user ? ROLE_LABELS[user.role] ?? user.role : "";
+              const subtitle =
+                option.id === "sundaySchool"
+                  ? `${roleLabel} · ${classes.length} ${classes.length === 1 ? "class" : "classes"}`
+                  : roleLabel;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: option.id === current }}
+                  onPress={() => {
+                    feedback("selection");
+                    if (option.id === current) {
+                      router.back();
+                      return;
+                    }
+                    router.replace(option.id === "prep" ? "/(prep)/home" : "/(tabs)/home");
+                  }}
+                  style={({ pressed }) => [
+                    styles.compactRow,
+                    index < options.length - 1 && {
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: colors.border,
+                    },
+                    { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Copy style={{ fontWeight: "600" }}>{option.name}</Copy>
+                    {!!subtitle && <Copy kind="caption">{subtitle}</Copy>}
+                  </View>
+                  {option.id === current && (
+                    <Icon ios="checkmark" android="check" size={18} color={colors.primary} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ListSurface>
+          <Copy kind="caption">Only ministries you can open appear here.</Copy>
+        </View>
+      </Screen>
+    </>
+  );
+}

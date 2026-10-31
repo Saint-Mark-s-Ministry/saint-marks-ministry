@@ -16,6 +16,13 @@ The label follows enrollment status,
 including after grade 12. It is display information and must never be used as an
 authorization check.
 
+The iOS app shows the same **SP Student** pill in each roster row, on the child's
+profile, and in the student history sheet. It displays `isServantsPrepStudent` exactly as
+the server sends it (only a literal `true` counts) and nothing else: it does not look at the
+grade, the account's role or the name, does not query Prep, does no matching or linking, and
+the pill is not tappable and gates nothing. A disabled account, an ended enrollment, or an
+unlinked child shows no pill; a linked student with an active enrollment keeps it after grade 12.
+
 Photos also follow the existing account link. A Sunday School photo takes
 priority; otherwise the roster, class page, and child history use the linked
 account's current profile photo. Account photos are read when loading the

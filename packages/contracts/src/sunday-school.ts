@@ -1,0 +1,766 @@
+import type {
+  AttendanceStatus,
+  SundaySchoolAuthority,
+  SundaySchoolChildGender,
+  SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
+  SundaySchoolFeedbackVoteType,
+  SundaySchoolHomeworkCompletionStatus,
+  SundaySchoolLevel,
+  SundaySchoolPhoneCallOutcome,
+  SundaySchoolServantAttendanceStatus,
+  SundaySchoolVisitationStatus,
+} from "@prisma/client";
+
+// Shapes returned by the /api/sunday-school/* routes (Sunday School mode).
+
+export interface SundaySchoolServantRef {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string | null;
+  profileImageUrl?: string | null;
+}
+
+export interface SundaySchoolAssignmentRow {
+  id: string;
+  userId: string;
+  academicYearId: string;
+  authority: SundaySchoolAuthority;
+  classId: string | null;
+  ageGroupId: string | null;
+  user: SundaySchoolServantRef;
+  class?: SundaySchoolClassRef | null;
+  ageGroup?: { id: string; name: string } | null;
+}
+
+export interface SundaySchoolAgeGroup {
+  overseerId?: string | null;
+  overseer?: SundaySchoolServantRef | null;
+  id: string;
+  name: string;
+  levels: SundaySchoolLevel[];
+  sortOrder: number;
+  isActive: boolean;
+  // Elementary homework (SMM-71) is gated on this real, stored flag — never
+  // a hard-coded grade list, since bands can be renamed/regraded.
+  isElementary: boolean;
+  canCoordinate?: boolean;
+  assignments?: SundaySchoolAssignmentRow[];
+}
+
+export interface SundaySchoolClassRef {
+  id: string;
+  name: string;
+  classroom?: string | null;
+  level: SundaySchoolLevel;
+}
+
+export interface SundaySchoolClass extends SundaySchoolClassRef {
+  academicYearId: string;
+  academicYear?: { id: string; name: string } | null;
+  isActive: boolean;
+  assignments: SundaySchoolAssignmentRow[];
+  _count?: { children: number; sessions: number };
+  // What this viewer may do with this class, decided by the server
+  canServe?: boolean;
+  canCoordinate?: boolean;
+  canDelete?: boolean;
+  canTakeServantAttendance?: boolean;
+  canViewServantAttendance?: boolean;
+  weeklyLessons?: SundaySchoolWeeklyLesson[];
+}
+
+export interface SundaySchoolFamilyChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  level: SundaySchoolLevel;
+  classId: string | null;
+  class?: SundaySchoolClassRef | null;
+}
+
+export interface FamilyMatchingEvent {
+  at: string;
+  actorUserId: string | null;
+  childIds: string[];
+  previousFamilyIds: Record<string, string | null>;
+  origin?: { type: 'roster-import'; importId: string; rowNumber: number };
+  sources: Array<{ familyId: string; details: Record<string, string | null> }>;
+  filled: Array<{ field: string; sourceFamilyId: string }>;
+  conflicts: Array<{ field: string; values: string[] }>;
+}
+
+export interface FamilyMatchingHistory {
+  events: FamilyMatchingEvent[];
+}
+
+export interface SundaySchoolFamily {
+  matchingHistory?: FamilyMatchingHistory | null;
+  id: string;
+  name: string | null;
+  homeAddress: string | null;
+  motherName: string | null;
+  motherPhone: string | null;
+  motherEmail: string | null;
+  fatherName: string | null;
+  fatherPhone: string | null;
+  fatherEmail: string | null;
+  children: SundaySchoolFamilyChild[];
+}
+
+export interface SundaySchoolChild {
+  /** Current Prep enrollment of the linked account; display only, grants no access. */
+  isServantsPrepStudent?: boolean;
+  id: string;
+  familyId: string | null;
+  userId: string | null;
+  firstName: string;
+  lastName: string;
+  level: SundaySchoolLevel;
+  classId: string | null;
+  birthDate: string | null;
+  gender: SundaySchoolChildGender | null;
+  /** Photo a servant added (most children have no account). */
+  photoUrl?: string | null;
+  /** Live photo from the linked account; used only when no child photo exists. */
+  accountPhotoUrl?: string | null;
+  guardianName: string | null;
+  guardianPhone: string | null;
+  guardianEmail: string | null;
+  cellPhone: string | null;
+  fatherOfConfession: string | null;
+  notes: string | null;
+  isActive: boolean;
+  class?: SundaySchoolClassRef | null;
+  family?: SundaySchoolFamily | null;
+  user?: { id: string; name: string; email: string; profileImageUrl: string | null } | null;
+}
+
+export interface SundaySchoolBirthdayChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  level: SundaySchoolLevel;
+  classId: string | null;
+  birthDate: string;
+  photoUrl: string | null;
+  class: SundaySchoolClassRef | null;
+  user: { profileImageUrl: string | null } | null;
+}
+
+export type SundaySchoolWeeklyLessonStatus =
+  "UNASSIGNED" | "NEEDS_LINKS" | "READY";
+
+export interface SundaySchoolWeeklyLessonResource {
+  id: string;
+  weeklyLessonId: string;
+  title: string;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SundaySchoolWeeklyLesson {
+  id: string;
+  classId: string;
+  sundayDate: string;
+  title: string | null;
+  ownerId: string | null;
+  assignedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  class: SundaySchoolClassRef;
+  owner: Pick<SundaySchoolServantRef, "id" | "name" | "profileImageUrl"> | null;
+  resources: SundaySchoolWeeklyLessonResource[];
+  status: SundaySchoolWeeklyLessonStatus;
+  canEdit: boolean;
+  canAssignOwner: boolean;
+  eligibleOwners: SundaySchoolServantRef[];
+}
+
+export interface SundaySchoolWeeklyLessonsResponse {
+  lessons: SundaySchoolWeeklyLesson[];
+  /** Students only: the assigned class(es), including a class with no upcoming lessons. */
+  classes?: SundaySchoolClassRef[];
+  /** Async students only: approved grade rotations out of `requiredRotations`. */
+  completedRotations?: number;
+  requiredRotations?: number;
+}
+
+export type SundaySchoolHomeworkDisplayStatus = SundaySchoolHomeworkCompletionStatus | "NOT_RECORDED";
+
+export interface SundaySchoolHomeworkResource {
+  id: string;
+  title: string;
+  url: string;
+  sortOrder: number;
+}
+
+export interface SundaySchoolHomeworkWeek {
+  weeklyLessonId: string;
+  assignedDate: string;
+  dueDate: string;
+  class: SundaySchoolClassRef;
+  homework: null | {
+    id: string;
+    title: string;
+    instructions: string | null;
+    archivedAt: string | null;
+    resources: SundaySchoolHomeworkResource[];
+    completions: Array<{
+      childId: string;
+      child: { id: string; firstName: string; lastName: string };
+      status: SundaySchoolHomeworkCompletionStatus;
+      updatedAt: string;
+    }>;
+    summary: {
+      completed: number;
+      notCompleted: number;
+      notRecorded: number;
+      completionRate: number | null;
+    };
+  };
+}
+
+export interface SundaySchoolHomeworkResponse {
+  eligible: boolean;
+  canManage: boolean;
+  classes: Array<SundaySchoolClassRef & { canEdit: boolean }>;
+  roster: Array<{ id: string; firstName: string; lastName: string; classId?: string | null }>;
+  weeks: SundaySchoolHomeworkWeek[];
+}
+
+export interface SundaySchoolChildSearchResult {
+  kind: "child";
+  id: string;
+  title: string;
+  subtitle: string;
+  classId: string | null;
+}
+
+export interface SundaySchoolClassSearchResult {
+  kind: "class";
+  id: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface SundaySchoolLessonSearchResult {
+  kind: "lesson";
+  id: string;
+  title: string;
+  subtitle: string;
+  classId: string;
+  sundayDate: string;
+}
+
+export interface SundaySchoolSearchResponse {
+  query: string;
+  children: SundaySchoolChildSearchResult[];
+  classes: SundaySchoolClassSearchResult[];
+  lessons: SundaySchoolLessonSearchResult[];
+}
+
+export interface SundaySchoolVisitationRecord {
+  id: string;
+  status: SundaySchoolVisitationStatus;
+  visitedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  recorder: { id: string; name: string } | null;
+}
+
+export interface SundaySchoolPhoneCallRecord {
+  id: string;
+  calledAt: string;
+  outcome: SundaySchoolPhoneCallOutcome;
+  note: string;
+  callerName: string;
+  createdAt: string;
+}
+
+export interface SundaySchoolPriestNote {
+  id: string;
+  visitationId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  visitation: {
+    id: string;
+    status: SundaySchoolVisitationStatus;
+    visitedAt: string | null;
+    createdAt: string;
+  };
+  author: { id: string; name: string };
+}
+
+export interface SundaySchoolVisitationChild {
+  visitationPriority: boolean;
+  id: string;
+  firstName: string;
+  lastName: string;
+  visitations: SundaySchoolVisitationRecord[];
+  phoneCalls: SundaySchoolPhoneCallRecord[];
+  /** Consecutive meetings marked absent, ending with the latest one. */
+  absentStreak?: { weeks: number; since: string | null };
+}
+
+export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
+  canEdit: boolean;
+  children: SundaySchoolVisitationChild[];
+}
+
+export interface SundaySchoolVisitationsResponse {
+  classes: SundaySchoolVisitationClass[];
+  standing: {
+    readOnly: boolean;
+    isAdmin: boolean;
+    isPriest: boolean;
+    canReadPrivateNotes: boolean;
+  };
+}
+
+export interface SundaySchoolFeedbackIdea {
+  id: string;
+  type: SundaySchoolFeedbackType;
+  title: string;
+  description: string | null;
+  status: SundaySchoolFeedbackStatus;
+  // The one public reply, always attributed to the Development Team — never
+  // the responding admin's own name or id (see lib/sunday-school-feedback-server.ts).
+  teamResponse: string | null;
+  teamRespondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  submitter: {
+    id: string;
+    name: string;
+    profileImageUrl: string | null;
+  } | null;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  viewerVote: SundaySchoolFeedbackVoteType | null;
+  canEdit: boolean;
+  canDelete: boolean;
+  canVote: boolean;
+}
+
+export interface SundaySchoolFeedbackResponse {
+  ideas: SundaySchoolFeedbackIdea[];
+  statusCounts: Record<SundaySchoolFeedbackStatus, number>;
+  viewer: {
+    /**
+     * Not sent by the deployed route, which answers 403 when the account may not read the board. Declared so a
+     * server that does send it (false) is honoured; absent means "the response itself is the permission".
+     */
+    canRead?: boolean;
+    canSubmit: boolean;
+    /** Super Admins only. Moderation is never implied by being able to read or post. */
+    canModerate: boolean;
+  };
+}
+
+export interface SundaySchoolSession {
+  id: string;
+  classId: string;
+  date: string;
+  topic: string | null;
+  notes: string | null;
+  takenBy: string | null;
+  class?: SundaySchoolClassRef;
+  taker?: { id: string; name: string } | null;
+  _count?: { attendance: number };
+  // Only present on the Sunday School class-detail response (SMM-53).
+  attendance?: { status: AttendanceStatus }[];
+}
+
+export interface SundaySchoolRosterEntry {
+  id: string;
+  firstName: string;
+  lastName: string;
+  level: SundaySchoolLevel;
+  gender: SundaySchoolChildGender | null;
+  profileImageUrl: string | null;
+  attendance: {
+    id: string;
+    childId: string;
+    status: AttendanceStatus;
+    notes: string | null;
+  } | null;
+}
+
+/** Who saved attendance last, and when. Mirrors lib/attendance-save-info.ts. */
+export interface AttendanceSaveInfo {
+  savedAt: string;
+  recorder: { id: string; name: string | null } | null;
+}
+
+/** Answer to POST /api/sunday-school/attendance/batch: who saved, and when, is the server's word. */
+export interface SundaySchoolAttendanceBatchResponse {
+  success: boolean;
+  created?: number;
+  updated?: number;
+  lastSavedBy?: AttendanceSaveInfo | null;
+}
+
+export interface SundaySchoolSessionAttendance {
+  lastSavedBy?: AttendanceSaveInfo | null;
+  // null while a date has no recorded session yet — the roster is shown
+  // unmarked and the session row is created on the first save
+  session: SundaySchoolSession | null;
+  roster: SundaySchoolRosterEntry[];
+}
+
+export interface SundaySchoolServantAttendanceRosterEntry {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  profileImageUrl: string | null;
+  authority: SundaySchoolAuthority;
+  attendance: {
+    id: string;
+    servantId: string;
+    status: SundaySchoolServantAttendanceStatus;
+  } | null;
+}
+
+export interface SundaySchoolServantAttendanceResponse {
+  lastSavedBy?: AttendanceSaveInfo | null;
+  class: SundaySchoolClassRef & { academicYearId: string };
+  session: SundaySchoolSession | null;
+  roster: SundaySchoolServantAttendanceRosterEntry[];
+  canEdit: boolean;
+}
+
+export type SundaySchoolAttendanceAudience = "children" | "servants";
+
+export interface SundaySchoolClassSummary {
+  id: string;
+  name: string;
+  classroom?: string | null;
+  level: SundaySchoolLevel;
+  ageGroup: { id: string; name: string } | null;
+  childCount: number;
+  sessionCount: number;
+  attendancePercentage: number;
+  latestSession: { id: string; date: string; topic: string | null } | null;
+  attendanceTakenThisWeek: boolean;
+  canServe: boolean;
+  canCoordinate: boolean;
+  servants: Array<{
+    id: string;
+    name: string;
+    profileImageUrl: string | null;
+    isCoordinator: boolean;
+  }>;
+}
+
+export interface SundaySchoolAttendanceTrendPoint {
+  date: string;
+  attendedCount: number | null;
+  recordedCount: number | null;
+  recordedClassCount: number;
+  attendanceRate: number | null;
+}
+
+export interface SundaySchoolAcademicYearOption {
+  id: string;
+  name: string;
+}
+
+export interface SundaySchoolClassOption {
+  id: string;
+  name: string;
+}
+
+export interface SundaySchoolDashboard {
+  classes: SundaySchoolClassSummary[];
+  ageGroups: Array<{
+    id: string;
+    name: string;
+    levels: SundaySchoolLevel[];
+    canCoordinate: boolean;
+  }>;
+  totals: {
+    classes: number;
+    children: number;
+    classesNeedingAttendance: number;
+    attendancePercentage: number;
+  };
+  standing: {
+    isAdmin: boolean;
+    readOnly: boolean;
+    coordinatesAnyAgeGroup: boolean;
+  };
+  attendanceTrend: {
+    currentEnrolledCount: number | null;
+    classCount: number;
+    audience: SundaySchoolAttendanceAudience;
+    points: SundaySchoolAttendanceTrendPoint[];
+    academicYears: SundaySchoolAcademicYearOption[];
+    classes: SundaySchoolClassOption[];
+    selectedAcademicYearId: string | null;
+    selectedClassId: string | null;
+    canSelectClass: boolean;
+    canViewServantAttendance: boolean;
+    meetingDayLabel: "Saturday" | "Sunday" | "week";
+    startDate: string | null;
+    endDate: string | null;
+  };
+  weekOf: string;
+}
+
+// SUPER_ADMIN-only view preference — see app/api/sunday-school/pinned-classes.
+export interface SundaySchoolPinnedClassesResponse {
+  classIds: string[];
+}
+
+// Lesson Scheduler — see app/api/sunday-school/lessons/schedule.
+export type SundaySchoolScheduleMode = "one-each" | "fill-year";
+
+export interface SundaySchoolSchedulePreview {
+  servants: Array<{ id: string; name: string; profileImageUrl: string | null }>;
+  emptyWeeksAvailable: number;
+}
+
+export interface SundaySchoolScheduleAssignment {
+  lessonId: string;
+  sundayDate: string;
+  servantId: string;
+  servantName: string;
+}
+
+export interface SundaySchoolScheduleResult {
+  assigned: SundaySchoolScheduleAssignment[];
+  eligibleServants: number;
+  emptyWeeksAvailable: number;
+}
+
+export type SundaySchoolRegistrationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CHANGES_REQUESTED";
+
+export interface SundaySchoolRegistrationDuplicateMatch {
+  type: "existing_child" | "pending_request";
+  id: string;
+  firstName: string;
+  lastName: string;
+  className: string | null;
+}
+
+export interface SundaySchoolRegistrationDuplicateSignal {
+  matchCount: number;
+  matches: SundaySchoolRegistrationDuplicateMatch[];
+}
+
+// GET /api/sunday-school/child-registrations?summary=1 — the masked queue
+// shape the mobile app requests. `guardianEmail` is omitted entirely rather
+// than typed optional, since the route never sends it in this mode.
+export interface SundaySchoolRegistrationSummary {
+  id: string;
+  status: SundaySchoolRegistrationStatus;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  gender: "MALE" | "FEMALE" | null;
+  intendedLevel: SundaySchoolLevel;
+  guardianName: string;
+  guardianPhone: string; // masked, e.g. "•••• 0170"
+  hasGuardianEmail: boolean;
+  notes: string | null;
+  reviewNote: string | null;
+  submittedBy: { id: string; name: string; email: string; phone: string | null };
+  reviewer: { id: string; name: string; email: string } | null;
+  placedClass: { id: string; name: string; level: SundaySchoolLevel } | null;
+  duplicateSignal: SundaySchoolRegistrationDuplicateSignal;
+  createdAt: string;
+}
+
+// GET /api/sunday-school/child-registrations/[id] — the authorized detail
+// view: full guardian contact (guardianPhone unmasked here), never truncated.
+export interface SundaySchoolRegistrationDetail
+  extends Omit<SundaySchoolRegistrationSummary, "hasGuardianEmail"> {
+  guardianEmail: string | null;
+}
+
+// ── Student history (GET /api/sunday-school/children/[id]/history) ───────────
+//
+// A read-only view of one saved child: attendance, notes, visitations and phone
+// calls. Only the Sunday School program has a history endpoint. Records are
+// identified by program and ID, never by the name shown.
+
+export type StudentHistoryProgram = "sunday-school";
+
+export interface StudentHistoryTarget {
+  id: string;
+  name: string;
+  program: StudentHistoryProgram;
+}
+
+export interface AttendanceCounts {
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+}
+
+export interface SundaySchoolFamilyDetails {
+  name: string | null;
+  homeAddress: string | null;
+  motherName: string | null;
+  motherPhone: string | null;
+  motherEmail: string | null;
+  fatherName: string | null;
+  fatherPhone: string | null;
+  fatherEmail: string | null;
+}
+
+/** Read-only child details, available only after the Sunday School class check. */
+export interface StudentHistory {
+  id: string;
+  name: string;
+  program: StudentHistoryProgram;
+  subtitle: string;
+  /** Display-only enrollment status for linked Sunday School accounts. */
+  isServantsPrepStudent?: boolean;
+  /** Display photo resolved from the child's photo, then their linked account. */
+  photoUrl?: string | null;
+  canReadPrivateNotes?: boolean;
+  care?: { canEdit: boolean };
+  /** Starred for a priority visit, and whether this viewer may change it. */
+  priority?: { value: boolean; canEdit: boolean };
+  profile: {
+    className: string | null;
+    level: SundaySchoolLevel;
+    birthDate: string | null;
+    gender: SundaySchoolChildGender | null;
+    isActive: boolean;
+    fatherOfConfession: string | null;
+    phone: string | null;
+    email: string | null;
+    guardian: { name: string | null; phone: string | null; email: string | null };
+    family: SundaySchoolFamilyDetails | null;
+  };
+  attendance: {
+    kind: "meetings";
+    counts: AttendanceCounts;
+    rate: number | null;
+    records: Array<{
+      id: string;
+      date: string;
+      title: string;
+      status: AttendanceStatus;
+      notes: string | null;
+    }>;
+  };
+  notes: {
+    general: string | null;
+    entries: Array<{ id: string; content: string; createdAt: string; author: { name: string } }>;
+  };
+  visitations: Array<{
+    id: string;
+    status: SundaySchoolVisitationStatus;
+    visitedAt: string | null;
+    createdAt: string;
+    notes: string | null;
+    recorder: { name: string } | null;
+  }>;
+  phoneCalls: Array<{
+    id: string;
+    calledAt: string;
+    outcome: SundaySchoolPhoneCallOutcome;
+    note: string;
+    callerName: string;
+  }>;
+}
+
+/**
+ * `GET /api/sunday-school/attendance/history?classId=…`: one active class's saved
+ * attendance by child and meeting date. Names and class-scoped marks only; no
+ * contacts, attendance notes or pastoral notes. Counts and rate are the server's
+ * (late earns half credit, excused is excluded, blank cells are unrecorded).
+ */
+export interface IndividualAttendanceChild {
+  id: string;
+  firstName: string;
+  lastName: string;
+  /** False for a former roster member who still has saved marks in this class. */
+  onRoster: boolean;
+  /** Saved marks by `YYYY-MM-DD`; a missing date is unrecorded, not absent. */
+  attendance: Record<string, AttendanceStatus>;
+  counts: AttendanceCounts;
+  rate: number | null;
+}
+
+export interface IndividualAttendanceHistory {
+  /** Past scheduled dates and saved sessions, oldest first. */
+  dates: string[];
+  children: IndividualAttendanceChild[];
+}
+
+export interface IndividualAttendanceResponse extends IndividualAttendanceHistory {
+  classroom: { id: string; name: string };
+}
+
+/** `PATCH /api/sunday-school/visitations`: the shared class-team priority flag, separate from visit and call history. */
+export interface SundaySchoolVisitationPriorityRequest {
+  childId: string;
+  priority: boolean;
+}
+
+export interface SundaySchoolVisitationPriorityResponse {
+  id: string;
+  visitationPriority: boolean;
+}
+
+/**
+ * `GET /api/sunday-school/attendance/reminders`: one entry per class the signed-in
+ * servant is personally assigned to whose active roster is not fully marked on the
+ * server for the current reminder week. `sessionDate` is the exact meeting date
+ * (`YYYY-MM-DD`, church time); `url` is the web link, which the app does not follow.
+ */
+export interface SundaySchoolAttendanceReminder {
+  classId: string;
+  className: string;
+  sessionDate: string;
+  url: string;
+}
+
+export interface SundaySchoolAttendanceRemindersResponse {
+  reminders: SundaySchoolAttendanceReminder[];
+}
+
+/**
+ * `metadata` on the notification the server writes for a Sunday School absence
+ * streak (lib/notifications.ts, kind `sunday-school-absence`). The student and
+ * class names are in the notification's own title and body. `threshold` 2 is the
+ * follow-up for direct class staff (three consecutive weeks); 4 is the
+ * escalation to active band coordinators and that band's priest overseer.
+ */
+export interface SundaySchoolAbsenceNotificationMetadata {
+  kind: "sunday-school-absence";
+  childId: string;
+  classId: string;
+  firstAbsenceDate: string;
+  weeks: number;
+  threshold: 2 | 4;
+}
+
+/**
+ * `GET /api/sunday-school/priest-notes?childId=…`: confidential visitation notes, kept apart
+ * from the shared visitation records. Active priests read every note for the child; other
+ * authors read only their own; Super Admin accounts (including one that also holds the Priest
+ * tag) and every View as session are refused with 403. The visitations response says whether
+ * to ask at all (`standing.canReadPrivateNotes`).
+ */
+export interface SundaySchoolPriestNotesResponse {
+  notes: SundaySchoolPriestNote[];
+}

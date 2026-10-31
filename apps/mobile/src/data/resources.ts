@@ -1,0 +1,168 @@
+import { useCallback, useState, useSyncExternalStore } from "react";
+import { useFocusEffect } from "expo-router";
+import { api } from "./auth-provider";
+import { ApiError, isAuthorizationRevoked } from "./api-client";
+
+export const endpoint = (area: string, id?: string) =>
+  `/api/sunday-school/${area}${id ? `/${encodeURIComponent(id)}` : ""}`;
+export function query(values: Record<string, string | undefined>) {
+  const params = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => { if (value) params.set(key, value); });
+  return params.toString();
+}
+
+const STALE_AFTER_MS = 30_000;
+type CacheEntry = {
+  data?: unknown;
+  error?: string;
+  /** HTTP status of the last failed request, when the server answered at all. */
+  errorStatus?: number;
+  loading: boolean;
+  updatedAt: number;
+  request?: Promise<unknown>;
+};
+const emptyEntry: CacheEntry = { loading: false, updatedAt: 0 };
+const cache = new Map<string, CacheEntry>();
+const listeners = new Map<string, Set<() => void>>();
+const pathKey = (path: string) => path.endsWith("?") ? path.slice(0, -1) : path;
+/**
+ * A cache key is the request path, optionally under a scope. A scope separates
+ * answers that depend on who is asking (the signed-in viewer) from the same path
+ * asked by someone else, so one person's answer can never be served to another.
+ */
+export const resourceKey = (path: string, scope?: string) =>
+  scope ? `${scope}\u0000${pathKey(path)}` : pathKey(path);
+const emit = (key: string) => listeners.get(key)?.forEach(listener => listener());
+const subscribe = (key: string, listener: () => void) => {
+  const current = listeners.get(key) ?? new Set();
+  current.add(listener);
+  listeners.set(key, current);
+  return () => {
+    current.delete(listener);
+    if (!current.size) listeners.delete(key);
+  };
+};
+
+export function request<T>(
+  path: string,
+  method = "GET",
+  body?: unknown,
+  options: Omit<RequestInit, "method" | "body"> = {},
+) {
+  if (!api) return Promise.reject(new Error("The portal is not configured."));
+  const headers = new Headers(options.headers);
+  if (body !== undefined) headers.set("Content-Type", "application/json");
+  return api.request<T>(path, {
+    ...options,
+    method,
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  }).then(result => {
+    if (method !== "GET") invalidateResourceCache();
+    return result;
+  });
+}
+
+async function loadResource<T>(path: string, force = false, scope?: string): Promise<T> {
+  const key = resourceKey(path, scope);
+  const current = cache.get(key) ?? emptyEntry;
+  if (current.request) return current.request as Promise<T>;
+  if (!force && current.data !== undefined && Date.now() - current.updatedAt < STALE_AFTER_MS)
+    return current.data as T;
+
+  const pending = request<T>(path).then(data => {
+    if (cache.get(key)?.request === pending) {
+      cache.set(key, { data, loading: false, updatedAt: Date.now() });
+      emit(key);
+    }
+    return data;
+  }).catch(error => {
+    if (cache.get(key)?.request === pending) {
+      // A refused request (403) must not keep serving what this account
+      // could see before, and neither must a record that is gone (404) —
+      // only a connection failure falls back to the last good data.
+      const revoked = isAuthorizationRevoked(error) || (error instanceof ApiError && error.status === 404);
+      cache.set(key, {
+        data: revoked ? undefined : current.data,
+        loading: false,
+        updatedAt: revoked ? 0 : current.updatedAt,
+        error: error instanceof Error ? error.message : "Unable to load. Please retry.",
+        errorStatus: error instanceof ApiError ? error.status : undefined,
+      });
+      emit(key);
+    }
+    throw error;
+  });
+  cache.set(key, { ...current, loading: true, error: undefined, errorStatus: undefined, request: pending });
+  emit(key);
+  return pending;
+}
+
+export function invalidateResourceCache() {
+  for (const [key, entry] of cache) {
+    cache.set(key, { ...entry, loading: false, updatedAt: 0, request: undefined });
+    emit(key);
+  }
+}
+
+/**
+ * Forgets every cached answer whose key starts with `prefix` (a scope prefix such as
+ * `priest-notes:`), for content that must not outlive its screen, its viewer or its permission.
+ */
+export function dropResources(prefix: string) {
+  for (const key of [...cache.keys()]) {
+    if (!key.startsWith(prefix)) continue;
+    cache.delete(key);
+    emit(key);
+  }
+}
+
+export function clearResourceCache() {
+  const keys = [...cache.keys()];
+  cache.clear();
+  keys.forEach(emit);
+}
+
+export async function prefetchResources(paths: string[]) {
+  await Promise.allSettled(paths.map(path => loadResource(path)));
+}
+
+// Keep the last successful response visible, then refresh stale data quietly on focus.
+export function useResource<T>(path: string | null, scope?: string) {
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const key = path ? resourceKey(path, scope) : null;
+  const subscribeToPath = useCallback(
+    (listener: () => void) => key ? subscribe(key, listener) : () => {},
+    [key],
+  );
+  const getSnapshot = useCallback(
+    () => key ? cache.get(key) ?? emptyEntry : emptyEntry,
+    [key],
+  );
+  const entry = useSyncExternalStore(subscribeToPath, getSnapshot, () => emptyEntry);
+  const refresh = useCallback(async () => {
+    if (!path) return;
+    setManualRefreshing(true);
+    await loadResource<T>(path, true, scope).catch(() => undefined);
+    setManualRefreshing(false);
+  }, [path, scope]);
+
+  useFocusEffect(useCallback(() => {
+    if (path) void loadResource<T>(path, false, scope).catch(() => undefined);
+  }, [path, scope]));
+
+  const data = entry.data as T | undefined;
+  return {
+    path,
+    data,
+    loading: !!path && data === undefined && !entry.error,
+    refreshing: manualRefreshing,
+    error: data === undefined ? entry.error : undefined,
+    /** The server's status for the last failed request (403 refused, 404 gone), when it answered. */
+    errorStatus: entry.error ? entry.errorStatus : undefined,
+    // Cached data is still shown after a failed refresh; `stale` says so, and `updatedAt` says when it was last loaded.
+    stale: data !== undefined && !!entry.error,
+    updatedAt: entry.updatedAt,
+    refresh,
+  };
+}

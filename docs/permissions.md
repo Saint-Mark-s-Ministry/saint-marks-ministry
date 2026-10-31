@@ -499,6 +499,18 @@ The visitation response exposes this restriction to hide the confidential histor
 and suppress its fetch. Super Admin accounts are excluded from new priest-note
 notifications. Ordinary ministry editing permissions do not grant note access.
 
+**In the iOS app,** a child's Visitations record shows **Private notes to priests** only when
+the visitations response says `standing.canReadPrivateNotes` is true, and asks
+`GET /api/sunday-school/priest-notes?childId=…` only then, and only after the section is
+opened. `standing.isPriest` decides the wording (every note, or only your own); the server
+does the filtering. Super Admin accounts, including one that also carries the Priest tag,
+and every View as session (a priest's preview included) get no section and no request. The
+answer is cached per viewer and child, asked again on every opening, and forgotten when the
+viewer, the permission or the screen changes or the request fails, so no earlier note
+reappears. Notes never appear in the shared history sheet, are not logged, and notification
+rows show the server's content-free text. The visit form's private-note hint tells a Super
+Admin that they can write a note but not read it back.
+
 ## Optional View as access
 
 Super Admins can enable **Allow View as** in any account's Users → Edit → Access

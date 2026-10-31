@@ -5,8 +5,8 @@ School management.
 
 [Open the production application](https://www.stmarkministry.app)
 
-The responsive web application runs two ministry workspaces that share one
-deployment, one database, and one login:
+The responsive Next.js website and native Expo / React Native app provide two
+ministry workspaces backed by the same API, database, and account:
 
 1. **Servants Prep** — the 2-year Servants Preparation Program: student
    attendance, exams, curriculum, mentors, and graduation requirements.
@@ -20,9 +20,17 @@ lessons without granting ministry staffing, roster, or editing authority.
 
 ## Documentation
 
+The native app lives in [`apps/mobile`](apps/mobile/README.md) and covers both
+Servants Prep and Sunday School. The current store release targets iPhone;
+Android development and JavaScript bundle export are also configured. See the
+mobile guide for setup and [`docs/ios-release.md`](docs/ios-release.md) for
+TestFlight, App Store requirements, and the server-first rollout.
+
 | Document | For |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | The working guide — commands, layout, conventions, gotchas. Start here, whether you are a person or an AI coding agent. |
+| [`apps/mobile/README.md`](apps/mobile/README.md) | Native app setup, authentication, supported workflows, and verification |
+| [`docs/ios-release.md`](docs/ios-release.md) | iPhone release checklist, signing, push credentials, and rollout order |
 | [`docs/permissions.md`](docs/permissions.md) | Every role and permission, and the Sunday School authority model |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end |
 | [`docs/sunday-school-migration-runbook.md`](docs/sunday-school-migration-runbook.md) | Production database rehearsal, deployment, verification, and rollback |
@@ -98,6 +106,29 @@ deletion in the mobile app.
 - **Visitations, feedback, reports, and activity history** within the same
   assignment-scoped workspace
 
+### Native app
+
+- **Both ministries** with role-aware navigation and a ministry switcher
+- **Servants Prep workflows** for students, mentors, and administrators:
+  curriculum, attendance, exams, progress, files, applications, async student
+  review, signed rotation forms, and assigned class lessons
+- **Sunday School workflows** for servants, coordinators, priests, admins,
+  and parents: classes, rosters, families, attendance, lessons, visitations,
+  reports, onboarding queues, and Elementary homework
+- **Lesson Scheduler and native push** through Expo, alongside in-app
+  notifications; push requires a physical device and configured EAS credentials
+- **Contact Book** with individually granted access, ministry roles, and
+  on-device search, sorting, and pagination
+- **Main classes** that Super Admins can pin for quick access
+- **Read-only View As** for Super Admins, with a persistent banner and write
+  protection in both the app and API
+- **Account controls** with password changes, password-confirmed account
+  deletion, and Privacy Policy / Terms links available before sign-in
+
+Google sign-in, offline sync, and profile-photo upload from settings remain
+unimplemented in the native app. See the mobile guide and iOS release checklist
+for device testing and store setup still required.
+
 ### Shared experience and branding
 
 - **What’s new** — weekly deployment notes for both ministries, available in
@@ -130,13 +161,20 @@ deletion in the mobile app.
 
 ## Tech stack
 
-- **Framework:** Next.js 16 (App Router, Turbopack), React 19, TypeScript
+- **Web / API:** Next.js 16 (App Router, Turbopack), React 19, TypeScript
+- **Native app:** Expo 57, React Native 0.86, Expo Router, Expo SecureStore
 - **Styling:** Tailwind CSS v4, shadcn/ui
 - **Database:** PostgreSQL (Neon) with Prisma ORM
 - **Auth:** NextAuth.js, JWT sessions
 - **Data fetching:** SWR
 - **Testing:** Vitest
-- **Package manager:** Bun
+- **Package manager:** Bun workspaces
+
+The Next.js web/API application stays at the repository root. `apps/mobile`
+contains native UI and API transport; `packages/contracts` (`@stmark/contracts`)
+shares type-only API contracts, and `packages/domain` (`@stmark/domain`) shares
+platform-independent helpers. Native code must not import Prisma runtime or
+server-only modules. Only the API server connects to PostgreSQL.
 
 ## Async student serving workflow
 
@@ -213,6 +251,26 @@ NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
 
 Generate a secret with `openssl rand -base64 32`. Never commit `.env`.
 
+### Native development
+
+After installing dependencies at the repository root and configuring the web/API
+server, copy `apps/mobile/.env.example` to `apps/mobile/.env.local`:
+
+```env
+EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
+EXPO_PUBLIC_DATA_LABEL=Local database
+```
+
+Run `bun dev` in one terminal and `bun run mobile` in another. Use
+`http://127.0.0.1:3000` for iOS Simulator, `http://10.0.2.2:3000` for the standard
+Android emulator, or the computer's LAN address for a physical device (the API
+server must listen on that interface). Native iOS builds require macOS/Xcode;
+Android builds require the Android SDK. Restart Expo after changing its env file.
+
+`EXPO_PUBLIC_*` values are bundled into the app: never place database URLs or
+secrets there. Release builds require an explicit HTTPS API origin. Detailed
+local database overrides and simulator commands are in the mobile guide.
+
 ## Commands
 
 ```bash
@@ -224,6 +282,12 @@ bunx tsc --noEmit        # typecheck
 bun test                 # tests, watch mode
 bun test:run             # tests, once
 bun test:coverage        # with coverage
+
+bun run mobile           # Expo development server
+bun run mobile:ios       # build/run the native iOS app (macOS/Xcode)
+bun run mobile:android   # build/run the native Android app (Android SDK)
+bun run mobile:typecheck # native TypeScript check
+bun run mobile:export    # iOS + Android JS bundles; not signed IPA/APK files
 
 bun db:generate          # regenerate Prisma Client (required after schema changes)
 bun db:push              # disposable databases only; does not apply custom migration SQL
@@ -336,6 +400,24 @@ attendance, and replaces the one-assignment-per-year index with one active
 rotation per student. Coordinate serving writes while applying it and verify
 assignment/log counts afterward. `db:push` is not a substitute for this migration:
 its SQL also installs partial uniqueness and check constraints.
+
+### iPhone release
+
+Apply all pending committed migrations with `bun db:deploy` using the direct
+connection, then deploy the web/API before building the app. The native release
+also requires the migrations for `CHANGES_REQUESTED` registration status, pinned
+Sunday School classes, and the Lesson Scheduler / `MobilePushToken` table.
+The daily `/api/cron/sunday-school-lesson-reminders` job uses `CRON_SECRET`.
+
+From `apps/mobile`, build with `eas build --platform ios --profile production`
+and submit with `eas submit --platform ios --profile production` after completing
+the owner checklist in [`docs/ios-release.md`](docs/ios-release.md). Confirm the
+bundle identifier, Expo/EAS project, APNs credentials, API origin, privacy
+answers, demo account, and screenshots. The checked-in `beta` and `production`
+profiles use `https://servants-prep-app.vercel.app`; `beta` is an internal device
+build and `production` is for App Store Connect / TestFlight. Run a TestFlight
+pass for every role before App Store submission. Merging or exporting bundles
+does not publish the app.
 
 Never include database URLs, credentials, or personal student records in release
 logs or documentation. See the migration runbooks linked above for release and

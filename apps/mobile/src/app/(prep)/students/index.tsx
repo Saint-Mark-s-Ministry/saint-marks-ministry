@@ -1,0 +1,183 @@
+import { formatPercent } from "@/data/format-percent";
+import { useState } from "react";
+import { yearLevelLabel } from "@/data/year-level";
+import { Platform, View } from "react-native";
+import { router, Stack } from "expo-router";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
+import { CompactRow, Copy, InitialsAvatar, ListSurface, Screen, StatusPill } from "@/components/ui";
+import { ResourceState } from "@/components/forms";
+import { TopActions } from "@/components/top-actions";
+import { MinistrySwitcherHeaderLeft } from "@/components/ministry-switcher";
+import { useAppTheme } from "@/theme";
+import { useAuth } from "@/data/auth-provider";
+import PrepLessons from "../../prep-lessons";
+import { useResource } from "@/data/resources";
+import { fatherLine, mentorLine, type PrepEnrollmentPeople } from "@/data/roster-contacts";
+import {
+  canViewStudentRoster,
+  eligibilityLabel,
+  filterBySegment,
+  isAdminLike,
+  segmentCounts,
+  studentRowSubtitle,
+  type StudentSegment,
+} from "@/data/prep-students";
+
+type StudentAnalytics = {
+  studentId: string;
+  studentName: string;
+  yearLevel: string | null;
+  isAsyncStudent?: boolean;
+  attendancePercentage: number | null;
+  examAverage: number | null;
+  graduationEligible: boolean;
+};
+
+const yearLabel = yearLevelLabel;
+
+const COPY_BY_ROLE: Record<string, { title: string }> = {
+  STUDENT: { title: "My lessons" },
+  MENTOR: { title: "My mentees" },
+  PARENT: { title: "My children" },
+};
+
+/**
+ * The third Prep tab. A student's people-list is their own lessons, which is
+ * the same screen Home's "My lessons" opens, so show that here rather than a
+ * placeholder; everyone else gets the student/mentee roster.
+ */
+export default function PrepStudentsTab() {
+  const { user } = useAuth();
+  if (user?.role === "STUDENT") return <MyLessonsTab />;
+  return <PrepStudents />;
+}
+
+function MyLessonsTab() {
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
+      />
+      {Platform.OS === "ios" && <TopActions />}
+      <PrepLessons />
+    </>
+  );
+}
+
+function PrepStudents() {
+  const { user } = useAuth();
+  const { colors } = useAppTheme();
+  const canView = canViewStudentRoster(user?.role);
+  const copy = (user && COPY_BY_ROLE[user.role]) ?? { title: "Students" };
+  const [segment, setSegment] = useState<StudentSegment>("active");
+  const resource = useResource<StudentAnalytics[]>(canView ? "/api/students/analytics/batch" : null);
+  // Mentor and father of confession come from the enrollments (the same answer the roster uses);
+  // the analytics rows don't carry them. A mentor sees only their own mentees' enrollments.
+  const enrollments = useResource<(PrepEnrollmentPeople & { studentId: string })[]>(canView ? "/api/enrollments" : null);
+  const peopleByStudent = new Map((enrollments.data ?? []).map((e) => [e.studentId, e]));
+
+  const offline = resource.error === "Could not reach the server. Check your connection and try again.";
+  const all = resource.data ?? [];
+  const counts = segmentCounts(all);
+  const students = filterBySegment(all, segment);
+  const yearLevels = new Set(all.map((s) => s.yearLevel));
+  const yearSuffix = yearLevels.size === 1 ? ` · ${yearLabel([...yearLevels][0])}` : "";
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: isAdminLike(user?.role) ? "Students" : copy.title,
+          headerLeft: () => <MinistrySwitcherHeaderLeft ministry="prep" />,
+          headerRight: Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
+      />
+      {Platform.OS === "ios" && <TopActions />}
+      <Screen resetOnFocus refreshing={resource.loading || resource.refreshing} onRefresh={() => { void resource.refresh(); void enrollments.refresh(); }}>
+        {!canView ? (
+          <View style={{ paddingVertical: 32, alignItems: "center", gap: 8 }}>
+            <Copy kind="heading" style={{ textAlign: "center" }}>
+              Nothing to show here yet
+            </Copy>
+            <Copy kind="caption" style={{ textAlign: "center" }}>
+              {copy.title} will appear here once this role's content ships.
+            </Copy>
+          </View>
+        ) : (
+          <>
+            {offline && (
+              <View style={{ padding: 16, borderRadius: 18, backgroundColor: colors.dangerSoft, gap: 6 }}>
+                <Copy style={{ fontWeight: "600" }} color={colors.danger}>
+                  You're offline
+                </Copy>
+                <Copy kind="caption">Showing the last data we had. Pull down to try again once you're back online.</Copy>
+              </View>
+            )}
+            <ResourceState loading={resource.loading} error={offline ? undefined : resource.error} retry={() => void resource.refresh()} />
+
+            {resource.data && (
+              <Copy kind="caption">
+                {all.length} total · {counts.active} active{yearSuffix}
+              </Copy>
+            )}
+
+            {!!resource.data && (
+              <SegmentedControl
+                values={[`Active ${counts.active}`, `Review ${counts.review}`, "All"]}
+                selectedIndex={(["active", "review", "all"] as const).indexOf(segment)}
+                onChange={({ nativeEvent }) =>
+                  setSegment((["active", "review", "all"] as const)[nativeEvent.selectedSegmentIndex] ?? "active")
+                }
+                style={{ width: "100%", minHeight: 36 }}
+              />
+            )}
+
+            <ListSurface>
+              {!students.length && resource.data && (
+                <View style={{ paddingVertical: 18 }}>
+                  <Copy kind="caption">No students in this view.</Copy>
+                </View>
+              )}
+              {students.map((s, index) => (
+                <CompactRow
+                  key={s.studentId}
+                  divider={index < students.length - 1}
+                  title={s.studentName}
+                  subtitle={studentRowSubtitle(s, yearLabel(s.yearLevel), formatPercent)}
+                  icon={<InitialsAvatar name={s.studentName} size={38} />}
+                  footer={
+                    enrollments.data ? (
+                      <>
+                        <Copy kind="caption" numberOfLines={2}>{mentorLine(peopleByStudent.get(s.studentId) ?? {})}</Copy>
+                        <Copy kind="caption" numberOfLines={2}>{fatherLine(peopleByStudent.get(s.studentId) ?? {})}</Copy>
+                      </>
+                    ) : undefined
+                  }
+                  trailing={
+                    (s.attendancePercentage !== null && s.attendancePercentage !== undefined) || (s.examAverage !== null && s.examAverage !== undefined) ? (
+                      <StatusPill
+                        label={eligibilityLabel(s.graduationEligible)}
+                        color={s.graduationEligible ? colors.success : colors.warning}
+                        soft={s.graduationEligible ? colors.successSoft : colors.warningSoft}
+                      />
+                    ) : undefined
+                  }
+                  onPress={() =>
+                    router.push(
+                      isAdminLike(user?.role)
+                        ? { pathname: "/prep-student/[id]", params: { id: s.studentId } }
+                        : { pathname: "/prep-mentee/[id]", params: { id: s.studentId } },
+                    )
+                  }
+                />
+              ))}
+            </ListSurface>
+          </>
+        )}
+      </Screen>
+    </>
+  );
+}

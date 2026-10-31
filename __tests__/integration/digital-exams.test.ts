@@ -14,9 +14,12 @@ vi.mock('@/lib/meeting-geofence', async importOriginal => ({
 import { examScoreTransaction } from '@/lib/exam-score-service'
 import { effectiveExamResult } from '@/lib/makeup-scores'
 import { mutateExam } from '@/lib/digital-exam-service'
-import { GET } from '@/app/api/digital-exams/[id]/route'
+import { GET, POST } from '@/app/api/digital-exams/[id]/route'
 import { DELETE as deleteExam } from '@/app/api/exams/[id]/route'
 import { GET as listExams } from '@/app/api/digital-exams/route'
+import type { AttemptResponse, DigitalExamView } from '@stmark/contracts'
+import { ExamAttemptController } from '../../apps/mobile/src/data/exam-attempt'
+import { ApiError } from '../../apps/mobile/src/data/api-client'
 
 const enabled = process.env.DIGITAL_EXAM_INTEGRATION === '1'
 const db = new PrismaClient()
@@ -27,6 +30,36 @@ const student = () => ({ user: { id: fixture.studentId }, staff: false, manage: 
 const act = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, sessionToken: token, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() }, ...extra }, student())
 const admin = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, ...extra }, staff)
 const get = () => GET(new Request('http://localhost'), { params: Promise.resolve({ id: fixture.examId }) })
+
+function nativeSession() {
+  let draft: string | null = null
+  let online = true
+  let loseSubmissionResponse = false
+  const read = async <T>(response: Response): Promise<T> => {
+    const body = await response.json()
+    if (!response.ok) throw new ApiError(body.error ?? 'Request failed', response.status)
+    return body as T
+  }
+  const post = async (body: Record<string, unknown>) => {
+    if (!online) throw new Error('Synthetic connection loss')
+    const response = await read<AttemptResponse>(await POST(new Request('http://localhost/api/digital-exams/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }), { params: Promise.resolve({ id: fixture.examId }) }))
+    if (body.action === 'submit' && loseSubmissionResponse) {
+      loseSubmissionResponse = false
+      throw new Error('Synthetic lost submission response')
+    }
+    return response
+  }
+  const controller = new ExamAttemptController({ uuid: randomUUID, post,
+    getView: async () => {
+      if (!online) throw new Error('Synthetic connection loss')
+      return read<DigitalExamView>(await get())
+    },
+    store: { load: async () => draft, save: async value => { draft = value } },
+  })
+  return { controller, setOnline: (value: boolean) => { online = value }, loseSubmission: () => { loseSubmissionResponse = true }, get draft() { return draft } }
+}
 
 describe.skipIf(!enabled)('digital exam database and API integration', () => {
   beforeAll(async () => {
@@ -423,6 +456,73 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect((await (await get()).json()).sheet.studentReturnSoundEnabled).toBe(false)
     expect(await db.digitalExamAttempt.findUnique({ where: { id: attempt.id } })).toEqual(attempt)
     expect(await db.examScore.findMany({ where: { examId: fixture.examId } })).toEqual(grades)
+  }, 30000)
+
+  it('runs native answers, clears, interruptions, unlock, submission and private grades through the actual API', async () => {
+    const { controller } = nativeSession()
+    await controller.refresh(); await controller.start()
+    controller.choose(0, 'E'); controller.choose(7, 'H'); await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ pendingCount: 0, paused: false })
+    controller.choose(7, ''); await controller.refresh()
+    controller.visibility(false, true); controller.visibility(true); await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ paused: true, pendingEvents: 0 })
+    controller.choose(1, 'A'); expect(controller.snapshot().answers[1]).toBe('')
+    await admin('unlock', { attemptId: controller.snapshot().attempt!.id }); await controller.refresh()
+    expect(controller.snapshot().paused).toBe(false)
+    controller.choose(1, 'A'); await controller.submit()
+    expect(controller.snapshot().attempt).toMatchObject({ state: 'SUBMITTED' })
+    expect(controller.snapshot().attempt).not.toHaveProperty('correctCount')
+    expect(await db.examScore.count({ where: { examId: fixture.examId } })).toBe(0)
+    const events = await db.digitalExamEvent.findMany({ where: { attemptId: controller.snapshot().attempt!.id, kind: 'ANSWER_SAVED' } })
+    expect(events.map(event => [event.questionNumber, event.answerChoice])).toEqual(expect.arrayContaining([[1, 'E'], [8, 'H'], [8, ''], [2, 'A']]))
+    await admin('close'); await admin('release')
+    expect(await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).toMatchObject({ percentage: 4 })
+  }, 30000)
+
+  it('finalizes the native screen after proctor closure with offline choices and reports pending', async () => {
+    const session = nativeSession(); const { controller } = session
+    await controller.refresh(); await controller.start()
+    controller.choose(0, 'E'); await controller.refresh()
+    session.setOnline(false); controller.choose(1, 'A')
+    await vi.waitFor(() => expect(controller.snapshot().offline).toBe(true))
+    await admin('close'); session.setOnline(true); await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ examState: 'CLOSED', pendingCount: 0, pendingEvents: 0 })
+    expect(controller.snapshot().attempt?.state).toBe('SUBMITTED')
+    expect(controller.snapshot().answers.slice(0, 2)).toEqual(['E', ''])
+    await vi.waitFor(() => expect(session.draft).toBeNull())
+  }, 30000)
+
+  it('reconciles a native submission with a lost response and then starts only the approved retake', async () => {
+    const session = nativeSession(); const { controller } = session
+    await controller.refresh(); await controller.start()
+    controller.choose(0, 'E'); await controller.refresh(); controller.toggleStar(0)
+    session.loseSubmission(); await controller.submit()
+    expect(controller.snapshot().offline).toBe(true)
+    await admin('retake', { studentId: fixture.studentId })
+    await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ started: false, pendingCount: 0, pendingEvents: 0, starredQuestions: [] })
+    expect(controller.snapshot().attempt).toMatchObject({ attemptNumber: 2, retakeReady: true })
+    await controller.start()
+    expect(controller.snapshot()).toMatchObject({ started: true, paused: false })
+    expect(controller.snapshot().answers.every(answer => answer === '')).toBe(true)
+    await controller.submit(); await admin('close'); await admin('release')
+    expect(await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).toMatchObject({ percentage: 2 })
+    expect(await db.digitalExamAttemptArchive.count({ where: { attemptId: controller.snapshot().attempt!.id } })).toBe(1)
+  }, 30000)
+
+  it('stops native answering after a different session recovers the attempt', async () => {
+    const { controller } = nativeSession()
+    await controller.refresh(); await controller.start(); await controller.refresh()
+    const attemptId = controller.snapshot().attempt!.id
+    await db.digitalExamAttempt.update({ where: { id: attemptId }, data: { lastSeenAt: new Date(Date.now() - 31000) } })
+    await act('start', { sessionToken: randomUUID() })
+    controller.choose(0, 'E')
+    await vi.waitFor(() => expect(controller.snapshot().paused).toBe(true))
+    await controller.refresh()
+    expect(controller.snapshot()).toMatchObject({ started: false, paused: true, pendingCount: 1 })
+    await controller.start()
+    expect(controller.snapshot().started).toBe(false)
+    expect((await db.digitalExamAttempt.findUniqueOrThrow({ where: { id: attemptId } })).answers[0]).toBe('')
   }, 30000)
 
 })

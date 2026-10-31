@@ -270,6 +270,11 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+  // Only ChildRegistrationRequest uses this value today — a reviewer sending
+  // a request back to the parent for more info/changes, without rejecting
+  // it outright. Shared here (rather than a dedicated enum) since the column
+  // itself is already this shared type across all three registration models.
+  CHANGES_REQUESTED
 }
 
 enum StudentGrade {
@@ -303,6 +308,11 @@ model User {
   mustChangePassword Boolean   @default(true)
   isDisabled         Boolean   @default(false)
   canAccessContactBook Boolean @default(false)
+  // SUPER_ADMIN-only view preference: which Sunday School classes this
+  // account defaults to seeing, instead of every class in the ministry.
+  // Pure UI convenience — never consulted for authorization. A class id
+  // dropped in a later academic year is simply ignored, not migrated.
+  pinnedSundaySchoolClassIds String[] @default([])
   canUseViewAs       Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -346,8 +356,8 @@ model User {
   sundaySchoolServing                   SundaySchoolServantAssignment[]  @relation("SundaySchoolServantAssignments")
   assignedSundaySchoolServants          SundaySchoolServantAssignment[]  @relation("AssignedSundaySchoolServantAssignments")
   endedSundaySchoolServantAssignments   SundaySchoolServantAssignment[]  @relation("EndedSundaySchoolServantAssignments")
-  sundaySchoolMeetingAttendance SundaySchoolMeetingAttendance[] @relation("SundaySchoolMeetingAttendee")
-  recordedSundaySchoolMeetingAttendance SundaySchoolMeetingAttendance[] @relation("SundaySchoolMeetingRecorder")
+  sundaySchoolMeetingAttendance         SundaySchoolMeetingAttendance[]  @relation("SundaySchoolMeetingAttendee")
+  recordedSundaySchoolMeetingAttendance SundaySchoolMeetingAttendance[]  @relation("SundaySchoolMeetingRecorder")
   takenSundaySchoolSessions             SundaySchoolSession[]            @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]    @relation("RecordedSundaySchoolAttendance")
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[]  @relation("SundaySchoolServantAttendance")
@@ -388,6 +398,7 @@ model User {
 
   // Push notification relations
   pushSubscriptions PushSubscription[]
+  mobilePushTokens  MobilePushToken[]
   notifications     Notification[]
 
   // Additive identity/authorization foundation. These relations become the
@@ -1224,6 +1235,10 @@ model SundaySchoolWeeklyLesson {
   title        String?
   ownerId      String?
   assignedById String?
+  // Set once the week-prior reminder push goes out, so the daily cron never
+  // double-sends if a run is missed and the next one's window still covers
+  // this date. Cleared automatically if the owner changes (see schedule/[id]).
+  reminderSentAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1947,6 +1962,7 @@ enum NotificationType {
   CHILD_REGISTRATION_REVIEWED
   PRIEST_NOTE_CREATED
   REGISTRATION_INCOMPLETE
+  SUNDAY_SCHOOL_LESSON_REMINDER
 }
 
 model PushSubscription {
@@ -1963,6 +1979,25 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// Native push for the Expo/React Native app — a distinct transport from
+// PushSubscription (browser Web Push, keyed by endpoint+keys). Delivered
+// through Expo's push service, which relays to APNs (iOS) or FCM (Android);
+// see lib/notifications.ts's sendPushToUser, which fans out to both tables
+// for the same createNotifications call so either device gets the alert.
+model MobilePushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @db.Text
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
   @@index([userId])
 }
 
