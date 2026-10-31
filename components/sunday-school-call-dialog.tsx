@@ -18,7 +18,7 @@ export function SundaySchoolCallDialog({ child, viewerId, onClose, onSaved }: Ca
   const { data, error, isLoading, mutate } = useStudentHistory({ id: child.id, name: child.name, program: 'sunday-school' }, viewerId)
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+      <DialogContent scrollable className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Calls · {child.name}</DialogTitle>
           <DialogDescription>Log a call and review previous follow-up without leaving Care.</DialogDescription>
