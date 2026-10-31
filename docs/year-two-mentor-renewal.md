@@ -103,3 +103,29 @@ regression tests simulate that Safari error and non-JSON hosting responses.
 Before production release, check an authenticated iPhone upload/replacement of
 HEIC and PDF files, including a file above 4.5 MB, and download the saved form as
 staff. Check failed upload retry and withdrawn-student submission as well.
+
+## Staff corrections
+
+Enabled Servants Prep servants and Super Admins can select **Edit mentor form**
+on the Year 2 student roster or the student record. The record also offers the
+editor for students with an approved original registration. Staff can submit
+missing current-year mentor details, correct the mentor name/phone/email, and
+replace the signed approval form. The upload accepts the same file types and
+100 MB limit as student uploads and keeps the previous file if saving fails.
+The assigned mentor app account remains managed by its separate account picker.
+
+The staff API resolves current role tags from the database, blocks View as,
+disabled/read-only actors and priests, and requires an existing Prep enrollment
+with an approved application or an eligible annual requirement. This grants no
+Sunday School authority. GET returns a version covering the source application,
+annual submission and enrollment; stale contact saves/uploads return 409.
+Staff changes are recorded in AuditEvent. Contact, enrollment display fields,
+review notifications and audit data commit together.
+
+A current-year staff correction (including replacing an existing annual form's
+file) resets verification and queues the new version for the usual review.
+Staff must verify it separately; only that existing approval route can restore
+a withdrawn Year 2 student to active attendance. Updating a form never changes
+status, isActive, mentor account assignments or role grants. File-only uploads
+before any annual contact submission still require the contact fields to be
+submitted before verification. No additional migration is required for this flow.
