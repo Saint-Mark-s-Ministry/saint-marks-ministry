@@ -56,3 +56,30 @@ production. Existing score counts and values remained unchanged, original
 fields were backfilled correctly, both versions and grade corrections were
 verified in a rolled-back transaction, and the migrated schema matched Prisma.
 The grading migration has not been applied to production.
+
+## Booking coordinator notifications
+
+New makeup bookings and changes to their Friday notify Joshua Kaisar and Karen
+Ayoub in the app, by email, and by push on devices where notifications are
+configured and enabled. Each alert names the student and exam, shows the chosen
+Friday (and previous Friday for a reschedule), and links to Exam Management.
+The two account IDs are configured in `lib/makeup-exam-notifications.ts`;
+contact emails are read from the current account records rather than hardcoded.
+Only enabled recipients with a current Prep staff/priest role tag are included.
+No other administrator is subscribed automatically and no access is granted.
+
+The booking and in-app alerts save in one serializable transaction. Saving the
+same exam for the same Friday is a no-op, including after a retry. Concurrent
+write conflicts are retried up to three times; a remaining conflict returns a
+refresh/retry message. Push and email run with Next.js `after()` only after a
+successful commit, rechecking recipient access before sending. External delivery
+is best-effort and does not undo a successful booking. In-app alerts remain if
+push or email delivery fails. No historical bookings are backfilled.
+
+This uses the existing ANNOUNCEMENT notification category, Resend mail sender
+and VAPID push configuration. No schema migration, new environment variable,
+recipient DB update or manual notification send is required. Existing sandbox
+email restrictions remain in force: preview/local deployments do not email real
+accounts unless allowlisted. Before release, check a new booking and a changed
+Friday in the authenticated preview and verify production email/push delivery
+for the two coordinators after deployment.
