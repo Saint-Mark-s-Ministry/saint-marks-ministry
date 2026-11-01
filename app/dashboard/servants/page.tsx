@@ -52,6 +52,7 @@ import { useLiturgicalCalendarOverlay } from '@/components/liturgical/calendar-e
 import { CalendarSubscribeButton } from '@/components/liturgical/calendar-subscribe-button'
 import { SundaySchoolMeetingCheckInShortcut } from '@/components/sunday-school-meeting-checkin-shortcut'
 import { servantsMeetingGroups } from '@/lib/sunday-school-meeting-groups'
+import { ChurchEventPayments } from '@/components/church-event-payments'
 import { StudentName } from '@/components/student-history-provider'
 
 const UNBANDED = '__unbanded__'
@@ -255,6 +256,7 @@ export default function SundaySchoolDashboardPage() {
       />
 
       <SundaySchoolLayoutIntro />
+      <ChurchEventPayments />
 
       {allClasses.length === 0 ? (
         <Panel>
