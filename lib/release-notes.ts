@@ -17,6 +17,25 @@ export interface ReleaseNote {
 // Confirm this entry's date when the weekly release is deployed.
 export const releaseNotes: ReleaseNote[] = [
   {
+    id: '2026-11-01',
+    date: '2026-11-01',
+    title: 'Mentor updates and easier Sunday School follow-up',
+    summary: 'Manage mentor forms, choose makeup exam notifications, and return to your class group more easily.',
+    changes: {
+      new: [
+        'Super Admins can choose who receives makeup exam booking and reschedule notifications from Users. Selected staff receive email and in-app alerts, plus push where enabled.',
+        'Servants Prep servants and admins can correct students’ mentor details and replace signed forms from the roster or student record. Current-year changes return for verification.',
+      ],
+      improved: [
+        'Tap a child’s name in Needs you on Sunday School Home to open their profile.',
+      ],
+      fixed: [
+        'Child profiles and care forms have a larger Close control that stays above the scrolling content and adjusts around iPhone Safari controls and the keyboard.',
+        'Priests keep their overseen age group when returning from a child or class link. Deliberate changes in the Viewing picker still work.',
+      ],
+    },
+  },
+  {
     id: '2026-10-23',
     date: '2026-10-23',
     title: 'A simpler Sunday School experience',
