@@ -793,6 +793,10 @@
 /* Dark mode overrides for common utility classes */
 @layer utilities {
   @media screen and (max-width: 767.98px) {
+    .app-shell {
+      /* Fixed navigation covers this much of the document's scroll viewport. */
+      --mobile-tab-bar-offset: calc(56px + 1px + env(safe-area-inset-bottom, 0px));
+    }
     .app-shell .mobile-app-bar {
       position: sticky;
       top: 0;
@@ -804,12 +808,14 @@
     }
     .app-shell #main {
       /* Reserve the 56px tab bar, its border and safe area, plus content padding. */
-      padding-bottom: calc(5rem + 1px + env(safe-area-inset-bottom));
+      padding-bottom: calc(var(--mobile-tab-bar-offset) + 1.5rem);
     }
 
     @media (display-mode: standalone) {
       /* iOS Home Screen apps need both bars in the fixed-height flex column. */
       .app-shell {
+        /* Navigation is in the flex column, outside the scrolling main area. */
+        --mobile-tab-bar-offset: 0px;
         height: 100dvh;
         min-height: 0;
         overflow: hidden;

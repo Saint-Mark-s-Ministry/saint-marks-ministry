@@ -18,7 +18,8 @@ interface SundaySchoolAttendanceSaveBarProps {
 /**
  * Marks already save on their own; Finish is the deliberate last step that
  * records anyone still unmarked as absent. Stack details above the action on
- * phones; reserve space during autosaves.
+ * phones; reserve space during autosaves. The shell offset keeps the action
+ * above fixed mobile navigation, and is zero when navigation is in flow.
  */
 export function SundaySchoolAttendanceSaveBar({
   presentCount, rosterCount, unmarkedCount, pendingCount, saving, lastSavedBy,
@@ -31,7 +32,7 @@ export function SundaySchoolAttendanceSaveBar({
     : null
 
   return (
-    <div className="sticky bottom-2 z-30 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+    <div className="sticky bottom-[calc(var(--mobile-tab-bar-offset,0px)+0.5rem)] z-30 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
       <p className="tabular col-start-1 row-start-1 h-5 truncate whitespace-nowrap text-[13px] leading-5 text-ink-2" aria-live="polite">
         <b className="font-semibold text-ok">{presentCount}</b> of {rosterCount} here
         <span className="ml-2 text-ink-3">· {unmarkedCount} unmarked</span>
