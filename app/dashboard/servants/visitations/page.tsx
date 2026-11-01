@@ -30,6 +30,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { organizeAttendanceRoster, type AttendanceRosterNameOrder } from '@/lib/attendance-roster'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -72,6 +74,7 @@ function VisitationsContent() {
     : searchParams.get('classId')
   const [selectedClassId] = useViewingClassId(classes, { requested: requestedClassId })
   const [search, setSearch] = useState('')
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [visitView, setVisitView] = useState<'all' | 'not-done' | 'done' | 'priority'>('all')
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [visitationStatus, setVisitationStatus] = useState<SundaySchoolVisitationStatus>(
@@ -101,11 +104,11 @@ function VisitationsContent() {
   const visibleChildren = useMemo(() => {
     const roster = selectedClass?.children ?? []
     const query = search.trim().toLowerCase()
-    if (!query) return roster
-    return roster.filter(child =>
-      `${child.firstName} ${child.lastName}`.toLowerCase().includes(query)
+    const filtered = roster.filter(child =>
+      !query || `${child.firstName} ${child.lastName}`.toLowerCase().includes(query)
     )
-  }, [search, selectedClass])
+    return organizeAttendanceRoster(filtered, { nameOrder, groupByGender: false })[0].entries
+  }, [nameOrder, search, selectedClass])
 
   const completedCount = (selectedClass?.children ?? []).filter(
     child => child.visitations[0]?.status === SundaySchoolVisitationStatus.DONE
@@ -303,6 +306,15 @@ function VisitationsContent() {
                   />
                   <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
                     <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
+                    <FilterSelect
+                      aria-label="Alphabetize by"
+                      value={nameOrder}
+                      onChange={value => setNameOrder(value as AttendanceRosterNameOrder)}
+                      options={[
+                        { value: 'last', label: 'Sort by last name' },
+                        { value: 'first', label: 'Sort by first name' },
+                      ]}
+                    />
                   </div>
                 </>
               }
