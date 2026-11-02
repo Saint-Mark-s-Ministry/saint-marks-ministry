@@ -10,6 +10,7 @@ import { notifyLessonScheduled } from "@/lib/notifications"
 // GET /api/lessons - List lessons
 // Query params:
 //   ?academicYearId=xxx - filter by academic year
+//   ?scheduledInAcademicYearId=xxx - filter by the year's date range (curriculum)
 //   ?examSectionId=xxx - filter by exam section
 //   ?status=COMPLETED - filter by status
 //   ?excludeCancelled=true - exclude cancelled lessons (for attendance page)
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
+    const scheduledInAcademicYearId = searchParams.get('scheduledInAcademicYearId')
     const examSectionId = searchParams.get('examSectionId')
     const status = searchParams.get('status')
     const excludeCancelled = searchParams.get('excludeCancelled') === 'true' || searchParams.get('forAttendance') === 'true'
@@ -32,6 +34,24 @@ export async function GET(request: Request) {
 
     const where: Record<string, unknown> = {}
     if (academicYearId) where.academicYearId = academicYearId
+    if (scheduledInAcademicYearId) {
+      const year = await prisma.academicYear.findUnique({
+        where: { id: scheduledInAcademicYearId },
+        select: { startDate: true, endDate: true },
+      })
+      if (!year) {
+        return NextResponse.json({ error: 'Academic year not found' }, { status: 404 })
+      }
+
+      // A rescheduled or duplicated lesson can retain an older year assignment.
+      // Curriculum follows calendar days; attendance/reporting still use academicYearId.
+      const start = new Date(year.startDate)
+      start.setUTCHours(0, 0, 0, 0)
+      const endExclusive = new Date(year.endDate)
+      endExclusive.setUTCHours(0, 0, 0, 0)
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
+      where.scheduledDate = { gte: start, lt: endExclusive }
+    }
     if (examSectionId) where.examSectionId = examSectionId
     if (search && search.trim()) {
       const term = search.trim()
