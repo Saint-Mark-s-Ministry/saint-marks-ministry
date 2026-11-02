@@ -25,6 +25,7 @@ export const authenticatedRoutes = [
   "organization",
   "parent-children",
   "parent-register",
+  "passkeys",
   "people",
   "person/[id]",
   "prep-activity",

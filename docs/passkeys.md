@@ -54,6 +54,27 @@ Unset either variable to disable passkey entry points without removing stored
 credentials. Existing sessions and other sign-in methods continue to work.
 `bun run build` never applies a migration.
 
+## Native iOS app
+
+The iOS app uses the same endpoints and the same NextAuth `passkey` provider.
+Full design, setup, behavior, security notes, screenshots and a test recipe are
+in [`docs/ios-passkeys.md`](ios-passkeys.md); the production checklist is [`docs/ios-passkeys-rollout.md`](ios-passkeys-rollout.md). What the deployment must provide:
+
+- **`PASSKEY_RP_ID` and `PASSKEY_ORIGIN` on `www.stmarkministry.app`.** iOS reads
+  `/.well-known/apple-app-site-association` from the RP ID host without following
+  redirects, and the apex redirects to `www`. An RP ID cannot be changed later.
+- **`PASSKEY_IOS_APP_IDS`**: comma- or space-separated `TEAMID.bundle.id` values
+  (for example `ABCDE12345.org.stmark.ministryportal`), the team that signs the
+  App Store build. Unset, the iOS app is off: the association file is a 404 and
+  `GET /api/public/passkeys` reports `ios: false`. Web passkeys are unaffected.
+  While it is set the verifier also accepts `https://<RP ID>`, the origin iOS puts
+  in `clientDataJSON`.
+- The request `Origin` header is still compared exactly with `PASSKEY_ORIGIN`;
+  the app sends its API origin, so the API host must be the configured origin.
+
+`GET /api/public/passkeys` answers `{ "enabled": true, "rpId": "…", "ios": true }`
+(`rpId` and `ios` are additive).
+
 ## Domain changes
 
 Passkeys are bound to the RP ID. Keep it stable even when changing hosting

@@ -15,6 +15,8 @@ import { sansRegular, useAppTheme } from "@/theme";
 import { PasswordForm } from "@/components/password-form";
 import { canSubmitSignIn, looksLikeEmail, signInFailureKind } from "@/data/sign-in";
 import { LegalLinks } from "@/components/legal-links";
+import { usePasskeyCapability } from "@/data/passkey-flow";
+import { CANCELLED_SIGN_IN_MESSAGE, classifyPasskeyError } from "@/data/passkeys";
 
 export default function SignIn() {
   const {
@@ -22,6 +24,7 @@ export default function SignIn() {
     loading,
     error: connectionError,
     signIn,
+    signInWithPasskey,
     signOut,
     retry,
   } = useAuth();
@@ -33,6 +36,25 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const passkeys = usePasskeyCapability();
+
+  async function submitPasskey() {
+    if (!passkeys.rpId) return;
+    setBusy(true);
+    setError(null);
+    setOffline(false);
+    try {
+      await signInWithPasskey(passkeys.rpId);
+      setPassword("");
+    } catch (err) {
+      const { kind, message } = classifyPasskeyError(err);
+      setOffline(signInFailureKind(err) === "offline");
+      // Cancelling is not a failure: say so quietly and leave the password path as it was.
+      setError(kind === "cancelled" ? CANCELLED_SIGN_IN_MESSAGE : message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit() {
     setBusy(true);
@@ -156,6 +178,15 @@ export default function SignIn() {
               disabled={busy || !canSubmitSignIn(email, password, !!apiOrigin)}
               onPress={() => void submit()}
             />
+
+            {passkeys.offered && (
+              <Button
+                label={busy ? "Waiting for your passkey…" : "Sign in with a passkey"}
+                secondary
+                disabled={busy}
+                onPress={() => void submitPasskey()}
+              />
+            )}
 
             {(offline || connectionError) && (
               <Button label="Retry connection" secondary onPress={() => void (connectionError ? retry() : submit())} />

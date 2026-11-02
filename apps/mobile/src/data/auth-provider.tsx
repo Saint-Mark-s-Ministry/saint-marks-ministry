@@ -15,6 +15,7 @@ import { PortalApi, type CookieJar, type PortalUser, type PortalSession, type Vi
 import { defaultMinistry } from "./navigation";
 import { viewAsEndedMessage, viewAsRemainingMs } from "./view-as";
 import { clearResourceCache } from "./resources";
+import { authenticateWithPasskey } from "./passkey-native";
 
 const configured = process.env.EXPO_PUBLIC_API_URL;
 export const apiOrigin =
@@ -62,11 +63,15 @@ export const api = apiOrigin
 type AuthState = {
   user: PortalUser | null;
   viewingAs: ViewAsSession | null;
+  /** When the current session began with a real sign-in (the server's clock), if it said. */
+  authenticatedAt: number | null;
   switchingIdentity: boolean;
   viewAs: (targetId: string | null) => Promise<void>;
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  /** Signs in with a passkey the server has advertised for `rpId`; rejects with a coded error when cancelled. */
+  signInWithPasskey: (rpId: string) => Promise<void>;
   signOut: () => Promise<void>;
   retry: () => Promise<void>;
   /** Re-reads the session in place (no splash, no remount), e.g. after the user's own permissions change. */
@@ -175,6 +180,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       value={{
         user,
         viewingAs: session.impersonating ?? null,
+        authenticatedAt: session.authenticatedAt ?? null,
         switchingIdentity,
         viewAs: async (targetId) => {
           if (!api) throw new Error("No API server configured.");
@@ -208,6 +214,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signIn: async (email, password) => {
           if (!api) throw new Error("No API server configured.");
           await api.signIn(email, password);
+          setError(null);
+        },
+        signInWithPasskey: async (rpId) => {
+          if (!api) throw new Error("No API server configured.");
+          await api.signInWithPasskey(rpId, authenticateWithPasskey);
           setError(null);
         },
         signOut: async () => {
