@@ -107,6 +107,14 @@ function StaffMore() {
           href: "/servant-attendance" as Href,
         }]
       : []),
+    ...(access.canOpenServantsMeetings
+      ? [{
+          id: "servants-meetings",
+          title: "Servants meetings",
+          subtitle: "Monthly meetings and attendance",
+          href: "/servants-meetings" as Href,
+        }]
+      : []),
     ...(access.createLevels.length
       ? [{
           id: "registrations",
@@ -236,6 +244,8 @@ function MinistryIcon({ id }: { id: string }) {
           ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
           : id === "servant-attendance"
             ? ({ ios: "checkmark.circle", android: "check_circle" } as const)
+            : id === "servants-meetings"
+            ? ({ ios: "calendar.badge.clock", android: "event_available" } as const)
             : id === "registrations"
               ? ({ ios: "person.badge.plus", android: "person_add" } as const)
               : id === "homework"

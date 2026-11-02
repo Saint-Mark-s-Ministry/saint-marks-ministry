@@ -292,6 +292,8 @@ function ToolIcon({ id }: { id: string }) {
                 ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
                 : id === "servant-attendance"
                   ? ({ ios: "person.badge.clock", android: "how_to_reg" } as const)
+                  : id === "servants-meetings"
+                  ? ({ ios: "calendar.badge.clock", android: "event_available" } as const)
                   : id === "registrations"
                     ? ({ ios: "person.badge.plus", android: "person_add" } as const)
                     : id === "feedback"

@@ -60,6 +60,7 @@ export const authenticatedRoutes = [
   "reports",
   "roster",
   "servant-attendance",
+  "servants-meetings",
   "student-history/[id]",
   "sunday-birthdays",
   "switch-ministry",

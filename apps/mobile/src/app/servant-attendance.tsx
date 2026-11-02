@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { feedback } from "@/data/haptics";
 import * as SecureStore from "expo-secure-store";
 import { getTodayDateInputValue } from "@stmark/domain";
-import type { SundaySchoolServantAttendanceResponse } from "@stmark/contracts";
+import type { SundaySchoolDashboard, SundaySchoolServantAttendanceResponse } from "@stmark/contracts";
 import { Copy, Icon, InitialsAvatar, ListSurface, Screen, StatusPill, styles } from "@/components/ui";
 import { ResourceState, confirmAction, useAction } from "@/components/forms";
 import { endpoint, query, request, useResource } from "@/data/resources";
@@ -14,6 +14,7 @@ import { usePortal, meetingDate } from "@/data/portal-provider";
 import { useAuth } from "@/data/auth-provider";
 import { shiftWeek } from "@/data/attendance-draft";
 import { shortMonthDay } from "@/data/sunday-school-classes";
+import { servantsMeetingGroups } from "@/data/servants-meetings";
 import {
   assignmentChangedMessage,
   editLockReason,
@@ -59,6 +60,10 @@ function ServantAttendanceScreen() {
     setClassId(next.id);
     setDate(meetingDate(next));
   }
+
+  // The monthly servants meetings have their own screen; offered here for anyone the dashboard lists a group for.
+  const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
+  const hasMeetings = servantsMeetingGroups(dashboard.data).length > 0;
 
   const resource = useResource<SundaySchoolServantAttendanceResponse>(
     cls ? `${endpoint("servant-attendance")}?${query({ classId, date })}` : null,
@@ -167,6 +172,25 @@ function ServantAttendanceScreen() {
             {cls?.name ?? "No class"} · week of {shortMonthDay(date)}
           </Copy>
         </View>
+
+        {hasMeetings && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Servants meetings"
+            onPress={() => router.push("/servants-meetings")}
+            style={({ pressed }) => [
+              styles.row,
+              { gap: 10, minHeight: 52, paddingHorizontal: 16, borderRadius: 18, backgroundColor: pressed ? colors.primarySoft : colors.hover },
+            ]}
+          >
+            <Icon ios="calendar.badge.clock" android="event_available" size={18} color={colors.primary} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Copy style={{ fontWeight: "600" }} color={colors.primary}>Servants meetings</Copy>
+              <Copy kind="caption">Monthly meetings and their attendance</Copy>
+            </View>
+            <Icon ios="chevron.right" android="chevron_right" size={14} color={colors.muted} />
+          </Pressable>
+        )}
 
         {!allowed.length && (
           <View style={{ paddingVertical: 24, alignItems: "center", gap: 6 }}>

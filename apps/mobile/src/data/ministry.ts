@@ -1,3 +1,4 @@
+import { servantsMeetingGroups } from "./servants-meetings";
 import type { SundaySchoolClass, SundaySchoolDashboard, SundaySchoolLevel } from "@stmark/contracts";
 import { LEVEL_ORDER } from "@stmark/domain";
 
@@ -12,6 +13,8 @@ export function ministryAccess(dashboard?: SundaySchoolDashboard, classes: Sunda
     admin, readOnly,
     canAddChild: !readOnly && (admin || classes.some(c => c.canServe)),
     canViewServantAttendance,
+    /** Menu visibility only: the meetings API re-checks every request. */
+    canOpenServantsMeetings: servantsMeetingGroups(dashboard).length > 0,
     canTakeServantAttendance:
       (!readOnly && dashboard?.attendanceTrend.canViewServantAttendance === true) ||
       classes.some(c => c.canTakeServantAttendance),

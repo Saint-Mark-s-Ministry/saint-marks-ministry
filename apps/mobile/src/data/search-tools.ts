@@ -80,6 +80,14 @@ export function searchTools(
       href: "/servant-attendance",
     });
   }
+  if (access.canOpenServantsMeetings) {
+    tools.push({
+      id: "servants-meetings",
+      title: "Servants meetings",
+      subtitle: "Monthly meetings and attendance",
+      href: "/servants-meetings",
+    });
+  }
   if (access.createLevels.length > 0) {
     tools.push({
       id: "registrations",

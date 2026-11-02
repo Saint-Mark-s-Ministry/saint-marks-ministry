@@ -95,6 +95,7 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   "servants/classes": withId("/(tabs)/classes", (id) => `/class/${id}`),
   "servants/attendance": withId("/(tabs)/classes", (id) => `/attendance/${id}`),
   "servants/servant-attendance": fixed("/servant-attendance"),
+  "servants/servant-attendance/meetings": fixed("/servants-meetings"),
   "servants/roster": fixed("/roster"),
   "servants/children": withId("/roster", (id) => `/child/${id}`),
   "servants/homework": fixed("/homework"),

@@ -415,6 +415,62 @@ export interface SundaySchoolSessionAttendance {
   roster: SundaySchoolRosterEntry[];
 }
 
+/** A servants meeting is marked Present or Absent for every attendee; there is no Excused or Late. */
+export type SundaySchoolMeetingMark = "PRESENT" | "ABSENT";
+
+export interface SundaySchoolServantsMeetingSummary {
+  /** A saved meeting's ID, or `scheduled:<ageGroupId>:<date>` for a monthly date that has no record yet. */
+  id: string;
+  /** ISO timestamp at UTC midnight; the calendar day is the first ten characters. */
+  date: string;
+  title: string | null;
+  _count?: { attendance: number };
+}
+
+export interface SundaySchoolServantsMeeting extends SundaySchoolServantsMeetingSummary {
+  ageGroupId: string;
+  academicYearId: string;
+}
+
+export interface SundaySchoolServantsMeetingAttendee {
+  id: string;
+  name: string;
+  status: SundaySchoolMeetingMark | null;
+}
+
+/** GET /api/sunday-school/servants-meetings?ageGroupId=&meetingId= (meetings are today and earlier only). */
+export interface SundaySchoolServantsMeetingsResponse {
+  meetings: SundaySchoolServantsMeetingSummary[];
+  meeting: SundaySchoolServantsMeeting | null;
+  roster: SundaySchoolServantsMeetingAttendee[];
+  /** e.g. "First Saturday of every month". */
+  schedule: string;
+  canCreate: boolean;
+  canEdit: boolean;
+  canManageAttendance: boolean;
+  canCheckIn?: boolean;
+  selfStatus?: SundaySchoolMeetingMark | null;
+}
+
+/** POST: an upsert on band + year + date, so repeating it returns the existing meeting. */
+export interface SundaySchoolServantsMeetingCreateRequest {
+  ageGroupId: string;
+  date: string;
+  title?: string;
+}
+
+/** PUT: every attendee, each Present or Absent; the server saves them in one transaction. */
+export interface SundaySchoolServantsMeetingSaveRequest {
+  meetingId: string;
+  records: Array<{ servantId: string; status: SundaySchoolMeetingMark }>;
+}
+
+export interface SundaySchoolServantsMeetingSaveResponse {
+  success: boolean;
+  /** A scheduled placeholder becomes a real meeting on its first save; use this ID from then on. */
+  meetingId: string;
+}
+
 export interface SundaySchoolServantAttendanceRosterEntry {
   id: string;
   userId: string;

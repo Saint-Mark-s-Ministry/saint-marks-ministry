@@ -103,6 +103,11 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   open; permission and roster failures wait for an explicit retry. The bar shows local
   only, saving, saved to the church and failed, with the server's recorder and time. See
   [`docs/ios-attendance-autosave.md`](../../docs/ios-attendance-autosave.md).
+- Servants meetings (More, Servant attendance, search): the group's meetings, an explicit Add
+  meeting (date and optional title; a later date is only planned), and Present/Absent for every
+  attendee in one transactional save. Opening it creates nothing; attendance opens on the
+  meeting's day; past meetings stay correctable; read-only for assigned servants and in View As.
+  See [`docs/ios-servants-meetings.md`](../../docs/ios-servants-meetings.md).
 - Account deletion uses `POST /api/account/delete` and the existing admin
   deletion protections. Super Admins cannot delete their own account; accounts
   holding protected records are directed to an administrator. Delete account is
