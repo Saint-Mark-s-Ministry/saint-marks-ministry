@@ -479,10 +479,10 @@ export default function AttendancePage() {
                       const ea = expectedAbsences.get(student.id)
                       const enrollment = student.enrollments[0]
                       return (
-                        <tr key={student.id} className={`border-b border-line last:border-0 ${compactMode ? 'h-11' : 'h-[52px]'}`}>
+                        <tr key={student.id} className={`border-b border-line last:border-0 ${compactMode ? 'h-14' : 'h-[72px]'}`}>
                           <td className="px-3">
                             <div className="flex items-center gap-2.5">
-                              <Initials name={student.name} imageUrl={student.profileImageUrl} />
+                              <Initials name={student.name} imageUrl={student.profileImageUrl} size={compactMode ? 40 : 56} />
                               <div className="flex min-w-0 flex-col leading-[1.3]">
                                 <StudentProfileLink studentId={student.id} className="truncate">{student.name}</StudentProfileLink>
                                 <span className="flex items-center gap-1.5 text-xs text-ink-3">
@@ -548,7 +548,7 @@ export default function AttendancePage() {
                     return (
                       <li key={student.id} className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
-                          <Initials name={student.name} imageUrl={student.profileImageUrl} size={32} />
+                          <Initials name={student.name} imageUrl={student.profileImageUrl} size={56} />
                           <button
                             type="button"
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left"

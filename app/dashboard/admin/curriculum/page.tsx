@@ -167,7 +167,7 @@ export default function CurriculumPage() {
       setLoading(true)
       try {
         const url = selectedYearId && selectedYearId !== 'all'
-          ? `/api/lessons?academicYearId=${selectedYearId}`
+          ? `/api/lessons?scheduledInAcademicYearId=${encodeURIComponent(selectedYearId)}`
           : '/api/lessons'
 
         const lessonsRes = await fetch(url)
@@ -247,7 +247,7 @@ export default function CurriculumPage() {
 
   const fetchLessonsUrl = () =>
     selectedYearId && selectedYearId !== 'all'
-      ? `/api/lessons?academicYearId=${selectedYearId}`
+      ? `/api/lessons?scheduledInAcademicYearId=${encodeURIComponent(selectedYearId)}`
       : '/api/lessons'
 
   const refetchLessons = async () => {
