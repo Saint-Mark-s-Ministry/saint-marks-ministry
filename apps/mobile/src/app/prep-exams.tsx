@@ -9,6 +9,7 @@ import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
 import { isAdminLike } from "@/data/prep-home";
+import { MakeupBookingsStaff } from "@/components/makeup-bookings-staff";
 import { canManageExams, filterExamsByYear, groupExamsByYear, type ExamListItem, type ExamYearFilter } from "@/data/prep-exams";
 
 type AcademicYear = { id: string; name: string; isActive: boolean };
@@ -153,6 +154,8 @@ export default function PrepExams() {
                 )}
               </>
             )}
+
+            {!viewingYearId && <MakeupBookingsStaff />}
 
             {viewingYear && (
               <View style={{ gap: 10 }}>

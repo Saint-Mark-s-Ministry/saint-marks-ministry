@@ -108,6 +108,11 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   attendee in one transactional save. Opening it creates nothing; attendance opens on the
   meeting's day; past meetings stay correctable; read-only for assigned servants and in View As.
   See [`docs/ios-servants-meetings.md`](../../docs/ios-servants-meetings.md).
+- Makeup exams: a student picks a failed or missed exam (failed first, with current and passing
+  percentages) and one of the API's next 12 New York Fridays, reschedules, and cancels a future booking;
+  past bookings stay as history. Staff Exams shows every booking ordered by Friday with the student's name
+  and email. Mentors and Sunday School-only accounts have no access. See
+  [`docs/ios-makeup-exams.md`](../../docs/ios-makeup-exams.md).
 - Account deletion uses `POST /api/account/delete` and the existing admin
   deletion protections. Super Admins cannot delete their own account; accounts
   holding protected records are directed to an administrator. Delete account is

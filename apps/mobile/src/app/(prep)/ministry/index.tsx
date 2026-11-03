@@ -58,6 +58,7 @@ const SHARED_LINKS: MinistryLink[] = [
 
 const STUDENT_LINKS: MinistryLink[] = [
   { id: "live-exams", title: "Live Exam", subtitle: "Your proctored original exam", href: "/prep-live-exams", icon: { ios: "checklist", android: "fact_check" } },
+  { id: "makeup-exams", title: "Makeup exams", subtitle: "Schedule a retake on a Friday", href: "/prep-makeup-exams", icon: { ios: "calendar.badge.clock", android: "event_repeat" } },
   ...SHARED_LINKS,
 ];
 

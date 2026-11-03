@@ -58,7 +58,7 @@ export const WEB_TO_NATIVE: Record<string, Builder> = {
   "student/lessons": withId("/prep-lessons", (id) => `/prep-my-lesson/${id}`),
   "student/application": fixed("/prep-application"),
   "student/exams": withId("/prep-live-exams", (id) => `/prep-live-exam/${id}`),
-  "student/makeup-exams": fixed("/prep-exams"),
+  "student/makeup-exams": fixed("/prep-makeup-exams"),
   "student/class-lessons": fixed("/prep-class-lessons"),
   "student/attendance-slip": fixed("/prep-attendance-slip"),
   "student/sunday-school": fixed("/prep-serving"),

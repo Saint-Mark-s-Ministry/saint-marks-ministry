@@ -43,6 +43,7 @@ export const authenticatedRoutes = [
   "prep-files",
   "prep-lesson/[id]",
   "prep-lessons",
+  "prep-makeup-exams",
   "prep-mentee/[id]",
   "prep-mentees",
   "prep-mentor-dashboard",

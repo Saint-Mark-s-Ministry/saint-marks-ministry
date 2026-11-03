@@ -167,6 +167,7 @@ export default function PrepHome() {
             <RowLink title="My progress" subtitle="Attendance, exams, and what to do next" onPress={() => router.push("/prep-progress")} />
             <RowLink title="My lessons" subtitle="Schedule, materials, and attendance" onPress={() => router.push("/prep-lessons")} />
             <RowLink title="Live Exam" subtitle="Open your proctored answer sheet" onPress={() => router.push("/prep-live-exams")} />
+            <RowLink title="Makeup exams" subtitle="Schedule a retake of a failed or missed exam" onPress={() => router.push("/prep-makeup-exams" as Href)} />
             <RowLink title="Rotations" subtitle="Four-week forms and grade progress" onPress={() => router.push("/prep-serving")} />
             <RowLink title="Class lessons" subtitle="Slides and resources for your class" onPress={() => router.push("/prep-class-lessons" as Href)} />
             {childHomework.data?.eligible && (
