@@ -113,6 +113,11 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   past bookings stay as history. Staff Exams shows every booking ordered by Friday with the student's name
   and email. Mentors and Sunday School-only accounts have no access. See
   [`docs/ios-makeup-exams.md`](../../docs/ios-makeup-exams.md).
+- Makeup exam scores: the staff score screen reads and edits the original grade only, shows the
+  effective best result beside it, and lists every makeup attempt (student, version 1 or 2, date,
+  score, points, notes) for add and correction. The server keeps the original and recalculates the best
+  result atomically. Priests and Servants Prep staff grade; mentors, students and Sunday School-only
+  accounts cannot. See [`docs/ios-makeup-scores.md`](../../docs/ios-makeup-scores.md).
 - Account deletion uses `POST /api/account/delete` and the existing admin
   deletion protections. Super Admins cannot delete their own account; accounts
   holding protected records are directed to an administrator. Delete account is

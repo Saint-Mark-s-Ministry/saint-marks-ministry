@@ -9,6 +9,9 @@ import { request, useResource } from "@/data/resources";
 import { useAuth } from "@/data/auth-provider";
 import { sansMedium, useAppTheme } from "@/theme";
 import { canViewStudentRoster } from "@/data/prep-students";
+import { MakeupScoresSection } from "@/components/makeup-scores-section";
+import { originalCaption, originalFieldValue, originalUnsaved } from "@/data/makeup-scores";
+import type { ExamScoreResult } from "@stmark/contracts";
 import {
   canManageExams,
   filterScoreRoster,
@@ -26,7 +29,8 @@ type Exam = {
   yearLevel: string;
   examSection: { displayName: string } | null;
 };
-type ExamScoreRow = { id: string; studentId: string; score: number };
+// `score` and `percentage` are the effective best (they include makeups); the original grade is `originalScore` / `originalPercentage`.
+type ExamScoreRow = ExamScoreResult;
 type Enrollment = { studentId: string; mentorId?: string | null; student: { id: string; name: string } };
 
 const YEAR_LABELS: Record<string, string> = { YEAR_1: "Year 1", YEAR_2: "Year 2", BOTH: "Both years" };
@@ -59,16 +63,17 @@ export default function PrepExamScores() {
     name: e.student.name,
     mentorId: e.mentorId,
     server: serverScoreByStudent.get(e.studentId),
-    score: serverScoreByStudent.get(e.studentId)?.score ?? null,
+    // The original editor reads the ORIGINAL grade only, never the effective best, so saving here can't overwrite it with a makeup result.
+    score: serverScoreByStudent.get(e.studentId)?.originalScore ?? null,
   }));
   const rows = scoreRows.filter((row) => !query.trim() || row.name.toLowerCase().includes(query.trim().toLowerCase()));
   const rosterCounts = scoreRosterCounts(scoreRows, user?.id);
   const counts = scoreRosterCounts(rows, user?.id);
   const visibleRows = filterScoreRoster(rows, segment, user?.id);
 
-  function valueFor(studentId: string, server?: { score: number }) {
+  function valueFor(studentId: string, server?: ExamScoreRow) {
     if (localScores[studentId] !== undefined) return localScores[studentId];
-    return server ? String(server.score) : "";
+    return originalFieldValue(server);
   }
 
   function save(studentId: string, text: string) {
@@ -85,6 +90,8 @@ export default function PrepExamScores() {
     });
     if ((value === null || value === undefined)) return; // cleared/empty — nothing to save
     const existing = serverScoreByStudent.get(studentId);
+    // Nothing changed (a blur on the saved value): don't send a write that would re-stamp the grader.
+    if (existing && existing.originalScore === value) return;
     setSavingIds((prev) => new Set(prev).add(studentId));
     void (async () => {
       try {
@@ -230,6 +237,7 @@ export default function PrepExamScores() {
                 {visibleRows.map((row, index) => {
                   const value = valueFor(row.studentId, row.server);
                   const error = rowErrors[row.studentId];
+                  const caption = originalCaption(row.server, exam.totalPoints);
                   const tone = (row.score !== null && row.score !== undefined) ? scoreTone(row.score, "exam") : "neutral";
                   const toneColor = tone === "success" ? colors.success : tone === "warning" ? colors.warning : tone === "danger" ? colors.danger : colors.muted;
                   return (
@@ -244,7 +252,7 @@ export default function PrepExamScores() {
                       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
                         <Copy numberOfLines={2}>{row.name}</Copy>
                         <Copy kind="caption" color={error ? colors.danger : toneColor}>
-                          {error ?? ((row.score !== null && row.score !== undefined) ? `${Math.round((row.score / exam.totalPoints) * 1000) / 10}%` : "Not entered")}
+                          {error ?? `${caption.hasOriginal ? "Original " : ""}${caption.original}${caption.counts}`}
                         </Copy>
                       </View>
                       <TextInput
@@ -285,7 +293,15 @@ export default function PrepExamScores() {
               </ListSurface>
             )}
 
-            <Copy kind="caption">Scores save as you type. The number pad moves to the next student after two digits.</Copy>
+            <Copy kind="caption">Scores save as you type. The number pad moves to the next student after two digits. These are original grades; makeup attempts are recorded separately below.</Copy>
+
+            {canEdit && exam && (
+              <MakeupScoresSection
+                examId={id}
+                originalUnsaved={originalUnsaved(localScores, serverScoreByStudent) || savingIds.size > 0 || Object.keys(rowErrors).length > 0}
+                onSaved={() => scoresRes.refresh()}
+              />
+            )}
           </>
         )}
       </Screen>
