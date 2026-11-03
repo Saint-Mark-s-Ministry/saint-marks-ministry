@@ -17,7 +17,7 @@ for the people who own the Apple account.
 | In-app account deletion (guideline 5.1.1(v)) | Done. Account screen → Delete account, password-confirmed; same routine and protections an administrator already has | `app/api/account/delete`, `apps/mobile/src/app/delete-account.tsx` |
 | Privacy policy and terms linked in the app | Done, public routes (`/privacy`, `/terms`) | Account screen, `proxy.ts` |
 | Privacy manifest (`PrivacyInfo.xcprivacy`) | Done: required-reason APIs, no tracking, collected data types | `apps/mobile/app.json` → `ios.privacyManifests` |
-| Permission strings | Camera and Photos only, each saying what for. Microphone and Face ID strings removed (unused) | `apps/mobile/app.json` plugins |
+| Permission strings | Camera, Photos and When-In-Use Location, each saying what for. Microphone, Face ID and "Always" location strings removed (unused) | `apps/mobile/app.json` plugins |
 | Export compliance | `ITSAppUsesNonExemptEncryption: false` (HTTPS only, no custom crypto) | `app.json` |
 | Transport security | HTTPS enforced in release builds; no arbitrary loads | `apps/mobile/src/data/api-client.ts` |
 | Sign in with Apple (4.8) | Not required: sign-in is the church's own credentials, no third-party social login | n/a |
@@ -40,6 +40,11 @@ These can't be done from the repository.
    (push token), other user content. All linked to the user, none used for
    tracking, purpose App Functionality. Review this with whoever owns the data
    policy; it must stay in step with `/privacy`.
+   **Location (live exams).** The app asks for precise location, when in use, only so the server can check a student is within 150
+   meters of the church when they start, save and submit an online exam. It is sent with those requests, held in memory, and never
+   stored (`docs/mobile-live-exams.md`). Apple counts data as "collected" only if it is kept longer than needed to answer the request,
+   so this may not need a Precise Location entry in App Privacy and the manifest; it is left out of the manifest here. Decide that with
+   whoever owns the data policy and keep `/privacy` in step.
 4. **Children's information.** The app is for a church community, but parents
    register children and a child can have a linked sign-in. Decide the age
    rating and confirm the parental-consent position (guideline 5.1.4 / COPPA)

@@ -51,7 +51,9 @@ function nativeSession() {
     }
     return response
   }
-  const controller = new ExamAttemptController({ uuid: randomUUID, post,
+  // The server requires a church-location fix on start, save and submit; this one is at the mocked venue above.
+  const locate = async () => ({ latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() })
+  const controller = new ExamAttemptController({ uuid: randomUUID, post, locate,
     getView: async () => {
       if (!online) throw new Error('Synthetic connection loss')
       return read<DigitalExamView>(await get())

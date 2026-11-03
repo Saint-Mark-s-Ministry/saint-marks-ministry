@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AttemptResponse, DigitalExamList, DigitalExamView, ExamAttemptView } from "@stmark/contracts";
 import { ExamAttemptController } from "../../apps/mobile/src/data/exam-attempt";
 import { ApiError } from "../../apps/mobile/src/data/api-client";
+import { LocationUnavailable, type ExamPosition } from "../../apps/mobile/src/data/exam-location";
 import { canUnlockStudent, completeAnswerKey, examCalendarDate, filterLiveExams, liveExamAudience, monitoringState } from "../../apps/mobile/src/data/live-exams";
 
 function fixture() {
@@ -46,9 +47,9 @@ function fixture() {
   };
   const post = vi.fn(server);
   const save = vi.fn(async (value: string | null) => { draft = value; });
-  const create = () => new ExamAttemptController({ getView, post, now: () => 100000,
+  const create = (extra: Partial<ConstructorParameters<typeof ExamAttemptController>[0]> = {}) => new ExamAttemptController({ getView, post, now: () => 100000,
     uuid: () => `00000000-0000-4000-8000-${String(serial++).padStart(12, "0")}`,
-    store: { load: async () => draft, save } });
+    store: { load: async () => draft, save }, ...extra });
   const control = create();
   return { control, create, post, getView, save, server, view, get draft() { return draft; },
     setDraft: (value: string) => { draft = value; },
@@ -409,5 +410,143 @@ describe("native monitoring controls and discovery", () => {
     expect(monitoringState(exams[0])).toBe("RELEASED");
     expect(filterLiveExams(exams, "2026", "OPEN")).toHaveLength(1);
     expect(examCalendarDate("2026-10-14T00:00:00Z")).toBe("Oct 14, 2026");
+  });
+});
+
+
+// The server requires a church-location fix on start, save and submit (lib/digital-exam-service.ts), never on heartbeats or reports.
+describe("native live exam church-location requirement", () => {
+  const AT_CHURCH: ExamPosition = { latitude: 40.71602, longitude: -74.0867, accuracy: 8, timestamp: 100000 };
+  const OUTSIDE: ExamPosition = { ...AT_CHURCH, latitude: 40.73 };
+  /** A server that checks the position the way lib/exam-geofence.ts does, in front of the usual fixture server. */
+  function withGeofence(f: ReturnType<typeof fixture>) {
+    f.post.mockImplementation(async body => {
+      if (["start", "save", "submit"].includes(String(body.action))) {
+        const position = body.position as ExamPosition | undefined;
+        if (!position) throw new ApiError("Enable precise location and try again. A location captured within two minutes and accurate to within 100 meters is required.", 400);
+        if (Math.abs(position.latitude - AT_CHURCH.latitude) > 0.002) throw new ApiError("Online exams must be taken within 150 meters of 427 Westside Ave, Jersey City, NJ. Your saved answers are preserved.", 403);
+      } else if (body.position !== undefined) throw new Error("heartbeats and reports must not carry a position");
+      return f.server(body);
+    });
+  }
+  async function startedAtChurch(locate = vi.fn(async (_mode: string) => AT_CHURCH)) {
+    const f = fixture();
+    const control = f.create({ locate });
+    withGeofence(f);
+    await control.refresh(); await control.start();
+    return { f, control, locate };
+  }
+  const sent = (f: ReturnType<typeof fixture>, action: string) => f.post.mock.calls.filter(([body]) => body.action === action).map(([body]) => body);
+
+  it("sends a fresh position with Start and Submit, a reusable one with saves, and none with heartbeats or reports", async () => {
+    const { f, control, locate } = await startedAtChurch();
+    expect(control.snapshot().started).toBe(true);
+    expect(sent(f, "start")[0].position).toEqual(AT_CHURCH);
+    expect(locate).toHaveBeenLastCalledWith("fresh");
+    control.choose(2, "B");
+    await vi.waitFor(() => expect(sent(f, "save")).toHaveLength(1));
+    expect(sent(f, "save")[0].position).toEqual(AT_CHURCH);
+    expect(locate).toHaveBeenLastCalledWith("reuse");
+    await control.refresh();
+    await control.submit();
+    expect(sent(f, "submit")[0].position).toEqual(AT_CHURCH);
+    expect(locate).toHaveBeenLastCalledWith("fresh");
+    for (const body of f.post.mock.calls.map(([b]) => b).filter(b => ["heartbeat", "events"].includes(String(b.action)))) expect(body.position).toBeUndefined();
+    expect(control.snapshot().attempt?.state).toBe("SUBMITTED");
+  });
+
+  it("never writes a position into the encrypted draft", async () => {
+    const { f, control } = await startedAtChurch();
+    control.choose(0, "A");
+    await vi.waitFor(() => expect(sent(f, "save")).toHaveLength(1));
+    expect(f.draft ?? "").not.toMatch(/latitude|longitude|accuracy/);
+  });
+
+  it("keeps a choice pending, and stays connected, while the device cannot give a position", async () => {
+    let available = true;
+    const locate = vi.fn(async (_mode: string) => { if (!available) throw new LocationUnavailable("Allow location access to take this exam. It is only checked, never stored."); return AT_CHURCH; });
+    const { f, control } = await startedAtChurch(locate);
+    available = false;
+    control.choose(5, "D");
+    await vi.waitFor(() => expect(control.snapshot().location).not.toBeNull());
+    const state = control.snapshot();
+    expect(state.location).toEqual({ message: expect.stringMatching(/Allow location access/), settings: false });
+    expect(state.pendingCount).toBe(1); // the choice is still on the device
+    expect(state.offline).toBe(false); // not a lost connection
+    expect(state.paused).toBe(false); // and not a pause
+    expect(state.attempt).not.toBeNull(); // and not a revoked session
+    expect(sent(f, "events").flatMap(b => b.events as { kind: string }[]).filter(e => e.kind === "OFFLINE")).toHaveLength(0);
+    expect(sent(f, "save")).toHaveLength(0);
+    // Once the position works, the next tap saves it and clears the notice.
+    available = true;
+    control.choose(5, "D");
+    await vi.waitFor(() => expect(sent(f, "save")).toHaveLength(1));
+    await vi.waitFor(() => expect(control.snapshot().location).toBeNull());
+    expect(control.snapshot().pendingCount).toBe(0);
+  });
+
+  it("does not retry the sensor on every refresh after a location problem, but a tap retries at once", async () => {
+    const locate = vi.fn(async (_mode: string): Promise<ExamPosition> => { throw new LocationUnavailable("Could not get your location."); });
+    const { control } = await startedAtChurch(vi.fn(async () => AT_CHURCH));
+    // Rebuild with a failing locator after Start.
+    const f = fixture();
+    const c = f.create({ locate: vi.fn(async () => AT_CHURCH) });
+    withGeofence(f);
+    await c.refresh(); await c.start();
+    expect(control.snapshot().started).toBe(true);
+    const failing = f.create({ locate });
+    withGeofence(f);
+    await failing.refresh(); await failing.start();
+    expect(failing.snapshot().started).toBe(false);
+    expect(locate).toHaveBeenCalledTimes(1);
+    await failing.refresh(); await failing.refresh();
+    expect(locate).toHaveBeenCalledTimes(1); // nothing to flush, and no new attempt
+  });
+
+  it("does not let the server's 'outside the boundary' 403 look like lost access", async () => {
+    let position = AT_CHURCH;
+    const { f, control } = await startedAtChurch(vi.fn(async () => position));
+    position = OUTSIDE;
+    control.choose(7, "C");
+    await vi.waitFor(() => expect(control.snapshot().location).not.toBeNull());
+    const state = control.snapshot();
+    expect(state.location?.message).toMatch(/within 150 meters of 427 Westside Ave/);
+    expect(state.view).toBeDefined(); // a real 403 clears the view; this must not
+    expect(state.attempt).not.toBeNull();
+    expect(state.pendingCount).toBe(1);
+    expect(state.started).toBe(true);
+    // Back at church, the same pending choice saves without being re-entered.
+    position = AT_CHURCH;
+    control.choose(8, "A");
+    await vi.waitFor(() => expect(state.pendingCount === 1 && control.snapshot().pendingCount).toBe(0));
+    expect(control.snapshot().answers[7]).toBe("C");
+    expect(control.snapshot().answers[8]).toBe("A");
+    expect(f.draft ?? "").not.toContain('"7"');
+  });
+
+  it("a real 403 (access revoked) still ends the session", async () => {
+    const { f, control } = await startedAtChurch();
+    f.post.mockImplementation(async () => { throw new ApiError("Forbidden", 403); });
+    control.choose(1, "B");
+    await vi.waitFor(() => expect(control.snapshot().view).toBeUndefined());
+    expect(control.snapshot().location).toBeNull();
+  });
+
+  it("Start without a position stays on the notice, with Settings offered when only Settings can fix it", async () => {
+    const f = fixture();
+    const control = f.create({ locate: vi.fn(async () => { throw new LocationUnavailable("Location access is off for this app. Turn it on in Settings to take this exam.", true); }) });
+    withGeofence(f);
+    await control.refresh(); await control.start();
+    const state = control.snapshot();
+    expect(state.started).toBe(false);
+    expect(state.location).toEqual({ message: expect.stringMatching(/Settings/), settings: true });
+    expect(sent(f, "start")).toHaveLength(0); // nothing was sent without a position
+    expect(f.draft).not.toBeNull(); // the session token was still preserved first
+  });
+
+  it("without the church check configured the controller sends no position (older servers)", async () => {
+    const f = fixture();
+    await f.control.refresh(); await f.control.start();
+    expect(sent(f, "start")[0].position).toBeUndefined();
   });
 });

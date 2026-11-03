@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Button, Card, Copy, Icon, Screen, SectionTitle } from "@/components/ui";
+import { Card, Copy, Icon, Screen, SectionTitle } from "@/components/ui";
+import { ExamActionButton } from "@/components/exam-action-button";
 import { ResourceState, Toggle, confirmAction } from "@/components/forms";
 import { ExamAnswerChoices } from "@/components/exam-answer-choices";
 import { useAuth } from "@/data/auth-provider";
@@ -33,7 +34,15 @@ function AnswerSheet({ id, userId }: { id: string; userId: string }) {
     <Stack.Screen options={{ title, headerLargeTitle: false }} />
     <Screen onRefresh={() => void control.refresh()} refreshing={control.loading}>
       <ResourceState loading={control.loading} error={control.error} retry={() => void control.refresh()} />
-      {!!control.message && <Card><Copy color={colors.danger}>{control.message}</Copy></Card>}
+      {!!control.message && !control.location && <Card><Copy color={colors.danger}>{control.message}</Copy></Card>}
+      {!!control.location && !submitted && <Card style={{ backgroundColor: colors.warningSoft }}>
+        <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ gap: 8 }}>
+          <Copy kind="heading" color={colors.warning}>Location needed</Copy>
+          <Copy>{control.location.message}</Copy>
+          {control.started && <Copy kind="caption">Your answers are saved on this device and will save as soon as your location checks out. You are still being monitored.</Copy>}
+        </View>
+        {control.location.settings && <ExamActionButton secondary label="Open Settings" onPress={() => void Linking.openSettings()} />}
+      </Card>}
       {submitted ? <Card>
         <Copy kind="heading">Exam submitted</Copy>
         <Copy>Your saved answers are final.</Copy>
@@ -47,9 +56,10 @@ function AnswerSheet({ id, userId }: { id: string; userId: string }) {
         <Copy kind="heading">{control.attempt?.retakeReady ? "Your retake is ready" : control.attempt ? "Resume your answer sheet" : "Before you start"}</Copy>
         <Copy>Read the questions on your printed exam. Select your answers here; they save automatically. Submission is final.</Copy>
         <Copy>Your proctor can see your progress and exam activity. Switching apps, locking your phone, leaving this screen, or taking focus away pauses answering. Connection loss also requires proctor clearance.</Copy>
+        <Copy>Online exams are taken at church. When you start, save answers and submit, the app checks that you are within 150 meters of the church. Allow precise location when asked; it is only checked, never stored.</Copy>
         <Copy kind="caption">Turn on Do Not Disturb before starting. Stay on this screen, reconnect if needed, and ask your proctor to unlock after an interruption. We’ll try to keep your screen awake.</Copy>
         <Toggle label="I understand the exam and monitoring rules" value={acknowledged} onChange={setAcknowledged} disabled={control.busy || !!viewingAs} />
-        <Button label={control.busy ? "Opening…" : control.attempt?.retakeReady ? "Start retake" : control.attempt ? "Resume answer sheet" : "Start exam"}
+        <ExamActionButton label={control.busy ? "Opening…" : control.attempt?.retakeReady ? "Start retake" : control.attempt ? "Resume answer sheet" : "Start exam"}
           disabled={!acknowledged || control.busy || !!viewingAs} onPress={() => void control.start()} />
         {!!viewingAs && <Copy kind="caption">View as is read-only. Only the student can start or answer.</Copy>}
       </Card> : <>
@@ -59,7 +69,7 @@ function AnswerSheet({ id, userId }: { id: string; userId: string }) {
         </Card>}
         <SectionTitle title="Answer sheet" subtitle={`${answered}/50 answered`} />
         <Copy kind="caption">Tap your selected answer again to clear it. Star a question to come back to it before submitting.</Copy>
-        <Button secondary label={onlyStarred ? "Show all questions" : `Review starred questions (${control.starredQuestions.length})`}
+        <ExamActionButton secondary label={onlyStarred ? "Show all questions" : `Review starred questions (${control.starredQuestions.length})`}
           disabled={!onlyStarred && !control.starredQuestions.length} onPress={() => setOnlyStarred(value => !value)} />
         <View accessibilityLiveRegion="polite"><Copy kind="caption">{control.pendingCount || control.pendingEvents
           ? `${control.pendingCount} answer(s) and ${control.pendingEvents} activity report(s) waiting to save`
@@ -79,7 +89,7 @@ function AnswerSheet({ id, userId }: { id: string; userId: string }) {
           <ExamAnswerChoices question={question} answer={answer} count={control.view?.sheet?.choiceCounts[question] ?? 4}
             disabled={disabled} choose={choice => control.choose(question, choice)} />
         </View>)}
-        <Button label={control.busy ? "Submitting…" : "Submit exam"} disabled={disabled || control.pendingCount > 0 || control.pendingEvents > 0}
+        <ExamActionButton label={control.busy ? "Submitting…" : "Submit exam"} disabled={disabled || control.pendingCount > 0 || control.pendingEvents > 0}
           onPress={() => confirmAction("Submit final answers?", `${answered === 50 ? "All 50 questions are answered." : `${50 - answered} unanswered question(s) will count as incorrect.`}${control.starredQuestions.length ? ` You still have ${control.starredQuestions.length} starred question(s) to review.` : ""} Submission is final; you cannot change answers afterward.`, () => void control.submit())} />
       </>)}
     </Screen>

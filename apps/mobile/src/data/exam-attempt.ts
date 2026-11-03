@@ -1,5 +1,6 @@
 import type { AttemptResponse, DigitalExamView, ExamAttemptView } from "@stmark/contracts";
 import { ApiError } from "./api-client";
+import { LocationUnavailable, isLocationRefusal, type Locator } from "./exam-location";
 import { EXAM_CHOICES, EXAM_QUESTIONS } from "./live-exams";
 
 type EventKind = "HIDDEN" | "RETURNED" | "BLUR" | "FOCUS" | "OFFLINE" | "RECONNECTED";
@@ -12,6 +13,8 @@ type Dependencies = {
   store: ExamDraftStore;
   uuid: () => string;
   now?: () => number;
+  /** The church-location check the server requires on start, save and submit. */
+  locate?: Locator;
 };
 export type AnsweringState = {
   view?: DigitalExamView; attempt: ExamAttemptView | null; answers: string[];
@@ -19,6 +22,8 @@ export type AnsweringState = {
   pendingCount: number; pendingEvents: number; message: string; error?: string;
   examState: string; loading: boolean;
   starredQuestions: number[];
+  /** Set while the device or the server says the position cannot be used. Answers stay saved and pending; this is not an outage. */
+  location: { message: string; settings: boolean } | null;
 };
 
 /** One native answering session. Every request is serialized, including heartbeats,
@@ -28,7 +33,7 @@ export class ExamAttemptController {
   private state: AnsweringState = {
     attempt: null, answers: Array<string>(EXAM_QUESTIONS).fill(""), started: false,
     busy: false, paused: false, offline: false, visible: true, pendingCount: 0,
-    pendingEvents: 0, message: "", examState: "", loading: true, starredQuestions: [],
+    pendingEvents: 0, message: "", examState: "", loading: true, starredQuestions: [], location: null,
   };
   private draft: Draft;
   private listeners = new Set<() => void>();
@@ -41,6 +46,8 @@ export class ExamAttemptController {
   private lastHeartbeat = 0;
   private visibilityRevision = 0;
   private verifyOwnership = false;
+  /** After a location problem, autosaves wait a few seconds so a retry loop cannot hammer the sensor; a tap, submit or Start retries at once. */
+  private locationRetryAt = 0;
   private now: () => number;
 
   constructor(private dependencies: Dependencies) {
@@ -96,6 +103,13 @@ export class ExamAttemptController {
   }
   private failure(error: unknown) {
     const message = error instanceof Error ? error.message : "Could not save. Please try again.";
+    // A position problem is neither a lost connection nor a revoked session: keep the attempt, the pending answers and the
+    // heartbeat, and say what to fix. (The server's 403 for "outside the boundary" must not look like lost access.)
+    if (error instanceof LocationUnavailable || isLocationRefusal(error)) {
+      this.locationRetryAt = this.now() + 5000;
+      this.update({ location: { message, settings: error instanceof LocationUnavailable && error.settings } });
+      return;
+    }
     if (error instanceof ApiError) {
       if (error.status === 401 || error.status === 403) {
         this.owned = false;
@@ -120,7 +134,12 @@ export class ExamAttemptController {
     if (this.state.visible) this.event("RETURNED");
   }
   private async post(body: Record<string, unknown>) {
-    const result = await this.dependencies.post({ ...body, sessionToken: this.draft.token, visible: this.state.visible });
+    // Start, save and submit carry a position; heartbeats and activity reports never do. Autosaves may reuse a recent fix.
+    const position = this.dependencies.locate && ["start", "save", "submit"].includes(String(body.action))
+      ? await this.dependencies.locate(body.action === "save" ? "reuse" : "fresh")
+      : undefined;
+    const result = await this.dependencies.post({ ...body, ...(position ? { position } : {}), sessionToken: this.draft.token, visible: this.state.visible });
+    if (this.state.location) this.update({ location: null });
     if (body.action === "heartbeat" || body.action === "start") this.verifyOwnership = false;
     this.reconnected();
     this.update({ examState: result.examState });
@@ -143,7 +162,7 @@ export class ExamAttemptController {
       && this.state.attempt?.state === "ACTIVE" && this.state.examState === "OPEN";
   }
   private async flushAnswers() {
-    while (this.canAnswer() && Object.keys(this.draft.answers).length) {
+    while (this.canAnswer() && Object.keys(this.draft.answers).length && this.now() >= this.locationRetryAt) {
       const question = Object.keys(this.draft.answers)[0];
       const answer = this.draft.answers[question];
       const result = await this.post({ action: "save", question: Number(question), answer, revision: this.state.attempt!.revision });
@@ -208,6 +227,7 @@ export class ExamAttemptController {
   };
   start = () => this.serial(async () => {
     if (this.stopped || this.owned || !this.state.visible || this.state.examState !== "OPEN") return;
+    this.locationRetryAt = 0;
     const visibilityRevision = this.visibilityRevision;
     const resuming = !!this.state.attempt && !this.state.attempt.retakeReady && this.state.attempt.state !== "SUBMITTED";
     this.update({ busy: true, message: "" });
@@ -245,6 +265,7 @@ export class ExamAttemptController {
     if (!this.canAnswer() || !Number.isInteger(question) || question < 0 || question >= EXAM_QUESTIONS
       || !(answer === "" || /^[A-H]$/.test(answer) && EXAM_CHOICES.indexOf(answer) < choices)) return;
     this.draft.answers[String(question)] = answer;
+    this.locationRetryAt = 0;
     void this.persist();
     void this.serial(async () => {
       try { await this.flushEvents(); await this.flushAnswers(); }
@@ -273,6 +294,7 @@ export class ExamAttemptController {
   }
   submit = () => this.serial(async () => {
     if (!this.canAnswer()) return;
+    this.locationRetryAt = 0;
     try {
       await this.flushAnswers();
       if (!this.canAnswer() || Object.keys(this.draft.answers).length || this.draft.events.length)

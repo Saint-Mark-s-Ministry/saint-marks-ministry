@@ -166,6 +166,14 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Used during an online exam to confirm you are at church. Your location is checked when you start, save and submit, and is never stored.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/app-icon.png",

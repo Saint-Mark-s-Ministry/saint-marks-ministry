@@ -8,6 +8,8 @@ import type { AttemptResponse, DigitalExamView } from "@stmark/contracts";
 import { apiOrigin } from "./auth-provider";
 import { request } from "./resources";
 import { ExamAttemptController, type ExamDraftStore } from "./exam-attempt";
+import { createLocator } from "./exam-location";
+import { expoLocationSource } from "./exam-location-source";
 import { digitalExamPath } from "./live-exams";
 import { feedback } from "./haptics";
 
@@ -104,6 +106,7 @@ function secureDraftStore(identity: string): ExamDraftStore {
 export function useNativeExamAttempt(examId: string, userId: string) {
   const [controller] = useState(() => new ExamAttemptController({
     uuid: () => uuid.v4(),
+    locate: createLocator(expoLocationSource),
     store: secureDraftStore(`${apiOrigin}:${userId}:${examId}`),
     getView: () => request<DigitalExamView>(digitalExamPath(examId), "GET", undefined, { cache: "no-store" }),
     post: body => request<AttemptResponse>(digitalExamPath(examId), "POST", body),

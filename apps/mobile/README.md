@@ -118,6 +118,10 @@ to `::1` while Expo sends the simulator to `127.0.0.1`.
   score, points, notes) for add and correction. The server keeps the original and recalculates the best
   result atomically. Priests and Servants Prep staff grade; mentors, students and Sunday School-only
   accounts cannot. See [`docs/ios-makeup-scores.md`](../../docs/ios-makeup-scores.md).
+- Live exams: the student answer sheet needs a verified church location on start, save and submit (the server requires it).
+  The app takes a when-in-use fix, keeps it in memory only, and treats a location problem as its own state: the attempt stays
+  open, pending answers stay on the device, and a "Location needed" card says what to fix. A native build is required for the
+  new module. See [`docs/mobile-live-exams.md`](../../docs/mobile-live-exams.md).
 - Account deletion uses `POST /api/account/delete` and the existing admin
   deletion protections. Super Admins cannot delete their own account; accounts
   holding protected records are directed to an administrator. Delete account is

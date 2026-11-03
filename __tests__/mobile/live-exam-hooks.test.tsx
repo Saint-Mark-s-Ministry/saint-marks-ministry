@@ -16,6 +16,13 @@ vi.mock("expo-router", async () => {
 });
 vi.mock("expo-modules-core", () => ({ uuid: { v4: () => "test-awake-tag" } }));
 vi.mock("expo-secure-store", () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: "device-only", getItemAsync: async () => null, setItemAsync: async () => {}, deleteItemAsync: async () => {} }));
+vi.mock("expo-location", () => ({
+  Accuracy: { Highest: 6 },
+  hasServicesEnabledAsync: async () => true,
+  getForegroundPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+  requestForegroundPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+  getCurrentPositionAsync: async () => ({ coords: { latitude: 40.71602, longitude: -74.0867, accuracy: 5 }, timestamp: Date.now() }),
+}));
 vi.mock("expo-keep-awake", () => ({ activateKeepAwakeAsync: native.awake, deactivateKeepAwake: native.release }));
 vi.mock("../../apps/mobile/src/data/auth-provider", () => ({ apiOrigin: "https://example.test" }));
 vi.mock("../../apps/mobile/src/data/resources", () => ({ request: native.request }));

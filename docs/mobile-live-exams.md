@@ -68,6 +68,48 @@ The screen requests native keep-awake while an open attempt is visible and
 started, and releases it on submission, closure or departure. Locking a device
 still pauses answering. View As cannot start, answer, submit, or manage an exam.
 
+## Church location requirement
+
+The server requires a verified position on every **start, answer save and submit** (`lib/digital-exam-service.ts`,
+`lib/exam-geofence.ts`; [`digital-exams.md`](digital-exams.md) has the rules): captured within two minutes, accurate to 100
+meters, within 150 meters of 427 Westside Ave. Without it every one of those calls is refused, so the native app must send one.
+(This arrived with the merge from `main` after the screens below were first built; until it was added here, a student could not
+start an exam against the current server.)
+
+| Student list | Start card | Answer sheet |
+| --- | --- | --- |
+| ![](screenshots/live-exam-location/01-student-list.png) | ![](screenshots/live-exam-location/02-start-card.png) | ![](screenshots/live-exam-location/03-answer-sheet.png) |
+
+- **How.** `data/exam-location.ts` takes a fix through `expo-location` (when-in-use only; a new native dependency). Start and Submit
+  take a fresh fix; an autosave may reuse one up to a minute old; heartbeats and activity reports never carry a position, as on the
+  web. The position lives in memory: it is not in the encrypted draft, not stored anywhere, and not logged.
+- **A location problem is not an outage and not a revoked session.** If the device cannot give a usable position (permission asked
+  and refused, blocked in Settings, Location Services off, accuracy worse than 100 m, a stale fix) or the server refuses it (400
+  stale or imprecise, 403 outside the boundary), the attempt stays open and monitored, pending answers stay on the device, no
+  `OFFLINE` report is queued, and the screen shows **Location needed** with the reason (and **Open Settings** when only Settings can
+  fix it). A tap, Submit or Start retries at once; otherwise autosaves wait five seconds between tries. The server's 403 for
+  "outside the boundary" must not be read as lost access, which is why the controller recognizes the server's wording.
+- **Permission string.** `NSLocationWhenInUseUsageDescription` only: *Used during an online exam to confirm you are at church. Your
+  location is checked when you start, save and submit, and is never stored.* The "Always" strings are removed by the plugin
+  configuration in `app.json`.
+- **A new native build is required** (a native module and an Info.plist key). A JavaScript update alone cannot add them.
+
+Start, Resume and Submit are plain pressable buttons (`components/exam-action-button.tsx`) rather than the shared SwiftUI-hosted
+button: the hosted button was seen not to appear on the Resume card in several relaunches, and these are the actions a student
+cannot do without.
+
+## Criteria, and the evidence for each
+
+| Criterion | How it is met | Verified by |
+| --- | --- | --- |
+| `GET /api/digital-exams`, `GET`/`POST /api/digital-exams/[id]`, server eligibility, acknowledgment first | `live-exam-list.tsx`, `use-live-exam.ts`, the Start card's switch | Simulator on the real API; integration suite |
+| 50 answers, A–B to A–H per question, selected feedback, pending/saved, submit after saves finish | `exam-answer-choices.tsx`, controller `flushAnswers` and `submit` | Simulator (4- and 8-choice questions); controller tests |
+| Revisions, ownership, heartbeat, pause, reconnect, unlock; foregrounding never clears a pause | controller `apply`, `refresh`, `failure` | Controller tests; integration suite; on the simulator a relaunched attempt came back `PAUSED` (server `CONTACT_LOST`, then `RECONNECTED`, `RETURNED`) until the proctor unlocked it |
+| App backgrounding/inactivity and lost connection map to the existing contract; keep awake | `HIDDEN`/`RETURNED`/`BLUR`/`OFFLINE`/`RECONNECTED`; `useExamAwake` | Controller and hook tests; integration suite. iOS has no browser focus events, so `inactive` maps to `BLUR` + `HIDDEN` and Android uses its own `blur`/`focus` |
+| Pending answers and events preserved per account and exam, retried without duplication, cleared on finalization | chunked Keychain store, event IDs, `persist()` | Controller tests; integration suite |
+| No answer key, no unreleased grade | the student GET omits the key; a result shows only when the server sent one | Real API (`answerKey` absent from the student response); wiring test |
+| Church location on start, save, submit | this section | Locator tests against the server's own validator; controller tests; integration suite; simulator start at the church |
+
 ## Build and verification
 
 The existing `/api/digital-exams` endpoints provide all data and enforce current
