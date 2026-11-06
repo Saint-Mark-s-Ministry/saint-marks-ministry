@@ -35,7 +35,7 @@ const anyRole = () => true
 
 const SERVICE_ORDER: ReadingService[] = ['vespers', 'matins', 'liturgy', 'evening']
 
-/** The Katameros books Coptic IO doesn't carry yet (see lib/liturgical-cycle.ts). */
+/** Books a day's readings can be missing from: Holy Week's Pascha readings, which Coptic IO doesn't carry yet, and (in responses from before its 27 Oct 2026 update) the Sunday and Holy 50s Katameros. */
 const MISSING_CYCLE_NAMES: Partial<Record<ReadingCycleKind, string>> = {
   sunday: 'the Sunday Katameros',
   pascha: 'the Pascha readings of Holy Week',

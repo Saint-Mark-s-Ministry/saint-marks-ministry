@@ -22,7 +22,7 @@ export type LiturgicalLanguage = 'en' | 'ar'
  * means changes (e.g. how seasons are labelled), so browsers skip answers
  * they cached under the old meaning. The routes ignore it.
  */
-export const LITURGICAL_API_VERSION = '2'
+export const LITURGICAL_API_VERSION = '3'
 
 export const LITURGICAL_LANGUAGES: readonly LiturgicalLanguage[] = ['en', 'ar']
 
