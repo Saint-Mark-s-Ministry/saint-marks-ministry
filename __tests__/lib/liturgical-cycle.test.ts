@@ -6,6 +6,7 @@ import {
   getReadingCycle,
   gregorianToCoptic,
   orthodoxEaster,
+  reconcileReadingCycle,
 } from '@/lib/liturgical-cycle'
 import { getSundaySchoolTodayDateInputValue } from '@/lib/sunday-school-class'
 import { addDaysToDateKey } from '@/lib/liturgical'
@@ -228,5 +229,52 @@ describe('the liturgical day at the church', () => {
     const mondayMorning = getSundaySchoolTodayDateInputValue(new Date('2026-10-19T04:30:00Z'))
     expect(mondayMorning).toBe('2026-10-19')
     expect(cycle(mondayMorning).kind).toBe('annual')
+  })
+})
+
+describe('Coptic IO’s reading cycle', () => {
+  // Answers from Coptic IO's own tests (apps/api/src/__tests__/services/lectionary.cycles.test.ts).
+  const served = (date: string, cycle: string, readingsAvailable: boolean, seasonDay?: string) =>
+    reconcileReadingCycle(date, getReadingCycle(date), { cycle, readingsAvailable, seasonDay })
+
+  it('shows the Sunday readings Coptic IO now serves, under its name for the day', () => {
+    expect(served('2026-10-18', 'sunday', true, 'Second Sunday of Baba')).toEqual({
+      kind: 'sunday',
+      label: 'Second Sunday of Baba',
+      annualDay: '8 Baba',
+      available: true,
+    })
+  })
+
+  it('follows Coptic IO where its Sunday rules differ from ours', () => {
+    // A fifth Sunday from Tout to Amshir reads the 2nd Sunday of Amshir.
+    expect(served('2027-02-07', 'sunday', true, 'Second Sunday of Amshir').label).toBe('Second Sunday of Amshir')
+    // A Sunday on the 29th reads the monthly feast from 29 Baramhat.
+    expect(served('2024-12-08', 'annual', true)).toMatchObject({ kind: 'annual', label: '29 Baramhat', available: true })
+  })
+
+  it('shows the Holy 50s readings', () => {
+    expect(served('2027-05-09', 'holyFifty', true, 'Thomas Sunday')).toMatchObject({ kind: 'holy50', label: 'Thomas Sunday', available: true })
+    expect(served('2027-05-04', 'holyFifty', true, 'Tuesday of the first week of the Holy Fifty Days')).toMatchObject({
+      kind: 'holy50',
+      available: true,
+    })
+  })
+
+  it('keeps Holy Week unavailable, with our name for the day', () => {
+    expect(served('2027-04-26', 'holyWeek', false)).toEqual({
+      kind: 'pascha',
+      label: 'Monday of Holy Week',
+      annualDay: getReadingCycle('2027-04-26').annualDay,
+      available: false,
+    })
+  })
+
+  it('keeps our own cycle for responses without Coptic IO’s fields', () => {
+    const local = getReadingCycle('2026-10-18')
+    expect(reconcileReadingCycle('2026-10-18', local, null)).toBe(local)
+    expect(reconcileReadingCycle('2026-10-18', local, { seasonDay: 'x' })).toBe(local)
+    expect(reconcileReadingCycle('2026-10-18', local, { cycle: 'mystery', readingsAvailable: true })).toBe(local)
+    expect(local.available).toBe(false)
   })
 })

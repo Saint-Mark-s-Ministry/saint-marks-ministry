@@ -283,7 +283,12 @@ export interface ReadingCycle {
   available: boolean
 }
 
-/** Cycles Coptic IO has data for. Keep in step with its moveable readings (Lent −57…−7, Jonah −69…−66 days from Easter). */
+/**
+ * Cycles an older Coptic IO response can be trusted for. Since Coptic IO #123
+ * (27 Oct 2026) every readings response names its own cycle and says whether
+ * it has readings for it, and `reconcileReadingCycle` uses that instead; this
+ * set only covers responses without those fields (e.g. still in a cache).
+ */
 const UPSTREAM_CYCLES: ReadonlySet<ReadingCycleKind> = new Set(['annual', 'jonah', 'greatLent'])
 
 const PASCHA_DAYS = ['Monday of Holy Week', 'Tuesday of Holy Week', 'Wednesday of Holy Week', 'Covenant Thursday', 'Good Friday', 'Holy Saturday']
@@ -319,4 +324,67 @@ export function getReadingCycle(dateKey: string): ReadingCycle {
     return cycle('sunday', `${ordinal(nth)} Sunday of ${monthName}`)
   }
   return cycle('annual', annualDay)
+}
+
+// ── Coptic IO's own reading cycle ───────────────────────────────────────────
+
+/** The cycle names Coptic IO's readings endpoint reports (`cycle`). */
+export type UpstreamReadingCycle = 'jonah' | 'greatLent' | 'holyWeek' | 'holyFifty' | 'sunday' | 'annual'
+
+const FROM_UPSTREAM: Record<UpstreamReadingCycle, ReadingCycleKind> = {
+  annual: 'annual',
+  sunday: 'sunday',
+  jonah: 'jonah',
+  greatLent: 'greatLent',
+  holyWeek: 'pascha',
+  holyFifty: 'holy50',
+}
+
+const isUpstreamCycle = (value: unknown): value is UpstreamReadingCycle =>
+  typeof value === 'string' && Object.hasOwn(FROM_UPSTREAM, value)
+
+export interface UpstreamReadingCycleInfo {
+  cycle?: string
+  readingsAvailable?: boolean
+  seasonDay?: string
+}
+
+/**
+ * The reading cycle of the readings Coptic IO actually served for a day.
+ *
+ * Coptic IO now serves the Sunday and Holy 50s Katameros and picks the cycle
+ * itself, with rules ours don't repeat (a fifth Sunday from Tout to Amshir
+ * reads the 2nd Sunday of Amshir, Kiahk's Sundays shift when the Paramoun is a
+ * Sunday, a Sunday on the 29th reads the monthly feast). When the response
+ * says which cycle it used, that decides whether readings are shown and what
+ * the day is called, so the label always matches the readings on screen.
+ * Without those fields (an older response) our own cycle stands.
+ */
+export function reconcileReadingCycle(
+  dateKey: string,
+  local: ReadingCycle,
+  upstream: UpstreamReadingCycleInfo | null | undefined
+): ReadingCycle {
+  if (!upstream || typeof upstream.readingsAvailable !== 'boolean' || !isUpstreamCycle(upstream.cycle)) return local
+  const kind = FROM_UPSTREAM[upstream.cycle]
+  return {
+    kind,
+    label: upstream.seasonDay?.trim() || fallbackLabel(dateKey, kind, local),
+    annualDay: local.annualDay,
+    available: upstream.readingsAvailable,
+  }
+}
+
+/** A label for a cycle Coptic IO didn't name: annual days and Holy Week. */
+function fallbackLabel(dateKey: string, kind: ReadingCycleKind, local: ReadingCycle): string {
+  if (kind === local.kind) return local.label
+  if (kind === 'pascha') return SEASON_NAMES.holyWeek.en
+  if (kind === 'annual') {
+    // A Sunday on the 29th keeps the monthly feast of the Annunciation,
+    // Nativity and Resurrection, read from 29 Baramhat (not kept in Toba and Amshir).
+    const { month, day } = gregorianToCoptic(dateKey)
+    if (weekday(dateKey) === 0 && day === 29 && month !== TOBA && month !== AMSHIR) return `29 ${COPTIC_MONTH_NAMES[BARAMHAT - 1]}`
+    return local.annualDay
+  }
+  return local.label
 }
