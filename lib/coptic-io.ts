@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import { UpstreamCache, type CachePolicy, type LoadOutcome } from '@/lib/coptic-io-cache'
 import { parseJsonBody } from '@/lib/coptic-io-body'
-import { getChurchSeason, getReadingCycle } from '@/lib/liturgical-cycle'
+import { getChurchSeason, getReadingCycle, reconcileReadingCycle } from '@/lib/liturgical-cycle'
 import {
   addDaysToDateKey,
   secondsUntilChurchMidnight,
@@ -106,6 +106,10 @@ const readingsSummarySchema = z.object({
   reference: z.record(z.string(), z.unknown()).optional(),
   Synaxarium: z.array(synaxariumEntrySchema).optional(),
   seasonDay: z.string().optional(),
+  // Since Coptic IO #123: the cycle it read from, and whether it has readings
+  // for it (false for Holy Week). Optional so older or cached responses parse.
+  cycle: z.string().optional(),
+  readingsAvailable: z.boolean().optional(),
   fullDate: copticDateSchema.optional(),
 })
 
@@ -294,10 +298,10 @@ export function toReadingSections(data: z.infer<typeof readingsDetailedSchema>):
 /**
  * A summary of one church day: Coptic date, season, fast, feasts, saints and reading references.
  *
- * The season and reading cycle are computed locally (lib/liturgical-cycle.ts).
- * Coptic IO has no Sunday, Pascha or Holy 50s readings and serves the annual
- * reading for the Coptic date instead, so those references are withheld rather
- * than shown as the day's.
+ * The season is computed locally (lib/liturgical-cycle.ts). The reading cycle
+ * is Coptic IO's when its response names one (it serves the Sunday and Holy 50s
+ * readings, and reports Holy Week as unavailable); otherwise ours, which
+ * withholds readings Coptic IO used to serve from the wrong cycle.
  */
 export async function getLiturgicalDay(date: string, language: LiturgicalLanguage = 'en'): Promise<LiturgicalDay> {
   const lang = { lang: language }
@@ -306,7 +310,7 @@ export async function getLiturgicalDay(date: string, language: LiturgicalLanguag
     copticIoGet(`/api/fasting/${date}`, fastingSchema, lang),
     copticIoGet(`/api/celebrations/${date}`, dayCelebrationsSchema, lang),
   ])
-  const readingCycle = getReadingCycle(date)
+  const readingCycle = reconcileReadingCycle(date, getReadingCycle(date), readings)
 
   return {
     date,
@@ -333,7 +337,7 @@ export async function getDailyReadings(date: string, language: LiturgicalLanguag
     lang: language,
   })
   if (!data) return null
-  const readingCycle = getReadingCycle(date)
+  const readingCycle = reconcileReadingCycle(date, getReadingCycle(date), data)
   const sections = toReadingSections(data)
   return {
     date,

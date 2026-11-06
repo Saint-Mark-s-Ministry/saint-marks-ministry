@@ -255,14 +255,36 @@ them with Mina before treating them as final:
   (17 Tout and 10 Baramhat), 28–29 Kiahk, 6, 10, 11 and 13 Toba, 8 Amshir,
   29 Baramhat, 24 Bashans and 13 Mesra.
 
+### Coptic IO now serves Sundays and the Holy 50s (Nov 2026)
+
+Coptic IO #123 (27 Oct 2026) added the Sunday Katameros (51 sets) and the Holy
+50s Katameros (50 sets), references checked against the Al-Sourian Katameros
+and the Metropolis of the Southern US lectionary, and #135 (5 Nov 2026) added
+the fifth-Sunday and Nayrouz-on-a-Sunday rubrics. Every readings response now
+carries:
+
+| Field | Meaning |
+|---|---|
+| `cycle` | `annual`, `sunday`, `jonah`, `greatLent`, `holyWeek` or `holyFifty`: the book the readings came from |
+| `readingsAvailable` | `false` only for Holy Week, whose Pascha readings it doesn't carry |
+| `seasonDay` | the day's name in that book, e.g. "Second Sunday of Baba", "Thomas Sunday" (English only) |
+
+`reconcileReadingCycle` in `lib/liturgical-cycle.ts` lets those fields decide
+whether readings are shown and what the day is called, so the label always
+matches the readings on screen. Coptic IO's Sunday rules go further than ours
+(a fifth Sunday from Tout to Amshir reads the 2nd Sunday of Amshir; Kiahk's
+Sundays shift when the Paramoun is a Sunday; a Sunday on the 29th reads the
+monthly feast from 29 Baramhat; its list of feasts with proper readings
+differs), so on a disagreement Coptic IO wins. Our own cycle
+(`getReadingCycle`) remains the fallback for a response without those fields,
+e.g. one still in a cache, and the season taxonomy is still ours.
+
 ### Remaining upstream limitation
 
-Until Coptic IO adds the Sunday Katameros, the Pascha readings and the Holy 50s
-Katameros, the app can say what those days are but cannot show their readings.
-We don't carry our own copy of those tables, so that no unreviewed Scripture
-references go out as the Church's. Worth reporting upstream. When Coptic IO
-adds a cycle, add its kind to `UPSTREAM_CYCLES` in `lib/liturgical-cycle.ts`
-(and, if it's moveable, line up the offsets with its tables).
+- **Holy Week (Monday to Saturday)**: Coptic IO reports the Pascha readings as
+  unavailable, so the app names the day and shows none. We don't carry our own
+  copy, so that no unreviewed Scripture references go out as the Church's.
+- **Day names are English only**: `seasonDay` has no Arabic yet.
 
 ## Configuration
 
