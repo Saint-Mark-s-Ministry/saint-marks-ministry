@@ -86,7 +86,9 @@ This change set includes server code, so ship it before the app:
    ```
 
    `beta` is a directly installable internal build; `production` is for
-   App Store Connect / TestFlight. Both set `EXPO_PUBLIC_API_URL`.
+   App Store Connect / TestFlight. Both set `EXPO_PUBLIC_API_URL`. To let the staff Exam Monitoring screen use the private
+   live channel, also set the public `EXPO_PUBLIC_PUSHER_KEY` and `EXPO_PUBLIC_PUSHER_CLUSTER` for the build (optional;
+   without them it polls every two seconds).
 
 ## Day-to-day commands
 

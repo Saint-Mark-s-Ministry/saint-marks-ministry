@@ -12,8 +12,18 @@ export interface DigitalExamView {
   hasAttempts?: boolean
   pendingResults?: number
   retakeCandidates?: { id: string; name: string }[]
-  completedHistory?: { student: { id: string; name: string }; attemptNumber?: number; snapshot?: { answers?: string[]; correctCount?: number | null; submittedAt?: string | null }; events: ExamActivity[] }[]
+  completedHistory?: { student: { id: string; name: string }; attemptNumber?: number; snapshot?: { answers?: string[]; correctCount?: number | null; percentage?: number; submittedAt?: string | null }; events: ExamActivity[] }[]
   roster?: { student: { id: string; name: string }; eligible: boolean; attempt: (ExamAttemptView & { stale: boolean; pageVisible?: boolean; answeredCount: number; events: ExamActivity[] }) | null }[]
 }
 export interface DigitalExamList { exams: (DigitalExamView['exam'] & { digitalSheet: { state: string; releasedAt: string | null; attempts: { state: string }[] } | null })[] }
 export interface AttemptResponse { attempt: ExamAttemptView; examState: string; blocked?: boolean }
+
+/** The staff-only `POST /api/digital-exams/:id` actions (lib/digital-exam-service.ts). The server decides who may send each one. */
+export type DigitalExamStaffRequest =
+  | { action: 'configure'; choiceCounts: number[]; answerKey: string[] }
+  | { action: 'open' | 'close' | 'release' | 'reset' | 'ready' }
+  | { action: 'unlock'; attemptId: string }
+  | { action: 'retake'; studentId: string }
+export type DigitalExamStaffAction = DigitalExamStaffRequest['action']
+/** The private staff channel that carries `changed` pings (never answers or grades) for one exam. */
+export type DigitalExamRealtimeEvent = { examId: string }

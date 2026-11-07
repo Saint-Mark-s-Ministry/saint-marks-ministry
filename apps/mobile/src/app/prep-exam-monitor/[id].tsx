@@ -1,16 +1,19 @@
-import { useState, type ReactNode } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Modal, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import type { DigitalExamView, ExamActivity } from "@stmark/contracts";
-import { examActivityMessage, latestPauseActivity } from "@stmark/domain";
-import { Button, Card, Copy, Screen, SectionTitle, StatusPill } from "@/components/ui";
-import { Choice, Field, ResourceState, confirmAction, useAction } from "@/components/forms";
-import { ExamAnswerChoices } from "@/components/exam-answer-choices";
+import type { DigitalExamView } from "@stmark/contracts";
+import { Card, Copy, Screen, SectionTitle } from "@/components/ui";
+import { Field, ResourceState, confirmAction } from "@/components/forms";
+import { ExamActionButton } from "@/components/exam-action-button";
+import { Activity, Configuration, Disclosure, StudentDetails, StudentTileButton } from "@/components/exam-monitor-parts";
 import { useAuth } from "@/data/auth-provider";
-import { request } from "@/data/resources";
 import { useLiveResource } from "@/data/use-live-exam";
 import { useProctorAlerts } from "@/data/use-proctor-alerts";
-import { canUnlockStudent, completeAnswerKey, digitalExamPath, examCalendarDate, liveExamAudience, proctorStatus, type ProctorRow } from "@/data/live-exams";
+import { useExamRealtime, REALTIME_SETTINGS } from "@/data/use-exam-realtime";
+import { useExamStaffActions } from "@/data/use-exam-staff-actions";
+import { examCalendarDate, digitalExamPath, liveExamAudience, proctorStatus } from "@/data/live-exams";
+import { examControls, filterRoster, resultLine, rosterSummary, sheetStateLabel, sortRoster, unlockHeadline } from "@/data/exam-monitor";
+import { pollInterval, shouldSubscribe, statusLine } from "@/data/exam-realtime";
 import { useAppTheme } from "@/theme";
 
 export default function ExamMonitor() {
@@ -21,166 +24,143 @@ export default function ExamMonitor() {
 }
 
 function Monitor({ id }: { id: string }) {
-  const resource = useLiveResource<DigitalExamView>(digitalExamPath(id));
-  const alerts = useProctorAlerts(id, resource.data);
-  const { viewingAs } = useAuth();
+  const { user, viewingAs } = useAuth();
   const { colors } = useAppTheme();
-  const action = useAction();
+  // The poll interval follows the live channel: a slower backup while it is connected, every 2 seconds otherwise.
+  const [pollMs, setPollMs] = useState(2000);
+  const resource = useLiveResource<DigitalExamView>(digitalExamPath(id), pollMs);
+  const view = resource.data;
+  const manage = view?.canManage === true && !viewingAs;
+  const realtime = useExamRealtime(
+    id,
+    shouldSubscribe({
+      audience: liveExamAudience(user?.role), manage, viewingAs: !!viewingAs,
+      realtimeConfigured: view?.realtimeConfigured, hasSheet: !!view?.sheet, settings: REALTIME_SETTINGS,
+    }),
+    () => void resource.reload(),
+  );
+  useEffect(() => setPollMs(pollInterval(realtime)), [realtime]);
+  const alerts = useProctorAlerts(id, view);
+  const actions = useExamStaffActions(id, resource.reload, manage);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [configuring, setConfiguring] = useState(false);
-  const view = resource.data;
   const sheet = view?.sheet;
-  const manage = view?.canManage === true && !viewingAs;
+  const controls = examControls(view, manage);
   const roster = view?.roster ?? [];
-  const selected = roster.find(row => row.student.id === selectedId);
-  const run = (name: string, payload: Record<string, unknown> = {}) => {
-    if (!manage) return;
-    void action.run(async () => {
-      await request(digitalExamPath(id), "POST", { action: name, ...payload });
-      if (name === "configure") setConfiguring(false);
-      await resource.refresh();
-    }, name === "unlock" ? "Student unlocked" : name === "configure" ? "Answer sheet setup saved" : name === "close" ? "Exam closed; saved answers submitted" : name === "release" ? "Results released" : name === "retake" ? "Retake approved; previous grade preserved" : name === "ready" ? "Exam ready to open" : name === "reset" ? "Test opening reset" : "Exam opened");
-  };
-  const savedAnswers = roster.flatMap(row => row.attempt?.events.filter(event => event.kind === "ANSWER_SAVED").map(event => ({ event, name: row.student.name })) ?? [])
-    .sort((a, b) => b.event.createdAt.localeCompare(a.event.createdAt)).slice(0, 8);
+  const summary = view ? rosterSummary(view, roster) : null;
+  const headline = summary ? unlockHeadline(summary) : null;
+  const selected = roster.find((row) => row.student.id === selectedId);
+  const now = Date.now();
+  const savedAnswers = roster.flatMap((row) => row.attempt?.events.filter((event) => event.kind === "ANSWER_SAVED").map((event) => ({ event, name: row.student.name })) ?? [])
+    .sort((a, b) => b.event.createdAt.localeCompare(a.event.createdAt) || b.event.id.localeCompare(a.event.id)).slice(0, 8);
+
   return <>
     <Stack.Screen options={{ title: view?.exam.examSection.displayName ?? "Exam Monitoring", headerLargeTitle: false }} />
     <Screen onRefresh={() => void resource.refresh()} refreshing={resource.refreshing}>
       <ResourceState loading={resource.loading} error={resource.error} retry={() => void resource.refresh()} />
-      {resource.error && <Copy>Monitoring is unavailable. Student status is out of date; saved answers and pauses remain on the server.</Copy>}
+      {!!resource.error && <Copy>Monitoring is unavailable. Student status shown earlier is out of date, so controls are off. Saved answers and pauses remain on the server.</Copy>}
       {view && <>
-        <Copy kind="caption">{examCalendarDate(view.exam.examDate)} · {view.exam.academicYear.name} · {sheet?.state === "DRAFT" && sheet.openedAt ? "Ready to open" : sheet?.state ?? "Needs setup"}</Copy>
+        <Copy kind="caption">{examCalendarDate(view.exam.examDate)} · {view.exam.academicYear.name} · {sheetStateLabel(view)}</Copy>
         {!manage && <Copy kind="caption">{viewingAs ? "View as is read-only, so opening, closing and unlocking are off." : "Monitoring is read-only for your account."}</Copy>}
-        {manage && !sheet?.openedAt && <Card>
+
+        {!!headline && <Card style={{ backgroundColor: colors.dangerSoft, borderColor: colors.danger, borderWidth: 2 }}>
+          <View accessibilityLiveRegion="polite" accessible accessibilityLabel={`Needs attention. ${headline}`}>
+            <Copy style={{ fontWeight: "700" }} color={colors.danger}>Needs attention</Copy>
+            <Copy color={colors.danger}>{headline}</Copy>
+          </View>
+        </Card>}
+
+        {controls.configure && <Card>
           <Copy kind="heading">Set up the original exam</Copy>
-          <Copy kind="caption">Printed questions · 50 equally weighted answers. The key and choices lock when the exam first opens.</Copy>
-          <Button secondary label={configuring ? "Hide answer key setup" : "Configure answer sheet"} disabled={action.busy} onPress={() => setConfiguring(value => !value)} />
-          {configuring && <Configuration key={`${sheet?.choiceCounts.join("")}:${view.answerKey?.join("")}`} view={view} busy={action.busy} save={(choiceCounts, answerKey) => run("configure", { choiceCounts, answerKey })} />}
+          <Copy kind="caption">Printed questions · 50 equally weighted answers · makeup exams stay on paper. The key and choices lock when the exam first opens.</Copy>
+          <ExamActionButton secondary label={configuring ? "Hide answer key setup" : "Configure answer sheet"} disabled={actions.busy} onPress={() => setConfiguring((value) => !value)} />
+          {configuring && <Configuration key={`${sheet?.choiceCounts.join("")}:${view.answerKey?.join("")}`} view={view} busy={actions.busy}
+            save={(choiceCounts, answerKey) => void actions.run({ action: "configure", choiceCounts, answerKey }, () => setConfiguring(false))} />}
         </Card>}
-        {manage && sheet && <Card>
+
+        {manage && sheet && (controls.ready || controls.open || controls.close || controls.release || controls.reset) && <Card>
           <Copy kind="heading">Exam controls</Copy>
-          {sheet.openedAt && sheet.state !== "DRAFT" && <Button secondary label="Set ready to open" disabled={action.busy}
-            onPress={() => confirmAction("Set ready to open?", "Hide the sheet until you open it again. Configuration, grades, submissions and retake approvals are preserved. Close started attempts first.", () => run("ready"))} />}
-          {sheet.state !== "OPEN" && (!sheet.releasedAt || roster.some(row => row.attempt && row.attempt.state !== "SUBMITTED")) && <Button label="Open exam" disabled={action.busy}
-            onPress={() => confirmAction("Open this exam?", "All eligible students who have not submitted can begin. The answer key and choice counts lock on first opening.", () => run("open"))} />}
-          {sheet.state === "OPEN" && <Button secondary label="Close exam" disabled={action.busy}
-            onPress={() => confirmAction("Close and finalize this exam?", "All started attempts, including paused attempts, will be submitted using saved answers. Unsaved changes cannot be included. Blank answers count as incorrect.", () => run("close"))} />}
-          {sheet.state === "CLOSED" && (!sheet.releasedAt || !!view.pendingResults) && <Button label="Release results" disabled={action.busy}
-            onPress={() => confirmAction("Release exam results?", "Grades become visible to students in My Progress. Retakes retain the higher score; paper makeup records are preserved.", () => run("release"))} />}
-          {sheet.openedAt && !sheet.releasedAt && !view.hasAttempts && <Button secondary label="Reset test opening" disabled={action.busy}
-            onPress={() => confirmAction("Reset this test opening?", "Return the sheet to draft and hide it from students. The key and all grades are preserved. Reset is blocked if any student has joined.", () => run("reset"))} />}
+          {controls.open && <ExamActionButton label="Open exam" disabled={actions.busy}
+            onPress={() => confirmAction("Open this exam?", sheet.openedAt
+              ? "Eligible students who have not submitted can begin. A submitted student can answer again only with an approved individual retake."
+              : "All eligible students who have not submitted can begin. The answer key and choice counts lock on first opening.", () => void actions.run({ action: "open" }))} />}
+          {controls.close && <ExamActionButton secondary label="Close exam" disabled={actions.busy}
+            onPress={() => confirmAction("Close and finalize this exam?", "All started attempts, including paused ones, are submitted using saved answers. Blank answers count as incorrect, and answers not yet saved on a student's phone cannot be included. Submitted attempts stay final unless you approve an individual retake.", () => void actions.run({ action: "close" }), true)} />}
+          {controls.release && <ExamActionButton label="Release results" disabled={actions.busy}
+            onPress={() => confirmAction("Release exam results?", "Grades become visible to students and feed existing exam averages. A retake keeps the higher score and a lower one never reduces a grade. If a grade already exists for a student, the server stops and changes nothing.", () => void actions.run({ action: "release" }))} />}
+          {controls.ready && <ExamActionButton secondary label="Set ready to open" disabled={actions.busy}
+            onPress={() => confirmAction("Set ready to open?", "The sheet is hidden from students until you open it again. The locked key and choices, grades, submissions and retake approvals are preserved. Close started attempts first.", () => void actions.run({ action: "ready" }))} />}
+          {controls.reset && <ExamActionButton secondary label="Reset test opening" disabled={actions.busy}
+            onPress={() => confirmAction("Reset this test opening?", "Returns the sheet to draft and hides it from students. The answer key and every saved grade are preserved. Reset is refused once any student has joined.", () => void actions.run({ action: "reset" }))} />}
         </Card>}
-        {!manage && !sheet && <Copy>An answer sheet has not been configured yet.</Copy>}
-        {sheet && <>
+        {!manage && !sheet && <Copy>A Servants Prep servant has not configured an answer sheet yet.</Copy>}
+
+        {sheet && summary && <>
           <Card>
             <Copy kind="heading">Live monitoring</Copy>
-            <Copy>{roster.filter(row => row.attempt && !row.attempt.retakeReady).length}/{roster.filter(row => row.eligible).length} started · {roster.filter(row => row.attempt?.state === "PAUSED" && !row.attempt.retakeReady).length} paused · {roster.filter(row => row.attempt?.state === "SUBMITTED").length} submitted</Copy>
-            <Copy kind="caption">Refreshes every 2 seconds while this screen is active. Activity flags support proctor review; they do not establish cheating.</Copy>
+            <Copy accessibilityLabel={`${summary.started} of ${summary.eligible} started, ${summary.paused} paused, ${summary.submitted} submitted`}>
+              {summary.started}/{summary.eligible} started · {summary.paused} paused · {summary.submitted} submitted
+            </Copy>
+            <Copy kind="caption" color={realtime === "live" ? colors.success : undefined}>{statusLine(realtime, !!view.realtimeConfigured)}</Copy>
+            <Copy kind="caption">Activity flags support proctor review; they do not establish cheating.</Copy>
             {sheet.releasedAt && <Copy kind="caption" color={colors.success}>Results released {new Date(sheet.releasedAt).toLocaleString()}</Copy>}
-            <Button secondary label={alerts.sound ? "Mute alert sound" : "Enable alert sound"} onPress={() => void alerts.toggleSound()} />
+            <ExamActionButton secondary label={alerts.sound ? "Mute alert sound" : "Enable alert sound"} onPress={() => void alerts.toggleSound()} />
+            <Copy kind="caption">{alerts.sound ? "Plays one short clip for a new interruption, at most every 8 seconds. It follows your iPhone's volume, silent switch and Focus." : "Off. Turning it on plays a short clip on this device when a student is interrupted. Students' devices never play sounds."}</Copy>
             {!!alerts.soundError && <Copy kind="caption" color={colors.warning}>{alerts.soundError}</Copy>}
           </Card>
-          {!!alerts.alerts.length && <Card style={{ backgroundColor: colors.warningSoft }}>
-            <Copy kind="heading">Recent alerts</Copy>
-            {alerts.alerts.map(item => <View key={item.event.id} style={{ gap: 3 }}>
-              <Copy style={{ fontWeight: "600" }}>{item.name} · {proctorStatus(roster.find(row => row.student.id === item.studentId) ?? { student: { id: "", name: "" }, eligible: false, attempt: null })}</Copy>
-              <Activity event={item.event} />
-            </View>)}
-            <Button secondary label="Dismiss alerts" onPress={alerts.dismiss} />
-          </Card>}
-          <SectionTitle title="Students" subtitle="Select a student for connection details, unlocking, and activity history." />
+          <SectionTitle title={`Students · ${roster.length}`} subtitle="Students who need an unlock come first. Select one for connection details, saved answers, unlocking and history." />
           <Field label="Find a student" value={search} onChange={setSearch} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {roster.filter(row => row.student.name.toLowerCase().includes(search.trim().toLowerCase())).map(row => {
-              const status = proctorStatus(row);
-              const warning = status === "Paused" || status === "Connection stale";
-              const latestAnswer = row.attempt?.events.filter(event => event.kind === "ANSWER_SAVED").at(-1);
-              return <Pressable key={row.student.id} accessibilityRole="button" accessibilityLabel={`${row.student.name}, ${status}, ${row.attempt?.answeredCount ?? 0} of 50 answered`}
-                onPress={() => setSelectedId(row.student.id)} style={({ pressed }) => ({
-                  flexGrow: 1, flexBasis: "46%", minWidth: 135, borderWidth: 1, borderColor: warning ? colors.warning : colors.border,
-                  backgroundColor: warning ? colors.warningSoft : colors.surface, borderRadius: 18, padding: 14, gap: 8, opacity: pressed ? 0.65 : 1,
-                })}>
-                <Copy style={{ fontWeight: "600" }}>{row.student.name}</Copy>
-                <StatusPill label={status} color={warning ? colors.warning : colors.success} soft={warning ? colors.warningSoft : colors.successSoft} />
-                <Copy kind="caption">{row.attempt?.answeredCount ?? 0}/50 answered</Copy>
-                {latestAnswer && <Copy kind="caption">{examActivityMessage(latestAnswer.kind, latestAnswer).title}</Copy>}
-              </Pressable>;
-            })}
+            {filterRoster(sortRoster(view, roster), search).map((row) =>
+              <StudentTileButton key={row.student.id} view={view} row={row} now={now} onPress={() => setSelectedId(row.student.id)} />)}
           </View>
           {!roster.length && <Copy kind="caption">No eligible students are waiting for this exam.</Copy>}
+          {!!roster.length && !filterRoster(roster, search).length && <Copy kind="caption">No student matches “{search.trim()}”.</Copy>}
+          {!!alerts.alerts.length && <Card style={{ backgroundColor: colors.warningSoft }}>
+            <Copy kind="heading">Recent alerts</Copy>
+            {alerts.alerts.map((item) => {
+              const current = roster.find((row) => row.student.id === item.studentId);
+              return <View key={item.event.id} style={{ gap: 3 }}>
+                <Copy style={{ fontWeight: "600" }}>{item.name} · {current ? proctorStatus(current) : "Not on the current roster"}</Copy>
+                <Activity event={item.event} />
+              </View>;
+            })}
+            <ExamActionButton secondary label="Dismiss alerts" onPress={alerts.dismiss} />
+          </Card>}
+
           <Disclosure title="Recent saved answers">
             {!savedAnswers.length && <Copy kind="caption">No answer changes have been saved yet.</Copy>}
-            {savedAnswers.map(item => <View key={item.event.id} style={{ gap: 3 }}><Copy style={{ fontWeight: "600" }}>{item.name}</Copy><Activity event={item.event} /></View>)}
+            {savedAnswers.map((item) => <View key={item.event.id} style={{ gap: 3 }}><Copy style={{ fontWeight: "600" }}>{item.name}</Copy><Activity event={item.event} /></View>)}
           </Disclosure>
         </>}
-        {manage && sheet?.openedAt && !!view.retakeCandidates?.length && <Disclosure title="Individual retakes">
-          <Copy kind="caption">Previous answers, history and grades are preserved. Only a higher released score improves the grade.</Copy>
-          {view.retakeCandidates.map(student => <View key={student.id} style={{ gap: 6 }}>
-            <Copy>{student.name}</Copy><Button secondary label={`Allow retake for ${student.name}`} disabled={action.busy}
-              onPress={() => confirmAction(`Allow ${student.name} to retake?`, "Create a blank original answer sheet for this student while preserving the previous attempt and grade. Open the exam when ready, then close and release results. Paper makeups are unchanged.", () => run("retake", { studentId: student.id }))} />
+
+        {controls.retakes && <Disclosure title={`Individual retakes (${view.retakeCandidates?.length ?? 0})`}>
+          <Copy kind="caption">Approving a retake archives the previous answers, history and grade, and gives that student a new blank sheet. Open the exam, then close it and release results: only a higher score replaces the grade.</Copy>
+          {view.retakeCandidates?.map((student) => <View key={student.id} style={{ gap: 6 }}>
+            <Copy>{student.name}</Copy>
+            <ExamActionButton secondary label={`Allow retake for ${student.name}`} disabled={actions.busy}
+              onPress={() => confirmAction(`Allow ${student.name} to retake?`, "The previous attempt and grade are preserved. A paper makeup is unchanged.", () => void actions.run({ action: "retake", studentId: student.id }))} />
           </View>)}
         </Disclosure>}
+
         {!!view.completedHistory?.length && <Disclosure title={`Past digital activity (${view.completedHistory.length})`}>
-          {view.completedHistory.map(history => <Disclosure key={`${history.student.id}:${history.attemptNumber}`} title={`${history.student.name} · Attempt ${history.attemptNumber ?? 1}`}>
-            {typeof history.snapshot?.correctCount === "number" && <Copy>{history.snapshot.correctCount}/50 ({history.snapshot.correctCount * 2}%)</Copy>}
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{history.snapshot?.answers?.map((answer, question) => <Copy key={question} kind="caption" style={{ minWidth: 48 }}>{question + 1}: {answer || "Blank"}</Copy>)}</View>
-            {history.events.map(event => <Activity key={event.id} event={event} />)}
+          {view.completedHistory.map((history) => <Disclosure key={`${history.student.id}:${history.attemptNumber}`} title={`${history.student.name} · Attempt ${history.attemptNumber ?? 1}`}>
+            {!!history.snapshot && !!resultLine(history.snapshot) && <Copy>{resultLine(history.snapshot)}</Copy>}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{history.snapshot?.answers?.map((answer, question) => <Copy key={question} kind="caption" style={{ minWidth: 56 }}>{question + 1}: {answer || "Blank"}</Copy>)}</View>
+            {history.events.map((event) => <Activity key={event.id} event={event} />)}
           </Disclosure>)}
         </Disclosure>}
+
         {!!selected && <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelectedId(null)}>
           <Screen>
-            <Button secondary label="Close student details" onPress={() => setSelectedId(null)} />
+            <ExamActionButton secondary label="Close student details" onPress={() => setSelectedId(null)} />
             <Copy kind="heading">{selected.student.name}</Copy>
-            <StudentDetails view={view} row={selected} busy={action.busy} manage={!!manage} unlock={() => run("unlock", { attemptId: selected.attempt?.id })} />
+            <StudentDetails view={view} row={selected} busy={actions.busy} manage={manage} now={now}
+              unlock={() => selected.attempt && confirmAction(`Unlock ${selected.student.name}?`, "Only unlock after you have reviewed the interruption. The student can then keep answering.", () => void actions.run({ action: "unlock", attemptId: selected.attempt!.id }))} />
           </Screen>
         </Modal>}
       </>}
     </Screen>
   </>;
-}
-
-function Configuration({ view, busy, save }: { view: DigitalExamView; busy: boolean; save: (counts: number[], key: string[]) => void }) {
-  const [counts, setCounts] = useState<number[]>(view.sheet?.choiceCounts ?? Array<number>(50).fill(4));
-  const [key, setKey] = useState<string[]>(view.answerKey ?? Array<string>(50).fill(""));
-  return <>
-    <Copy>{key.filter(Boolean).length}/50 key answers entered</Copy>
-    {key.map((answer, question) => <View key={question} style={{ gap: 10, paddingVertical: 8 }}>
-      <Choice label={`Question ${question + 1} choices`} value={String(counts[question])} disabled={busy}
-        options={[2, 3, 4, 5, 6, 7, 8].map(count => ({ value: String(count), label: `A–${"ABCDEFGH"[count - 1]}` }))}
-        onChange={value => {
-          const next = [...counts]; next[question] = Number(value); setCounts(next);
-          if ("ABCDEFGH".indexOf(key[question]) >= Number(value)) { const answers = [...key]; answers[question] = ""; setKey(answers); }
-        }} />
-      <ExamAnswerChoices question={question} answer={answer} count={counts[question]} disabled={busy} choose={choice => { const next = [...key]; next[question] = choice; setKey(next); }} />
-    </View>)}
-    <Button label={busy ? "Saving…" : "Save answer sheet setup"} disabled={busy || !completeAnswerKey(counts, key)} onPress={() => save(counts, key)} />
-  </>;
-}
-function StudentDetails({ view, row, busy, manage, unlock }: { view: DigitalExamView; row: ProctorRow; busy: boolean; manage: boolean; unlock: () => void }) {
-  const { colors } = useAppTheme();
-  const attempt = row.attempt;
-  const pause = attempt ? latestPauseActivity(attempt.events) : null;
-  return <>
-    <Copy>{proctorStatus(row)} · {attempt?.answeredCount ?? 0}/50 answered{row.eligible ? "" : " · Historical attempt"}</Copy>
-    {attempt && <Copy kind="caption">Last contact: {new Date(attempt.lastSeenAt).toLocaleTimeString()}{attempt.submittedAt ? ` · Submitted ${new Date(attempt.submittedAt).toLocaleTimeString()} · ${attempt.correctCount ?? 0}/50` : ""}</Copy>}
-    {!attempt?.retakeReady && attempt?.state === "PAUSED" && <Card style={{ backgroundColor: colors.warningSoft }}>
-      <Copy style={{ fontWeight: "600" }}>Proctor clearance required</Copy>
-      {pause && <Activity event={pause} />}
-      <Copy kind="caption">{view.sheet?.state !== "OPEN" ? "Exam closed." : attempt.stale ? "Waiting for contact: student must reconnect." : attempt.pageVisible === false ? "Waiting for return: exam screen is hidden." : "Student connected. Review before unlocking."}</Copy>
-      {manage ? <Button label="Unlock student" disabled={busy || !canUnlockStudent(view, row)} onPress={unlock} />
-        : <Copy kind="caption">A Servants Prep servant must unlock this student.</Copy>}
-    </Card>}
-    {attempt?.stale && attempt.state !== "SUBMITTED" && !attempt.retakeReady && <Copy color={colors.warning}>No contact for more than 30 seconds.</Copy>}
-    <Disclosure title={`Activity history (${attempt?.events.length ?? 0})`}>
-      {attempt?.events.map(event => <Activity key={event.id} event={event} />)}
-    </Disclosure>
-  </>;
-}
-function Activity({ event }: { event: ExamActivity }) {
-  return <View style={{ gap: 2, paddingVertical: 4 }}><Copy kind="caption">{examActivityMessage(event.kind, event).title}</Copy><Copy kind="caption">{new Date(event.createdAt).toLocaleString()}</Copy></View>;
-}
-function Disclosure({ title, children }: { title: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return <Card><Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><Copy style={{ fontWeight: "600" }}>{open ? "▾" : "▸"} {title}</Copy></Pressable>{open && children}</Card>;
 }

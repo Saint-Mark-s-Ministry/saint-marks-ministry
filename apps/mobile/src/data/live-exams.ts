@@ -1,4 +1,4 @@
-import type { DigitalExamList, DigitalExamView } from "@stmark/contracts";
+import type { DigitalExamList, DigitalExamStaffAction, DigitalExamView } from "@stmark/contracts";
 
 export const EXAM_CHOICES = "ABCDEFGH";
 export const EXAM_QUESTIONS = 50;

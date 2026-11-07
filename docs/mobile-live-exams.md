@@ -21,11 +21,7 @@ web. Compact student cards open live connection details and activity history.
 The answer key is available only in the server's management response; native
 students and priests never receive it.
 
-The dashboard polls every two seconds while focused and active. A failed
-refresh removes the previous live status and controls until a successful
-refresh. It does not label cached status as live. New interruption events
-produce visible alerts and a haptic, with optional audible local notification
-alerts. Existing events are deduplicated; answer saves do not sound.
+See **Staff monitoring** below for the live channel, polling, alerts and the unlock and release rules.
 
 ## Student behavior
 
@@ -34,7 +30,7 @@ one at a time using the API's revision and session-token checks. Saves,
 heartbeats, activity reports and submission are serialized so a slow response
 cannot race another write. The app sends heartbeats every ten seconds and
 refreshes the visible answer sheet every two seconds to observe unlocking and
-exam state changes. No Pusher credentials are needed on the phone.
+exam state changes. Students never connect to Pusher.
 
 Tapping an already selected choice clears it. Students may star questions and
 switch to **Review starred questions** without losing their place in the exam.
@@ -98,6 +94,61 @@ Start, Resume and Submit are plain pressable buttons (`components/exam-action-bu
 button: the hosted button was seen not to appear on the Resume card in several relaunches, and these are the actions a student
 cannot do without.
 
+## Staff monitoring (Exam Monitoring)
+
+| Setup | Needs attention | Student detail |
+| --- | --- | --- |
+| ![](screenshots/exam-monitoring/01-setup.png) | ![](screenshots/exam-monitoring/02-needs-attention.png) | ![](screenshots/exam-monitoring/03-student-unlock.png) |
+
+| Existing-grade conflict | Alert banner | Dark, largest text | Offline |
+| --- | --- | --- | --- |
+| ![](screenshots/exam-monitoring/04-existing-grade-conflict.png) | ![](screenshots/exam-monitoring/05-alert-banner.png) | ![](screenshots/exam-monitoring/06-dark-largest-text.png) | ![](screenshots/exam-monitoring/07-offline-controls-off.png) |
+
+Everything goes through the existing `GET`/`POST /api/digital-exams/:id` and `POST /api/digital-exams/live-auth`; no endpoint,
+schema or permission was added. The server decides who may manage, finalizes attempts, grades, and refuses what is not allowed.
+The app only decides what to offer (`data/exam-monitor.ts`, pure and tested) and shows the server's own reason when it refuses.
+
+- **Setup, open, close, release.** The 50-question key editor (A-B to A-H per question) saves with `configure`, and is offered
+  only until the exam has first opened (the server locks the key and choices then). Open, Close, Release, Set ready and Reset
+  appear exactly when the web monitor shows them (`examControls`), each behind a confirmation that says what it does. Close
+  submits saved answers for every started attempt; Release only publishes what the server computes.
+- **Student grid.** Eligible students with ready / started / paused / submitted state, answered count, last contact ("12 s
+  ago") and the latest saved answer. Students waiting on a proctor come first and are red: **Needs unlock** (connected, can be
+  unlocked now) before **Paused** (still reconnecting, or the screen is hidden; the tile says which). Stale contact is amber
+  **No contact**. A red **Needs attention** card at the top counts who can be unlocked now. State is never color alone.
+- **Student detail.** Opens from a tile: connection, the interruption that paused the student, the server's reason when unlock
+  is not yet possible, the 50 saved answers exactly as the server holds them, and the full activity history. There is no
+  right/wrong marking and no percentage calculated on the phone: a submitted student's "x of 50 correct · y%" is what the
+  server sent (staff only, private until release).
+- **Unlock.** Offered only when the server would accept it (open exam, paused, page visible, contact fresh) and confirmed
+  first. If the student changed in the meantime, the server's 409 is shown ("The student must return and reconnect before
+  unlocking.") and the dashboard reloads.
+- **Release conflicts and grades.** If an existing grade overlaps a submission, the server refuses ("Existing grades overlap
+  these submissions...; no grades were overwritten"); the app shows that, reloads, and Release stays available. A retake keeps
+  the higher score; nothing is overwritten on the device's say-so.
+- **Individual retakes.** The server's `retakeCandidates` list, an **Allow retake** button each (archives the previous attempt
+  and grade, creates a blank sheet). Open, close and release afterwards as usual.
+- **Refusals.** 403 (permission lost) and 404 reload and say so; 400 shows the rule; an offline failure says it is not known
+  whether the action was applied and reloads to find out. One staff action runs at a time.
+- **Read-only.** A View As session and a priest or account without `canManage` see the roster and history but no controls (the
+  client also blocks every non-GET in View As). Students, mentors and Sunday School-only servants never reach the screen.
+
+**Live channel and polling.** Where the server reports `realtimeConfigured` and this build has `EXPO_PUBLIC_PUSHER_KEY` and
+`EXPO_PUBLIC_PUSHER_CLUSTER` (public values, the same as the web's `NEXT_PUBLIC_PUSHER_*`), the screen holds the private
+`private-digital-exam-<id>` channel, authorized by the staff-only `live-auth` endpoint, and re-reads on each `changed` ping.
+It speaks the Pusher wire protocol over React Native's own WebSocket (`data/exam-realtime.ts`), so there is **no new native
+module**. While connected, polling slows to a 10-second backup; otherwise (not configured, View As, read-only, dropped,
+refused) it polls every two seconds, and the screen says which. The channel is held only while the screen is focused and the app
+is active. Only the Exam Monitoring screen imports it, and the server refuses a student's authorization.
+
+**Alert audio (opt-in, mutable).** Off every time the screen opens. Turning it on asks for notification permission, then a new
+interruption plays one short clip as a local notification with a fixed identifier, so alerts replace each other instead of piling
+up (verified: banner "Youssef Hanna · Connection lost"). At most one clip per refresh and per 8 seconds; a student already
+paused and sounded for does not sound again for each further event of the same pause; the first load and history never sound;
+muting, leaving the screen and backgrounding the app dismiss it. It follows the iPhone's volume, silent switch and Focus.
+Student devices never play audio. **The Borat clip is not bundled in the iPhone app**: its README entry says the source states no
+redistribution license, which is not acceptable in an App Store binary; the five Egyptian-English clips are bundled.
+
 ## Criteria, and the evidence for each
 
 | Criterion | How it is met | Verified by |
@@ -118,12 +169,10 @@ locks. This feature adds no endpoint, schema change or permission grant.
 Shared API shapes live in `packages/contracts/src/digital-exams.ts`; shared
 activity labels live in `packages/domain/src/exam-activity.ts`.
 
-The Expo notifications plugin bundles the same six proctor WAV clips as the
-web. **A new native build is required for these sound assets**; a JavaScript
-update alone cannot add them to an installed binary. Sound is off initially,
-requires notification permission, and follows the device's notification,
-volume and Focus settings. Audible alerts are spaced by at least eight seconds
-to avoid overlapping clips. Student devices remain silent.
+The Expo notifications plugin bundles five of the web's six proctor WAV clips (see Staff
+monitoring). **A new native build is required for these sound assets**; a JavaScript update
+alone cannot add them to an installed binary. Sound is off initially, requires notification
+permission, and follows the device's notification, volume and Focus settings.
 
 Verification commands:
 
@@ -153,3 +202,28 @@ an isolated local PostgreSQL database. Database integration tests require an
 explicitly isolated test database as described in `digital-exams.md`.
 Rehearse on physical devices before a real
 exam, especially interruption delivery, sounds, and Focus behavior.
+
+## Exam Monitoring verification (staff)
+
+Run on the iPhone 18 Pro simulator against the real API and a throwaway PostgreSQL database (the shared dev database was not
+touched), signed in as a Prep servant, a Prep student, and a super admin using View As:
+
+| Case | Result |
+| --- | --- |
+| Configure (all 50 answers entered in the app), open, close, release | Each worked through the UI; server state checked in the database |
+| Pause and unlock | Hidden student: tile **Paused**, Unlock disabled with the reason; returned student: **Needs unlock**; unlock through the UI worked |
+| Existing grade overlaps a submission | Release refused with the server's message, grade stayed 90, Release stayed available |
+| Release without the conflict | Six grades created by the server; attempts preserved |
+| Individual retake | Approved through the UI: previous attempt archived, student shows **Retake ready**, exam reopens |
+| Alert audio | Opt-in prompt, then a local notification banner for a new interruption |
+| Offline | Server stopped: controls disappear, the earlier status is not shown as live |
+| Empty roster, denied student, View As | "No eligible students…"; "Exam Monitoring is for…"; read-only note with no controls |
+| Light, dark, largest Dynamic Type | Wraps without clipping |
+
+Stale-contact unlock, a stale client, release conflicts, retakes and denied or read-only accounts are also covered against the
+real routes in `__tests__/integration/digital-exams.test.ts` (37 tests, opt-in, isolated database).
+
+**Not verified:** the live Pusher channel against Pusher's service (no Pusher credentials exist locally; the protocol is
+covered with a fake socket), a real iPhone, and audible playback (the simulator showed the banner only). Before a real exam, set
+the two `EXPO_PUBLIC_PUSHER_*` values for the build, confirm "Live alerts connected" on the dashboard with a staging exam, and
+check the clip is audible.

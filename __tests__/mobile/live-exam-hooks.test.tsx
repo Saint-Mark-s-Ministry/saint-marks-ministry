@@ -31,7 +31,7 @@ vi.mock("../../apps/mobile/src/data/haptics", () => ({ feedback: native.feedback
 // not replace the DOM types in the separate Next.js TypeScript project.
 const { useExamAwake, useLiveResource, useNativeExamAttempt } = await vi.importActual<{
   useExamAwake: (enabled: boolean) => boolean;
-  useLiveResource: (path: string | null) => { data?: Record<string, unknown>; error?: string; loading: boolean; refreshing: boolean; refresh: () => Promise<void> };
+  useLiveResource: (path: string | null, pollMs?: number) => { data?: Record<string, unknown>; error?: string; loading: boolean; refreshing: boolean; refresh: () => Promise<void>; reload: () => Promise<void> };
   useNativeExamAttempt: (examId: string, userId: string) => AnsweringState & { start: () => Promise<void>; submit: () => Promise<void>; refresh: () => Promise<void> };
 }>("../../apps/mobile/src/data/use-live-exam");
 
@@ -126,6 +126,50 @@ describe("native live monitoring freshness", () => {
     await act(async () => { await result.current.refresh(); });
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBe("Forbidden");
+  });
+});
+
+describe("monitoring refresh cadence and live pings", () => {
+  it("re-reads every two seconds on its own", async () => {
+    native.request.mockResolvedValue({ n: 1 });
+    renderHook(() => useLiveResource("/api/digital-exams/test"));
+    await act(async () => {});
+    expect(native.request).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(native.request).toHaveBeenCalledTimes(3);
+  });
+  it("backs off to the slower interval while the live channel is connected, then returns to two seconds", async () => {
+    native.request.mockResolvedValue({ n: 1 });
+    const { rerender } = renderHook(({ ms }) => useLiveResource("/api/digital-exams/test", ms), { initialProps: { ms: 10000 } });
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+    expect(native.request).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(native.request).toHaveBeenCalledTimes(2);
+    rerender({ ms: 2000 });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(native.request).toHaveBeenCalledTimes(3);
+  });
+  it("re-reads immediately for a live ping, and once more if a read was already in flight (it may predate the change)", async () => {
+    const first = deferred<{ n: number }>(); const second = deferred<{ n: number }>();
+    native.request.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const { result } = renderHook(() => useLiveResource("/api/digital-exams/test"));
+    act(() => { void result.current.reload(); });
+    expect(native.request).toHaveBeenCalledTimes(1);
+    await act(async () => { first.resolve({ n: 1 }); await first.promise; });
+    expect(native.request).toHaveBeenCalledTimes(2);
+    await act(async () => { second.resolve({ n: 2 }); await second.promise; });
+    expect(result.current.data).toEqual({ n: 2 });
+  });
+  it("does nothing for a ping while the app is in the background", async () => {
+    native.request.mockResolvedValue({ n: 1 });
+    const { result } = renderHook(() => useLiveResource("/api/digital-exams/test"));
+    await act(async () => {});
+    activity("background");
+    native.request.mockClear();
+    await act(async () => { await result.current.reload(); });
+    expect(native.request).not.toHaveBeenCalled();
   });
 });
 

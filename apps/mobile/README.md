@@ -419,3 +419,9 @@ status, the vertical bar edge, the safe-area insets and the crease regions to `u
 iPhone or iOS it answers "not foldable". In development a small pill shows the live values on a foldable.
 Building needs Xcode 27.1 (the 27.1 SDK); an older dev client without the module simply reports not
 foldable. The hinge is changed in DeviceHub; there is no `simctl` command for it.
+
+## Optional: live exam alerts (Exam Monitoring)
+
+Set `EXPO_PUBLIC_PUSHER_KEY` and `EXPO_PUBLIC_PUSHER_CLUSTER` (the same public values as the web's `NEXT_PUBLIC_PUSHER_KEY` and
+`NEXT_PUBLIC_PUSHER_CLUSTER`) in the build environment to let the staff dashboard use the private live channel. Unset, it polls every
+two seconds. See `docs/mobile-live-exams.md`.

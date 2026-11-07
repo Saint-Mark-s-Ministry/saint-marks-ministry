@@ -20,6 +20,8 @@ import { GET as listExams } from '@/app/api/digital-exams/route'
 import type { AttemptResponse, DigitalExamView } from '@stmark/contracts'
 import { ExamAttemptController } from '../../apps/mobile/src/data/exam-attempt'
 import { ApiError } from '../../apps/mobile/src/data/api-client'
+import { examControls, resultLine, rosterSummary, staffActionFailure, studentTile, unlockHeadline } from '../../apps/mobile/src/data/exam-monitor'
+import { canUnlockStudent } from '../../apps/mobile/src/data/live-exams'
 
 const enabled = process.env.DIGITAL_EXAM_INTEGRATION === '1'
 const db = new PrismaClient()
@@ -30,6 +32,25 @@ const student = () => ({ user: { id: fixture.studentId }, staff: false, manage: 
 const act = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, sessionToken: token, position: { latitude: 40.72, longitude: -74.09, accuracy: 10, timestamp: Date.now() }, ...extra }, student())
 const admin = (action: string, extra: Record<string, unknown> = {}) => mutateExam(fixture.examId, { action, ...extra }, staff)
 const get = () => GET(new Request('http://localhost'), { params: Promise.resolve({ id: fixture.examId }) })
+
+// The Exam Monitoring screen's client, as the phone runs it: staff identity, the real routes, ApiError for refusals, and the
+// native rules (data/exam-monitor.ts) applied to the server's own responses.
+function nativeStaff(tag: 'SERVANTS_PREP_SERVANT' | 'PRIEST' = 'SERVANTS_PREP_SERVANT', readOnly = false) {
+  const as = () => { identity.id = fixture.otherId; identity.tag = tag; identity.readOnly = readOnly }
+  const read = async <T>(response: Response): Promise<T> => {
+    const body = await response.json()
+    if (!response.ok) throw new ApiError(body.error ?? 'Request failed', response.status)
+    return body as T
+  }
+  return {
+    view: async () => { as(); return read<DigitalExamView>(await get()) },
+    send: async (body: Record<string, unknown>) => {
+      as()
+      return read<{ success: boolean }>(await POST(new Request('http://localhost/api/digital-exams/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), { params: Promise.resolve({ id: fixture.examId }) }))
+    },
+  }
+}
+const studentRow = (view: DigitalExamView) => view.roster!.find(row => row.student.id === fixture.studentId)!
 
 function nativeSession() {
   let draft: string | null = null
@@ -526,5 +547,109 @@ describe.skipIf(!enabled)('digital exam database and API integration', () => {
     expect(controller.snapshot().started).toBe(false)
     expect((await db.digitalExamAttempt.findUniqueOrThrow({ where: { id: attemptId } })).answers[0]).toBe('')
   }, 30000)
+
+
+  describe('native Exam Monitoring against the real server', () => {
+    it('follows an exam from open through pause, unlock, close and release with the controls the server will accept', async () => {
+      const proctor = nativeStaff()
+      let view = await proctor.view()
+      expect(view.canManage).toBe(true)
+      expect(examControls(view, true)).toMatchObject({ configure: false, open: false, close: true, reset: true, release: false })
+      await act('start')
+      await act('events', { events: [{ id: randomUUID(), kind: 'HIDDEN', at: new Date().toISOString() }], visible: false })
+      view = await proctor.view()
+      expect(studentTile(view, studentRow(view))).toMatchObject({ label: 'Paused', tone: 'alert', detail: expect.stringMatching(/hidden/) })
+      expect(canUnlockStudent(view, studentRow(view))).toBe(false)
+      expect(examControls(view, true).reset).toBe(false)
+      await act('events', { events: [{ id: randomUUID(), kind: 'RETURNED' }] })
+      view = await proctor.view()
+      expect(studentTile(view, studentRow(view))).toMatchObject({ label: 'Needs unlock' })
+      expect(unlockHeadline(rosterSummary(view, view.roster!))).toBe('1 student can be unlocked now')
+      await proctor.send({ action: 'unlock', attemptId: studentRow(view).attempt!.id })
+      view = await proctor.view()
+      expect(studentTile(view, studentRow(view)).label).toBe('Answering')
+      expect(unlockHeadline(rosterSummary(view, view.roster!))).toBeNull()
+      await proctor.send({ action: 'close' })
+      view = await proctor.view()
+      expect(examControls(view, true)).toMatchObject({ close: false, release: true, open: true })
+      expect(studentTile(view, studentRow(view)).label).toBe('Submitted')
+      // Private to staff until release, and exactly what the server computed.
+      const beforeRelease = resultLine(studentRow(view).attempt!)
+      expect(beforeRelease).toBe('0 of 50 correct · 0%')
+      await proctor.send({ action: 'release' })
+      view = await proctor.view()
+      expect(examControls(view, true)).toMatchObject({ release: false, open: false, reset: false })
+      const score = await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })
+      expect(`0 of 50 correct · ${score.percentage}%`).toBe(beforeRelease)
+      // A released, graded student leaves the live roster; the preserved attempt moves to Past digital activity.
+      expect(view.roster!.some(row => row.student.id === fixture.studentId)).toBe(false)
+      expect(resultLine(view.completedHistory!.find(item => item.student.id === fixture.studentId)!.snapshot!)).toBe(beforeRelease)
+    }, 30000)
+
+    it('explains a stale unlock from the server and changes nothing', async () => {
+      const proctor = nativeStaff()
+      await act('start')
+      await act('events', { events: [{ id: randomUUID(), kind: 'BLUR' }] })
+      let view = await proctor.view()
+      const attemptId = studentRow(view).attempt!.id
+      await db.digitalExamAttempt.update({ where: { id: attemptId }, data: { lastSeenAt: new Date(Date.now() - 60_000) } })
+      view = await proctor.view()
+      expect(studentTile(view, studentRow(view))).toMatchObject({ label: 'Paused', detail: expect.stringMatching(/must reconnect/) })
+      const refused = await proctor.send({ action: 'unlock', attemptId }).catch((error: unknown) => error)
+      expect(refused).toBeInstanceOf(ApiError)
+      expect(staffActionFailure(refused, 'unlock')).toEqual({ kind: 'conflict', message: 'The student must return and reconnect before unlocking.', refresh: true })
+      expect((await db.digitalExamAttempt.findUniqueOrThrow({ where: { id: attemptId } })).state).toBe('PAUSED')
+    }, 30000)
+
+    it('reports an existing-grade conflict at release, leaves the grade alone, and keeps Release available', async () => {
+      const proctor = nativeStaff()
+      await act('start'); await act('submit', { revision: 0 }); await proctor.send({ action: 'close' })
+      await db.examScore.create({ data: { examId: fixture.examId, studentId: fixture.studentId, score: 90, percentage: 90 } })
+      const refused = await proctor.send({ action: 'release' }).catch((error: unknown) => error)
+      expect(staffActionFailure(refused, 'release')).toMatchObject({ kind: 'conflict', refresh: true, message: expect.stringMatching(/Existing grades overlap these submissions/) })
+      expect((await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).percentage).toBe(90)
+      expect(examControls(await proctor.view(), true).release).toBe(true)
+    }, 30000)
+
+    it('offers an individual retake only once the attempt is complete, and releases it without reducing the grade', async () => {
+      const proctor = nativeStaff()
+      await act('start'); await act('save', { question: 0, answer: 'E', revision: 0 }); await act('submit', { revision: 1 })
+      let view = await proctor.view()
+      expect(view.retakeCandidates?.map(candidate => candidate.id)).toEqual([fixture.studentId])
+      await proctor.send({ action: 'close' }); await proctor.send({ action: 'release' })
+      const original = (await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).percentage
+      view = await proctor.view()
+      expect(examControls(view, true)).toMatchObject({ retakes: true, open: false })
+      await proctor.send({ action: 'retake', studentId: fixture.studentId })
+      view = await proctor.view()
+      expect(studentTile(view, studentRow(view)).label).toBe('Retake ready')
+      expect(examControls(view, true).open).toBe(true)
+      expect(await db.digitalExamAttemptArchive.count({ where: { attempt: { examId: fixture.examId } } })).toBe(1)
+      expect((await db.examScore.findFirstOrThrow({ where: { examId: fixture.examId } })).percentage).toBe(original)
+    }, 30000)
+
+    it('shows nothing to manage to a read-only priest or a student, and the server refuses them', async () => {
+      const readOnly = nativeStaff('PRIEST', true)
+      const view = await readOnly.view()
+      expect(view.canManage).toBe(false)
+      expect(view).not.toHaveProperty('answerKey')
+      expect(Object.values(examControls(view, view.canManage === true)).every(value => value === false)).toBe(true)
+      for (const action of ['open', 'close', 'release', 'reset', 'ready', 'configure'])
+        expect(staffActionFailure(await readOnly.send({ action }).catch((error: unknown) => error))).toMatchObject({ kind: 'forbidden' })
+      identity.id = fixture.studentId; identity.tag = 'SERVANTS_PREP_STUDENT'; identity.readOnly = false
+      const asStudent = await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify({ action: 'open' }) }), { params: Promise.resolve({ id: fixture.examId }) })
+      expect(asStudent.status).toBe(403)
+      // A student also cannot read the proctor roster or authorize the private channel.
+      const studentView = await (await get()).json()
+      expect(studentView).not.toHaveProperty('roster')
+      expect(studentView).not.toHaveProperty('answerKey')
+    }, 30000)
+
+    it('keeps the answer key and choices locked after opening', async () => {
+      const refused = await nativeStaff().send({ action: 'configure', choiceCounts: Array(50).fill(4), answerKey: Array(50).fill('A') }).catch((error: unknown) => error)
+      expect(staffActionFailure(refused, 'configure')).toMatchObject({ kind: 'conflict', message: 'The answer key and choices are locked after opening.' })
+      expect(examControls(await nativeStaff().view(), true).configure).toBe(false)
+    }, 30000)
+  })
 
 })

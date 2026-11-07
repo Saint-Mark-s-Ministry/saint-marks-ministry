@@ -13,16 +13,23 @@ import { expoLocationSource } from "./exam-location-source";
 import { digitalExamPath } from "./live-exams";
 import { feedback } from "./haptics";
 
-/** Poll only the visible screen. Monitoring never presents cached status as live. */
-export function useLiveResource<T>(path: string | null) {
+/**
+ * Poll only the visible screen. Monitoring never presents cached status as live. `pollMs` is how often to re-read (a slower backup
+ * while the private realtime channel is connected); `reload` re-reads now for a realtime ping, and asks for one more read if
+ * a read was already in flight, since that read may predate the change.
+ */
+export function useLiveResource<T>(path: string | null, pollMs = 2000) {
   const [state, setState] = useState<{ path: string | null; data?: T; error?: string }>({ path });
   const [refreshing, setRefreshing] = useState(false);
-  const lifecycle = useRef<{ active: boolean; generation: number; flight?: { controller: AbortController; promise: Promise<void> } }>({ active: false, generation: 0 });
+  const lifecycle = useRef<{ active: boolean; generation: number; again: boolean; lastStart: number; flight?: { controller: AbortController; promise: Promise<void> } }>({ active: false, generation: 0, again: false, lastStart: 0 });
+  const interval = useRef(pollMs);
+  interval.current = pollMs;
   const refresh = useCallback((manual = false): Promise<void> => {
     const current = lifecycle.current;
     if (!path || !current.active || AppState.currentState !== "active") return Promise.resolve();
     if (manual) setRefreshing(true);
     if (current.flight) return current.flight.promise;
+    current.lastStart = Date.now();
     const controller = new AbortController();
     const generation = current.generation;
     const valid = () => current.active && current.generation === generation && !controller.signal.aborted && AppState.currentState === "active";
@@ -33,14 +40,20 @@ export function useLiveResource<T>(path: string | null) {
     }).finally(() => {
       if (current.flight?.controller === controller) current.flight = undefined;
       if (valid()) setRefreshing(false);
+      if (current.again && valid()) { current.again = false; void refresh(); }
     });
     current.flight = { controller, promise };
     return promise;
   }, [path]);
+  const reload = useCallback(() => {
+    const current = lifecycle.current;
+    if (current.flight) current.again = true;
+    return refresh();
+  }, [refresh]);
   useFocusEffect(useCallback(() => {
     const current = lifecycle.current;
     const pause = () => {
-      current.active = false; current.generation++;
+      current.active = false; current.generation++; current.again = false;
       current.flight?.controller.abort(); current.flight = undefined;
       setRefreshing(false);
       setState({ path, error: "Monitoring is paused while this screen is in the background." });
@@ -51,16 +64,17 @@ export function useLiveResource<T>(path: string | null) {
       void refresh();
     };
     if (AppState.currentState === "active") resume(); else pause();
-    const interval = setInterval(() => void refresh(), 2000);
+    // A 2-second clock; a slower backup interval just skips ticks until it has elapsed.
+    const timer = setInterval(() => { if (Date.now() - current.lastStart >= interval.current - 100) void refresh(); }, 2000);
     const subscription = AppState.addEventListener("change", value => {
       if (value === "active") { if (!current.active) resume(); }
       else pause();
     });
-    return () => { pause(); clearInterval(interval); subscription.remove(); };
+    return () => { pause(); clearInterval(timer); subscription.remove(); };
   }, [refresh, path]));
   const current = state.path === path ? state : { path };
   return { ...current, loading: !!path && !current.data && !current.error, refreshing,
-    refresh: () => refresh(true) };
+    refresh: () => refresh(true), reload };
 }
 
 // Chunk encrypted drafts so Keychain/Keystore item-size limits do not lose a
