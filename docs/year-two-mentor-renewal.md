@@ -35,12 +35,46 @@ staff verification notification. Staff can select Withdrawn on Student roster
 Submission alone leaves the student withdrawn and excluded from attendance.
 When staff verify a pending form, the same transaction reactivates a withdrawn
 Year 2 enrollment, returning the student to the active attendance sheet on its
-next load. Existing attendance records and the attendance start date are retained.
+next load. Missing attendance for current-year lessons where attendance was already
+taken is filled in as **Absent** in that same transaction, including weeks missed
+while withdrawn. Existing attendance records and the attendance start date are
+retained. Cancelled lessons, no-class days and exam days are excluded; async
+students receive no lesson absences.
 A stale or rejected verification cannot reactivate the student. Re-reviewing an
 already verified form does not undo a later withdrawal, and graduated students
 are never reactivated by this flow. No database migration is required.
 
 ## Existing records before deployment
+
+### Missing attendance after mentor verification
+
+Preview missing absences for active, in-person Year 2 students whose current-year
+mentor forms have already been verified:
+
+```sh
+bun scripts/backfill-reactivated-mentor-attendance.ts
+```
+
+The preview reports counts only and writes nothing. It considers current-year,
+non-exam lessons where attendance was taken, on or before the student's mentor
+verification, and on or after their attendance start date. Existing records are
+never overwritten. Withdrawn, graduated, async and unverified students are excluded.
+Because enrollment status history is not stored, the repair checks all currently
+active verified Year 2 students for these gaps, rather than claiming to identify
+which students were previously withdrawn.
+
+After checking the target database and preview, apply with:
+
+```sh
+bun scripts/backfill-reactivated-mentor-attendance.ts --apply --expected-host=<database-hostname>
+```
+
+Use the intended database connection and normal backup procedure. The hostname
+must match `SP_DATABASE_URL`. Inserts commit in one serializable transaction;
+concurrent changes abort the repair. Re-running after success is a no-op. This is
+an explicit one-time data operation, never part of a build or schema migration.
+
+### Carried-over mentor assignments
 
 No schema change or scheduled task is needed. Before deploying, take the normal
 backup and preview the one-time repair for carried-over assignments:
