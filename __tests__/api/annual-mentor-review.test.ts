@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(), context: vi.fn(), requirement: vi.fn(), update: vi.fn(), clear: vi.fn(), activate: vi.fn(),
+  auth: vi.fn(), context: vi.fn(), requirement: vi.fn(), update: vi.fn(), clear: vi.fn(), activate: vi.fn(), backfill: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/authorization', () => ({
   getAuthorizationContext: mocks.context,
   canWriteBusinessData: (context: { disabled: boolean; readOnly: boolean }) => !context.disabled && !context.readOnly,
+}))
+vi.mock('@/lib/api-utils', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/api-utils')>(),
+  backfillAttendanceForStudent: mocks.backfill,
 }))
 vi.mock('@/lib/annual-mentor-information', () => ({ getAnnualMentorRequirement: mocks.requirement }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
@@ -34,6 +38,7 @@ describe('annual mentor information review', () => {
     mocks.requirement.mockResolvedValue({ activeYear: { id: 'year-1' }, enrollment: { id: 'enrollment-1', status: 'ACTIVE' }, information: { id: 'info-1', updatedAt, reviewedAt: null } })
     mocks.update.mockResolvedValue({ count: 1 })
     mocks.activate.mockResolvedValue({ count: 1 })
+    mocks.backfill.mockResolvedValue(2)
   })
 
   it('records reviewer and version, then clears only this year mentor reminder', async () => {
@@ -47,6 +52,7 @@ describe('annual mentor information review', () => {
       metadata: { path: ['academicYearId'], equals: 'year-1' },
     } })
     expect(mocks.activate).not.toHaveBeenCalled()
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 
   it('reactivates only a withdrawn Year 2 enrollment when its pending form is approved', async () => {
@@ -59,6 +65,10 @@ describe('annual mentor information review', () => {
       where: { id: 'enrollment-1', studentId: 'student-1', status: 'WITHDRAWN', yearLevel: 'YEAR_2' },
       data: { status: 'ACTIVE', isActive: true, graduatedAt: null, graduatedAcademicYearId: null, graduationNote: null },
     })
+    expect(mocks.backfill).toHaveBeenCalledExactlyOnceWith('student-1', 'year-1', expect.objectContaining({
+      studentEnrollment: { updateMany: mocks.activate },
+      annualMentorInformation: { updateMany: mocks.update },
+    }))
   })
 
   it('does not undo a later withdrawal by re-reviewing an already approved form', async () => {
@@ -68,6 +78,7 @@ describe('annual mentor information review', () => {
     })
     expect(await (await review()).json()).toEqual({ reviewed: true, reactivated: false })
     expect(mocks.activate).not.toHaveBeenCalled()
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 
   it('does not report reactivation if enrollment changed before approval committed', async () => {
@@ -77,6 +88,7 @@ describe('annual mentor information review', () => {
     })
     mocks.activate.mockResolvedValue({ count: 0 })
     expect(await (await review()).json()).toEqual({ reviewed: true, reactivated: false })
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -91,6 +103,7 @@ describe('annual mentor information review', () => {
     expect((await review()).status).toBe(403)
     expect(mocks.update).not.toHaveBeenCalled()
     expect(mocks.activate).not.toHaveBeenCalled()
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 
   it('requires a submission for the active year', async () => {
@@ -106,6 +119,7 @@ describe('annual mentor information review', () => {
     expect((await review('old-version')).status).toBe(409)
     expect(mocks.update).not.toHaveBeenCalled()
     expect(mocks.activate).not.toHaveBeenCalled()
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 
   it('rejects a concurrent resubmission without clearing its reminder', async () => {
@@ -117,5 +131,6 @@ describe('annual mentor information review', () => {
     expect((await review()).status).toBe(409)
     expect(mocks.clear).not.toHaveBeenCalled()
     expect(mocks.activate).not.toHaveBeenCalled()
+    expect(mocks.backfill).not.toHaveBeenCalled()
   })
 })
