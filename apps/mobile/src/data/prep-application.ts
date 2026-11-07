@@ -18,8 +18,12 @@ export type ApplicationDetails = {
 
 export type AcademicYearRef = { id: string; name: string } | null;
 
+/** The annual mentor form's review state, as the server reports it (null when no annual confirmation applies). */
+export type MentorReviewStatus = "UPDATE_REQUIRED" | "PENDING_REVIEW" | "REVIEWED";
+
 export type ApplicationState = {
   application: ApplicationDetails;
+  mentorReviewStatus?: MentorReviewStatus | null;
   showChurchInformation: boolean;
   showApprovalForm: boolean;
   annualMentorRequired: boolean;
@@ -145,7 +149,7 @@ export function describeLoadFailure(message: string | null | undefined): LoadFai
     return {
       title: "Application unavailable",
       body:
-        "We couldn't find application details for this account. This can happen if your enrollment is inactive or no academic year is active. Ask a Servants Prep servant to check, then try again.",
+        "There is nothing to complete on this account right now. If you were asked to confirm your mentor or finish your application, ask a Servants Prep servant to check that your enrollment is active, then try again.",
     };
   }
   return {
@@ -167,9 +171,9 @@ export function applicationHeading(
   return { title: "Application", subtitle: "Complete the rest of your Servants Prep application" };
 }
 
-/** The confirmation after a successful save, in the web page's words. */
+/** The confirmation after a successful save, in the web page's words. An annual form goes to an admin for review. */
 export function saveSuccessMessage(state: Pick<ApplicationState, "annualMentorRequired" | "complete">): string {
-  if (state.annualMentorRequired) return "Mentor information confirmed";
+  if (state.annualMentorRequired) return "Mentor information submitted for admin review";
   return state.complete ? "Application completed" : "Application details saved";
 }
 
@@ -179,3 +183,35 @@ export function saveErrorMessage(serverMessage: string | null | undefined): stri
   if (/ViewAsReadOnly/i.test(text)) return "You're viewing as this student, so changes are read-only.";
   return text || "Unable to save application. Please try again.";
 }
+
+/** The badge beside "Mentor servant" for an annual confirmation, from the server's own status; null when none applies. */
+export function reviewBadge(
+  state: Pick<ApplicationState, "annualMentorRequired" | "mentorReviewStatus"> | null | undefined,
+): { label: string; tone: "warning" | "info" | "success" } | null {
+  if (!state?.annualMentorRequired) return null;
+  switch (state.mentorReviewStatus) {
+    case "REVIEWED": return { label: "Confirmed", tone: "success" };
+    case "PENDING_REVIEW": return { label: "Awaiting admin review", tone: "info" };
+    default: return { label: "Update required", tone: "warning" };
+  }
+}
+
+/**
+ * Cache scope for the application read. Under View As the effective student is not the signed-in person, so the key carries
+ * both: one account's application can never be shown from, or written into, another's cache entry.
+ */
+export function applicationScope(userId: string | undefined, viewingAsOriginalId?: string | null): string | undefined {
+  if (!userId) return undefined;
+  return `application:${viewingAsOriginalId ? `${viewingAsOriginalId}>` : ""}${userId}`;
+}
+
+/**
+ * Where an unsaved draft lives. A View As session is read-only and must never write to, or restore from, the viewed student's
+ * draft, so it has no draft at all.
+ */
+export function draftStorageKey(userId: string | undefined, viewingAs: boolean): string | null {
+  return userId && !viewingAs ? `stmark.application-draft.${userId}` : null;
+}
+
+export const VIEW_AS_APPLICATION_NOTE =
+  "You're viewing this student's application. It is read-only: nothing can be typed, saved or uploaded.";

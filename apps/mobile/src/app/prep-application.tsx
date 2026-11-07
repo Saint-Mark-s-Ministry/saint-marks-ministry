@@ -4,15 +4,19 @@ import { Stack } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as DocumentPicker from "expo-document-picker";
 import type { SFSymbol, AndroidSymbol } from "expo-symbols";
-import { Button, Card, CompactRow, Copy, Icon, ListSurface, Screen, SectionTitle } from "@/components/ui";
+import { Button, Card, CompactRow, Copy, Icon, ListSurface, Screen, SectionTitle, StatusPill } from "@/components/ui";
 import { Field, ResourceState, useAction } from "@/components/forms";
 import { api, useAuth } from "@/data/auth-provider";
 import { invalidateResourceCache, request, useResource } from "@/data/resources";
 import {
+  VIEW_AS_APPLICATION_NOTE,
   applicationHeading,
   applicationProgress,
+  applicationScope,
   canViewOwnApplication,
   describeLoadFailure,
+  draftStorageKey,
+  reviewBadge,
   firstFieldProblem,
   saveErrorMessage,
   saveSuccessMessage,
@@ -35,11 +39,16 @@ type Draft = {
 };
 
 export default function PrepApplication() {
-  const { user } = useAuth();
+  const { user, viewingAs } = useAuth();
   const { colors } = useAppTheme();
   const canView = canViewOwnApplication(user?.role);
-  const resource = useResource<ApplicationState>(canView ? "/api/registration/application" : null);
-  const draftKey = user?.id ? `stmark.application-draft.${user.id}` : null;
+  // The server resolves the effective student; the cache is keyed to the same pair. View As can read but never change.
+  const readOnly = !!viewingAs;
+  const resource = useResource<ApplicationState>(
+    canView ? "/api/registration/application" : null,
+    applicationScope(user?.id, viewingAs?.originalId),
+  );
+  const draftKey = draftStorageKey(user?.id, readOnly);
 
   const [fatherOfConfessionName, setFather] = useState("");
   const [mentorName, setMentorName] = useState("");
@@ -115,10 +124,11 @@ export default function PrepApplication() {
   const progress = data ? applicationProgress(data) : null;
   const heading = applicationHeading(data);
   // A failed load with nothing to show: a readable card with the reason and a retry.
+  const badge = reviewBadge(data);
   const loadFailure = !data && resource.error ? describeLoadFailure(resource.error) : null;
 
   async function save() {
-    if (!data) return;
+    if (!data || readOnly) return;
     const problem = firstFieldProblem(data, fatherOfConfessionName, {
       mentorName,
       mentorPhone,
@@ -156,7 +166,7 @@ export default function PrepApplication() {
   }
 
   async function uploadApprovalForm() {
-    if (uploadBusy) return;
+    if (uploadBusy || readOnly) return;
     const result = await DocumentPicker.getDocumentAsync({
       type: ["image/png", "image/jpeg", "image/gif", "application/pdf"],
       copyToCacheDirectory: true,
@@ -201,6 +211,12 @@ export default function PrepApplication() {
             <View style={{ paddingHorizontal: 4, gap: 2 }}>
               <Copy kind="caption">{heading.subtitle}</Copy>
             </View>
+
+            {readOnly && (
+              <View accessibilityLiveRegion="polite" style={{ padding: 14, borderRadius: 18, backgroundColor: colors.infoSoft }}>
+                <Copy kind="caption" color={colors.info}>{VIEW_AS_APPLICATION_NOTE}</Copy>
+              </View>
+            )}
 
             {resource.stale && (
               <View
@@ -259,14 +275,17 @@ export default function PrepApplication() {
                 )}
 
                 <View style={{ gap: 10 }}>
-                  <SectionTitle title="Mentor servant" />
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <SectionTitle title="Mentor servant" />
+                    {badge && <StatusPill label={badge.label} color={colors[badge.tone]} soft={colors[`${badge.tone}Soft` as "warningSoft" | "infoSoft" | "successSoft"]} />}
+                  </View>
                   <Card style={{ gap: 14 }}>
                     <Field
                       ref={nameRef}
                       label="Mentor servant's name"
                       value={mentorName}
                       onChange={setMentorName}
-                      disabled={action.busy}
+                      disabled={action.busy || readOnly}
                       error={fieldProblem?.field === "mentorName" ? fieldProblem.message : undefined}
                     />
                     <Field
@@ -275,7 +294,7 @@ export default function PrepApplication() {
                       value={mentorPhone}
                       onChange={setMentorPhone}
                       keyboardType="phone-pad"
-                      disabled={action.busy}
+                      disabled={action.busy || readOnly}
                       error={fieldProblem?.field === "mentorPhone" ? fieldProblem.message : undefined}
                     />
                     <Field
@@ -284,7 +303,7 @@ export default function PrepApplication() {
                       value={mentorEmail}
                       onChange={setMentorEmail}
                       keyboardType="email-address"
-                      disabled={action.busy}
+                      disabled={action.busy || readOnly}
                       error={fieldProblem?.field === "mentorEmail" ? fieldProblem.message : undefined}
                     />
                   </Card>
@@ -299,7 +318,7 @@ export default function PrepApplication() {
                         label="Father of confession"
                         value={fatherOfConfessionName}
                         onChange={setFather}
-                        disabled={action.busy}
+                        disabled={action.busy || readOnly}
                         error={fieldProblem?.field === "fatherOfConfessionName" ? fieldProblem.message : undefined}
                       />
                     </Card>
@@ -311,13 +330,13 @@ export default function PrepApplication() {
                     <SectionTitle title="Approval form" />
                     <ListSurface>
                       <CompactRow
-                        divider
+                        divider={!readOnly}
                         title="Download template"
                         subtitle="Approval form · PDF"
                         icon={<SectionIcon ios="doc.fill" android="description" />}
                         onPress={() => void Linking.openURL(APPROVAL_TEMPLATE_URL)}
                       />
-                      <CompactRow
+                      {!readOnly && <CompactRow
                         title={data.application.approvalFormUrl ? "Replace form" : "Upload signed form"}
                         subtitle={
                           uploadBusy
@@ -326,7 +345,7 @@ export default function PrepApplication() {
                         }
                         icon={<SectionIcon ios="square.and.arrow.up" android="upload" />}
                         onPress={() => void uploadApprovalForm()}
-                      />
+                      />}
                     </ListSurface>
                     {data.application.approvalFormUrl && (
                       <Pressable onPress={() => void Linking.openURL(data.application.approvalFormUrl!)} hitSlop={8}>
@@ -347,17 +366,19 @@ export default function PrepApplication() {
                       {progress.done} of {progress.total} done
                     </Copy>
                   )}
-                  <Button
-                    label={
-                      action.busy
-                        ? "Saving…"
-                        : data.annualMentorRequired
-                          ? "Confirm mentor information"
-                          : "Save application details"
-                    }
-                    disabled={action.busy}
-                    onPress={() => void save()}
-                  />
+                  {!readOnly && (
+                    <Button
+                      label={
+                        action.busy
+                          ? "Saving…"
+                          : data.annualMentorRequired
+                            ? "Confirm mentor information"
+                            : "Save application details"
+                      }
+                      disabled={action.busy}
+                      onPress={() => void save()}
+                    />
+                  )}
                 </View>
               </>
             )}

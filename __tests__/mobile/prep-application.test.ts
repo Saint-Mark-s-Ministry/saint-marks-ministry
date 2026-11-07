@@ -8,6 +8,10 @@ import {
   firstFieldProblem,
   saveErrorMessage,
   saveSuccessMessage,
+  reviewBadge,
+  applicationScope,
+  draftStorageKey,
+  VIEW_AS_APPLICATION_NOTE,
   validateApprovalFile,
   validateFatherOfConfession,
   validateMentorFields,
@@ -181,7 +185,7 @@ describe("describeLoadFailure", () => {
 
 describe("save feedback", () => {
   it("words the confirmation the way the web page does", () => {
-    expect(saveSuccessMessage({ annualMentorRequired: true, complete: true })).toBe("Mentor information confirmed");
+    expect(saveSuccessMessage({ annualMentorRequired: true, complete: false })).toBe("Mentor information submitted for admin review");
     expect(saveSuccessMessage({ annualMentorRequired: false, complete: true })).toBe("Application completed");
     expect(saveSuccessMessage({ annualMentorRequired: false, complete: false })).toBe("Application details saved");
   });
@@ -190,5 +194,33 @@ describe("save feedback", () => {
     expect(saveErrorMessage("ViewAsReadOnly")).toContain("read-only");
     expect(saveErrorMessage("All mentor fields are required")).toBe("All mentor fields are required");
     expect(saveErrorMessage(undefined)).toBe("Unable to save application. Please try again.");
+  });
+});
+
+describe("annual review status", () => {
+  it("shows the server's review state beside the mentor section, and nothing when no annual confirmation applies", () => {
+    expect(reviewBadge({ annualMentorRequired: true, mentorReviewStatus: "UPDATE_REQUIRED" })).toEqual({ label: "Update required", tone: "warning" });
+    expect(reviewBadge({ annualMentorRequired: true, mentorReviewStatus: "PENDING_REVIEW" })).toEqual({ label: "Awaiting admin review", tone: "info" });
+    expect(reviewBadge({ annualMentorRequired: true, mentorReviewStatus: "REVIEWED" })).toEqual({ label: "Confirmed", tone: "success" });
+    expect(reviewBadge({ annualMentorRequired: true, mentorReviewStatus: null })).toEqual({ label: "Update required", tone: "warning" });
+    expect(reviewBadge({ annualMentorRequired: false, mentorReviewStatus: null })).toBeNull();
+    expect(reviewBadge(undefined)).toBeNull();
+  });
+});
+
+describe("View As: scoped reads, no drafts, read-only", () => {
+  it("keys the cache to the effective student and, under View As, to the viewer too", () => {
+    expect(applicationScope("student-1")).toBe("application:student-1");
+    expect(applicationScope("student-1", "admin-1")).toBe("application:admin-1>student-1");
+    expect(applicationScope("student-1", "admin-1")).not.toBe(applicationScope("student-1"));
+    expect(applicationScope(undefined)).toBeUndefined();
+  });
+  it("has no draft at all while viewing as another student, so nothing is restored or written", () => {
+    expect(draftStorageKey("student-1", false)).toBe("stmark.application-draft.student-1");
+    expect(draftStorageKey("student-1", true)).toBeNull();
+    expect(draftStorageKey(undefined, false)).toBeNull();
+  });
+  it("says plainly that the page is read-only", () => {
+    expect(VIEW_AS_APPLICATION_NOTE).toMatch(/read-only/);
   });
 });
