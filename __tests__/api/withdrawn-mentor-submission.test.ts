@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(), enrollment: vi.fn(), annual: vi.fn(), application: vi.fn(),
   updateEnrollment: vi.fn(), upsertAnnual: vi.fn(), review: vi.fn(),
+  lessons: vi.fn(), asyncEnrollments: vi.fn(), attendance: vi.fn(), createAttendance: vi.fn(),
   clear: vi.fn(), notify: vi.fn(), put: vi.fn(), head: vi.fn(), token: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
@@ -19,7 +20,9 @@ vi.mock('@/lib/prisma', () => ({ prisma: {
   annualMentorInformation: { findUnique: mocks.annual },
   registrationSubmission: { findFirst: mocks.application },
   $transaction: async (callback: (tx: unknown) => unknown) => callback({
-    studentEnrollment: { updateMany: mocks.updateEnrollment, update: mocks.updateEnrollment },
+    studentEnrollment: { updateMany: mocks.updateEnrollment, update: mocks.updateEnrollment, findMany: mocks.asyncEnrollments },
+    lesson: { findMany: mocks.lessons },
+    attendanceRecord: { findMany: mocks.attendance, createMany: mocks.createAttendance },
     annualMentorInformation: { upsert: mocks.upsertAnnual, updateMany: mocks.review },
     user: { findMany: async () => [{ id: 'staff-1' }] },
     notification: { deleteMany: mocks.clear, createMany: mocks.notify },
@@ -54,6 +57,14 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
     mocks.annual.mockResolvedValue(null)
     mocks.upsertAnnual.mockResolvedValue(information)
     mocks.review.mockResolvedValue({ count: 1 })
+    mocks.lessons.mockResolvedValue([
+      { id: 'attended-week', scheduledDate: new Date('2026-10-02T00:00:00Z') },
+      { id: 'withdrawn-week-1', scheduledDate: new Date('2026-10-09T00:00:00Z') },
+      { id: 'withdrawn-week-2', scheduledDate: new Date('2026-10-16T00:00:00Z') },
+    ])
+    mocks.asyncEnrollments.mockResolvedValue([])
+    mocks.attendance.mockResolvedValue([{ studentId: 'student-1', lessonId: 'attended-week' }])
+    mocks.createAttendance.mockResolvedValue({ count: 2 })
     mocks.updateEnrollment.mockResolvedValue({ count: 1 })
     mocks.put.mockResolvedValue({ url: 'https://example.com/approval.pdf', downloadUrl: 'https://example.com/approval.pdf?download=1' })
   })
@@ -94,6 +105,7 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
       userId: 'staff-1', url: '/dashboard/admin/enrollments?studentId=student-1',
     })] }))
     expect(current).toMatchObject({ status: 'WITHDRAWN', isActive: false })
+    expect(mocks.createAttendance).not.toHaveBeenCalled()
     expect(buildStudentMapFromEnrollments([current])).toEqual([])
     expect(mocks.updateEnrollment).toHaveBeenCalledExactlyOnceWith({
       where: { studentId: 'student-1' },
@@ -112,6 +124,19 @@ describe('withdrawn Year 2 mentor submission and verification', () => {
       data: { reviewedAt: expect.any(Date), reviewedBy: 'staff-1' },
     })
     expect(current).toMatchObject({ status: 'ACTIVE', isActive: true })
+    expect(mocks.lessons).toHaveBeenCalledWith({
+      where: {
+        academicYearId: 'year-1', status: { notIn: ['CANCELLED', 'NO_CLASS'] },
+        isExamDay: false, attendanceRecords: { some: {} },
+      },
+      select: { id: true, scheduledDate: true },
+    })
+    expect(mocks.createAttendance).toHaveBeenCalledExactlyOnceWith({
+      data: ['withdrawn-week-1', 'withdrawn-week-2'].map(lessonId => ({
+        lessonId, studentId: 'student-1', status: 'ABSENT', recordedBy: null,
+      })),
+      skipDuplicates: true,
+    })
     expect(buildStudentMapFromEnrollments([current])).toMatchObject([{ id: 'student-1' }])
   })
 

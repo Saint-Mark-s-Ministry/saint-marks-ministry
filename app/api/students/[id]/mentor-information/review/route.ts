@@ -3,7 +3,7 @@ import { NotificationType, RoleTag } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext, canWriteBusinessData } from '@/lib/authorization'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
-import { enrollmentStatusUpdate, handleApiError } from '@/lib/api-utils'
+import { backfillAttendanceForStudent, enrollmentStatusUpdate, handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +41,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             data: await enrollmentStatusUpdate('ACTIVE'),
           })
           reactivated = activated.count === 1
+          if (reactivated) {
+            // Restore missed lessons as absences along with roster eligibility.
+            // The shared backfill preserves existing records and skips async students.
+            await backfillAttendanceForStudent(id, requirement.activeYear.id, tx)
+          }
         }
         await tx.notification.deleteMany({
           where: {
