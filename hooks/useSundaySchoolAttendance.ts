@@ -160,11 +160,16 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
       if (abort.signal.aborted) return false
       const response = await requestJson<{ success: boolean; lastSavedBy?: AttendanceSaveInfo | null }>('/api/sunday-school/attendance/batch', abort.signal, {
         sessionId: session.id, expectedUserId: userId,
-        records: Object.entries(sent).map(([childId, status]) => ({ childId, status })),
+        ...(finalize ? { finalize: true, explicitChildIds: Object.keys(prev.pending) } : {}),
+        records: Object.entries(sent).map(([childId, status]) => ({ childId, status, ...(prev.attendance?.roster.find(entry => entry.id === childId)?.attendance?.selfCheckedInAt ? { expectedSelfCheckedInAt: prev.attendance.roster.find(entry => entry.id === childId)!.attendance!.selfCheckedInAt } : {}) })),
       })
       if (abort.signal.aborted) return false
       if (response.success !== true) throw new Error('The server did not confirm attendance was saved')
       void mutate([SUNDAY_SCHOOL_ATTENDANCE_REMINDERS_URL, userId])
+      // A QR scan may have arrived while this tab was open. Finish closes scans
+      // atomically before finalizing, then refreshes the authoritative marks.
+      const fresh = finalize ? await requestJson<SundaySchoolSessionAttendance>(`/api/sunday-school/sessions/${session.id}/attendance`, abort.signal) : null
+      if (abort.signal.aborted) return false
       const latest = current.current
       const remaining = { ...latest.pending }
       // A newer tap during an autosave still needs its own acknowledgment.
@@ -173,7 +178,8 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
       }
       publish({ ...latest, saving: false, finalizing: false, pending: remaining,
         recovered: false, removedCount: 0, saveError: null, retryable: false,
-        attendance: { ...prev.attendance, session, lastSavedBy: response.lastSavedBy ?? prev.attendance.lastSavedBy }, lastSaved: new Date(), storageError: persist(remaining) })
+        marks: fresh ? { ...Object.fromEntries(fresh.roster.filter(entry => entry.attendance).map(entry => [entry.id, entry.attendance!.status])), ...remaining } : latest.marks,
+        attendance: fresh ?? { ...prev.attendance, roster: prev.attendance.roster.map(entry => sent[entry.id] && entry.attendance ? { ...entry, attendance: { ...entry.attendance, status: sent[entry.id], selfCheckedInAt: null } } : entry), session, lastSavedBy: response.lastSavedBy ?? prev.attendance.lastSavedBy }, lastSaved: new Date(), storageError: persist(remaining) })
       return true
     } catch (error: unknown) {
       if (!abort.signal.aborted) publish({ ...current.current, saving: false, finalizing: false,
@@ -201,5 +207,12 @@ export function useSundaySchoolAttendance(userId: string, classId: string, date:
     return () => window.removeEventListener('beforeunload', warn)
   }, [state.storageError, state.pending])
 
-  return { ...(state.key === key ? state : initial), mark, save, retryLoad: () => setRetry(value => value + 1) }
+  const refreshAttendance = useCallback((attendance: SundaySchoolSessionAttendance) => {
+    const prev = current.current
+    if (prev.key !== key || prev.loading || prev.saving || prev.finalizing) return
+    const saved = Object.fromEntries(attendance.roster.filter(entry => entry.attendance).map(entry => [entry.id, entry.attendance!.status]))
+    publish({ ...prev, attendance, marks: { ...saved, ...prev.pending } })
+  }, [key, publish])
+
+  return { ...(state.key === key ? state : initial), mark, save, refreshAttendance, retryLoad: () => setRetry(value => value + 1) }
 }

@@ -17,6 +17,30 @@ export interface ReleaseNote {
 // Confirm this entry's date when the weekly release is deployed.
 export const releaseNotes: ReleaseNote[] = [
   {
+    id: '2026-11-12',
+    date: '2026-11-12',
+    title: 'Easier attendance, readings, and class follow-up',
+    summary: 'Check in with your class QR, find the right readings, and organize your roster on your phone.',
+    changes: {
+      new: [
+        'Sunday School servants can display a separate attendance QR for each class meeting. Children enter their first and last name—no account needed. Servants confirm requests from children who are there before attendance is marked.',
+        'QR check-in is available from 10:30 a.m. to 12:30 p.m. on Saturdays and 11:30 a.m. to 1:30 p.m. on Sundays, in New York time. Codes change for every class meeting and close when attendance is finished.',
+        'A QR check-in badge shows which attendance marks came from confirmed classroom scans. Servants can review and correct marks.',
+        'Trip and event organizers can open the church payment-link creator from the bottom of Sunday School Home.',
+      ],
+      improved: [
+        'Sort Visitations by first or last name. The Children roster’s sorting control is also available on phones, with matching search and sorting controls.',
+        'Larger student photos make Servants Prep attendance roll call easier on computers and phones. Tap a photo to enlarge it.',
+      ],
+      fixed: [
+        'Sunday and Holy 50s readings now appear with matching day names. Holy Week readings remain unavailable from our calendar source.',
+        'The attendance Finish button stays above the bottom navigation on phones.',
+        'Servants Prep curriculum year filters include lessons scheduled within that academic year, including lessons moved from an earlier year.',
+        'When a withdrawn Year 2 student returns after mentor verification, missing attendance for qualifying past classes is recorded without changing existing marks.',
+      ],
+    },
+  },
+  {
     id: '2026-11-01',
     date: '2026-11-01',
     title: 'Mentor updates and easier Sunday School follow-up',

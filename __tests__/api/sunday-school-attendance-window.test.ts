@@ -47,7 +47,9 @@ describe('Sunday School child attendance edit window', () => {
     mocks.attendanceFindMany.mockResolvedValue([])
     mocks.sessionUpdate.mockResolvedValue({ id: 'session-1' })
     mocks.transaction.mockImplementation(async (callback) => callback({
+      $queryRaw: vi.fn(),
       sundaySchoolChildAttendance: {
+        findMany: mocks.attendanceFindMany,
         createMany: vi.fn(),
         updateMany: vi.fn(),
         update: vi.fn(),

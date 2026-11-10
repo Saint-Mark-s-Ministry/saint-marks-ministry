@@ -1,3 +1,4 @@
+vi.mock('@/components/sunday-school-attendance-qr', () => ({ SundaySchoolAttendanceQr: () => null }))
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SundaySchoolLevel } from '@prisma/client'
@@ -107,6 +108,14 @@ describe('Sunday School attendance page', () => {
       if (url === '/api/sunday-school/sessions') {
         return { ok: true, json: async () => ({ id: 'session-1' }) }
       }
+      if (url === '/api/sunday-school/sessions/session-1/attendance') {
+        const call = mocks.fetch.mock.calls.filter(([endpoint]) => endpoint === '/api/sunday-school/attendance/batch').at(-1)
+        const sent = call ? JSON.parse(String(call[1]?.body)).records as Array<{ childId: string; status: string }> : []
+        return { ok: true, json: async () => ({ session: { id: 'session-1' }, roster: [
+          { id: 'child-1', firstName: 'Mina', lastName: 'Mark', level: 'GRADE_5', attendance: sent.find(r => r.childId === 'child-1') ?? null },
+          { id: 'child-2', firstName: 'Abanoub', lastName: 'Saad', level: 'GRADE_5', attendance: sent.find(r => r.childId === 'child-2') ?? null },
+        ] }) }
+      }
       if (url === '/api/sunday-school/attendance/batch') {
         return { ok: true, json: async () => ({ success: true }) }
       }
@@ -201,7 +210,7 @@ describe('Sunday School attendance page', () => {
     await waitFor(() => {
       const batch = mocks.fetch.mock.calls.find(([url]) => url === '/api/sunday-school/attendance/batch')
       expect(batch).toBeDefined()
-      expect(JSON.parse(batch![1].body).records).toEqual([
+      expect(JSON.parse(batch![1].body).records.map(({ childId, status }: { childId: string; status: string }) => ({ childId, status }))).toEqual([
         { childId: 'child-1', status: 'PRESENT' },
         { childId: 'child-2', status: 'ABSENT' },
       ])

@@ -30,6 +30,11 @@ beforeEach(() => {
     if (url.startsWith('/api/sunday-school/children?')) return response(roster)
     if (failSave) throw new TypeError('Connection lost')
     if (url === '/api/sunday-school/sessions') return response({ id: 'session' })
+    if (url === '/api/sunday-school/sessions/session/attendance') {
+      const call = fetcher.mock.calls.filter(([endpoint]) => endpoint === '/api/sunday-school/attendance/batch').at(-1)
+      const records = call ? JSON.parse(String(call[1]?.body)).records as Array<{ childId: string; status: string }> : []
+      return response({ session: { id: 'session' }, roster: roster.map(child => ({ ...child, attendance: records.find(record => record.childId === child.id) ?? null })) })
+    }
     return response({ success: true })
   })
   vi.stubGlobal('fetch', fetcher)
