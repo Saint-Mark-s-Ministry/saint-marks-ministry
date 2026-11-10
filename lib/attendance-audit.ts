@@ -4,6 +4,7 @@ import { recordAuditEvent } from '@/lib/audit'
 export const ATTENDANCE_AUDIT_ACTIONS = [
   'attendance.prep.save',
   'attendance.sunday_school_children.save',
+  'attendance.sunday_school_children.qr_check_in',
   'attendance.sunday_school_servants.save',
 ]
 

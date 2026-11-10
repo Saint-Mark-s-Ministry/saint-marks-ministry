@@ -571,3 +571,24 @@ export function useBirthdayTextContact(childId: string, viewerId?: string) {
     { ...defaultSWRConfig, revalidateOnMount: true, revalidateOnFocus: true, dedupingInterval: 0, keepPreviousData: false },
   )
 }
+
+// Identity-scoped attendance polling: refreshes QR marks without replacing local edits.
+export function useSundaySchoolQrAttendance(sessionId?: string, viewerId?: string) {
+  return useSWR<import('@/types/sunday-school').SundaySchoolSessionAttendance>(
+    sessionId && viewerId ? [`/api/sunday-school/sessions/${encodeURIComponent(sessionId)}/attendance`, viewerId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    { ...defaultSWRConfig, refreshInterval: 5000, revalidateOnFocus: true, shouldRetryOnError: false },
+  )
+}
+export interface PublicAttendanceCheckInData {
+  className: string; date: string; opensAt: string; expiresAt: string; state: 'upcoming' | 'open' | 'closed'
+}
+export function usePublicAttendanceCheckIn(token: string) {
+  return useSWR<PublicAttendanceCheckInData>(token ? ['/api/public/attendance-check-in', token] : null,
+    async ([url, value]: [string, string]) => {
+      const response = await fetch(url, { headers: { 'X-Attendance-Check-In': value }, cache: 'no-store' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? 'Please ask your servant to help you check in.')
+      return data
+    }, { revalidateOnFocus: true, refreshInterval: 15000, shouldRetryOnError: false })
+}

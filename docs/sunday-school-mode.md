@@ -897,3 +897,11 @@ when the external calendar refreshes, which can take hours. Removing access bloc
 future fetches but cannot erase copies already retained by external calendar apps.
 Calendar event links open the authenticated birthday actions; phone numbers and
 SMS drafts are never embedded in public feed URLs. No database migration is needed.
+
+## Per-meeting attendance QR
+
+Class attendance now offers a separate QR per class and meeting date, with
+church-local Saturday/Sunday windows and account-free full-name requests that
+servants confirm before attendance is marked. See
+[QR attendance](qr-attendance.md) for operation, authority, source badges,
+concurrent saves and the additive migration required before code deployment.

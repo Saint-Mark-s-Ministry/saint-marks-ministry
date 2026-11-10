@@ -575,3 +575,17 @@ Only active children’s names and birthday occurrences are exported, without bi
 years, ages, contacts, or other roster data. Birthday text actions fetch the
 existing authorized child-detail endpoint on demand and use only `cellPhone`;
 contact fields remain absent from the birthday summary and public calendar feeds.
+
+### Child attendance QR requests
+
+Attendance QR codes are separate from public roster/contact links. A child can
+submit a full name without an account using one meeting's unguessable token.
+The public route returns no roster, attendance, guardian or contact information
+and can only queue a name request for exactly one unambiguous active child in
+that class. A servant must confirm presence before an attendance record is
+created. Unknown, duplicate and ambiguous names receive the same acknowledgement.
+Only current class-serving staff or a super administrator can manage codes and
+review requests; authority and the issuer's continuing authority are resolved
+from current database state. Priests remain read-only for QR management.
+See [QR attendance](qr-attendance.md) for the fixed Saturday/Sunday windows,
+revocation, concurrency, source badges, and deployment steps.

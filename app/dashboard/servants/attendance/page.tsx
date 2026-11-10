@@ -1,7 +1,10 @@
 'use client'
 
+import { SundaySchoolAttendanceQr } from '@/components/sunday-school-attendance-qr'
 import { AttendanceSavedBy } from '@/components/attendance-saved-by'
 
+import { mutate } from 'swr'
+import { toast } from 'sonner'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -59,6 +62,7 @@ function SundaySchoolAttendanceContent() {
   const [sessionDate, setSessionDate] = useState<string>(toDateInputValue(getMostRecentSunday()))
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [showHistory, setShowHistory] = useState(false)
+  const [reviewingQr, setReviewingQr] = useState<string | null>(null)
   const [showPhotos, setShowPhotos] = useState(true)
   const [groupByGender, setGroupByGender] = useState(false)
 
@@ -91,6 +95,18 @@ function SundaySchoolAttendanceContent() {
   const { attendance, marks, loading: loadingSession, error: loadError, saving, lastSaved } = editor
   const handleSave = async () => {
     await editor.save()
+  }
+  const waitingQr = attendance?.session?.checkInRequests ?? []
+  const reviewQr = async (childId: string, action: 'approve' | 'reject') => {
+    setReviewingQr(childId)
+    try {
+      const response = await fetch('/api/sunday-school/attendance/check-in', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classId: selectedClassId, date: sessionDate, action, childIds: [childId] }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error ?? 'Could not review this check-in.')
+      await mutate([`/api/sunday-school/sessions/${attendance?.session?.id}/attendance`, session?.user?.id])
+      toast.success(action === 'reject' ? 'Request dismissed' : result.added ? 'QR check-in confirmed' : 'Request reviewed. The existing attendance mark was kept.')
+    } catch (error: unknown) { toast.error(error instanceof Error ? error.message : 'Could not review this check-in.') }
+    finally { setReviewingQr(null) }
   }
   const pendingCount = Object.keys(editor.pending).length
   useEffect(() => {
@@ -130,6 +146,12 @@ function SundaySchoolAttendanceContent() {
         actions={
           selectedClassId && (
             <div className="flex flex-wrap gap-2">
+              {canEdit && session?.user?.role !== 'PRIEST' && selectedClass && <SundaySchoolAttendanceQr
+                key={`${selectedClassId}:${sessionDate}`}
+                classId={selectedClassId} className={selectedClass.name} date={sessionDate} level={selectedClass.level}
+                userId={session?.user?.id ?? ''} sessionId={attendance?.session?.id}
+                onRefresh={editor.refreshAttendance} disabled={saving || loadingSession || Boolean(session?.impersonating)}
+              />}
               <Button
                 variant={showHistory ? 'default' : 'outline'}
                 aria-expanded={showHistory}
@@ -183,6 +205,7 @@ function SundaySchoolAttendanceContent() {
             }
           >
             {!canEdit && !loadingSession && attendance && <div className="border-b border-line px-4 py-2.5"><AttendanceSavedBy info={attendance.lastSavedBy ?? null} /></div>}
+            {canEdit && waitingQr.length > 0 && <p role="status" className="border-b border-line bg-gold-tint px-4 py-3 text-sm text-ink">{waitingQr.length} QR request{waitingQr.length === 1 ? '' : 's'} waiting. Confirm the children who are here before finishing attendance.</p>}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
               <AttendanceLegend showExcused={false} />
               {canEdit && attendance && unmarkedCount > 0 && (
@@ -223,12 +246,18 @@ function SundaySchoolAttendanceContent() {
                             {showPhotos && <Initials name={getChildFullName(entry)} imageUrl={entry.profileImageUrl} size={32} />}
                             <span className="flex min-w-0 flex-col leading-tight">
                               <StudentName id={entry.id} name={getChildFullName(entry)} program="sunday-school" className="truncate text-[14px]" />
+                              {entry.attendance?.selfCheckedInAt && !editor.pending[entry.id] && <span className="mt-1 w-fit rounded bg-ok-tint px-1.5 py-0.5 text-[11px] font-medium text-ok">QR check-in</span>}
                               <span className="flex items-center gap-2 text-xs text-ink-3">
                                 {getLevelDisplayName(entry.level)}
                                 <RecentAttendanceDots statuses={recentByChild.get(entry.id) ?? []} />
                               </span>
                             </span>
                           </span>
+                          {canEdit && waitingQr.some(request => request.childId === entry.id) && <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-gold">QR request · awaiting confirmation</span>
+                            <Button variant="outline" size="sm" disabled={Boolean(reviewingQr) || saving} onClick={() => void reviewQr(entry.id, 'approve')} aria-label={`Confirm QR check-in for ${getChildFullName(entry)}`}>Confirm</Button>
+                            <Button variant="ghost" size="sm" disabled={Boolean(reviewingQr) || saving} onClick={() => void reviewQr(entry.id, 'reject')} aria-label={`Dismiss QR request for ${getChildFullName(entry)}`}>Dismiss</Button>
+                          </div>}
                           <AttendanceStatusButtons
                             currentStatus={marks[entry.id]}
                             onStatusChange={(statusValue) => editor.mark(entry.id, statusValue as AttendanceStatus)}
@@ -255,7 +284,7 @@ function SundaySchoolAttendanceContent() {
               lastSavedBy={attendance.lastSavedBy ?? null}
               saveError={Boolean(editor.saveError)}
               recovered={editor.recovered}
-              disabled={saving || loadingSession || !session?.user?.id}
+              disabled={saving || loadingSession || !session?.user?.id || waitingQr.length > 0}
               onSave={handleSave}
             />
           )}

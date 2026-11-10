@@ -21,6 +21,8 @@ export async function GET(
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id },
       include: {
+        checkInRequests: { where: { reviewedAt: null, child: { isActive: true, status: 'ACTIVE' } }, select: { childId: true, submittedAt: true } },
+        checkIn: { select: { tokenHash: true, opensAt: true, expiresAt: true, closedAt: true } },
         class: { select: { id: true, name: true, level: true, academicYearId: true } },
         taker: { select: { id: true, name: true } },
       },
@@ -51,14 +53,14 @@ export async function GET(
       }),
       prisma.sundaySchoolChildAttendance.findMany({
         where: { sessionId: id },
-        select: { id: true, childId: true, status: true, notes: true, updatedAt: true, recorder: { select: { id: true, name: true } } },
+        select: { id: true, childId: true, status: true, notes: true, selfCheckedInAt: true, updatedAt: true, recorder: { select: { id: true, name: true } } },
       }),
     ])
 
     const recordByChild = new Map(records.map(r => [r.childId, r]))
 
     return NextResponse.json({
-      session,
+      session: { ...session, checkIn: session.checkIn ? { opensAt: session.checkIn.opensAt, expiresAt: session.checkIn.expiresAt, closedAt: session.checkIn.closedAt, codeVersion: session.checkIn.tokenHash.slice(0, 12) } : null, checkInRequests: session.checkInRequests.filter(row => children.some(child => child.id === row.childId)) },
       lastSavedBy: latestAttendanceSave(records),
       roster: children.map(child => ({
         id: child.id,
@@ -70,7 +72,7 @@ export async function GET(
         profileImageUrl: child.photoUrl ?? child.user?.profileImageUrl ?? null,
         attendance: (() => {
           const record = recordByChild.get(child.id)
-          return record ? { id: record.id, childId: record.childId, status: record.status, notes: record.notes } : null
+          return record ? { id: record.id, childId: record.childId, status: record.status, notes: record.notes, selfCheckedInAt: record.selfCheckedInAt } : null
         })(),
       })),
     })

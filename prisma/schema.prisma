@@ -1114,6 +1114,7 @@ model SundaySchoolChild {
   family              SundaySchoolFamily?              @relation(fields: [familyId], references: [id], onDelete: SetNull)
   user                User?                            @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
+  checkInRequests     SundaySchoolAttendanceCheckInRequest[]
   homeworkCompletions SundaySchoolHomeworkCompletion[]
   memorizationScores  SundaySchoolMemorizationScore[]
   visitations         SundaySchoolVisitation[]
@@ -1365,10 +1366,39 @@ model SundaySchoolSession {
   taker             User?                           @relation("TakenSundaySchoolSessions", fields: [takenBy], references: [id], onDelete: SetNull)
   attendance        SundaySchoolChildAttendance[]
   servantAttendance SundaySchoolServantAttendance[]
+  checkIn           SundaySchoolAttendanceCheckIn?
+  checkInRequests   SundaySchoolAttendanceCheckInRequest[]
 
   @@unique([classId, date])
   @@index([classId, date])
   @@index([date])
+}
+
+// One replaceable, expiring QR per class meeting. Plaintext tokens are never stored.
+model SundaySchoolAttendanceCheckIn {
+  sessionId     String   @id
+  tokenHash     String   @unique
+  opensAt       DateTime
+  expiresAt     DateTime
+  createdById   String
+  authVersion   Int
+  closedAt      DateTime?
+  session       SundaySchoolSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// Name-only submissions require a servant to confirm; they never mark attendance directly.
+model SundaySchoolAttendanceCheckInRequest {
+  id          String   @id @default(cuid())
+  sessionId   String
+  childId     String
+  submittedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  approved    Boolean  @default(false)
+  session     SundaySchoolSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  child       SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, childId])
+  @@index([sessionId, reviewedAt])
 }
 
 model SundaySchoolChildAttendance {
@@ -1377,6 +1407,7 @@ model SundaySchoolChildAttendance {
   childId      String
   enrollmentId String?
   placementId  String?
+  selfCheckedInAt DateTime?
   status       AttendanceStatus
   notes        String?          @db.Text
   recordedBy   String?

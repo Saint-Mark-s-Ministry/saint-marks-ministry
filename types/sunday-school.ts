@@ -308,6 +308,8 @@ export interface SundaySchoolFeedbackResponse {
 }
 
 export interface SundaySchoolSession {
+  checkInRequests?: Array<{ childId: string; submittedAt: string }>
+  checkIn?: { codeVersion: string; opensAt: string; expiresAt: string; closedAt: string | null } | null
   id: string
   classId: string
   date: string
@@ -331,6 +333,7 @@ export interface SundaySchoolRosterEntry {
     childId: string
     status: AttendanceStatus
     notes: string | null
+    selfCheckedInAt?: string | null
   } | null
 }
 

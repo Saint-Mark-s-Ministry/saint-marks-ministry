@@ -1,3 +1,4 @@
+import { CheckInError, finishAttendanceWithCheckIn, lockCheckInSession } from '@/lib/sunday-school-attendance-check-in'
 import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -14,10 +15,13 @@ interface ChildAttendanceRecord {
   childId: string
   status: AttendanceStatus
   notes?: string | null
+  expectedSelfCheckedInAt?: string | null
 }
 
 interface BatchRequest {
   expectedUserId?: string
+  finalize?: boolean
+  explicitChildIds?: string[]
   sessionId: string
   records: ChildAttendanceRecord[]
 }
@@ -85,35 +89,53 @@ export async function POST(request: Request) {
       )
     }
 
-    const existingRecords = await prisma.sundaySchoolChildAttendance.findMany({
-      where: { sessionId },
-      select: { id: true, childId: true },
-    })
-    const existingByChild = new Map(existingRecords.map(r => [r.childId, r.id]))
-
-    const toCreate = records
-      .filter(r => !existingByChild.has(r.childId))
-      .map(r => ({
-        sessionId,
-        childId: r.childId,
-        status: r.status,
-        notes: r.notes?.trim() || null,
-        recordedBy: user.id,
-      }))
-
-    const toUpdate = records
-      .filter(r => existingByChild.has(r.childId))
-      .map(r => ({
-        id: existingByChild.get(r.childId)!,
-        status: r.status,
-        notes: r.notes?.trim() || null,
-      }))
+    if (body.finalize === true) {
+      if (!Array.isArray(body.explicitChildIds) || !body.explicitChildIds.every(id => typeof id === 'string' && childIds.includes(id))) return NextResponse.json({ error: 'Invalid explicit attendance marks' }, { status: 400 })
+      const savedAt = await finishAttendanceWithCheckIn(sessionId, user.id, records, body.explicitChildIds)
+      await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_children.save', entityType: 'SundaySchoolSession', entityId: sessionId, targetName: session.class.name, attendanceDate: session.date, personIds: childIds })
+      return NextResponse.json({ success: true, lastSavedBy: { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } })
+    }
 
     const savedAt = new Date()
 
+    let createdCount = 0
+    let updatedCount = 0
     await prisma.$transaction(async (tx) => {
+      await lockCheckInSession(tx, sessionId)
+      const existingRecords = await tx.sundaySchoolChildAttendance.findMany({
+        where: { sessionId },
+        select: { id: true, childId: true, selfCheckedInAt: true },
+      })
+      const existingByChild = new Map(existingRecords.map(r => [r.childId, r.id]))
+
+      const toCreate = records
+        .filter(r => !existingByChild.has(r.childId))
+        .map(r => ({
+          sessionId,
+          childId: r.childId,
+          status: r.status,
+          notes: r.notes?.trim() || null,
+          recordedBy: user.id,
+        }))
+
+      const toUpdate = records
+        .filter(r => existingByChild.has(r.childId))
+        .map(r => ({
+          id: existingByChild.get(r.childId)!,
+          status: r.status,
+          notes: r.notes?.trim() || null,
+        }))
+
+
+      const qrByChild = new Map(existingRecords.filter(row => row.selfCheckedInAt).map(row => [row.childId, row.selfCheckedInAt!.toISOString()]))
+      if (records.some(record => qrByChild.has(record.childId) && qrByChild.get(record.childId) !== record.expectedSelfCheckedInAt)) {
+        throw new CheckInError('A newer QR check-in was received. Reload the roster and review your marks before saving again.', 409)
+      }
+      createdCount = toCreate.length
+      updatedCount = toUpdate.length
+
       if (toCreate.length > 0) {
-        await tx.sundaySchoolChildAttendance.createMany({ data: toCreate.map(record => ({ ...record, updatedAt: savedAt })) })
+        await tx.sundaySchoolChildAttendance.createMany({ data: toCreate.map(record => ({ ...record, updatedAt: savedAt })), skipDuplicates: true })
       }
 
       // Group status-only updates (the common case) into one query per status
@@ -133,14 +155,14 @@ export async function POST(request: Request) {
       for (const [status, ids] of statusGroups) {
         await tx.sundaySchoolChildAttendance.updateMany({
           where: { id: { in: ids } },
-          data: { status, notes: null, recordedBy: user.id, updatedAt: savedAt },
+          data: { status, notes: null, recordedBy: user.id, selfCheckedInAt: null, updatedAt: savedAt },
         })
       }
 
       for (const update of noteUpdates) {
         await tx.sundaySchoolChildAttendance.update({
           where: { id: update.id },
-          data: { status: update.status, notes: update.notes, recordedBy: user.id, updatedAt: savedAt },
+          data: { status: update.status, notes: update.notes, recordedBy: user.id, selfCheckedInAt: null, updatedAt: savedAt },
         })
       }
 
@@ -157,11 +179,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      created: toCreate.length,
-      updated: toUpdate.length,
+      created: createdCount,
+      updated: updatedCount,
       lastSavedBy: records.length ? { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } : null,
     })
   } catch (error: unknown) {
+    if (error instanceof CheckInError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error("Sunday School batch attendance save error:", error)
     return handleApiError(error)
   }
