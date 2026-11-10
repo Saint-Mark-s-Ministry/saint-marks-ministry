@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Cake, CalendarX, Phone, Star } from 'lucide-react'
+import { Cake, CalendarX, CirclePlay, Phone, Star } from 'lucide-react'
 import { PageHeader } from '@/components/ds/page-header'
 import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
@@ -21,6 +21,7 @@ import { formatBirthday } from '@/lib/sunday-school-birthdays'
 import { localDayKey } from '@/components/ds/calendar'
 import { formatDateUTC } from '@/lib/utils'
 import type { SundaySchoolBirthdayChild, SundaySchoolVisitationsResponse } from '@/types/sunday-school'
+import { CARE_GUIDE_HREF } from '@/lib/guides'
 
 const CALL_OUTCOMES: Record<string, string> = {
   CONNECTED: 'connected',
@@ -97,6 +98,7 @@ export default function SundaySchoolCarePage() {
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Care"
+        actions={<Button asChild variant="outline" className="w-full md:w-auto"><Link href={CARE_GUIDE_HREF}><CirclePlay aria-hidden />Watch guide</Link></Button>}
         meta={[viewingClass?.name ?? (classes.length > 1 ? 'All your classes' : classes[0]?.name), 'Who needs a call, a visit or a card this week']}
       />
       <CareHubTabs followUpCount={urgent.length} />
