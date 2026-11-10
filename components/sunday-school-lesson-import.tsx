@@ -145,7 +145,7 @@ export function SundaySchoolLessonImport({
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)} disabled={classes.length === 0}>
-        <Upload className="mr-1 h-4 w-4" />
+        <Upload aria-hidden />
         Upload schedule CSV
       </Button>
 
