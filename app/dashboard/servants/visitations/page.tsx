@@ -1,5 +1,8 @@
 'use client'
 
+import Link from 'next/link'
+import { CARE_GUIDE_HREF } from '@/lib/guides'
+
 import { StudentName } from '@/components/student-history-provider'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -8,6 +11,7 @@ import { SundaySchoolLevel, SundaySchoolPhoneCallOutcome, SundaySchoolVisitation
 import { toast } from 'sonner'
 import {
   LockKeyhole,
+  CirclePlay,
   MessageSquareText,
   Phone,
   Star,
@@ -262,7 +266,7 @@ function VisitationsContent() {
   return (
     <div className="content-reveal flex min-w-0 flex-col">
       <div className="flex flex-col gap-5">
-        <PageHeader title="Care" meta={[selectedClass?.name, 'Visits and phone calls for each child']} />
+        <PageHeader title="Care" meta={[selectedClass?.name, 'Visits and phone calls for each child']} actions={<Button asChild variant="outline" className="w-full md:w-auto"><Link href={CARE_GUIDE_HREF}><CirclePlay aria-hidden />Watch guide</Link></Button>} />
         <CareHubTabs />
 
         {response?.standing.readOnly && (

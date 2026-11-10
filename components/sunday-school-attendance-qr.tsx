@@ -11,6 +11,8 @@ import type { SundaySchoolLevel } from '@prisma/client'
 import { checkInWindowLabel, getClassCheckInWindow } from '@/lib/sunday-school-attendance-check-in-time'
 import { formatDateUTC } from '@/lib/utils'
 import type { SundaySchoolSessionAttendance } from '@/types/sunday-school'
+import Link from 'next/link'
+import { QR_ATTENDANCE_GUIDE_HREF } from '@/lib/guides'
 
 type WindowInfo = { codeVersion: string; token: string; opensAt: string; expiresAt: string; sessionId: string }
 export function SundaySchoolAttendanceQr({ classId, className, date, level, userId, sessionId, onRefresh, disabled }: {
@@ -61,6 +63,7 @@ export function SundaySchoolAttendanceQr({ classId, className, date, level, user
           {error && <p role="alert" className="text-sm text-danger">Couldn’t refresh attendance. Check your connection.</p>}
           <Button variant="ghost" size="sm" aria-expanded={controls} onClick={() => setControls(value => !value)}>Servant controls</Button>
           {controls && <div className="flex w-full flex-col items-center gap-3 border-t border-line pt-4">
+            <Link href={QR_ATTENDANCE_GUIDE_HREF} className="text-sm text-accent-ink underline underline-offset-4">Watch the QR attendance guide</Link>
             <p className="text-sm text-ink-2" aria-live="polite">{count} confirmed QR check-ins · {data?.session?.checkInRequests?.length ?? 0} waiting for confirmation</p>
             <div className="flex w-full flex-wrap justify-center gap-2 [&>*]:w-full sm:[&>*]:w-auto">
             {active && <Button asChild variant="outline"><a href={url} target="_blank" rel="noopener noreferrer">Open check-in page</a></Button>}

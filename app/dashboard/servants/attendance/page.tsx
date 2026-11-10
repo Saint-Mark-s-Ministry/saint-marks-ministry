@@ -44,6 +44,9 @@ import type {
 } from '@/types/sunday-school'
 import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
 import { MeetingDatePicker } from '@/components/sunday-school-meeting-date'
+import Link from 'next/link'
+import { CirclePlay } from 'lucide-react'
+import { ATTENDANCE_GUIDE_HREF } from '@/lib/guides'
 
 function SundaySchoolAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
@@ -145,7 +148,8 @@ function SundaySchoolAttendanceContent() {
         ]}
         actions={
           selectedClassId && (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full gap-2 md:flex md:w-auto md:flex-wrap">
+              <Button variant="outline" asChild><Link href={ATTENDANCE_GUIDE_HREF}><CirclePlay aria-hidden />Watch guide</Link></Button>
               {canEdit && session?.user?.role !== 'PRIEST' && selectedClass && <SundaySchoolAttendanceQr
                 key={`${selectedClassId}:${sessionDate}`}
                 classId={selectedClassId} className={selectedClass.name} date={sessionDate} level={selectedClass.level}
