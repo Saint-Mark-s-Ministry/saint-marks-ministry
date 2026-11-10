@@ -121,6 +121,61 @@ describe('Coptic IO client', () => {
     })
   })
 
+  it('shows the Sunday readings once Coptic IO serves them, under its name for the day', async () => {
+    fetchMock.mockImplementation(
+      route({
+        '/api/readings/': () =>
+          json({
+            // What Coptic IO returns for 2026-10-18 since its #123: the Sunday Katameros.
+            reference: { VGospel: 'Matthew 17:24-27', LGospel: 'Luke 5:1-11' },
+            cycle: 'sunday',
+            readingsAvailable: true,
+            seasonDay: 'Second Sunday of Baba',
+            Synaxarium: [{ name: 'St. Pelagia' }],
+            fullDate: { day: 8, month: 2, year: 1743, monthString: 'Baba' },
+          }),
+      })
+    )
+
+    const day = await getLiturgicalDay('2026-10-18')
+    expect(day).toMatchObject({
+      seasonDay: 'Second Sunday of Baba',
+      readingCycle: { kind: 'sunday', label: 'Second Sunday of Baba', available: true },
+    })
+    expect(day.readings.map((reading) => [reading.key, reading.reference])).toEqual([
+      ['VGospel', 'Matthew 17:24-27'],
+      ['LGospel', 'Luke 5:1-11'],
+    ])
+  })
+
+  it('shows the Holy 50s readings and keeps Holy Week unavailable', async () => {
+    fetchMock.mockImplementation(async (input: URL | string) => {
+      const date = new URL(String(input)).pathname.split('/').pop()
+      if (date === '2027-05-09') {
+        return json({
+          cycle: 'holyFifty',
+          readingsAvailable: true,
+          seasonDay: 'Thomas Sunday',
+          LGospel: [{ bookName: 'John', chapters: [{ chapterNum: 20, verses: [{ num: 19, text: 'Peace be with you.' }] }] }],
+          Synaxarium: [],
+        })
+      }
+      if (date === '2027-04-26') return json({ cycle: 'holyWeek', readingsAvailable: false, season: 'Holy Week', Synaxarium: [] })
+      return json({ error: 'Not Found' }, 404)
+    })
+
+    const thomas = await getDailyReadings('2027-05-09')
+    expect(thomas).toMatchObject({ seasonDay: 'Thomas Sunday', readingCycle: { kind: 'holy50', available: true }, annualSections: [] })
+    expect(thomas?.sections.map((section) => section.key)).toEqual(['LGospel'])
+
+    const monday = await getDailyReadings('2027-04-26')
+    expect(monday).toMatchObject({
+      readingCycle: { kind: 'pascha', label: 'Monday of Holy Week', available: false },
+      sections: [],
+      annualSections: [],
+    })
+  })
+
   it('degrades instead of throwing when Coptic IO is down or misbehaves', async () => {
     fetchMock.mockImplementation(
       route({
