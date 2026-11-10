@@ -355,6 +355,7 @@ function SundaySchoolChildrenContent() {
                 <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
                 <FilterSelect
                   aria-label="Alphabetize by"
+                  className="w-full md:w-auto"
                   value={nameOrder}
                   onChange={(value) => setNameOrder(value as AttendanceRosterNameOrder)}
                   options={[

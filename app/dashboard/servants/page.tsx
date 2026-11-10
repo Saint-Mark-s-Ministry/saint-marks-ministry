@@ -256,7 +256,6 @@ export default function SundaySchoolDashboardPage() {
       />
 
       <SundaySchoolLayoutIntro />
-      <ChurchEventPayments />
 
       {allClasses.length === 0 ? (
         <Panel>
@@ -526,6 +525,7 @@ export default function SundaySchoolDashboardPage() {
           </div>
         </div>
       )}
+      <ChurchEventPayments />
     </div>
   )
 }
