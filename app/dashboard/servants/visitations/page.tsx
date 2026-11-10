@@ -308,6 +308,7 @@ function VisitationsContent() {
                     <SearchField value={search} onChange={setSearch} placeholder="Find a child" className="flex-1 md:flex-none" />
                     <FilterSelect
                       aria-label="Alphabetize by"
+                      className="w-full md:w-auto"
                       value={nameOrder}
                       onChange={value => setNameOrder(value as AttendanceRosterNameOrder)}
                       options={[
