@@ -1,3 +1,5 @@
+export { validateWeeklyLessonResources } from './sunday-school-lesson-resources'
+export type { SundaySchoolLessonResourceInput } from './sunday-school-lesson-resources'
 import { prisma } from "./prisma"
 import type { SundaySchoolLevel } from "@prisma/client"
 import {
@@ -9,11 +11,6 @@ import {
 export const SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS = 8
 
 export type SundaySchoolWeeklyLessonStatus = "UNASSIGNED" | "NEEDS_LINKS" | "READY"
-
-export interface SundaySchoolLessonResourceInput {
-  title: string
-  url: string
-}
 
 // Keep this deliberately structural: the application Prisma client has a
 // global password omission, while transaction clients do not. These are the
@@ -98,41 +95,6 @@ export function getWeeklyLessonStatus(
   if (!ownerId) return "UNASSIGNED"
   if (resourceCount === 0) return "NEEDS_LINKS"
   return "READY"
-}
-
-export function validateWeeklyLessonResources(value: unknown):
-  | { ok: true; resources: SundaySchoolLessonResourceInput[] }
-  | { ok: false; error: string } {
-  if (!Array.isArray(value)) {
-    return { ok: false, error: "Resources must be an array" }
-  }
-
-  const resources: SundaySchoolLessonResourceInput[] = []
-  for (const item of value) {
-    if (!item || typeof item !== "object") {
-      return { ok: false, error: "Each resource needs a title and URL" }
-    }
-
-    const candidate = item as { title?: unknown; url?: unknown }
-    const title = typeof candidate.title === "string" ? candidate.title.trim() : ""
-    const url = typeof candidate.url === "string" ? candidate.url.trim() : ""
-    if (!title || !url) {
-      return { ok: false, error: "Each resource needs a title and URL" }
-    }
-
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        return { ok: false, error: "Resource URLs must start with http:// or https://" }
-      }
-    } catch {
-      return { ok: false, error: "Enter a valid resource URL" }
-    }
-
-    resources.push({ title, url })
-  }
-
-  return { ok: true, resources }
 }
 
 export async function ensureSundaySchoolWeeklyLessons({

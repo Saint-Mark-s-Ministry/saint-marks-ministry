@@ -88,7 +88,7 @@ describe('Sunday School lesson schedule layout', () => {
 
     render(<SundaySchoolLessonsPage />)
 
-    const resourceLink = screen.getByRole('link')
+    const resourceLink = screen.getByRole('link', { name: new RegExp('very-long-presentation-id') })
     expect(resourceLink).toHaveClass('min-w-0', 'max-w-full')
     expect(screen.getByText(longUrl)).toHaveClass('truncate')
 
