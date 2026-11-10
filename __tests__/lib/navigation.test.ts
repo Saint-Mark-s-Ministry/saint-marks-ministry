@@ -18,7 +18,7 @@ const servesSS = { sundaySchool: { hasAccess: true, isCoordinator: false } }
 describe('navigationFor', () => {
   it('gives a super admin every prep destination, grouped', () => {
     const groups = navigationFor({ role: 'SUPER_ADMIN', ...noSS }, 'prep')
-    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church', 'Updates'])
+    expect(groups.map((g) => g.label)).toEqual([undefined, 'People', 'Workspace', 'Church', 'Help', 'Updates'])
     expect(hrefs('SUPER_ADMIN', 'prep', noSS)).toEqual(
       expect.arrayContaining([
         '/dashboard/admin/users',
@@ -46,7 +46,7 @@ describe('navigationFor', () => {
   it('never shows prep pages to a SERVANT, whatever the path', () => {
     for (const ministry of ['prep', 'sunday-school'] as const) {
       expect(
-        hrefs('SERVANT', ministry, servesSS).every((h) => h.startsWith('/dashboard/servants') || h === '/dashboard/readings')
+        hrefs('SERVANT', ministry, servesSS).every((h) => h.startsWith('/dashboard/servants') || h === '/dashboard/readings' || h === '/dashboard/guides')
       ).toBe(true)
     }
   })
@@ -234,5 +234,22 @@ describe('contact book navigation', () => {
     expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/contact-book')).toBe('prep')
     expect(resolveMinistry({ role: 'SUPER_ADMIN', ...servesSS }, '/dashboard/readings')).toBe('prep')
     expect(resolveMinistry({ role: 'SERVANT', ...servesSS }, '/dashboard/readings')).toBe('sunday-school')
+  })
+})
+
+
+describe('shared Guides navigation', () => {
+  it('is available to signed-in roles without changing their ministry context', () => {
+    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'PARENT', 'SERVANT'] as UserRole[]) {
+      const user = { role, ...servesSS }
+      for (const { id: ministry } of availableMinistries(user)) {
+        const groups = navigationFor(user, ministry)
+        const guide = groups.flatMap(group => group.items).find(item => item.href === '/dashboard/guides')
+        expect(guide?.label).toBe('Guides')
+        expect(guide?.tab).not.toBe(true)
+        expect(currentNavLabel(groups, '/dashboard/guides')).toBe('Guides')
+        expect(resolveMinistry(user, '/dashboard/guides', ministry)).toBe(ministry)
+      }
+    }
   })
 })

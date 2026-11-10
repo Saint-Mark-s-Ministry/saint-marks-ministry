@@ -15,6 +15,7 @@ import {
   FileText,
   Folder,
   GraduationCap,
+  CircleHelp,
   HandHeart,
   Home,
   Inbox,
@@ -39,6 +40,7 @@ import {
   isAdmin,
 } from '@/lib/roles'
 import { defaultDashboardPath, type DashboardUser } from '@/lib/dashboard-navigation'
+import { GUIDES_HREF } from '@/lib/guides'
 
 /**
  * The app shell's navigation, by ministry and role.
@@ -129,7 +131,7 @@ export function availableMinistries(user: NavUser): MinistryOption[] {
 }
 
 /** Pages that belong to neither ministry; people with both see their default around them. */
-const SHARED_PAGES = new Set(['/settings', '/dashboard', '/dashboard/contact-book', DAILY_READINGS_HREF])
+const SHARED_PAGES = new Set(['/settings', '/dashboard', '/dashboard/contact-book', DAILY_READINGS_HREF, GUIDES_HREF])
 
 /**
  * The ministry the shell shows. Someone with one ministry stays in it on
@@ -351,6 +353,7 @@ export function navigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
   if (user.role !== 'SUPER_ADMIN' && user.canAccessContactBook) {
     groups.push({ label: 'Directory', items: [{ href: '/dashboard/contact-book', label: 'Contact Book', icon: ContactRound }] })
   }
+  groups.push({ label: 'Help', items: [{ href: GUIDES_HREF, label: 'Guides', icon: CircleHelp }] })
   const inSundaySchool = ministry === 'sunday-school' || user.role === 'SERVANT' || user.role === 'PARENT'
   groups.push({ label: 'Updates', items: [{
     href: inSundaySchool ? '/dashboard/servants/whats-new' : '/dashboard/whats-new',

@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { CirclePlay, ExternalLink, Link2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useLiturgicalCalendar, useSundaySchoolAgeGroups, useSundaySchoolLessons } from '@/lib/swr'
@@ -29,7 +30,8 @@ import { ALL_CLASSES, useViewingClassId } from '@/lib/sunday-school-viewing'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 
-interface ResourceDraft { title: string; url: string }
+import { LESSON_GUIDE_HREF } from '@/lib/guides'
+import { prepareWeeklyLessonResources, type LessonResourceDraftError, type SundaySchoolLessonResourceInput as ResourceDraft } from '@/lib/sunday-school-lesson-resources'
 
 
 function LessonsContent() {
@@ -56,6 +58,8 @@ function LessonsContent() {
   const [title, setTitle] = useState('')
   const [resources, setResources] = useState<ResourceDraft[]>([])
   const [saving, setSaving] = useState(false)
+  const [resourceError, setResourceError] = useState<LessonResourceDraftError | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const today = getSundaySchoolTodayDateInputValue()
 
   const classOptions = sortClassesByAgeGroup(Array.from(
@@ -115,6 +119,8 @@ function LessonsContent() {
 
   const openEditor = (lesson: SundaySchoolWeeklyLesson) => {
     setEditing(lesson)
+    setResourceError(null)
+    setSaveError(null)
     setTitle(lesson.title ?? '')
     setResources(lesson.resources.map(resource => ({ title: resource.title, url: resource.url })))
   }
@@ -125,9 +131,20 @@ function LessonsContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error || 'Could not update the lesson')
-    await mutate()
+    const result = await response.json().catch(() => null) as (Partial<SundaySchoolWeeklyLesson> & { error?: string }) | null
+    if (!response.ok) throw new Error(result?.error || 'Could not save the lesson. Please try again.')
+    if (result?.id !== lessonId) throw new Error('Could not confirm the save. Please try again.')
+    // The PATCH response is the committed lesson. Do not make a confirmed save
+    // depend on a second GET, which can fail independently on a weak connection.
+    await mutate((current: SundaySchoolWeeklyLessonsResponse | undefined) => current ? {
+      ...current,
+      lessons: current.lessons.map(lesson => lesson.id === lessonId ? {
+        ...lesson,
+        ...result,
+        class: { ...lesson.class, ...result.class },
+        eligibleOwners: lesson.eligibleOwners,
+      } : lesson),
+    } : current, { revalidate: false })
   }
 
   const assignOwner = async (lesson: SundaySchoolWeeklyLesson, ownerId: string) => {
@@ -140,14 +157,26 @@ function LessonsContent() {
   }
 
   const saveLesson = async () => {
-    if (!editing) return
+    if (!editing || saving) return
+    const prepared = prepareWeeklyLessonResources(resources)
+    setSaveError(null)
+    if (!prepared.ok) {
+      setResourceError(prepared)
+      document.getElementById(`lesson-link-${prepared.index}-${prepared.field}`)?.focus()
+      return
+    }
+    setResourceError(null)
     setSaving(true)
     try {
-      await patchLesson(editing.id, { title, resources })
+      await patchLesson(editing.id, { title, resources: prepared.resources })
       toast.success('Lesson links saved')
       setEditing(null)
-    } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : 'Could not save the lesson')
+    } catch (error: unknown) {
+      const message = error instanceof TypeError
+        ? 'Could not confirm the save. Your changes are still here. Check your connection and try again.'
+        : error instanceof Error ? error.message : 'Could not save the lesson. Your changes are still here.'
+      setSaveError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -162,7 +191,8 @@ function LessonsContent() {
           title="Lessons"
           meta={[classId !== ALL_CLASSES ? classOptions.find(cls => cls.id === classId)?.name : null, 'Who teaches each week, and the slides and links to use']}
           actions={
-            <>
+            <div className="grid w-full gap-2 md:flex md:w-auto md:flex-wrap md:justify-end">
+              <Button variant="outline" asChild><Link href={LESSON_GUIDE_HREF}><CirclePlay aria-hidden />Watch guide</Link></Button>
               <SundaySchoolLessonSubscribe key={classId} classes={classOptions} selectedClassId={classId !== ALL_CLASSES ? classId : undefined} viewingAs={Boolean(session?.impersonating)} />
               {manageableClasses.length > 0 && (
                 <SundaySchoolLessonImport
@@ -173,7 +203,7 @@ function LessonsContent() {
                   }}
                 />
               )}
-            </>
+            </div>
           }
         />
 
@@ -224,7 +254,7 @@ function LessonsContent() {
           }
           footer={<span className="tabular">{visibleLessons.length} {visibleLessons.length === 1 ? 'lesson' : 'lessons'}</span>}
         >
-          {error ? (
+          {error && lessons.length === 0 ? (
             <EmptyState title="Couldn’t load lessons" message="Something went wrong on our side. Try again in a moment." />
           ) : visibleLessons.length === 0 ? (
             <EmptyState
@@ -327,23 +357,25 @@ function LessonsContent() {
         </Panel>
       </div>
 
-      <Dialog open={Boolean(editing)} onOpenChange={open => !open && setEditing(null)}>
+      <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open && !saving) setEditing(null) }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Edit lesson</DialogTitle>
             <DialogDescription>
-              Add named Google Slides, PowerPoint, video, or other web links. Families see them immediately after you save.
+              Add named links to slides, videos, or other resources. Saved links are available in the portal.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <p className="text-[13px] leading-5 text-ink-3">Upload files to Google Drive, OneDrive, or another service first, then paste their sharing links here.</p>
+            {saveError && <p role="alert" className="rounded-md border border-bad/30 bg-bad-tint p-3 text-sm text-bad">{saveError}</p>}
             <div className="space-y-2">
               <Label htmlFor="lesson-title">Lesson title</Label>
-              <Input id="lesson-title" value={title} onChange={event => setTitle(event.target.value)} placeholder="The Good Samaritan" />
+              <Input id="lesson-title" disabled={saving} value={title} onChange={event => setTitle(event.target.value)} placeholder="The Good Samaritan" />
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Links</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => setResources(current => [...current, { title: '', url: '' }])}>
+                <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => setResources(current => [...current, { title: '', url: '' }])}>
                   <Plus className="mr-1 h-4 w-4" /> Add link
                 </Button>
               </div>
@@ -353,17 +385,18 @@ function LessonsContent() {
                 </div>
               ) : resources.map((resource, index) => (
                 <div key={index} className="grid gap-2 rounded-md border border-line p-3 sm:grid-cols-[1fr_1.5fr_auto]">
-                  <Input aria-label={`Link ${index + 1} title`} value={resource.title} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item))} placeholder="Slides" />
-                  <Input aria-label={`Link ${index + 1} URL`} value={resource.url} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))} placeholder="https://…" />
-                  <Button type="button" variant="ghost" size="icon" onClick={() => setResources(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove link ${index + 1}`}>
+                  <Input id={`lesson-link-${index}-title`} disabled={saving} aria-invalid={resourceError?.index === index && resourceError.field === 'title'} aria-describedby={resourceError?.index === index ? 'lesson-link-error' : undefined} aria-label={`Link ${index + 1} title`} value={resource.title} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item))} placeholder="Slides" />
+                  <Input id={`lesson-link-${index}-url`} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" disabled={saving} aria-invalid={resourceError?.index === index && resourceError.field === 'url'} aria-describedby={resourceError?.index === index ? 'lesson-link-error' : undefined} aria-label={`Link ${index + 1} URL`} value={resource.url} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))} placeholder="https://…" />
+                  <Button type="button" variant="ghost" size="icon" disabled={saving} onClick={() => setResources(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove link ${index + 1}`}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                 </div>
               ))}
+              {resourceError && <p id="lesson-link-error" role="alert" className="text-sm text-bad">{resourceError.error}</p>}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button variant="outline" disabled={saving} onClick={() => setEditing(null)}>Cancel</Button>
             <Button onClick={saveLesson} disabled={saving}>{saving ? 'Saving…' : 'Save lesson'}</Button>
           </DialogFooter>
         </DialogContent>

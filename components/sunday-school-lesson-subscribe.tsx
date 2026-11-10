@@ -33,7 +33,7 @@ export function SundaySchoolLessonSubscribe({ classes, selectedClassId, viewingA
 
   return (
     <Dialog open={open} onOpenChange={value => { setOpen(value); if (!value) { reset(); setIncludeCopticCalendar(false) } }}>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} disabled={viewingAs || classes.length === 0}
+      <Button variant="outline" onClick={() => setOpen(true)} disabled={viewingAs || classes.length === 0}
         title={viewingAs ? 'Stop View as to subscribe to your own class calendar.' : undefined}>
         <CalendarPlus aria-hidden />Add lessons to calendar
       </Button>
