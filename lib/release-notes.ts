@@ -17,8 +17,8 @@ export interface ReleaseNote {
 // Confirm this entry's date when the weekly release is deployed.
 export const releaseNotes: ReleaseNote[] = [
   {
-    id: '2026-11-12',
-    date: '2026-11-12',
+    id: '2026-11-10',
+    date: '2026-11-10',
     title: 'Easier attendance, readings, and class follow-up',
     summary: 'Check in with your class QR, find the right readings, and organize your roster on your phone.',
     changes: {
