@@ -9,7 +9,7 @@ import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/ui/page-loading'
-import { sundaySchoolGuides, type PortalGuide } from '@/lib/guides'
+import { GUIDE_MEDIA_VERSION, sundaySchoolGuides, type PortalGuide } from '@/lib/guides'
 import { formatDateUTC } from '@/lib/utils'
 
 // Shared reference material. Workflow routes independently enforce class access.
@@ -65,13 +65,13 @@ function GuideArticle({ guide, showWorkflowLink, className = '' }: { guide: Port
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,1fr)] xl:items-start">
         <div className="min-w-0 space-y-3">
           <div className="overflow-hidden rounded-lg border border-line bg-black">
-            <video aria-label={`Video guide: ${guide.title}`} className="aspect-video w-full" controls playsInline preload="none" width={1920} height={1080} poster={`/guides/${guide.media}.jpg`} onPlay={event => {
+            <video aria-label={`Video guide: ${guide.title}`} className="aspect-video w-full" controls playsInline preload="none" width={1920} height={1080} poster={`/guides/${guide.media}.jpg?v=${GUIDE_MEDIA_VERSION}`} onPlay={event => {
               // A new tutorial stops any other tutorial the viewer left playing.
               document.querySelectorAll('video').forEach(video => { if (video !== event.currentTarget) video.pause() })
             }}>
-              <source src={`/guides/${guide.media}.mp4`} type="video/mp4" />
-              <track kind="captions" src={`/guides/${guide.media}.vtt`} srcLang="en" label="English" />
-              <a href={`/guides/${guide.media}.mp4`}>Download the video</a>
+              <source src={`/guides/${guide.media}.mp4?v=${GUIDE_MEDIA_VERSION}`} type="video/mp4" />
+              <track kind="captions" src={`/guides/${guide.media}.vtt?v=${GUIDE_MEDIA_VERSION}`} srcLang="en" label="English" />
+              <a href={`/guides/${guide.media}.mp4?v=${GUIDE_MEDIA_VERSION}`}>Download the video</a>
             </video>
           </div>
           <p className="text-xs leading-5 text-ink-3">This example uses fictional data and the desktop website. Follow the written steps if you prefer to read.</p>

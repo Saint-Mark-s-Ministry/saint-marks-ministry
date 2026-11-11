@@ -1,4 +1,5 @@
 export const GUIDES_HREF = '/dashboard/guides'
+export const GUIDE_MEDIA_VERSION = '2026-11-10-mac-sketch'
 export const LESSON_GUIDE_ID = 'sunday-school-lessons'
 export const LESSON_GUIDE_HREF = `${GUIDES_HREF}#${LESSON_GUIDE_ID}`
 

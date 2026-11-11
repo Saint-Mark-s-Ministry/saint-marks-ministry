@@ -25,9 +25,17 @@ archives. All four compositions share one 60 fps template and
 use real application screenshots with fictional data. Narration is locally
 generated Kokoro `af_heart` at 1.02× native speed; it is not a human recording.
 Use clear verbs such as “take attendance” in narration. Keep screen framing
-steady. Use damped spring transitions for step text, eased cursor movement,
-brief click ripples, and short crossfades between UI states. Do not reintroduce
-per-step zooms or an extra logo/header over the captured application.
+steady inside one Mac-style window. Capture every scene at the same 1600 × 700
+logical viewport and 3200 × 1400 image resolution. Check that the complete UI
+has loaded and that development badges are absent. Do not upscale smaller
+captures or introduce empty side bars.
+
+Use animated typing, continuous cursor travel, independently sprung dialog
+panels, and drawn pencil callouts rather than a sequence of static slides.
+Keep the paper texture and sketched accents subtle so the real UI stays clear.
+Render PNG intermediate frames and H.264 at CRF 16, 1080p, 60 fps. Avoid recurring
+camera zooms and extra brand headers. Bump `GUIDE_MEDIA_VERSION` in
+`lib/guides.ts` when replacing media so viewers load the latest video and poster.
 
 Before replacing an asset, review the actual workflow on the latest app,
 render the video, check the captions and narration, and verify playback on
