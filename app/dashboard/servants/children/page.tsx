@@ -67,6 +67,8 @@ interface ChildForm {
   guardianPhone: string
   guardianEmail: string
   cellPhone: string
+  attendsOtherChurch: boolean
+  otherChurchName: string
   fatherOfConfession: string
   familyId: string
   familyName: string
@@ -92,6 +94,8 @@ const EMPTY_FORM: ChildForm = {
   guardianPhone: '',
   guardianEmail: '',
   cellPhone: '',
+  attendsOtherChurch: false,
+  otherChurchName: '',
   fatherOfConfession: '',
   familyId: NEW_FAMILY_ID,
   familyName: '',
@@ -152,6 +156,7 @@ function SundaySchoolChildrenContent() {
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
+  const [otherChurchOnly, setOtherChurchOnly] = useState(false)
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [groupByGender, setGroupByGender] = useState(false)
 
@@ -188,6 +193,8 @@ function SundaySchoolChildrenContent() {
       guardianPhone: child.guardianPhone ?? '',
       guardianEmail: child.guardianEmail ?? '',
       cellPhone: child.cellPhone ?? '',
+      attendsOtherChurch: child.attendsOtherChurch ?? false,
+      otherChurchName: child.otherChurchName ?? '',
       fatherOfConfession: child.fatherOfConfession ?? '',
       familyId: child.familyId ?? NEW_FAMILY_ID,
       ...familyFormFields(child.family),
@@ -308,7 +315,7 @@ function SundaySchoolChildrenContent() {
   const classesForLevel = classes.filter(cls => cls.level === form.level)
 
   const visibleChildren = children.filter(
-    (child) => !rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase())
+    (child) => (!otherChurchOnly || child.attendsOtherChurch) && (!rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase()))
   )
 
   const rosterGroups = organizeAttendanceRoster(visibleChildren, { nameOrder, groupByGender })
@@ -357,6 +364,10 @@ function SundaySchoolChildrenContent() {
             toolbar={
               <>
                 <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2">
+                  <input type="checkbox" checked={otherChurchOnly} onChange={event => setOtherChurchOnly(event.target.checked)} className="size-4 accent-brand" />
+                  Attends another church
+                </label>
                 <FilterSelect
                   aria-label="Alphabetize by"
                   className="w-full md:w-auto"
@@ -499,6 +510,11 @@ function SundaySchoolChildrenContent() {
                               </span>
                             ) : (
                               <span className="text-ink-3">No family on file</span>
+                            )}
+                            {child.attendsOtherChurch && (
+                              <p className="mt-0.5 break-words text-xs text-accent-ink">
+                                Attends another church: {child.otherChurchName || "Name not recorded"}
+                              </p>
                             )}
                             {child.notes && (
                               <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
@@ -689,6 +705,20 @@ function SundaySchoolChildrenContent() {
                   onChange={e => setForm(prev => ({ ...prev, guardianEmail: e.target.value }))}
                 />
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-line p-4">
+              <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                <input type="checkbox" checked={form.attendsOtherChurch} onChange={event => setForm(prev => ({ ...prev, attendsOtherChurch: event.target.checked, otherChurchName: event.target.checked ? prev.otherChurchName : '' }))} className="size-4 accent-brand" />
+                Attends another church
+              </label>
+              {form.attendsOtherChurch && (
+                <div className="space-y-2">
+                  <Label htmlFor="otherChurchName">Other church name (optional)</Label>
+                  <Input id="otherChurchName" maxLength={200} value={form.otherChurchName} onChange={event => setForm(prev => ({ ...prev, otherChurchName: event.target.value }))} placeholder="Church name and location, if known" />
+                </div>
+              )}
+              <p className="text-xs text-ink-3">Record what the family reports to help with follow-up. This does not remove the child from this class or change attendance.</p>
             </div>
 
             {/* Adding a child needs a name, a class and someone to call; the rest can wait. */}
