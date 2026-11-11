@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { NAMES_GUIDE_HREF } from '@/lib/guides'
+
 import { FAMILY_FIELD_LABELS } from '@/types/sunday-school-family-matching'
 import { StudentName } from '@/components/student-history-provider'
 
@@ -319,6 +322,7 @@ function SundaySchoolChildrenContent() {
           actions={
             classes.length > 0 ? (
               <>
+                <WatchGuideLink href={NAMES_GUIDE_HREF} />
                 <Button asChild variant="outline">
                   <Link href="/dashboard/servants/care">
                     <HeartHandshake />

@@ -14,14 +14,15 @@ their aspect ratio, do not preload video data, and pause other guides when
 playback starts. Written steps and phone navigation notes are available beside
 each desktop video.
 
-Current topics are lesson materials, QR attendance, weekly attendance, and
-class follow-up. Attendance and Care have Watch guide links; the QR dialog's
+Current topics are lesson materials, QR attendance, weekly attendance, class
+follow-up, learning names, Elementary homework, contact-update QR, memorization,
+and lesson/birthday calendar subscriptions. Attendance and Care have Watch guide links; the QR dialog's
 Servant controls also links directly to its QR guide.
 
 ## Updating media
 
 The editable Remotion projects are delivered separately with the media source
-archives. All four compositions share one 60 fps template and
+archives. All nine compositions share one 60 fps template and
 use real application screenshots with fictional data. Narration is locally
 generated Kokoro `af_heart` at 1.02× native speed; it is not a human recording.
 Use clear verbs such as “take attendance” in narration. Keep screen framing
@@ -43,3 +44,8 @@ both desktop and phone layouts. Retain only the current export for each guide;
 keep render dependencies, models, caches, and superseded exports out of the
 application repository. Never capture real children's records or contact
 information for public guide assets.
+
+Learn names, Contact update QR, Homework, Memorization, and both calendar
+subscription dialogs link directly to their guide. New guides use fictional
+illustrated portraits rather than photographs of real children. Calendar demo
+feeds and contact links are disposable and never grant production access.

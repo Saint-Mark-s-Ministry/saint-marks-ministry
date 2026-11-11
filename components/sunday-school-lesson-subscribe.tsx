@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { CALENDAR_GUIDE_HREF } from '@/lib/guides'
+
 import { useState } from 'react'
 import { CalendarPlus, Copy, LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -42,6 +45,7 @@ export function SundaySchoolLessonSubscribe({ classes, selectedClassId, viewingA
           <DialogTitle>Add lessons to your calendar</DialogTitle>
           <DialogDescription>Keep your class’s lesson schedule in your phone calendar. Lesson changes appear when your calendar app refreshes.</DialogDescription>
         </DialogHeader>
+        <div className="flex justify-start"><WatchGuideLink href={CALENDAR_GUIDE_HREF} /></div>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="lesson-calendar-class">Class</Label>

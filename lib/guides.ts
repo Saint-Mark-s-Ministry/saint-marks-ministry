@@ -1,5 +1,5 @@
 export const GUIDES_HREF = '/dashboard/guides'
-export const GUIDE_MEDIA_VERSION = '2026-11-10-qr-timing'
+export const GUIDE_MEDIA_VERSION = '2026-11-11-five-guides'
 export const LESSON_GUIDE_ID = 'sunday-school-lessons'
 export const LESSON_GUIDE_HREF = `${GUIDES_HREF}#${LESSON_GUIDE_ID}`
 
@@ -33,10 +33,17 @@ export const QR_ATTENDANCE_GUIDE_HREF = `${GUIDES_HREF}#${QR_ATTENDANCE_GUIDE_ID
 export const ATTENDANCE_GUIDE_HREF = `${GUIDES_HREF}#${ATTENDANCE_GUIDE_ID}`
 export const CARE_GUIDE_HREF = `${GUIDES_HREF}#${CARE_GUIDE_ID}`
 
+export const NAMES_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-learn-names`
+export const HOMEWORK_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-homework`
+export const CONTACT_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-contact-update`
+export const MEMORIZATION_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-memorization`
+export const CALENDAR_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-calendar-subscriptions`
+
 export interface PortalGuide {
   id: string
   title: string
   description: string
+  updated?: string
   seconds: number
   media: string
   openHref: string
@@ -122,5 +129,240 @@ export const sundaySchoolGuides: PortalGuide[] = [
       { title: 'Mine is empty.', description: 'Check Your class. Mine shows children assigned to you for check-in responsibility. Use All children or ask your class coordinator about the assignment.' },
       { title: 'Does a call remove someone from Needs a call or visit?', description: 'That list is based on attendance and priority visits. Logging a call updates the call history and weekly check-in status; the attendance or priority reason may remain.' },
     ],
+  },
+  {
+    "id": "sunday-school-learn-names",
+    "title": "Learn your children’s names",
+    "description": "Practice with photo flashcards, reveal each name, and revisit the ones you are still learning.",
+    "seconds": 31,
+    "media": "sunday-school-learn-names",
+    "openHref": "/dashboard/servants/roster",
+    "openLabel": "Open Children",
+    "phoneNote": "Open Children from the bottom menu, then Learn names. Reveal and review each card using the same controls.",
+    "steps": [
+      {
+        "title": "Open your class roster",
+        "description": "Open Children and check Your class. Learn names uses active children in this class who have a photo."
+      },
+      {
+        "title": "Recall, then reveal",
+        "description": "Choose Learn names. Try to recall the child’s name from their photo, then select Reveal name."
+      },
+      {
+        "title": "Choose your next practice",
+        "description": "Choose Got it! if you remembered, or Practice again if you would like another try. Either choice moves to the next card."
+      },
+      {
+        "title": "Review the round",
+        "description": "At Round complete, practice the remaining names again or play again with everyone. Shuffle rearranges only the cards you have not reviewed."
+      },
+      {
+        "title": "Return whenever you need",
+        "description": "Close the game to return to Children. Practice progress is just for this session and is not saved to a child’s record."
+      }
+    ],
+    "help": [
+      {
+        "title": "Why is a child missing?",
+        "description": "Only active children in the selected class with a photo are included. Add their photo on the roster, then reopen Learn names."
+      },
+      {
+        "title": "Does the score affect the child?",
+        "description": "No. This is a servant’s name practice. It does not change attendance, assessments, or the child’s record."
+      }
+    ],
+    "updated": "2026-11-11"
+  },
+  {
+    "id": "sunday-school-homework",
+    "title": "Publish and review class homework",
+    "description": "Set homework for an Elementary meeting, add resources, and save each child’s completion.",
+    "seconds": 41,
+    "media": "sunday-school-homework",
+    "openHref": "/dashboard/servants/homework",
+    "openLabel": "Open Homework",
+    "phoneNote": "Open Lessons and choose Homework. The editor and completion roster use the same Publish homework and Save completion buttons.",
+    "steps": [
+      {
+        "title": "Choose the assigned meeting",
+        "description": "Open Lessons → Homework and check Your class and Assigned meeting. Homework is available for Elementary classes. The due date is one week after that meeting."
+      },
+      {
+        "title": "Write the assignment",
+        "description": "Choose Publish homework. Enter a clear title and instructions for the children."
+      },
+      {
+        "title": "Add resources and publish",
+        "description": "Use Add link for a named worksheet, reading, or video. Paste a full web sharing link with suitable access, then select Publish homework and wait for confirmation."
+      },
+      {
+        "title": "Review completion",
+        "description": "At the next meeting, choose Completed or Not completed for each child you have reviewed. Leave children unrecorded if you have not checked their work; Clear removes a selection."
+      },
+      {
+        "title": "Save and check",
+        "description": "Select Save completion and wait for Homework completion saved. Review the saved completion roster and school-year history."
+      }
+    ],
+    "help": [
+      {
+        "title": "There are no assigned meetings.",
+        "description": "Ask your coordinator to check the class’s lesson schedule. Homework attaches to a scheduled meeting; this screen does not create teaching dates."
+      },
+      {
+        "title": "Are completion marks saved automatically?",
+        "description": "No. Select Save completion before leaving. Unrecorded weeks are excluded from the completion rate."
+      },
+      {
+        "title": "Can I change the homework?",
+        "description": "Use Edit for the selected meeting. Archive removes it from the active assignment while preserving its history."
+      }
+    ],
+    "updated": "2026-11-11"
+  },
+  {
+    "id": "sunday-school-contact-update",
+    "title": "Collect missing phone details with a QR",
+    "description": "Create a temporary contact-update link for your class and close it when you finish.",
+    "seconds": 39,
+    "media": "sunday-school-contact-update",
+    "openHref": "/dashboard/servants/roster",
+    "openLabel": "Open Children",
+    "phoneNote": "Open Children from the bottom menu and choose Contact update QR. Display or copy the link, then return to the dialog to close it.",
+    "steps": [
+      {
+        "title": "Open Contact update QR",
+        "description": "Open Children, check Your class, and choose Contact update QR. This fills missing phone numbers for children already on this class’s roster."
+      },
+      {
+        "title": "Create a temporary link",
+        "description": "Add an optional label and select Create contact update link. The QR expires after two hours. Save, copy, or print it now; the same link cannot be displayed again after you close the dialog."
+      },
+      {
+        "title": "Use it during class",
+        "description": "Show the QR to your class. The form asks for the child’s first name, last name, and date of birth as recorded on the roster, plus at least one missing phone number."
+      },
+      {
+        "title": "Submit and verify",
+        "description": "Select Submit phone details. Existing phone numbers are not shown or replaced. The thank-you message protects whether a roster match was found; ask a servant to confirm or correct details."
+      },
+      {
+        "title": "Close the link",
+        "description": "Return to Contact update QR and select Close link for that link when finished. Closing stops new submissions and keeps saved details."
+      }
+    ],
+    "help": [
+      {
+        "title": "Is this for new children?",
+        "description": "No. Contact update QR only fills missing phone numbers for existing children in this class. Ask a servant to add a new child through the roster."
+      },
+      {
+        "title": "A phone number did not change.",
+        "description": "Existing numbers stay unchanged. A name and birth date must match the roster; ask a servant to check a missing birth date, confirm the saved details, or correct an existing number."
+      },
+      {
+        "title": "Can anyone with the link use it?",
+        "description": "Anyone who has the link and a child’s name and birth date can submit missing phone details for this class. Share it during class and close it afterward."
+      }
+    ],
+    "updated": "2026-11-11"
+  },
+  {
+    "id": "sunday-school-memorization",
+    "title": "Set memorization and save scores",
+    "description": "Add a verse, prayer, or hymn for your class, then record scores out of 100.",
+    "seconds": 35,
+    "media": "sunday-school-memorization",
+    "openHref": "/dashboard/servants/memorization",
+    "openLabel": "Open Memorization",
+    "phoneNote": "Open More → Memorization. Add the item, enter scores, and choose Save scores just as on a computer.",
+    "steps": [
+      {
+        "title": "Choose your class",
+        "description": "Open Memorization and check Your class. Use the Memorization selector to revisit an existing item."
+      },
+      {
+        "title": "Set what to learn",
+        "description": "Select Add memorization. Enter a title, and optionally add instructions and a date."
+      },
+      {
+        "title": "Save the item",
+        "description": "Select Add memorization in the dialog. Check that the saved title and instructions appear before entering scores."
+      },
+      {
+        "title": "Enter scores and notes",
+        "description": "Use whole-number scores from 0 to 100 and brief optional notes. Leave the score blank for a child who has not been assessed."
+      },
+      {
+        "title": "Save scores and review",
+        "description": "Select Save scores and wait for Scores saved. Check the recorded count and average. Edit changes the assignment; Archive preserves recorded scores."
+      }
+    ],
+    "help": [
+      {
+        "title": "Are blank scores counted as zero?",
+        "description": "No. Blank means not scored. Enter 0 only when that is the child’s actual score."
+      },
+      {
+        "title": "Are scores saved automatically?",
+        "description": "No. Choose Save scores after entering or changing them, and wait for the confirmation."
+      },
+      {
+        "title": "Why can’t I save?",
+        "description": "Check for whole numbers between 0 and 100, and make sure you are serving the selected class."
+      }
+    ],
+    "updated": "2026-11-11"
+  },
+  {
+    "id": "sunday-school-calendar-subscriptions",
+    "title": "Add lessons and birthdays to your calendar",
+    "description": "Create personal subscriptions that keep class lesson dates and birthdays in your calendar app.",
+    "seconds": 38,
+    "media": "sunday-school-calendar-subscriptions",
+    "openHref": "/dashboard/servants/lessons",
+    "openLabel": "Open Lessons",
+    "phoneNote": "Use Add lessons to calendar in Lessons, or More → Care → Birthdays for birthday subscriptions. Apple Calendar supports subscriptions on the phone; add a Google Calendar subscription from a computer browser.",
+    "steps": [
+      {
+        "title": "Start with lesson dates",
+        "description": "Open Lessons and select Add lessons to calendar. Check the class, then choose Get subscription link."
+      },
+      {
+        "title": "Subscribe in your calendar app",
+        "description": "Use Open Apple Calendar / Outlook or Open Google Calendar, then confirm the subscription in that app. Alternatively choose Copy calendar link and paste it into your calendar’s subscription or From URL option."
+      },
+      {
+        "title": "Add birthdays separately",
+        "description": "Open Care → Birthdays and select Add birthdays to calendar. Check the class and choose Get subscription link."
+      },
+      {
+        "title": "Subscribe to the birthday feed",
+        "description": "Use the calendar-app button or Copy calendar link again. Lessons and birthdays are separate subscriptions, so repeat the subscription step for each."
+      },
+      {
+        "title": "Keep the subscription personal",
+        "description": "Treat subscription links as private: they contain access to class dates or children’s names and birthdays. Changes appear when your calendar app refreshes. Renew for the next class year."
+      }
+    ],
+    "help": [
+      {
+        "title": "Subscribe or import?",
+        "description": "Use a subscription or From URL option. Importing a downloaded file makes a one-time copy and will not receive later changes."
+      },
+      {
+        "title": "How do I add Google Calendar on my phone?",
+        "description": "Add the subscription through Google Calendar in a computer browser using From URL. It then appears in the same Google account on your phone; check that the calendar is enabled."
+      },
+      {
+        "title": "Why hasn’t a change appeared?",
+        "description": "Calendar apps refresh on their own schedules. Refresh or check later. These feeds are read-only, and access can end when your class access or password changes."
+      },
+      {
+        "title": "Will this notify everyone?",
+        "description": "No. This creates your own subscription. Copy calendar link copies a private feed URL; it does not subscribe anyone or send invitations."
+      }
+    ],
+    "updated": "2026-11-11"
   },
 ]

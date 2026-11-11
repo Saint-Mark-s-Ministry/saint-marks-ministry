@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { HOMEWORK_GUIDE_HREF } from '@/lib/guides'
+
 import { StudentName } from '@/components/student-history-provider'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -174,7 +177,7 @@ export default function SundaySchoolHomeworkPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} />
+      <PageHeader title="Lessons" meta={[selectedClass?.name, 'Elementary homework and who completed it']} actions={<WatchGuideLink href={HOMEWORK_GUIDE_HREF} />} />
       <LessonsHubTabs showHomework />
 
       <Panel toolbar={
