@@ -24,7 +24,7 @@ export const releaseNotes: ReleaseNote[] = [
     changes: {
       new: [
         'Guides brings short captioned videos and written steps into the portal: adding lesson materials, using QR attendance, taking weekly attendance, and following up with your class. Watch guide links take you there from Lessons, Attendance, and Care.',
-        'Sunday School servants can display a separate attendance QR for each class meeting. Children enter their first and last name—no account needed. Servants confirm requests from children who are there before attendance is marked.',
+        'Sunday School servants can display a separate attendance QR for each class meeting. Children enter their first and last name. Servants confirm requests from children who are there before attendance is marked.',
         'QR check-in is available from 10:30 a.m. to 12:30 p.m. on Saturdays and 11:30 a.m. to 1:30 p.m. on Sundays, in New York time. Codes change for every class meeting and close when attendance is finished.',
         'A QR check-in badge shows which attendance marks came from confirmed classroom scans. Servants can review and correct marks.',
         'Trip and event organizers can open the church payment-link creator from the bottom of Sunday School Home.',
