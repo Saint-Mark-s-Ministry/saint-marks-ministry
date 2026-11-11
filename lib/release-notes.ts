@@ -30,7 +30,7 @@ export const releaseNotes: ReleaseNote[] = [
         'Trip and event organizers can open the church payment-link creator from the bottom of Sunday School Home.',
       ],
       improved: [
-        'Sunday School guide videos show the current desktop interface with smoother transitions and animated step text. Start one guide and any other playing guide pauses automatically.',
+        'Sunday School guides have sharper video, a consistent desktop window, and hand-drawn callouts that guide you through each action. Start one guide and any other playing guide pauses automatically.',
         'Sort Visitations by first or last name. The Children roster’s sorting control is also available on phones, with matching search and sorting controls.',
         'Larger student photos make Servants Prep attendance roll call easier on computers and phones. Tap a photo to enlarge it.',
       ],
