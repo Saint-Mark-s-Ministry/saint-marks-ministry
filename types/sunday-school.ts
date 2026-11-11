@@ -113,6 +113,8 @@ export interface SundaySchoolChild {
   guardianPhone: string | null
   guardianEmail: string | null
   cellPhone: string | null
+  attendsOtherChurch?: boolean
+  otherChurchName?: string | null
   fatherOfConfession: string | null
   notes: string | null
   isActive: boolean

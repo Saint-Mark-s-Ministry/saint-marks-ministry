@@ -88,6 +88,24 @@ Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
 Servant attendance uses its own binary `SundaySchoolServantAttendanceStatus`
 (`PRESENT` / `ABSENT`) so it cannot accidentally accept child-only states.
 
+### Reported attendance at another church
+
+On **Roster → Add child / Edit child**, a servant with existing class write
+access can mark **Attends another church** and optionally record a church name
+and location (up to 200 characters). The roster shows this information and can
+filter to marked children while retaining the name search. Unknown names are
+allowed so follow-up is not blocked; unmarking clears the saved church name.
+This is family-reported information, not verified membership. It does not
+withdraw the child, move their class, change attendance, notify another church,
+or grant anyone access. Use the existing calls/visits workflow for follow-up.
+It is stored per child, not shared across siblings, and is not editable through
+public roster links. Existing roster read/write authorization remains in place.
+
+The additive migration `20261111131500_child_other_church` must be applied explicitly
+before deploying this code; builds never apply migrations. Existing children
+default to unmarked. The task and shadow databases were validated by applying
+the release baseline plus this migration and checking for zero Prisma diff.
+
 ### Design decisions worth understanding
 
 **Children are primarily data rows.** They do not need a login. A coordinator

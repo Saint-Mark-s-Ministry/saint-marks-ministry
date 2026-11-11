@@ -1099,6 +1099,8 @@ model SundaySchoolChild {
   guardianPhone      String?
   guardianEmail      String?
   cellPhone          String?
+  attendsOtherChurch Boolean                  @default(false)
+  otherChurchName    String?                  @db.VarChar(200)
   fatherOfConfession String?
   notes              String?                  @db.Text
   status             SundaySchoolRecordStatus @default(ACTIVE)

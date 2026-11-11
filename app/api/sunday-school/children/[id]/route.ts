@@ -1,3 +1,4 @@
+import { otherChurchFields } from "@/lib/sunday-school-other-church"
 import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -109,7 +110,12 @@ export async function PATCH(
       linkedUserEmail,
     } = body
 
-    const updateData: Record<string, unknown> = {}
+    const churchFields = otherChurchFields.safeParse(body)
+    if (!churchFields.success) {
+      return NextResponse.json({ error: "Invalid other-church details (use a boolean and a church name of at most 200 characters)" }, { status: 400 })
+    }
+
+    const updateData: Record<string, unknown> = { ...churchFields.data }
     const activeEnrollment = currentChild.enrollments[0] ?? null
     let destinationClass: {
       id: string
