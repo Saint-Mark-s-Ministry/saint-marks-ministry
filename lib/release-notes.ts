@@ -20,7 +20,7 @@ export const releaseNotes: ReleaseNote[] = [
     id: '2026-11-10',
     date: '2026-11-10',
     title: 'Easier attendance, readings, and class follow-up',
-    summary: 'Check in with your class QR, find the right readings, and organize your roster on your phone.',
+    summary: 'Watch the new guides, check in with your class QR, find the right readings, and organize your roster on your phone.',
     changes: {
       new: [
         'Guides brings short captioned videos and written steps into the portal: adding lesson materials, using QR attendance, taking weekly attendance, and following up with your class. Watch guide links take you there from Lessons, Attendance, and Care.',
@@ -30,6 +30,7 @@ export const releaseNotes: ReleaseNote[] = [
         'Trip and event organizers can open the church payment-link creator from the bottom of Sunday School Home.',
       ],
       improved: [
+        'Sunday School guide videos show the current desktop interface with smoother transitions and animated step text. Start one guide and any other playing guide pauses automatically.',
         'Sort Visitations by first or last name. The Children roster’s sorting control is also available on phones, with matching search and sorting controls.',
         'Larger student photos make Servants Prep attendance roll call easier on computers and phones. Tap a photo to enlarge it.',
       ],
