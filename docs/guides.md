@@ -21,11 +21,13 @@ Servant controls also links directly to its QR guide.
 ## Updating media
 
 The editable Remotion projects are delivered separately with the media source
-archives. The three attendance/follow-up compositions share one template and
+archives. All four compositions share one 60 fps template and
 use real application screenshots with fictional data. Narration is locally
 generated Kokoro `af_heart` at 1.02× native speed; it is not a human recording.
 Use clear verbs such as “take attendance” in narration. Keep screen framing
-steady and use highlights for individual controls.
+steady. Use damped spring transitions for step text, eased cursor movement,
+brief click ripples, and short crossfades between UI states. Do not reintroduce
+per-step zooms or an extra logo/header over the captured application.
 
 Before replacing an asset, review the actual workflow on the latest app,
 render the video, check the captions and narration, and verify playback on
