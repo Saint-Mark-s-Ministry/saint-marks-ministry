@@ -1,5 +1,5 @@
 export const GUIDES_HREF = '/dashboard/guides'
-export const GUIDE_MEDIA_VERSION = '2026-11-10-mac-sketch'
+export const GUIDE_MEDIA_VERSION = '2026-11-10-qr-timing'
 export const LESSON_GUIDE_ID = 'sunday-school-lessons'
 export const LESSON_GUIDE_HREF = `${GUIDES_HREF}#${LESSON_GUIDE_ID}`
 
@@ -66,9 +66,9 @@ export const sundaySchoolGuides: PortalGuide[] = [
     id: QR_ATTENDANCE_GUIDE_ID,
     title: 'Use QR attendance for your class',
     description: 'Display your meeting’s QR code, review check-in requests, and confirm the children who are there.',
-    seconds: 43, media: 'sunday-school-qr-attendance',
+    seconds: 42, media: 'sunday-school-qr-attendance',
     openHref: '/dashboard/servants/attendance', openLabel: 'Open Attendance',
-    phoneNote: 'Open Attendance from the bottom menu. The same class, meeting date, QR controls, and request-review steps apply. Children use the web check-in screen; no account is needed.',
+    phoneNote: 'Open Attendance from the bottom menu. The same class, meeting date, QR controls, and request-review steps apply. Children use the web check-in screen.',
     steps: [
       { title: 'Check the class and meeting date', description: 'Open Attendance and check Your class and Date. Each meeting has its own QR code.' },
       { title: 'Display the QR code', description: 'Choose Show attendance QR and display it for your class. Children scan it, enter their full name, and tap I’m here. Use Servant controls to open or copy the check-in link.' },
@@ -80,7 +80,7 @@ export const sundaySchoolGuides: PortalGuide[] = [
       { title: 'When can children check in?', description: 'Saturday classes: 10:30 a.m.–12:30 p.m. Sunday classes: 11:30 a.m.–1:30 p.m. All times are New York time. Preparing or replacing a QR does not extend that window.' },
       { title: 'A child’s name was submitted but they are not marked present.', description: 'Check the waiting requests in the roster. Only a servant’s confirmation can add QR attendance. For an unmatched name, verify the child and mark attendance manually.' },
       { title: 'Can I reuse an old QR?', description: 'Use a new code for each meeting. Replace code immediately invalidates the previous code. Finish and Stop check-in close it early.' },
-      { title: 'What does the child need?', description: 'A device with a camera or the check-in link, and their full name as it appears on the roster. No login, birth date, or contact details are requested.' },
+      { title: 'What does the child need?', description: 'A device with a camera or the check-in link, and their full name as it appears on the roster.' },
     ],
   },
   {

@@ -37,7 +37,7 @@ export default function AttendanceCheckInPage() {
           : data.state === 'upcoming' ? <p role="status" className="text-center text-sm text-ink-2">You’re a little early! Check-in opens {opens} (New York time).</p>
           : data.state === 'closed' ? <p role="status" className="text-center text-sm text-ink-2">Check-in has finished. Tell your servant you’re here and they’ll help you.</p>
           : <form onSubmit={checkIn} className="flex flex-col gap-4">
-            <p className="text-sm text-ink-2">Type your first and last name, then tap “I’m here.” No account needed.</p>
+            <p className="text-sm text-ink-2">Enter your first and last name as it appears on the class roster, then tap “I’m here.”</p>
             <Field label="Your full name" htmlFor="check-in-name"><Input id="check-in-name" autoComplete="name" placeholder="First and last name" value={name} onChange={event => setName(event.target.value)} maxLength={200} required disabled={busy} /></Field>
             <Button type="submit" disabled={busy}>{busy ? 'Sending…' : 'I’m here'}</Button>
             {submitError && <p role="alert" className="text-sm text-danger">{submitError}</p>}
