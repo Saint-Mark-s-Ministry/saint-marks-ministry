@@ -56,7 +56,8 @@ copy. Only the local copy receives test edits; production is read-only during
 copying. The local environment file is ignored by Git. Email delivery remains
 in sandbox mode, without an email API key.
 
-Review at `http://localhost:3000`:
+Review the combined guides, other-church, and web passkey changes at
+`http://localhost:3212`:
 
 1. Sign in with your existing email and password.
 2. Open Children and edit a child in a class you can serve.
@@ -66,7 +67,23 @@ Review at `http://localhost:3000`:
 5. Clear the marker and save; the old church name should clear too.
 6. Open Guides or use Watch guide. Check all nine entries and the five new
    captioned desktop videos.
+7. Open My account → Passkeys. Add a named passkey, sign out, and use Sign in
+   with a passkey. Remove it from My account and confirm password sign-in still
+   works. Use a browser/device that supports passkeys; local credentials belong
+   to `localhost` and do not sign in to the production domain.
+
+This review includes web PR #244's passkey visibility, retry, and configuration
+diagnostics, plus secure setup-cookie cleanup after configuration normalization.
+The existing passkey tables are present in the local copy. These changes need
+no new passkey migration. Production still needs valid passkey environment
+settings and the deployment checks in `docs/passkeys.md`; this local review does
+not enable production passkeys. The separate native iOS PR #308 is not included.
+
+At the release owner's request, the combined PR targets `main` directly. It has
+not been merged or deployed by the agent.
 
 Local test edits are not copied back to production. For the release’s What’s new
 entry, also include: “Sunday School servants can note that a child attends another
 church and see that church’s name in a tag beside the child’s name.”
+Also include: “My account now keeps Passkeys visible and offers a retry when
+passkey setup is unavailable.”
