@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { CONTACT_GUIDE_HREF } from '@/lib/guides'
+
 import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
@@ -182,6 +185,7 @@ export function SundaySchoolRosterLinkDialog({
                 : `A temporary link that lets families add a child to ${className} themselves. It can only ever add to this class.`}
             </DialogDescription>
           </DialogHeader>
+          {contactUpdateOnly && <WatchGuideLink href={CONTACT_GUIDE_HREF} />}
 
           <div className="space-y-6">
             {freshUrl ? (

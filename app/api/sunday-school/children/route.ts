@@ -1,3 +1,4 @@
+import { otherChurchFields } from "@/lib/sunday-school-other-church"
 import { lockFamilyMatching, matchSundaySchoolFamilies } from '@/lib/sunday-school-family-matching'
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -121,6 +122,11 @@ export async function POST(request: Request) {
       notes,
     } = body
 
+    const churchFields = otherChurchFields.safeParse(body)
+    if (!churchFields.success) {
+      return NextResponse.json({ error: "Invalid other-church details (use a boolean and a church name of at most 200 characters)" }, { status: 400 })
+    }
+
     if (!firstName || !String(firstName).trim()) {
       return NextResponse.json({ error: "First name is required" }, { status: 400 })
     }
@@ -226,6 +232,7 @@ export async function POST(request: Request) {
 
       const created = await tx.sundaySchoolChild.create({
         data: {
+          ...churchFields.data,
           firstName: String(firstName).trim(),
           lastName: String(lastName).trim(),
           level,

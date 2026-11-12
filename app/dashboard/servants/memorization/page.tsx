@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { MEMORIZATION_GUIDE_HREF } from '@/lib/guides'
+
 import type { SundaySchoolLevel } from '@prisma/client'
 import { StudentName } from '@/components/student-history-provider'
 
@@ -166,7 +169,7 @@ export default function SundaySchoolMemorizationPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <PageHeader title="Memorization" meta={[selectedClass?.name, `Scored out of ${MEMORIZATION_MAX_SCORE}`]} />
+      <PageHeader title="Memorization" meta={[selectedClass?.name, `Scored out of ${MEMORIZATION_MAX_SCORE}`]} actions={<WatchGuideLink href={MEMORIZATION_GUIDE_HREF} />} />
 
       <Panel toolbar={
         <>

@@ -31,7 +31,7 @@ export function Guides() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-8">
       <PageHeader title="Guides" meta="Short videos and written steps to help you use the portal." />
-      <nav aria-label="Choose a guide" className="grid gap-3 sm:grid-cols-2">
+      <nav aria-label="Choose a guide" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {sundaySchoolGuides.map(guide => (
           <a key={guide.id} href={`#${guide.id}`} className="group flex min-w-0 items-start gap-3 rounded-lg border border-line bg-surface p-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink">
             <CirclePlay aria-hidden className="mt-0.5 size-5 shrink-0 text-accent-ink" />
@@ -57,7 +57,7 @@ function GuideArticle({ guide, showWorkflowLink, className = '' }: { guide: Port
           <p className="max-w-2xl text-sm leading-6 text-ink-2">{guide.description}</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
             <span className="inline-flex items-center gap-1.5"><CirclePlay className="size-3.5" aria-hidden />{guide.seconds} seconds · On-screen captions</span>
-            <span>Updated <time dateTime="2026-11-10">{formatDateUTC('2026-11-10T00:00:00Z')}</time></span>
+            <span>Updated <time dateTime={guide.updated ?? '2026-11-10'}>{formatDateUTC(`${guide.updated ?? '2026-11-10'}T00:00:00Z`)}</time></span>
           </div>
         </div>
         {showWorkflowLink && <Button asChild variant="outline" className="self-start"><Link href={guide.openHref}>{guide.openLabel}<ArrowUpRight aria-hidden /></Link></Button>}

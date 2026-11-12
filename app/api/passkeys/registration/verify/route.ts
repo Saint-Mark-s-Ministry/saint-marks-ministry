@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import type { RegistrationResponseJSON } from '@simplewebauthn/server'
 import { registerPasskey, passkeyCookieName, limitPasskeyRequests } from '@/lib/passkeys'
-import { PasskeyError } from '@/lib/passkey-config'
+import { getPasskeyConfig, PasskeyError } from '@/lib/passkey-config'
 import { passkeyApiError, passkeyBody, passkeyJson, requirePasskeyOwner } from '@/lib/passkey-api'
 import { recordAuditEvent } from '@/lib/audit'
 import { AuditEventResult } from '@prisma/client'
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     await registerPasskey(user, req.cookies.get(passkeyCookieName('register'))?.value, body.data.response as unknown as RegistrationResponseJSON, body.data.name)
     await recordAuditEvent({ actorUserId: user.id, action: 'AUTH_PASSKEY_ADDED', entityType: 'User', entityId: user.id, result: AuditEventResult.SUCCESS })
     const res = passkeyJson({ success: true })
-    res.cookies.set(passkeyCookieName('register'), '', { path: '/', maxAge: 0, secure: process.env.PASSKEY_ORIGIN?.startsWith('https:'), httpOnly: true, sameSite: 'strict' })
+    res.cookies.set(passkeyCookieName('register'), '', { path: '/', maxAge: 0, secure: getPasskeyConfig().secure, httpOnly: true, sameSite: 'strict' })
     return res
   } catch (error) { return passkeyApiError(error) }
 }

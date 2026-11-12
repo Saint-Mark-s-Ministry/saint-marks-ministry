@@ -208,7 +208,7 @@ export default function SettingsPage() {
     <div className="flex min-w-0 flex-col">
       <div className="w-full max-w-3xl space-y-5">
         {/* Header */}
-        <PageHeader title="My account" meta={['Profile, name and password']} />
+        <PageHeader title="My account" meta={['Profile, name, password and passkeys']} />
 
         {/* Account Info */}
         <Card>

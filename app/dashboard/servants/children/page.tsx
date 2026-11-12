@@ -1,5 +1,8 @@
 'use client'
 
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { NAMES_GUIDE_HREF } from '@/lib/guides'
+
 import { FAMILY_FIELD_LABELS } from '@/types/sunday-school-family-matching'
 import { StudentName } from '@/components/student-history-provider'
 
@@ -64,6 +67,8 @@ interface ChildForm {
   guardianPhone: string
   guardianEmail: string
   cellPhone: string
+  attendsOtherChurch: boolean
+  otherChurchName: string
   fatherOfConfession: string
   familyId: string
   familyName: string
@@ -89,6 +94,8 @@ const EMPTY_FORM: ChildForm = {
   guardianPhone: '',
   guardianEmail: '',
   cellPhone: '',
+  attendsOtherChurch: false,
+  otherChurchName: '',
   fatherOfConfession: '',
   familyId: NEW_FAMILY_ID,
   familyName: '',
@@ -185,6 +192,8 @@ function SundaySchoolChildrenContent() {
       guardianPhone: child.guardianPhone ?? '',
       guardianEmail: child.guardianEmail ?? '',
       cellPhone: child.cellPhone ?? '',
+      attendsOtherChurch: child.attendsOtherChurch ?? false,
+      otherChurchName: child.otherChurchName ?? '',
       fatherOfConfession: child.fatherOfConfession ?? '',
       familyId: child.familyId ?? NEW_FAMILY_ID,
       ...familyFormFields(child.family),
@@ -319,6 +328,7 @@ function SundaySchoolChildrenContent() {
           actions={
             classes.length > 0 ? (
               <>
+                <WatchGuideLink href={NAMES_GUIDE_HREF} />
                 <Button asChild variant="outline">
                   <Link href="/dashboard/servants/care">
                     <HeartHandshake />
@@ -421,10 +431,15 @@ function SundaySchoolChildrenContent() {
                           <div className="flex min-w-0 items-center gap-2.5">
                             <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                             <div className="flex min-w-0 flex-1 flex-col leading-tight">
-                              <div className="flex min-w-0 items-center gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className={`min-w-0 truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                                   <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
                                 </span>
+                                {child.attendsOtherChurch && (
+                                  <StatusBadge tone="neutral" dot={false} className="h-auto min-h-[22px] max-w-full whitespace-normal break-words py-0.5 leading-4">
+                                    {child.otherChurchName ? `Other church: ${child.otherChurchName}` : 'Attends another church'}
+                                  </StatusBadge>
+                                )}
                                 {child.isServantsPrepStudent && (
                                   <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
                                 )}
@@ -685,6 +700,20 @@ function SundaySchoolChildrenContent() {
                   onChange={e => setForm(prev => ({ ...prev, guardianEmail: e.target.value }))}
                 />
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-line p-4">
+              <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                <input type="checkbox" checked={form.attendsOtherChurch} onChange={event => setForm(prev => ({ ...prev, attendsOtherChurch: event.target.checked, otherChurchName: event.target.checked ? prev.otherChurchName : '' }))} className="size-4 accent-brand" />
+                Attends another church
+              </label>
+              {form.attendsOtherChurch && (
+                <div className="space-y-2">
+                  <Label htmlFor="otherChurchName">Other church name (optional)</Label>
+                  <Input id="otherChurchName" maxLength={200} value={form.otherChurchName} onChange={event => setForm(prev => ({ ...prev, otherChurchName: event.target.value }))} placeholder="Church name and location, if known" />
+                </div>
+              )}
+              <p className="text-xs text-ink-3">Record what the family reports to help with follow-up. This does not remove the child from this class or change attendance.</p>
             </div>
 
             {/* Adding a child needs a name, a class and someone to call; the rest can wait. */}
