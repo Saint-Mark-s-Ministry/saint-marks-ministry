@@ -38,8 +38,10 @@ export const HOMEWORK_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-homework`
 export const CONTACT_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-contact-update`
 export const MEMORIZATION_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-memorization`
 export const CALENDAR_GUIDE_HREF = `${GUIDES_HREF}#sunday-school-calendar-subscriptions`
+export const PASSKEY_GUIDE_HREF = `${GUIDES_HREF}#account-passkeys`
 
 export interface PortalGuide {
+  audience?: 'account'
   id: string
   title: string
   description: string
@@ -52,6 +54,27 @@ export interface PortalGuide {
   steps: ReadonlyArray<{ title: string; description: string }>
   help: ReadonlyArray<{ title: string; description: string }>
 }
+
+export const accountGuides: PortalGuide[] = [{
+  id: 'account-passkeys', audience: 'account', updated: '2026-11-12',
+  title: 'Create and use a passkey',
+  description: 'Add a passkey to an existing account, sign in with it, and remove it when needed.',
+  seconds: 41, media: 'account-passkeys', openHref: '/settings', openLabel: 'Open My account',
+  phoneNote: 'Open More → My account, then Passkeys. Follow your device or password manager’s prompt; its appearance and available options vary.',
+  steps: [
+    { title: 'Sign in and open My account', description: 'Use your password or Google account. On a computer, open your account menu at the bottom of the sidebar and choose My account. You can add a passkey anytime after creating your account.' },
+    { title: 'Name your passkey', description: 'Scroll to Passkeys, enter a name you will recognize, and choose Add a passkey.' },
+    { title: 'Confirm with your device or password manager', description: 'Follow its prompt to create and save the passkey. Your fingerprint, face, device PIN, or security key may be used. Check that the named passkey appears in My account.' },
+    { title: 'Sign in with your passkey', description: 'Sign out from your account menu. On the sign-in page, choose Sign in with a passkey and confirm with your device or password manager. You do not need to enter your email or password for this method.' },
+    { title: 'Manage saved passkeys', description: 'Return to My account to see when each passkey was added and last used. To remove one, choose Remove beside its name and confirm. Your password and Google sign-in remain available.' },
+  ],
+  help: [
+    { title: 'Can I add a passkey later?', description: 'Yes. Sign in to your existing account, then open My account → Passkeys. Adding or removing a passkey requires a sign-in within the last ten minutes; sign out and sign in again if prompted.' },
+    { title: 'My prompt looks different from the video.', description: 'The confirmation in the video is an illustration. Your browser, device, or password manager supplies the actual prompt and available options. Follow the instructions it displays.' },
+    { title: 'Setup is unavailable or I cannot add a passkey.', description: 'Choose Check again if shown. Use a browser and device that support passkeys on the production website. You can continue signing in with your password or Google.' },
+    { title: 'I cancelled or cannot access my passkey.', description: 'Try again, or sign in with your password or Google. Once signed in, you can add another passkey and remove one you no longer use.' },
+  ],
+}]
 
 export const sundaySchoolGuides: PortalGuide[] = [
   {
@@ -366,3 +389,5 @@ export const sundaySchoolGuides: PortalGuide[] = [
     "updated": "2026-11-11"
   },
 ]
+
+export const portalGuides: PortalGuide[] = [...accountGuides, ...sundaySchoolGuides]

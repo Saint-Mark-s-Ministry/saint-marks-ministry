@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePasskeyAvailability, usePasskeys } from '@/lib/swr'
+import { WatchGuideLink } from '@/components/watch-guide-link'
+import { PASSKEY_GUIDE_HREF } from '@/lib/guides'
 import { passkeyRequest, passkeyClientError } from '@/lib/passkey-client'
 
 export function PasskeySettings() {
@@ -28,7 +30,7 @@ export function PasskeySettings() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Passkeys</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>Passkeys</CardTitle><WatchGuideLink href={PASSKEY_GUIDE_HREF} /></div>
           <CardDescription>Sign in with your fingerprint, face, device PIN, or security key.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -73,7 +75,7 @@ export function PasskeySettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Passkeys</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>Passkeys</CardTitle><WatchGuideLink href={PASSKEY_GUIDE_HREF} /></div>
         <CardDescription>Sign in with your fingerprint, face, device PIN, or security key.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

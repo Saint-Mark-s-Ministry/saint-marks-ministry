@@ -9,7 +9,7 @@ import { Panel } from '@/components/ds/panel'
 import { StatusBadge } from '@/components/ds/status-badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/ui/page-loading'
-import { GUIDE_MEDIA_VERSION, sundaySchoolGuides, type PortalGuide } from '@/lib/guides'
+import { GUIDE_MEDIA_VERSION, portalGuides, type PortalGuide } from '@/lib/guides'
 import { formatDateUTC } from '@/lib/utils'
 
 // Shared reference material. Workflow routes independently enforce class access.
@@ -19,7 +19,7 @@ export function Guides() {
   const { session, status } = useAdminGuard(anyRole)
   useEffect(() => {
     if (status !== 'authenticated') return
-    const guide = sundaySchoolGuides.find(item => `#${item.id}` === window.location.hash)
+    const guide = portalGuides.find(item => `#${item.id}` === window.location.hash)
     if (!guide) return
     const frame = requestAnimationFrame(() => document.getElementById(guide.id)?.scrollIntoView())
     return () => cancelAnimationFrame(frame)
@@ -32,16 +32,16 @@ export function Guides() {
     <div className="content-reveal flex min-w-0 flex-col gap-8">
       <PageHeader title="Guides" meta="Short videos and written steps to help you use the portal." />
       <nav aria-label="Choose a guide" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {sundaySchoolGuides.map(guide => (
+        {portalGuides.map(guide => (
           <a key={guide.id} href={`#${guide.id}`} className="group flex min-w-0 items-start gap-3 rounded-lg border border-line bg-surface p-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink">
             <CirclePlay aria-hidden className="mt-0.5 size-5 shrink-0 text-accent-ink" />
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">{guide.title}</span><span className="mt-1 block text-xs leading-5 text-ink-3">{guide.seconds} seconds · Sunday School servants</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">{guide.title}</span><span className="mt-1 block text-xs leading-5 text-ink-3">{guide.seconds} seconds · {guide.audience === 'account' ? 'All accounts' : 'Sunday School servants'}</span></span>
             <ArrowDown aria-hidden className="mt-1 size-4 shrink-0 text-ink-3" />
           </a>
         ))}
       </nav>
       <div className="space-y-10 divide-y divide-line">
-        {sundaySchoolGuides.map((guide, index) => <GuideArticle key={guide.id} guide={guide} showWorkflowLink={showWorkflowLinks} className={index ? 'pt-10' : undefined} />)}
+        {portalGuides.map((guide, index) => <GuideArticle key={guide.id} guide={guide} showWorkflowLink={guide.audience === 'account' ? !session?.impersonating : showWorkflowLinks} className={index ? 'pt-10' : undefined} />)}
       </div>
     </div>
   )
@@ -52,7 +52,7 @@ function GuideArticle({ guide, showWorkflowLink, className = '' }: { guide: Port
     <article id={guide.id} aria-labelledby={`${guide.id}-title`} className={`scroll-mt-24 space-y-5 ${className}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <StatusBadge tone="accent" dot={false}>Sunday School servants</StatusBadge>
+          <StatusBadge tone="accent" dot={false}>{guide.audience === 'account' ? 'All accounts' : 'Sunday School servants'}</StatusBadge>
           <h2 id={`${guide.id}-title`} className="text-xl font-semibold tracking-tight text-ink">{guide.title}</h2>
           <p className="max-w-2xl text-sm leading-6 text-ink-2">{guide.description}</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">

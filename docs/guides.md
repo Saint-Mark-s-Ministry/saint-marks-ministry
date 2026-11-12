@@ -49,3 +49,17 @@ Learn names, Contact update QR, Homework, Memorization, and both calendar
 subscription dialogs link directly to their guide. New guides use fictional
 illustrated portraits rather than photographs of real children. Calendar demo
 feeds and contact links are disposable and never grant production access.
+
+## Account passkeys
+
+The shared library also includes `account-passkeys` for every signed-in account.
+My account links to it from Passkeys, including the unavailable state. This guide
+uses the current desktop UI and a clearly labeled, animated illustration for the
+device/password-manager confirmation because those prompts vary. It covers
+enrollment after account creation, sign-in, removal, fallback, and the recent
+sign-in requirement. It grants no additional account or ministry permissions.
+
+Draft release copy for the next deployment: “A new captioned guide shows how to
+create a passkey, sign in with it, and remove it. Open Watch guide in My account
+or find Create and use a passkey in Guides.” Keep the already published release
+history unchanged; date the entry when this guide is deployed.
