@@ -25,14 +25,15 @@ beforeEach(() => {
 })
 
 describe('other church roster controls', () => {
-  it('shows the church and filters without dropping the name search', async () => {
+  it('shows a church tag while keeping both children and the name search', async () => {
     render(<RosterPage />)
-    expect(await screen.findByText('Attends another church: Synthetic Church')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Attends another church' }))
+    expect(await screen.findByText('Other church: Synthetic Church')).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'Attends another church' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View history for Synthetic One' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'View history for Synthetic Two' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View history for Synthetic Two' })).toBeInTheDocument()
     fireEvent.change(screen.getByPlaceholderText('Search by name'), { target: { value: 'Two' } })
-    expect(screen.getByText('No children match.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'View history for Synthetic One' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View history for Synthetic Two' })).toBeInTheDocument()
   })
   it('loads saved details, saves a correction, and allows clearing the marker', async () => {
     render(<RosterPage />)

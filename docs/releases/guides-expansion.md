@@ -47,8 +47,8 @@ application code.
 ## Combined local review
 
 The review also includes the other-church marker, optional church name/location,
-and roster filter from PR #334. This is family-reported information and does not
-change a child’s class, attendance, enrollment, or account access.
+and a tag beside the child’s name from PR #334. This is family-reported information
+and does not change a child’s class, attendance, enrollment, or account access.
 
 Local testing uses a separate PostgreSQL copy of production with the additive
 migration applied. Existing account passwords and roles are preserved in the
@@ -61,11 +61,12 @@ Review at `http://localhost:3000`:
 1. Sign in with your existing email and password.
 2. Open Children and edit a child in a class you can serve.
 3. Mark Attends another church, add a name/location if known, save, and reload.
-4. Try the matching roster filter and name search together.
+4. Check the tag beside the child’s name, including the church name; name search
+   continues to work as before.
 5. Clear the marker and save; the old church name should clear too.
 6. Open Guides or use Watch guide. Check all nine entries and the five new
    captioned desktop videos.
 
 Local test edits are not copied back to production. For the release’s What’s new
 entry, also include: “Sunday School servants can note that a child attends another
-church, record the church’s name or location, and filter the roster for follow-up.”
+church and see that church’s name in a tag beside the child’s name.”

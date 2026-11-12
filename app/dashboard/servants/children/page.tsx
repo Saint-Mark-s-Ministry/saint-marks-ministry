@@ -156,7 +156,6 @@ function SundaySchoolChildrenContent() {
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
-  const [otherChurchOnly, setOtherChurchOnly] = useState(false)
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
   const [groupByGender, setGroupByGender] = useState(false)
 
@@ -315,7 +314,7 @@ function SundaySchoolChildrenContent() {
   const classesForLevel = classes.filter(cls => cls.level === form.level)
 
   const visibleChildren = children.filter(
-    (child) => (!otherChurchOnly || child.attendsOtherChurch) && (!rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase()))
+    (child) => !rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase())
   )
 
   const rosterGroups = organizeAttendanceRoster(visibleChildren, { nameOrder, groupByGender })
@@ -364,10 +363,6 @@ function SundaySchoolChildrenContent() {
             toolbar={
               <>
                 <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" className="flex-1 md:flex-none" />
-                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2">
-                  <input type="checkbox" checked={otherChurchOnly} onChange={event => setOtherChurchOnly(event.target.checked)} className="size-4 accent-brand" />
-                  Attends another church
-                </label>
                 <FilterSelect
                   aria-label="Alphabetize by"
                   className="w-full md:w-auto"
@@ -436,10 +431,15 @@ function SundaySchoolChildrenContent() {
                           <div className="flex min-w-0 items-center gap-2.5">
                             <Initials name={getChildFullName(child)} imageUrl={getChildPhotoUrl(child)} />
                             <div className="flex min-w-0 flex-1 flex-col leading-tight">
-                              <div className="flex min-w-0 items-center gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className={`min-w-0 truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
                                   <StudentName id={child.id} name={getChildFullName(child)} program="sunday-school" className="max-w-full truncate" />
                                 </span>
+                                {child.attendsOtherChurch && (
+                                  <StatusBadge tone="neutral" dot={false} className="h-auto min-h-[22px] max-w-full whitespace-normal break-words py-0.5 leading-4">
+                                    {child.otherChurchName ? `Other church: ${child.otherChurchName}` : 'Attends another church'}
+                                  </StatusBadge>
+                                )}
                                 {child.isServantsPrepStudent && (
                                   <StatusBadge tone="accent" dot={false}>SP Student</StatusBadge>
                                 )}
@@ -510,11 +510,6 @@ function SundaySchoolChildrenContent() {
                               </span>
                             ) : (
                               <span className="text-ink-3">No family on file</span>
-                            )}
-                            {child.attendsOtherChurch && (
-                              <p className="mt-0.5 break-words text-xs text-accent-ink">
-                                Attends another church: {child.otherChurchName || "Name not recorded"}
-                              </p>
                             )}
                             {child.notes && (
                               <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>

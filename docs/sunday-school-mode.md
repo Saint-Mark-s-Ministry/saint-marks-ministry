@@ -92,9 +92,10 @@ Servant attendance uses its own binary `SundaySchoolServantAttendanceStatus`
 
 On **Roster → Add child / Edit child**, a servant with existing class write
 access can mark **Attends another church** and optionally record a church name
-and location (up to 200 characters). The roster shows this information and can
-filter to marked children while retaining the name search. Unknown names are
-allowed so follow-up is not blocked; unmarking clears the saved church name.
+and location (up to 200 characters). The roster shows a tag beside the child’s
+name, including the church’s name when known. If no name is recorded, the tag
+reads “Attends another church.” Unknown names are allowed so follow-up is not
+blocked; unmarking clears the saved church name.
 This is family-reported information, not verified membership. It does not
 withdraw the child, move their class, change attendance, notify another church,
 or grant anyone access. Use the existing calls/visits workflow for follow-up.
