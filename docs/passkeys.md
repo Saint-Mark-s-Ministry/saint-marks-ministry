@@ -13,16 +13,19 @@ Google login remain available, including after removing the last passkey.
 
 ## Configuration and rollout
 
-Passkeys are hidden and disabled until **both** variables are configured:
+Passkey setup and login are enabled only when **both** variables are configured.
+My account always shows the Passkeys section, with an availability message and
+retry action when setup cannot be enabled:
 
 ```env
 PASSKEY_RP_ID="stmarkministry.app"
-PASSKEY_ORIGIN="https://stmarkministry.app"
+PASSKEY_ORIGIN="https://www.stmarkministry.app"
 ```
 
 These are examples: use the actual chosen domain. `PASSKEY_ORIGIN` must be the
-exact canonical origin, including a nonstandard port if present, with no path
-or trailing slash. The RP ID is a hostname without a scheme, path, or port. It
+exact origin, including a nonstandard port if present, with no path, query, or
+fragment. Surrounding whitespace and a root trailing slash are normalized. The
+RP ID is a hostname without a scheme, path, or port; its case is normalized. It
 must equal the origin hostname or be its parent domain. Do not use a public
 suffix or shared hosting parent such as `vercel.app` as the RP ID.
 
@@ -50,9 +53,17 @@ deployment; configure preview deployments separately with their own database.
    security key as applicable. Hardware must support resident credentials and
    user verification.
 
-Unset either variable to disable passkey entry points without removing stored
-credentials. Existing sessions and other sign-in methods continue to work.
+Unset either variable to disable passkey setup and login without removing stored
+credentials. My account still displays an unavailable state. Existing sessions
+and other sign-in methods continue to work.
 `bun run build` never applies a migration.
+
+The uncached `/api/public/passkeys` endpoint reports `enabled: true` when the
+running deployment accepts the configuration. When disabled, `reason` identifies
+`missing_environment`, `invalid_origin`, `https_required`, `invalid_rp_id`, or
+`rp_id_mismatch`; a missing-environment response also names the missing variables.
+It never echoes their values. Correct variables in Vercel's settings must be
+included in the current deployment, so redeploy after saving changes.
 
 ## Domain changes
 
