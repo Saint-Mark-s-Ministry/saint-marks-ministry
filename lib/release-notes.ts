@@ -17,6 +17,22 @@ export interface ReleaseNote {
 // Confirm this entry's date when the weekly release is deployed.
 export const releaseNotes: ReleaseNote[] = [
   {
+    id: '2026-11-12',
+    date: '2026-11-12',
+    title: 'More guides, church tags, and clearer passkey setup',
+    summary: 'Learn more Sunday School tasks with step-by-step videos, see a child’s other church beside their name, and find passkey setup in My account.',
+    changes: {
+      new: [
+        'Five new Sunday School guides cover learning children’s names, publishing Elementary homework, collecting phone details with Contact update QR, saving memorization scores, and subscribing to class lesson dates and birthdays. Each includes a captioned video, written steps, and help for common questions.',
+        'Sunday School servants can mark that a child attends another church and optionally enter its name or location. A tag beside the child’s name shows the church when known. Edit the child to update or clear it.',
+      ],
+      improved: [
+        'Watch guide links open the relevant tutorial from Children, Homework, Memorization, and the calendar subscription controls.',
+        'My account keeps Passkeys visible, shows when setup is unavailable, and offers Check again. When passkeys are available, you can add one after signing in; your password and Google sign-in remain available.',
+      ],
+    },
+  },
+  {
     id: '2026-11-10',
     date: '2026-11-10',
     title: 'Easier attendance, readings, and class follow-up',
