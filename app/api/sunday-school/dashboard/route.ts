@@ -100,9 +100,11 @@ export async function GET(request: Request) {
 
     const classIds = classes.map(c => c.id)
 
+    // Keep roster/history intact; the current other-church flag excludes marks
+    // from summary averages and (below) child trends, including past years.
     const attendance = classIds.length
       ? await prisma.sundaySchoolChildAttendance.findMany({
-          where: { session: { classId: { in: classIds } } },
+          where: { session: { classId: { in: classIds } }, child: { attendsOtherChurch: false } },
           select: { status: true, session: { select: { classId: true } } },
         })
       : []
@@ -223,7 +225,10 @@ export async function GET(request: Request) {
               select: {
                 classId: true,
                 date: true,
-                attendance: { select: { status: true } },
+                attendance: {
+                  where: { child: { attendsOtherChurch: false } },
+                  select: { status: true },
+                },
               },
               orderBy: { date: "asc" },
             })
@@ -263,6 +268,7 @@ export async function GET(request: Request) {
         childCount: cls._count.children,
         sessionCount: sessionCountByClass.get(cls.id) ?? 0,
         attendancePercentage: stats.percentage,
+        countableAttendanceCount: stats.effectiveTotalLessons,
         latestSession,
         attendanceTakenThisWeek: latestSession
           ? new Date(latestSession.date).getTime() >= currentClassWeek.getTime()

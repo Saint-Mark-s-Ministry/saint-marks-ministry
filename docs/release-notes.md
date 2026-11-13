@@ -54,3 +54,7 @@ infer releases from Git commits or run a scheduled publishing job.
 The [weekly deployment workflow](weekly-deployments.md) and
 [release PR template](../.github/PULL_REQUEST_TEMPLATE/weekly-release.md) include
 this step before production approval.
+
+## Draft for the next release
+
+- Sunday School attendance averages and weekly trends exclude children marked as attending another church. Their roster entries and attendance history remain available.

@@ -47,6 +47,7 @@ function classSummary(id: string, name: string) {
     childCount: 12,
     sessionCount: 0,
     attendancePercentage: 0,
+    countableAttendanceCount: 0,
     latestSession: null,
     attendanceTakenThisWeek: false,
     canServe: true,
