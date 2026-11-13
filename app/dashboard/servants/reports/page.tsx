@@ -31,8 +31,8 @@ export default function SundaySchoolReportsPage() {
   const classes = dashboard?.classes ?? []
   const servants = new Set(classes.flatMap((c) => c.servants.map((sv) => sv.id))).size
   const withSessions = classes.filter((c) => c.sessionCount > 0)
-  const totalKids = withSessions.reduce((n, c) => n + c.childCount, 0)
-  const ytd = totalKids > 0 ? withSessions.reduce((n, c) => n + c.attendancePercentage * c.childCount, 0) / totalKids : null
+  const countableMarks = withSessions.reduce((n, c) => n + c.countableAttendanceCount, 0)
+  const ytd = countableMarks > 0 ? withSessions.reduce((n, c) => n + c.attendancePercentage * c.countableAttendanceCount, 0) / countableMarks : null
   const trend = dashboard?.attendanceTrend
   const yearName = trend?.academicYears.find((y) => y.id === trend.selectedAcademicYearId)?.name.replace('-', '–')
 
