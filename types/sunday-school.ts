@@ -381,6 +381,8 @@ export interface SundaySchoolClassSummary {
   childCount: number
   sessionCount: number
   attendancePercentage: number
+  /** Recorded child marks eligible for the average, excluding excused marks. */
+  countableAttendanceCount: number
   latestSession: { id: string; date: string; topic: string | null } | null
   attendanceTakenThisWeek: boolean
   canServe: boolean

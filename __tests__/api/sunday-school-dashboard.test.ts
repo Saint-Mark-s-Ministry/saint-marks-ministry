@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   findYears: vi.fn(),
   findClasses: vi.fn(),
   findSessions: vi.fn(),
+  findAttendance: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/sunday-school-access', () => ({
@@ -22,7 +23,7 @@ vi.mock('@/lib/prisma', () => ({
     academicYear: { findFirst: mocks.findYear, findMany: mocks.findYears },
     sundaySchoolClass: { findMany: mocks.findClasses },
     sundaySchoolAgeGroup: { findMany: async () => [] },
-    sundaySchoolChildAttendance: { findMany: async () => [] },
+    sundaySchoolChildAttendance: { findMany: mocks.findAttendance },
     sundaySchoolSession: { findMany: mocks.findSessions, groupBy: async () => [] },
   },
 }))
@@ -55,6 +56,7 @@ describe('Sunday School dashboard enrollment and recording coverage', () => {
     mocks.findYears.mockResolvedValue([
       year, { ...year, id: 'past', isActive: false, startDate: new Date('2025-09-01') },
     ])
+    mocks.findAttendance.mockResolvedValue([])
     mocks.findClasses.mockResolvedValue(classes)
     mocks.findSessions.mockResolvedValue([
       { classId: 'class-0', date: new Date('2026-09-13'), attendance: [{ status: 'PRESENT' }, { status: 'ABSENT' }] },
@@ -75,6 +77,35 @@ describe('Sunday School dashboard enrollment and recording coverage', () => {
       { date: '2026-09-20', attendedCount: 1, recordedCount: 1, recordedClassCount: 1, attendanceRate: 100 },
     ])
     expect(mocks.findSessions.mock.calls[0][0].select.classId).toBe(true)
+  })
+
+  it('excludes other-church children from class averages and child trends, including past years', async () => {
+    // These are the eligible rows returned by the relation-filtered query.
+    mocks.findAttendance.mockResolvedValue([
+      { status: 'PRESENT', session: { classId: 'class-0' } },
+      { status: 'LATE', session: { classId: 'class-0' } },
+      { status: 'ABSENT', session: { classId: 'class-0' } },
+      { status: 'EXCUSED', session: { classId: 'class-0' } },
+    ])
+    const result = await dashboard('?academicYearId=past')
+    expect(mocks.findAttendance).toHaveBeenCalledWith(expect.objectContaining({
+      where: { session: { classId: { in: ['class-0', 'class-1'] } }, child: { attendsOtherChurch: false } },
+    }))
+    expect(mocks.findSessions.mock.calls[0][0].select.attendance).toEqual({
+      where: { child: { attendsOtherChurch: false } }, select: { status: true },
+    })
+    expect(result.classes[0]).toMatchObject({ attendancePercentage: 50, countableAttendanceCount: 3, childCount: 300 })
+    expect(result.classes[1]).toMatchObject({ attendancePercentage: 0, countableAttendanceCount: 0 })
+    expect(result.totals.children).toBe(774)
+  })
+
+  it('shows a gap for a week with no eligible child marks', async () => {
+    mocks.findSessions.mockResolvedValue([
+      { classId: 'class-0', date: new Date('2026-09-13'), attendance: [] },
+    ])
+    const result = await dashboard()
+    expect(result.attendanceTrend.points[0]).toMatchObject({ attendanceRate: null, recordedCount: null })
+    expect(result.classes.every((c: { countableAttendanceCount: number }) => c.countableAttendanceCount === 0)).toBe(true)
   })
 
   it('scopes the current enrolled reference to the selected class', async () => {
@@ -106,6 +137,7 @@ describe('Sunday School dashboard enrollment and recording coverage', () => {
     const result = await dashboard('?audience=servants')
     expect(result.attendanceTrend.currentEnrolledCount).toBeNull()
     expect(result.attendanceTrend.points[0]).toMatchObject({ recordedCount: 1, recordedClassCount: 1 })
+    expect(mocks.findSessions.mock.calls[0][0].select.servantAttendance).toEqual({ select: { status: true } })
   })
 
   it('uses only visible classes for both enrollment and submission coverage', async () => {
