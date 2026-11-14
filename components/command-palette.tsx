@@ -26,7 +26,7 @@ import {
   CircleHelp,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
+import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations, canViewGuides } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 import { useDigitalExams } from '@/lib/swr'
 import { DAILY_READINGS_HREF, navigationFor, type NavUser } from '@/lib/navigation'
@@ -253,7 +253,7 @@ export function CommandPalette() {
     (pathname.startsWith('/dashboard/servants') && Boolean(session.user.sundaySchool?.hasAccess))
   const navItems = (inSundaySchool ? sundaySchoolSearchItems(session.user) : getNavItemsForRole(session.user.role, session.user.sundaySchool?.hasAccess ?? false))
     .filter(item => item.href !== '/dashboard/student/exams' || !!openExams?.exams.length)
-  if (!navItems.some(item => item.href === GUIDES_HREF)) navItems.push({ label: 'Guides', href: GUIDES_HREF, icon: CircleHelp, keywords: 'help tutorials videos lesson upload' })
+  if (canViewGuides(session.user.role) && !navItems.some(item => item.href === GUIDES_HREF)) navItems.push({ label: 'Guides', href: GUIDES_HREF, icon: CircleHelp, keywords: 'help tutorials videos lesson upload' })
   navItems.push({
     label: 'What’s new',
     href: pathname.startsWith('/dashboard/servants') || session.user.role === 'SERVANT' || session.user.role === 'PARENT'

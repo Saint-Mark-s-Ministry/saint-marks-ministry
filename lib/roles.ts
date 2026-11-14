@@ -27,6 +27,12 @@ export const isStudent = (role: UserRole) => {
 }
 
 // Sunday School servant (serves in the Sunday School class, not a prep student)
+// Servants Prep students do not see the portal Guides library (page, nav,
+// command palette, or Watch guide links).
+export const canViewGuides = (role: UserRole) => {
+  return role !== UserRole.STUDENT
+}
+
 export const isServant = (role: UserRole) => {
   return role === UserRole.SERVANT
 }
