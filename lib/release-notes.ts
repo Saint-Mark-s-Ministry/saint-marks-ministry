@@ -17,6 +17,21 @@ export interface ReleaseNote {
 // Confirm this entry's date when the weekly release is deployed.
 export const releaseNotes: ReleaseNote[] = [
   {
+    id: '2026-11-14',
+    date: '2026-11-14',
+    title: 'Passkey guide and more accurate attendance averages',
+    summary: 'Watch a new guide to setting up a passkey, and see Sunday School attendance averages that reflect the children who attend our church.',
+    changes: {
+      new: [
+        'A new captioned guide shows how to create a passkey, sign in with it, and remove it. Select Watch guide beside Passkeys in My account, or find Create and use a passkey in Guides.',
+      ],
+      improved: [
+        'Sunday School attendance averages and weekly trends no longer count children marked as attending another church. Their roster entries and attendance history remain available, and clearing the mark includes their attendance again.',
+        'The Reports year-to-date average now reflects each class’s recorded attendance rather than its total roster size.',
+      ],
+    },
+  },
+  {
     id: '2026-11-12',
     date: '2026-11-12',
     title: 'More guides, church tags, and clearer passkey setup',
