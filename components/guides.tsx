@@ -1,5 +1,6 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowDown, ArrowUpRight, BookOpen, CirclePlay } from 'lucide-react'
@@ -31,6 +32,7 @@ export function Guides() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-8">
       <PageHeader title="Guides" meta="Short videos and written steps to help you use the portal." />
+      <PrepGuideLink>Servants Prep staff guides</PrepGuideLink>
       <nav aria-label="Choose a guide" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {portalGuides.map(guide => (
           <a key={guide.id} href={`#${guide.id}`} className="group flex min-w-0 items-start gap-3 rounded-lg border border-line bg-surface p-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink">

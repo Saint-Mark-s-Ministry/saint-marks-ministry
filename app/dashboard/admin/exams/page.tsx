@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { refreshMakeupExamScores } from '@/lib/swr'
@@ -448,6 +450,7 @@ function ExamsPageContent() {
             </Button>
           }
         />
+        <PrepGuideLink id="exam-scores" />
 
         <KpiStrip
           items={[
@@ -588,6 +591,7 @@ function ExamsPageContent() {
           )}
         </>}
       />
+      <PrepGuideLink id="exam-scores" />
 
       <MakeupExamBookings staff />
 

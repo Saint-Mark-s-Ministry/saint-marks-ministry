@@ -51,3 +51,8 @@ next-env.d.ts
 /.claude
 
 .env*
+
+# Staff media is committed only as authenticated ciphertext.
+/private/sp-guides/*.mp4
+/private/sp-guides/*.jpg
+/private/sp-guides/*.vtt

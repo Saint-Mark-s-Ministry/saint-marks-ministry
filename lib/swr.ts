@@ -594,3 +594,12 @@ export function usePublicAttendanceCheckIn(token: string) {
       return data
     }, { revalidateOnFocus: true, refreshInterval: 15000, shouldRetryOnError: false })
 }
+
+// Key by the signed-in identity so another account never inherits visibility.
+export function usePrepGuideAccess(viewerId?: string) {
+  return useSWR<{ allowed: boolean }>(
+    viewerId ? ['/api/guides/servants-prep/access', viewerId] : null,
+    ([url]: [string, string]) => fetcher(url),
+    { ...defaultSWRConfig, revalidateOnFocus: true, revalidateOnMount: true, shouldRetryOnError: false },
+  )
+}

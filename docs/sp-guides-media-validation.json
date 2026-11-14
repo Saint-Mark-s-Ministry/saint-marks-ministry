@@ -1,0 +1,392 @@
+[
+  {
+    "slug": "attendance",
+    "duration": "22.272000",
+    "bytes": 2605758,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1336"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1046"
+      }
+    ],
+    "audio": {
+      "mean_volume": -23.092947006115025,
+      "max_volume": -4.742616915618133
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "59afe7d35908402eb451de0da02ab089ca0e98a2267608f63366d1e7ec844a66",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "59afe7d35908402eb451de0da02ab089ca0e98a2267608f63366d1e7ec844a66",
+      "jpg": "272906023a034b98bc5d7291a9e36735a047c80db83802eda240b4eb58c40b9e",
+      "vtt": "2a9fff4eb7604073f43692f536109c9d52df1cbf104865617f34bb66e1e0cdcf"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "72ae26b8649c5bd6e876b3e675d21ea3a772e0de61e263d20c80f7de7d6593c8",
+      "jpg": "09a450b03a12646891c9ded9d7bf20e1fcce88c7d6459dca49824745c64a9873",
+      "vtt": "cb42a74621155542ac14ab677e913522d76fb02f2c6621e4d7c1eaf9b5cc3f50"
+    }
+  },
+  {
+    "slug": "student-progress",
+    "duration": "20.501000",
+    "bytes": 2775297,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1229"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "963"
+      }
+    ],
+    "audio": {
+      "mean_volume": -22.64197151569936,
+      "max_volume": -4.767821984092217
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "1c8020246be5e8ea4a23d8d89984fa4f52576317efba1ea2d2e251733cb7a5cd",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "1c8020246be5e8ea4a23d8d89984fa4f52576317efba1ea2d2e251733cb7a5cd",
+      "jpg": "4ce0f6b9bdf0467b68591cc8f7f7629f0ea9bf6074ee17c04bb487df403f7e78",
+      "vtt": "e2ecb669f8e174d45596f66839eadff5dd82ee2db684530b2815e70d5ea74a70"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "f8c53d111d39edfd3595d7d82fdc0301b769cc9749508fc6c938336760c1e6af",
+      "jpg": "49c05523d9aa55ce0b894338504835231798ae830a8fa1af4dca7a23ad0574e6",
+      "vtt": "c1346096452b36cb3dc58eb19c1ef4cd1a63bd3d0a5b9bbf8e406a73cdbd5181"
+    }
+  },
+  {
+    "slug": "exam-scores",
+    "duration": "22.016000",
+    "bytes": 2710343,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1320"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1034"
+      }
+    ],
+    "audio": {
+      "mean_volume": -25.241881816108645,
+      "max_volume": -4.752690167777059
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "835a2d5bc4ca57bdad0d4f86b60e968aa1f7b3d5c01b952aca656af00d4679e2",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "835a2d5bc4ca57bdad0d4f86b60e968aa1f7b3d5c01b952aca656af00d4679e2",
+      "jpg": "8fdebcf7b27408de50f96fc4e18e14627ef7e276972b136fafc13e40bcf04292",
+      "vtt": "b43a617f2cc4c23762d87d4cecb0689d59c7bcbb58bee44aa601d635af2f8c24"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "afd86cd155fb61f8a14ffd956b34cf9504b36348a14856722be2a53177462de8",
+      "jpg": "8f7d94720101dd961bf16fbd8bd7cea8dc87a1560d31455e0a1e3667c6bb0a65",
+      "vtt": "7a867e8fd351c04fd7121e8f3139bf3b343458b2a0a6c76313a36dcee4cd72d0"
+    }
+  },
+  {
+    "slug": "registrations",
+    "duration": "23.296000",
+    "bytes": 2466733,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1397"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1094"
+      }
+    ],
+    "audio": {
+      "mean_volume": -25.100209117206354,
+      "max_volume": -4.806458710032112
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "13f36a6ad2eae061e103eaa9b2b563e373a59e4b3560f1d3f975acfccff3b29c",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "13f36a6ad2eae061e103eaa9b2b563e373a59e4b3560f1d3f975acfccff3b29c",
+      "jpg": "ce9ac5db60df5f484d311bb875442975a2740e7caf2a63e95ff779d6febe9f8e",
+      "vtt": "7def857e80f34e78e9cebfe1d64ea42ad1f7394b4aed2daa0674f6c892686764"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "bcdf3afcde956104766eeefeaa0fb19ed24d254f737ea0013b6f7d9a43187ac0",
+      "jpg": "05169d38ebfec9f03ec4135c9e9cfdd581e4896e301528d06e343b034468027c",
+      "vtt": "37a46b2cdd0c28e7d80f47128432067a343c2263aa0143479d2fa315087ea6d0"
+    }
+  },
+  {
+    "slug": "mentors",
+    "duration": "22.635000",
+    "bytes": 2900762,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1358"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1063"
+      }
+    ],
+    "audio": {
+      "mean_volume": -24.76639814924024,
+      "max_volume": -4.794021009610462
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "9ec204851b3b4a4ca38d9807c8f0db18dd94c348e3f1908ad8379504e4634cd9",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "9ec204851b3b4a4ca38d9807c8f0db18dd94c348e3f1908ad8379504e4634cd9",
+      "jpg": "9c414c123efc8f027a13c4b9efd92519007eaf3d4e83cce0837b9e71fe946150",
+      "vtt": "246c752ad3975f4f3c1906e7146b134e2ceca546f31cc1da935c822a13795089"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "c889fde059c52714a1bb6136539b3329da447044854297806e7364f6d1e5cb90",
+      "jpg": "58c6001111ae2f05bdd3c71cff4dd30c441eaea91530daa7f47472185e3e1d6d",
+      "vtt": "27510e96fb1cbe0479b5d822febcf29181d2adc5857f9895bf89c8fb8cd67639"
+    }
+  },
+  {
+    "slug": "lesson-calendar",
+    "duration": "23.275000",
+    "bytes": 3167381,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1396"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1093"
+      }
+    ],
+    "audio": {
+      "mean_volume": -24.06547179004422,
+      "max_volume": -4.86380984038991
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "7a8c0b226b629eb42a38ed5a28aa7890108b133473e576fa0647ee1d96d13cc7",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "7a8c0b226b629eb42a38ed5a28aa7890108b133473e576fa0647ee1d96d13cc7",
+      "jpg": "f6710e3a32fc88d8cdd344f984b61da4b92aa6af84465acb0bdaa3064b0cc472",
+      "vtt": "26e63a6b115724c09a15bce5e93bab2a5945275d8f6d1f97713f0b40435491d4"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "7b3ec888382e85f2f08d55fe7c7f8c7f01078c4c0f7fbc45f7293d1089016d8c",
+      "jpg": "cb52b728227f3dbbe35456e9011301d738c9be72325b0a6824ddd44ab06d5232",
+      "vtt": "e2fd09e7c5e0fd98614090e85783b53e6006de4e945c167193a4fbb0d8610606"
+    }
+  },
+  {
+    "slug": "exam-setup",
+    "duration": "20.395000",
+    "bytes": 2843139,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1223"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "958"
+      }
+    ],
+    "audio": {
+      "mean_volume": -22.75626232241241,
+      "max_volume": -4.7417017444405865
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "4456786a75483df985e0e0d3016900709eba34979cfa56443cde952981c9a1c7",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "4456786a75483df985e0e0d3016900709eba34979cfa56443cde952981c9a1c7",
+      "jpg": "2afb3994e5edfa39414b48f5128835e0b7962c38a5798f0246a1ed5159e10a6d",
+      "vtt": "199d3463f9c92a4c966c66a8799adca39fe53d46ffc267f331aee7edb168d8a0"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "eba9766957ca5d53a33f04e0e576b7332efd1368cf61e58d40af6cc07653807b",
+      "jpg": "98f6f92321a6b8c4efdb8b3af179a602a57b5b49f523c2456583262b253998a9",
+      "vtt": "727189aa1621e198a4bc125ffe21e30b37637da4aec7d5ef58cc303f135a2154"
+    }
+  },
+  {
+    "slug": "exam-monitoring",
+    "duration": "26.069000",
+    "bytes": 3495887,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1564"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1224"
+      }
+    ],
+    "audio": {
+      "mean_volume": -23.58672625120811,
+      "max_volume": -4.776546215160204
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "a4724fc1e0e0f273d60f4107b738bad79b5d7cc5d139f5381503f82f2d95eae4",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "a4724fc1e0e0f273d60f4107b738bad79b5d7cc5d139f5381503f82f2d95eae4",
+      "jpg": "651dc73ce3768a012816f8088200c328db64edf15a6eb4e6943b00baa4435024",
+      "vtt": "98833558799b331bd6b78e9f53f87119de9024e58e0a8961e1ecc08fc71ebc58"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "f418e561c776e84f27dd31ec5c57015fac759fb8df57e52e286335c2af0b7701",
+      "jpg": "d302f7c79ed6b828ce53edbd47914f47ccb872c7ff35b9e22e7b6cf0d53d9999",
+      "vtt": "627aa7292719e4b260196cd1f995b17c6d3bd666439b67aceac506f040d64bba"
+    }
+  },
+  {
+    "slug": "async-rotations",
+    "duration": "24.384000",
+    "bytes": 2622623,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1463"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1145"
+      }
+    ],
+    "audio": {
+      "mean_volume": -24.883776791676237,
+      "max_volume": -4.770576057878879
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "c5e4a4c24c64a35e7ba7db092e4fb7f6decee8f44c0046fcd1ee7c082178dd68",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "c5e4a4c24c64a35e7ba7db092e4fb7f6decee8f44c0046fcd1ee7c082178dd68",
+      "jpg": "a5e11419e664abca745167907fc459a6db88bec2cf2a3e7c4d57a5ad07df6deb",
+      "vtt": "f9aa51f0539db7c0c1efc4c841db780d5c5494c9b4ae405c67fb08940964b006"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "b0c8f05cdb74bd4c5da3a72f4353bdecb40dea04170b362ecb9f8f410967e748",
+      "jpg": "59fe849be4495130223bfa9a0a5ae0a7a46d52de099a78b1ba772676808f4ed9",
+      "vtt": "641dfc9985750ddbdd2093f52558950ee2f803af10c64c562253c0acbfb9d2ec"
+    }
+  },
+  {
+    "slug": "confession",
+    "duration": "22.336000",
+    "bytes": 3383751,
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1339"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_frames": "1049"
+      }
+    ],
+    "audio": {
+      "mean_volume": -24.21285847908299,
+      "max_volume": -4.798625488958146
+    },
+    "fastStart": true,
+    "decode": "passed",
+    "sha256": "c264dd7454efb5257defc2ad24db879f91cc2de9fdbedc9680aeb24573518e92",
+    "captions": "four timed cues, matching narration",
+    "assetSha256": {
+      "mp4": "c264dd7454efb5257defc2ad24db879f91cc2de9fdbedc9680aeb24573518e92",
+      "jpg": "ef520512c3ca8f5acb826ac47ec3e4335633b53bf613b9354dfb59ce569c525b",
+      "vtt": "83a5a575196673058d033ce3452c0d5000eaad8d19749187715711cfb21c4c83"
+    },
+    "encryptedAssetSha256": {
+      "mp4": "0f0c898397966e996b528a64ef4d59c3d049856daea0181d2e9d17269761428a",
+      "jpg": "8d205f41f5f3eb033c8d574333e081658691d53395cb295fb0a813f59b7bcc69",
+      "vtt": "69fd6f472f99bb532a66dac7f7f701b7508dc6826ca2d8b818c4727c59615d55"
+    }
+  }
+]

@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { ReplaceStudentAccountDialog } from '@/components/replace-student-account-dialog'
 import { StudentProfileLink } from '@/components/student-profile-link'
 
@@ -81,6 +83,7 @@ export default function RegistrationsPage() {
             </Button>
           }
         />
+        <PrepGuideLink id="registrations" />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
