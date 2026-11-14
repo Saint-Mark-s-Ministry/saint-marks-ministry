@@ -42,9 +42,26 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 ## Weekly deployment workflow
 
 Target normal feature/fix PRs at the active `release/MM-DD-YYYY` branch (US date
-format). Find that branch through the open draft weekly deployment master PR into `main`.
-Base new work on the release branch so it includes the week's accumulated
-changes, and update the master PR's tracking list when work is included.
+format), never directly at `main`. Find that branch through the open draft weekly
+deployment master PR into `main`. Base new work on the release branch so it
+includes the week's accumulated changes, and update the master PR's tracking list
+when work is included.
+
+**If no weekly master PR is open, create one before opening your PR:**
+
+1. Work out the current week's branch name: `release/` plus the Monday that
+   starts the current week (Monday through Sunday), e.g. `release/11-09-2026`
+   for November 9–15, 2026.
+2. If that branch already exists, merge the latest `main` into it. Otherwise,
+   create it from the latest `main` and push it.
+3. Open a **draft** PR from that branch into `main` using the
+   [weekly release template](.github/PULL_REQUEST_TEMPLATE/weekly-release.md),
+   filling in the week and branch.
+4. Base your feature/fix branch on the release branch, target your PR at it,
+   and add the change to the master PR's "Pending or deferred" list until it is
+   merged into the release branch.
+
+Only separately authorized urgent hotfixes (`hotfix/` branches) target `main`.
 
 The master PR collects the week’s production release. Keep it in draft while
 collecting work; merging it into `main` is the production release step. Follow

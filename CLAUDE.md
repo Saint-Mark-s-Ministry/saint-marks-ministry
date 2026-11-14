@@ -23,6 +23,9 @@ Deep references:
   authorization is assignment-based** (`lib/sunday-school-access.ts`) — never
   grant it from a role, and always re-derive it from the database inside the
   route.
+- **PRs target the weekly `release/MM-DD-YYYY` branch, not `main`.** If no
+  draft weekly master PR into `main` is open, create the release branch and
+  that draft PR first. See AGENTS.md, "Weekly deployment workflow".
 - **Branch names are `<type>/<short-description>`**: `feature/`, `fix/`,
   `docs/`, `chore/`, `hotfix/`, or `release/MM-DD-YYYY`, then 2–5 lowercase
   hyphenated words (`fix/files-back-to-root-icon`). Never use a random or
