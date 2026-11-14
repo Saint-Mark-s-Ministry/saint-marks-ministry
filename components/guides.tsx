@@ -10,13 +10,13 @@ import { StatusBadge } from '@/components/ds/status-badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/ui/page-loading'
 import { GUIDE_MEDIA_VERSION, portalGuides, type PortalGuide } from '@/lib/guides'
+import { canViewGuides } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
 
-// Shared reference material. Workflow routes independently enforce class access.
-const anyRole = () => true
-
+// Shared reference material for everyone except Servants Prep students.
+// Workflow routes independently enforce class access.
 export function Guides() {
-  const { session, status } = useAdminGuard(anyRole)
+  const { session, status } = useAdminGuard(canViewGuides)
   useEffect(() => {
     if (status !== 'authenticated') return
     const guide = portalGuides.find(item => `#${item.id}` === window.location.hash)
@@ -24,9 +24,9 @@ export function Guides() {
     const frame = requestAnimationFrame(() => document.getElementById(guide.id)?.scrollIntoView())
     return () => cancelAnimationFrame(frame)
   }, [status])
-  if (status !== 'authenticated') return <PageLoading />
   const user = session?.user
-  const showWorkflowLinks = Boolean(user?.sundaySchool?.hasAccess) && user?.role !== 'PARENT' && user?.role !== 'STUDENT'
+  if (status !== 'authenticated' || !user || !canViewGuides(user.role)) return <PageLoading />
+  const showWorkflowLinks = Boolean(user?.sundaySchool?.hasAccess) && user?.role !== 'PARENT'
 
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-8">

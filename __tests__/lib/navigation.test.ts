@@ -240,7 +240,7 @@ describe('contact book navigation', () => {
 
 describe('shared Guides navigation', () => {
   it('is available to signed-in roles without changing their ministry context', () => {
-    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT', 'PARENT', 'SERVANT'] as UserRole[]) {
+    for (const role of ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'PARENT', 'SERVANT'] as UserRole[]) {
       const user = { role, ...servesSS }
       for (const { id: ministry } of availableMinistries(user)) {
         const groups = navigationFor(user, ministry)
@@ -250,6 +250,12 @@ describe('shared Guides navigation', () => {
         expect(currentNavLabel(groups, '/dashboard/guides')).toBe('Guides')
         expect(resolveMinistry(user, '/dashboard/guides', ministry)).toBe(ministry)
       }
+    }
+  })
+
+  it('is hidden from Servants Prep students', () => {
+    for (const extra of [noSS, { isAsyncStudent: true, ...noSS }]) {
+      expect(hrefs('STUDENT', 'prep', extra)).not.toContain('/dashboard/guides')
     }
   })
 })
