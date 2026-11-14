@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { CornerUpLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import type { DriveFile } from '@/lib/drive'
 import { mimeLabel, isFolder, formatSize, formatDate } from '@/lib/drive'
@@ -285,9 +286,10 @@ export default function DriveFileBrowser() {
         {crumbs.length > 1 && (
           <button
             onClick={() => goToCrumb(0)}
-            className="ml-2 text-xs text-gray-500 hover:text-maroon-600 dark:text-gray-400 dark:hover:text-maroon-400 transition-colors"
+            className="ml-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-maroon-600 dark:text-gray-400 dark:hover:text-maroon-400 transition-colors"
           >
-            ↩ Back to root
+            <CornerUpLeft aria-hidden className="size-3.5 shrink-0" />
+            Back to root
           </button>
         )}
       </nav>
