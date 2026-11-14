@@ -58,8 +58,3 @@ uses the current desktop UI and a clearly labeled, animated illustration for the
 device/password-manager confirmation because those prompts vary. It covers
 enrollment after account creation, sign-in, removal, fallback, and the recent
 sign-in requirement. It grants no additional account or ministry permissions.
-
-Draft release copy for the next deployment: “A new captioned guide shows how to
-create a passkey, sign in with it, and remove it. Open Watch guide in My account
-or find Create and use a passkey in Guides.” Keep the already published release
-history unchanged; date the entry when this guide is deployed.
