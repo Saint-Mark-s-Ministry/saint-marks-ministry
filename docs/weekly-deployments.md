@@ -14,6 +14,10 @@ merge it while preparing or testing the week's changes.
   [weekly release template](../.github/PULL_REQUEST_TEMPLATE/weekly-release.md).
 - Base new feature and fix branches on the weekly branch. Target their PRs at
   that release branch, and merge reviewed changes there throughout the week.
+- If no draft master PR is open when work is ready for review, create the
+  current week's release branch (or update an existing one from `main`) and
+  open the draft master PR first. Do not target feature or fix PRs at `main`
+  because a master PR is missing.
 - Update the master PR's included-changes list when a feature PR is merged.
   Changes still under review do not count as included.
 - Review and test the combined release branch. Individual feature checks do
