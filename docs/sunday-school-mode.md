@@ -924,3 +924,27 @@ church-local Saturday/Sunday windows and account-free full-name requests that
 servants confirm before attendance is marked. See
 [QR attendance](qr-attendance.md) for operation, authority, source badges,
 concurrent saves and the additive migration required before code deployment.
+
+
+## Attendance and QR activity log
+
+The Super Admin Activity log records attendance QR creation, replacement and
+manual closure, staff confirmation/dismissal of waiting requests, and finishing
+class attendance. Contact-update QR and roster sign-up link creation/revocation
+also show their purpose and class name. Redisplaying an existing QR code or reading a link
+is not a new activity event.
+
+Events identify the authenticated actor, class, meeting date where applicable,
+and operation time. QR creation/replacement includes the opening and expiry
+times. Request reviews record the number actually reviewed separately from the
+number of attendance marks actually added; confirming an already marked child
+never claims a new mark. Already closed/revoked links and already reviewed
+requests do not generate duplicate activity. Events are recorded after a
+successful write, using the existing best-effort audit helper.
+
+QR bearer codes, hashes, public URLs and submitted child names are not included.
+The existing Super Admin-only visibility, two-hour retention policy and audit
+capacity limit apply. Attendance autosaves retain their existing grouping;
+QR controls and request decisions remain separate entries. No schema migration
+or new deployment configuration is required. This records future actions only;
+unrecorded past actions cannot be reconstructed.

@@ -69,4 +69,16 @@ describe('Activity log', () => {
     expect(screen.getByText('Saves bundled')).toBeInTheDocument()
   })
 
+  it('shows the actor, class and meeting date for QR creation', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({
+      events: [{ ...event, action: 'sunday_school.attendance_qr.created', result: 'SUCCESS', entityType: 'SundaySchoolSession', metadata: { targetName: 'Grade 3', attendanceDate: '2026-11-14' } }],
+      page: 1, total: 1, totalPages: 1, retention: { hours: 2, maxEvents: 50000 },
+    }) })))
+    render(<ActivityPage />)
+    const row = await screen.findByRole('button', { name: /Created an attendance QR code/ })
+    expect(within(row).getByText('Mina Servant')).toBeInTheDocument()
+    expect(within(row).getByText('Created an attendance QR code for Grade 3')).toBeInTheDocument()
+    expect(within(row).getByText(/2026-11-14/)).toBeInTheDocument()
+  })
+
 })

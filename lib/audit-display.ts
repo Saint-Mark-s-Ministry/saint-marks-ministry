@@ -1,3 +1,12 @@
+const SESSION_ACTION_LABELS: Record<string, string> = {
+  'sunday_school.attendance_qr.created': 'Created an attendance QR code',
+  'sunday_school.attendance_qr.replaced': 'Replaced an attendance QR code',
+  'sunday_school.attendance_qr.closed': 'Closed attendance QR check-in',
+  'sunday_school.attendance.finished': 'Finished Sunday School attendance',
+  'sunday_school.contact_update_qr.created': 'Created a contact-update QR code',
+  'sunday_school.contact_update_qr.revoked': 'Revoked a contact-update QR code',
+}
+
 const ACTION_LABELS: Record<string, string> = {
   AUTH_LOGIN: 'Signed in',
   AUTH_PASSWORD_CHANGE: 'Changed password',
@@ -24,6 +33,7 @@ const REASON_LABELS: Record<string, string> = {
 const ENTITY_LABELS: Record<string, string> = {
   Lesson: 'Servants Prep lesson',
   SundaySchoolSession: 'Sunday School session',
+  SundaySchoolRosterLink: 'Sunday School roster link',
   User: 'User account',
   SundaySchoolPriestNote: 'Confidential visitation note',
 }
@@ -48,6 +58,14 @@ const METADATA_LABELS: Record<string, string> = {
   targetName: 'Record name',
   targetEmail: 'User email',
   bulkDelete: 'Bulk deletion',
+  classId: 'Class ID',
+  className: 'Class',
+  opensAt: 'Check-in opens',
+  expiresAt: 'Expires',
+  requestCount: 'Requests reviewed',
+  attendanceAddedCount: 'Attendance marks added',
+  contactUpdateOnly: 'Contact updates only',
+  maxUses: 'Maximum sign-ups',
 }
 
 export interface DisplayableAuditEvent {
@@ -77,7 +95,8 @@ export function auditTargetLabel(event: DisplayableAuditEvent): string {
   const metadata = event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
     ? event.metadata as Record<string, unknown>
     : null
-  const deletedTargetName = typeof metadata?.targetName === 'string' ? metadata.targetName : null
+  const deletedTargetName = typeof metadata?.targetName === 'string' ? metadata.targetName
+    : typeof metadata?.className === 'string' ? metadata.className : null
   const deletedTargetEmail = typeof metadata?.targetEmail === 'string' ? metadata.targetEmail : null
   return event.target?.name || event.target?.email || deletedTargetName || deletedTargetEmail || auditEntityLabel(event.entityType)
 }
@@ -85,9 +104,26 @@ export function auditTargetLabel(event: DisplayableAuditEvent): string {
 export function auditActionSummary(event: DisplayableAuditEvent): string {
   const target = auditTargetLabel(event)
 
+  if (SESSION_ACTION_LABELS[event.action]) return `${SESSION_ACTION_LABELS[event.action]} for ${target}`
+  if (event.action === 'sunday_school.attendance_qr.approved' || event.action === 'sunday_school.attendance_qr.dismissed') {
+    const metadata = event.metadata as Record<string, unknown> | null
+    const count = Number(metadata?.requestCount ?? 0)
+    const verb = event.action.endsWith('.approved') ? 'Confirmed' : 'Dismissed'
+    return `${verb} ${count} Sunday School QR check-in ${count === 1 ? 'request' : 'requests'}`
+  }
+  if (event.action === 'SUNDAY_SCHOOL_ROSTER_LINK_CREATED' || event.action === 'SUNDAY_SCHOOL_ROSTER_LINK_REVOKED') {
+    const metadata = event.metadata as Record<string, unknown> | null
+    const verb = event.action.endsWith('_CREATED') ? 'Created' : 'Revoked'
+    const kind = metadata?.contactUpdateOnly === true ? 'contact-update QR code' : 'roster sign-up link'
+    return `${verb} a ${kind} for ${target}`
+  }
+
   if (event.action.startsWith('attendance.')) {
     const metadata = event.metadata as Record<string, unknown> | null
     const count = Number(metadata?.personCount ?? 0)
+    if (event.action === 'attendance.sunday_school_children.qr_check_in') {
+      return `Marked ${count} ${count === 1 ? 'person' : 'people'} present from Sunday School QR check-in`
+    }
     const kind = event.action === 'attendance.prep.save' ? 'Servants Prep'
       : event.action === 'attendance.sunday_school_children.save' ? 'Sunday School children’s' : 'Sunday School servants’'
     return `Saved ${kind} attendance for ${count} ${count === 1 ? 'person' : 'people'}`
@@ -126,7 +162,8 @@ export function auditReasonLabel(reason: string | null): string | null {
 }
 
 function formatMetadataValue(key: string, value: unknown): string {
-  if ((key === 'firstSavedAt' || key === 'lastSavedAt') && typeof value === 'string') {
+  if (key === 'attendanceDate' && typeof value === 'string') return value
+  if (['firstSavedAt', 'lastSavedAt', 'opensAt', 'expiresAt'].includes(key) && typeof value === 'string') {
     return new Date(value).toLocaleString()
   }
   if (key === 'provider') {

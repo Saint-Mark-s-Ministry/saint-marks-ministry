@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), access: vi.fn(), serve: vi.fn(), findClass: vi.fn(), create: vi.fn(), list: vi.fn(), audit: vi.fn() }))
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), access: vi.fn(), serve: vi.fn(), findClass: vi.fn(), create: vi.fn(), list: vi.fn(), findLink: vi.fn(), revoke: vi.fn(), audit: vi.fn() }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/sunday-school-access', () => ({ getSundaySchoolAccess: mocks.access, canServeClass: mocks.serve }))
 vi.mock('@/lib/audit', () => ({ recordAuditEvent: mocks.audit }))
 vi.mock('@/lib/prisma', () => ({ prisma: {
-  sundaySchoolClass: { findUnique: mocks.findClass }, sundaySchoolRosterLink: { create: mocks.create, findMany: mocks.list },
+  sundaySchoolClass: { findUnique: mocks.findClass }, sundaySchoolRosterLink: { create: mocks.create, findMany: mocks.list, findUnique: mocks.findLink, updateMany: mocks.revoke },
 } }))
 import { GET, POST } from '@/app/api/sunday-school/roster-links/route'
+import { DELETE } from '@/app/api/sunday-school/roster-links/[id]/route'
 
 const row = { id: 'link', label: null, contactUpdateOnly: true, expiresAt: new Date(Date.now() + 3600_000), revokedAt: null, maxUses: 40, useCount: 0, createdAt: new Date(), createdBy: { id: 'servant', name: 'Servant' }, _count: { children: 0 } }
 function request(body: Record<string, unknown>) {
@@ -22,6 +23,8 @@ beforeEach(() => {
   mocks.findClass.mockResolvedValue({ id: 'class-10', name: '10th Grade', level: 'GRADE_10', academicYearId: 'academic-year', sundaySchoolYearId: 'ss-year', sundaySchoolYear: { status: 'OPEN' }, status: 'ACTIVE', isActive: true })
   mocks.create.mockResolvedValue(row)
   mocks.list.mockResolvedValue([row])
+  mocks.findLink.mockResolvedValue({ id: 'link', classId: 'class-10', contactUpdateOnly: true, revokedAt: null, class: { academicYearId: 'academic-year', name: '10th Grade' } })
+  mocks.revoke.mockResolvedValue({ count: 1 })
 })
 
 describe('contact QR link management', () => {
@@ -69,4 +72,29 @@ describe('contact QR link management', () => {
     expect((await POST(request({ classId: 'class-10', contactUpdateOnly: 'false' }))).status).toBe(400)
     expect(mocks.create).not.toHaveBeenCalled()
   })
+  it('records contact QR creation without the bearer code or contact data', async () => {
+    const response = await POST(request({ classId: 'class-10', contactUpdateOnly: true }))
+    const data = await response.json()
+    expect(mocks.audit).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      actorUserId: 'servant', action: 'sunday_school.contact_update_qr.created',
+      metadata: expect.objectContaining({ className: '10th Grade', contactUpdateOnly: true }),
+    }))
+    expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain(data.token)
+  })
+
+  it('records revocation with the link purpose and class', async () => {
+    expect((await DELETE(request({}), { params: Promise.resolve({ id: 'link' }) })).status).toBe(200)
+    expect(mocks.audit).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      action: 'sunday_school.contact_update_qr.revoked',
+      metadata: { classId: 'class-10', targetName: '10th Grade', contactUpdateOnly: true },
+    }))
+  })
+
+  it('does not record a duplicate revocation after another request already revoked the link', async () => {
+    mocks.revoke.mockResolvedValue({ count: 0 })
+    const response = await DELETE(request({}), { params: Promise.resolve({ id: 'link' }) })
+    expect(await response.json()).toEqual({ success: true, alreadyRevoked: true })
+    expect(mocks.audit).not.toHaveBeenCalled()
+  })
+
 })

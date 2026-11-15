@@ -66,6 +66,7 @@ export async function GET(request: Request) {
               { entityId: { contains: search, mode: 'insensitive' } },
               { reason: { contains: search, mode: 'insensitive' } },
               { metadata: { path: ['targetName'], string_contains: search, mode: 'insensitive' } },
+              { metadata: { path: ['className'], string_contains: search, mode: 'insensitive' } },
               { metadata: { path: ['attendanceDate'], string_contains: search } },
               { actor: { name: { contains: search, mode: 'insensitive' } } },
               { actor: { email: { contains: search, mode: 'insensitive' } } },

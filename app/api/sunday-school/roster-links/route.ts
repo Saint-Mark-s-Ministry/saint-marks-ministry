@@ -195,7 +195,7 @@ export async function POST(request: Request) {
 
     await recordAuditEvent({
       actorUserId: user.id,
-      action: 'SUNDAY_SCHOOL_ROSTER_LINK_CREATED',
+      action: contactUpdateOnly ? 'sunday_school.contact_update_qr.created' : 'SUNDAY_SCHOOL_ROSTER_LINK_CREATED',
       entityType: 'SundaySchoolRosterLink',
       entityId: link.id,
       result: 'SUCCESS',

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
+  audit: vi.fn(), finish: vi.fn(),
   getSundaySchoolAccess: vi.fn(),
   sessionFindUnique: vi.fn(),
   childFindMany: vi.fn(),
@@ -10,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   recordAttendanceAudit: vi.fn(),
 }))
 
+vi.mock('@/lib/audit', () => ({ recordAuditEvent: mocks.audit }))
+vi.mock('@/lib/sunday-school-attendance-check-in', async original => ({
+  ...await original<typeof import('@/lib/sunday-school-attendance-check-in')>(),
+  finishAttendanceWithCheckIn: mocks.finish,
+}))
 vi.mock('@/lib/attendance-audit', () => ({ recordAttendanceAudit: mocks.recordAttendanceAudit }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
@@ -27,6 +33,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { POST } from '@/app/api/sunday-school/attendance/batch/route'
+import { CheckInError } from '@/lib/sunday-school-attendance-check-in'
 
 describe('Sunday School child attendance API', () => {
   beforeEach(() => {
@@ -79,6 +86,33 @@ describe('Sunday School child attendance API', () => {
       attendanceDate: new Date('2026-10-11'), personIds: ['child-1', 'child-2'],
     })
     expect(mocks.transaction.mock.invocationCallOrder[0]).toBeLessThan(mocks.recordAttendanceAudit.mock.invocationCallOrder[0])
+  })
+
+  it('shows Finish separately from autosaves, with class and meeting date', async () => {
+    mocks.childFindMany.mockResolvedValue([{ id: 'child-1' }])
+    mocks.finish.mockResolvedValue(new Date('2026-10-11T18:00:00Z'))
+    const response = await POST(new Request('http://localhost/api/sunday-school/attendance/batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'session-1', finalize: true, explicitChildIds: ['child-1'], records: [{ childId: 'child-1', status: 'PRESENT' }] }),
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.audit).toHaveBeenCalledExactlyOnceWith({
+      actorUserId: 'servant-1', action: 'sunday_school.attendance.finished',
+      entityType: 'SundaySchoolSession', entityId: 'session-1', result: 'SUCCESS',
+      metadata: { classId: 'class-1', targetName: 'Grade 3', attendanceDate: '2026-10-11', personCount: 1 },
+    })
+    expect(mocks.recordAttendanceAudit).not.toHaveBeenCalled()
+  })
+
+  it('does not log Finish when waiting requests prevent it', async () => {
+    mocks.childFindMany.mockResolvedValue([{ id: 'child-1' }])
+    mocks.finish.mockRejectedValue(new CheckInError('Review waiting requests', 409))
+    const response = await POST(new Request('http://localhost/api/sunday-school/attendance/batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'session-1', finalize: true, explicitChildIds: [], records: [{ childId: 'child-1', status: 'PRESENT' }] }),
+    }))
+    expect(response.status).toBe(409)
+    expect(mocks.audit).not.toHaveBeenCalled()
   })
 
 })

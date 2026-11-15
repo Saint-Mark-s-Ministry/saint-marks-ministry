@@ -120,6 +120,11 @@ deletion in the mobile app.
 
 ### Shared experience and branding
 
+- **Activity log** — Super Admins can review who created, replaced or closed
+  attendance QR codes; confirmed or dismissed check-in requests; finished
+  attendance; and created or revoked contact-update QR codes and roster links.
+  Entries identify the class and meeting date where applicable and follow the
+  existing two-hour retention window
 - **Passkey sign-in** — manage passkeys in My account and sign in using a device
   or security key. Password and Google sign-in remain available; the Passkeys
   section explains when setup is unavailable and offers Check again
