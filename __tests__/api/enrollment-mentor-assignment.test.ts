@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   compatibilityUser: vi.fn(),
   updateUser: vi.fn(),
   backfill: vi.fn(),
-  activeYear: vi.fn(), clearMentors: vi.fn(), activeAssignments: vi.fn(), clearAnnual: vi.fn(), clearNotifications: vi.fn(), annual: vi.fn(),
+  statusUpdate: vi.fn(), activeYear: vi.fn(), clearMentors: vi.fn(), activeAssignments: vi.fn(), clearAnnual: vi.fn(), clearNotifications: vi.fn(), annual: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
@@ -24,7 +24,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: {
 } }))
 vi.mock('@/lib/api-utils', () => ({
   backfillAttendanceForStudent: mocks.backfill,
-  enrollmentStatusUpdate: vi.fn(),
+  enrollmentStatusUpdate: mocks.statusUpdate,
   reconcileLateStartAttendance: vi.fn(),
 }))
 vi.mock('@/lib/student-mentor-contact', () => ({
@@ -144,6 +144,22 @@ describe('admin mentor assignments with access tags', () => {
       )
     })
   }
+
+  it.each([
+    ['ACTIVE', 'SERVANT', true, 'MENTOR'],
+    ['WITHDRAWN', 'MENTOR', false, 'SERVANT'],
+    ['GRADUATED', 'MENTOR', false, 'SERVANT'],
+  ])('synchronizes access on status-only change to %s', async (status, role, active, expectedRole) => {
+    mocks.statusUpdate.mockResolvedValue({ status })
+    mocks.currentEnrollment.mockResolvedValue({ mentorId: 'sarah' })
+    mocks.activeAssignments.mockResolvedValue([{ mentorUserId: 'sarah' }])
+    mocks.compatibilityUser.mockResolvedValue({ role, roleAssignments: [staffTag], mentorAssignments: active ? [{ id: 'assignment' }] : [] })
+    const response = await PATCH(request('PATCH', { status }), { params: Promise.resolve({ id: 'enrollment-1' }) })
+    expect(response.status).toBe(200)
+    expect(mocks.updateUser).toHaveBeenCalledWith({ where: { id: 'sarah' }, data: { role: expectedRole } })
+    expect(mocks.createAssignment).not.toHaveBeenCalled()
+    expect(mocks.endAssignments).not.toHaveBeenCalled()
+  })
 
   it('updates both mentors when reassigning a student', async () => {
     mocks.currentEnrollment.mockResolvedValue({ mentorId: 'old-mentor' })

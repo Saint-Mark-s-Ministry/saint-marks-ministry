@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client"
+import { syncMentorCompatibilityRoles } from "@/lib/mentor-assignments"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
@@ -26,36 +28,46 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if enrollment exists and this servant is the mentor
-    const enrollment = await prisma.studentEnrollment.findUnique({
-      where: { studentId }
-    })
+    return await prisma.$transaction(async (tx) => {
+      // Check if enrollment exists and this servant is the mentor
+      const enrollment = await tx.studentEnrollment.findUnique({
+        where: { studentId }
+      })
 
-    if (!enrollment) {
-      return NextResponse.json(
-        { error: "Enrollment not found" },
-        { status: 404 }
-      )
-    }
-
-    if (enrollment.mentorId !== user.id) {
-      return NextResponse.json(
-        { error: "You are not the mentor for this student" },
-        { status: 403 }
-      )
-    }
-
-    // Remove mentor assignment (set mentorId to null)
-    const updatedEnrollment = await prisma.studentEnrollment.update({
-      where: { studentId },
-      data: { mentorId: null },
-      include: {
-        student: true
+      if (!enrollment) {
+        return NextResponse.json(
+          { error: "Enrollment not found" },
+          { status: 404 }
+        )
       }
-    })
 
-    return NextResponse.json(updatedEnrollment)
+      if (enrollment.mentorId !== user.id) {
+        return NextResponse.json(
+          { error: "You are not the mentor for this student" },
+          { status: 403 }
+        )
+      }
+
+      // Remove mentor assignment (set mentorId to null)
+      const updatedEnrollment = await tx.studentEnrollment.update({
+        where: { studentId },
+        data: { mentorId: null, mentorName: null, mentorPhone: null },
+        include: {
+          student: true
+        }
+      })
+
+      await tx.mentorAssignment.updateMany({
+        where: { studentEnrollmentId: enrollment.id, endedAt: null },
+        data: { endedAt: new Date(), endedById: user.id, endReason: 'Mentor removed themselves' },
+      })
+      await syncMentorCompatibilityRoles(tx, [user.id])
+      return NextResponse.json(updatedEnrollment)
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
   } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      return NextResponse.json({ error: 'Mentee assignments changed. Refresh and try again.' }, { status: 409 })
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to unassign mentee" },
       { status: 500 }

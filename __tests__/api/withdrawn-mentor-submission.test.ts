@@ -21,6 +21,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: {
   registrationSubmission: { findFirst: mocks.application },
   $transaction: async (callback: (tx: unknown) => unknown) => callback({
     studentEnrollment: { updateMany: mocks.updateEnrollment, update: mocks.updateEnrollment, findMany: mocks.asyncEnrollments },
+    mentorAssignment: { findMany: async () => [] },
     lesson: { findMany: mocks.lessons },
     attendanceRecord: { findMany: mocks.attendance, createMany: mocks.createAttendance },
     annualMentorInformation: { upsert: mocks.upsertAnnual, updateMany: mocks.review },

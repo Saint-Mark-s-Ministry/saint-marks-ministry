@@ -54,4 +54,12 @@ describe('role tag compatibility mapping', () => {
       { hasActiveMentorAssignment: false }
     )).toBe(UserRole.SERVANT)
   })
+  it('revokes mentor-only access when assignments end even without permanent tags', () => {
+    expect(legacyRoleForTags([], UserRole.MENTOR, { hasActiveMentorAssignment: false })).toBe(UserRole.SERVANT)
+  })
+
+  it('returns to parent access when the last mentee is removed', () => {
+    expect(legacyRoleForTags([RoleTag.PARENT], UserRole.MENTOR, { hasActiveMentorAssignment: false })).toBe(UserRole.PARENT)
+  })
+
 })

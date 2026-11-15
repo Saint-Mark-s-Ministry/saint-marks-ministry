@@ -96,6 +96,19 @@ describe('bulk enrollment promotion', () => {
     })
   })
 
+  it.each([
+    ['ACTIVE', 'SERVANT', true, 'MENTOR'],
+    ['WITHDRAWN', 'MENTOR', false, 'SERVANT'],
+    ['GRADUATED', 'MENTOR', false, 'SERVANT'],
+  ])('synchronizes mentor access on bulk %s changes', async (status, role, active, expectedRole) => {
+    mocks.enrollmentStatusUpdate.mockResolvedValue({ status })
+    mocks.assignments.mockResolvedValue([{ mentorUserId: 'mentor' }, { mentorUserId: 'mentor' }])
+    mocks.mentorUser.mockResolvedValue({ role, roleAssignments: [{ tag: 'SUNDAY_SCHOOL_SERVANT' }], mentorAssignments: active ? [{ id: 'assignment' }] : [] })
+    expect((await POST(request({ status }))).status).toBe(200)
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ where: { id: 'mentor' }, data: { role: expectedRole } })
+    expect(mocks.endAssignments).not.toHaveBeenCalled()
+  })
+
   it.each(['YEAR_1', 'YEAR_2'])('rejects a mixed batch containing an async student for %s', async yearLevel => {
     mocks.findEnrollments.mockResolvedValue([
       { id: 'enrollment-1', studentId: 'student-1', yearLevel: 'YEAR_1', isActive: true, isAsyncStudent: false },

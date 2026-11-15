@@ -69,3 +69,17 @@ export async function syncMentorCompatibilityRoles(
     }
   }
 }
+
+/** Re-evaluate mentors after an enrollment status change, including reactivation. */
+export async function syncEnrollmentMentorCompatibilityRoles(
+  tx: Prisma.TransactionClient,
+  enrollmentIds: string[],
+): Promise<void> {
+  if (!enrollmentIds.length) return
+  // Include inactive enrollments: their mentors may need access removed.
+  const assignments = await tx.mentorAssignment.findMany({
+    where: { studentEnrollmentId: { in: enrollmentIds }, endedAt: null },
+    select: { mentorUserId: true },
+  })
+  await syncMentorCompatibilityRoles(tx, assignments.map(assignment => assignment.mentorUserId))
+}

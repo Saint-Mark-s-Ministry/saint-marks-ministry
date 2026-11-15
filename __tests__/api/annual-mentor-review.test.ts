@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(), context: vi.fn(), requirement: vi.fn(), update: vi.fn(), clear: vi.fn(), activate: vi.fn(), backfill: vi.fn(),
+  auth: vi.fn(), context: vi.fn(), requirement: vi.fn(), update: vi.fn(), clear: vi.fn(), activate: vi.fn(), backfill: vi.fn(), assignments: vi.fn(), mentor: vi.fn(), updateMentor: vi.fn(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
 vi.mock('@/lib/authorization', () => ({
@@ -19,6 +19,8 @@ vi.mock('@/lib/prisma', () => ({ prisma: {
     annualMentorInformation: { updateMany: mocks.update },
     studentEnrollment: { updateMany: mocks.activate },
     notification: { deleteMany: mocks.clear },
+    mentorAssignment: { findMany: mocks.assignments },
+    user: { findUniqueOrThrow: mocks.mentor, update: mocks.updateMentor },
   }),
 } }))
 import { POST } from '@/app/api/students/[id]/mentor-information/review/route'
@@ -39,6 +41,7 @@ describe('annual mentor information review', () => {
     mocks.update.mockResolvedValue({ count: 1 })
     mocks.activate.mockResolvedValue({ count: 1 })
     mocks.backfill.mockResolvedValue(2)
+    mocks.assignments.mockResolvedValue([])
   })
 
   it('records reviewer and version, then clears only this year mentor reminder', async () => {
@@ -69,6 +72,17 @@ describe('annual mentor information review', () => {
       studentEnrollment: { updateMany: mocks.activate },
       annualMentorInformation: { updateMany: mocks.update },
     }))
+  })
+
+  it('restores mentor dashboard access when verification reactivates their only mentee', async () => {
+    mocks.requirement.mockResolvedValue({ activeYear: { id: 'year-1' },
+      enrollment: { id: 'enrollment-1', status: 'WITHDRAWN' },
+      information: { id: 'info-1', updatedAt, reviewedAt: null },
+    })
+    mocks.assignments.mockResolvedValue([{ mentorUserId: 'servant' }])
+    mocks.mentor.mockResolvedValue({ role: 'SERVANT', roleAssignments: [{ tag: 'SUNDAY_SCHOOL_SERVANT' }], mentorAssignments: [{ id: 'assignment' }] })
+    expect((await review()).status).toBe(200)
+    expect(mocks.updateMentor).toHaveBeenCalledWith({ where: { id: 'servant' }, data: { role: 'MENTOR' } })
   })
 
   it('does not undo a later withdrawal by re-reviewing an already approved form', async () => {

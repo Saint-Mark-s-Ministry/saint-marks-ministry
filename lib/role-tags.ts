@@ -100,5 +100,13 @@ export function legacyRoleForTags(
   if (selected.has(RoleTag.SERVANTS_PREP_STUDENT)) return UserRole.STUDENT
   if (selected.has(RoleTag.SUNDAY_SCHOOL_STUDENT)) return UserRole.STUDENT
 
+  // A mentor-only account has no permanent tag to fall back to. Once its
+  // assignments have been checked, never preserve stale Prep access.
+  // SERVANT grants no Prep access; Sunday School still requires its own tag
+  // and assignments.
+  if (currentRole === UserRole.MENTOR && options.hasActiveMentorAssignment === false) {
+    return UserRole.SERVANT
+  }
+
   return currentRole
 }
