@@ -24,6 +24,11 @@ lessons without granting ministry staffing, roster, or editing authority.
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | The working guide — commands, layout, conventions, gotchas. Start here, whether you are a person or an AI coding agent. |
 | [`docs/permissions.md`](docs/permissions.md) | Every role and permission, and the Sunday School authority model |
+| [`docs/guides.md`](docs/guides.md) | Video guide audiences, recording conventions, and media updates |
+| [`docs/sp-video-production.md`](docs/sp-video-production.md) | Servants Prep staff guides and media production notes |
+| [`docs/passkeys.md`](docs/passkeys.md) | Passkey login, domain configuration, and account security |
+| [`docs/year-two-mentor-renewal.md`](docs/year-two-mentor-renewal.md) | Year 2 mentor forms, review, and student reactivation |
+| [`docs/weekly-deployments.md`](docs/weekly-deployments.md) | Weekly release branches, validation, and deployment |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end |
 | [`docs/sunday-school-migration-runbook.md`](docs/sunday-school-migration-runbook.md) | Production database rehearsal, deployment, verification, and rollback |
 | [`docs/async-serving-rotations.md`](docs/async-serving-rotations.md) | Four-week signed forms, servant review, ten-grade progression, and release checks |
@@ -58,16 +63,24 @@ deletion in the mobile app.
 - **Academic years** with enrollment management, including late-start students
 - **Curriculum** — weekly lessons with resources, ordering, and exam days
 - **Attendance** — Present / Late / Absent / Excused, with expected absences and
-  a late-start curve
+  a late-start curve. Edits save automatically; Finish attendance marks the
+  remaining unmarked students in the current filtered view absent
 - **Exams** — eight sections, digital answer sheets, proctor monitoring,
   individual retakes, and per-section and overall requirements
 - **Makeup exams** — student booking and authorized makeup score entry
 - **Graduation tracking** — live validation of every requirement
-- **Mentors** — each student assigned a mentor, with mentee dashboards
+- **Mentors** — assigned students appear in the mentor dashboard. Active mentees
+  automatically grant mentor access; removing the final active mentee revokes
+  that access while preserving other ministry permissions
 - **Async students** — yearless enrollment, note submissions, assigned serving
   classes and lessons, and ten human-approved four-week grade rotations
-- **Annual mentor confirmation** — async students confirm mentor contact
-  information through Application without requiring a cohort-year registration
+- **Year 2 mentor renewal** — active and withdrawn Year 2 students submit a
+  current-year mentor form. Promotion clears the previous assignment; staff
+  verify the submission before a withdrawn student returns to attendance.
+  Verification backfills qualifying missed lessons without changing existing
+  marks; async students receive no lesson absences
+- **Mentor approval forms** — any file type, including iPhone HEIC/HEIF, up to
+  100 MB through direct uploads. These are separate from async rotation forms
 - **Registration** — invite codes and a review queue for new applicants
 - **Analytics** — progress, at-risk students, trends, class averages
 
@@ -86,6 +99,13 @@ deletion in the mobile app.
   photos, and optional grouping by gender
 - **Child and servant attendance** with per-class trends; child records can be
   corrected later while servant attendance remains limited to the session date
+- **Classroom attendance QR** — a separate code for each meeting lets children
+  request check-in by name. A servant must confirm each request before it marks
+  attendance; finishing attendance closes check-in
+- **Other-church follow-up** — mark children who attend another church and
+  optionally record its name. They remain on the roster with their history,
+  while their marks are excluded from attendance averages and weekly trends.
+  Clearing the mark includes them in those calculations again
 - **Weekly lesson planning** aligned to the active Sunday School year; any
   servant assigned to the class can update lessons and assign an owner from the
   class roster
@@ -100,6 +120,9 @@ deletion in the mobile app.
 
 ### Shared experience and branding
 
+- **Passkey sign-in** — manage passkeys in My account and sign in using a device
+  or security key. Password and Google sign-in remain available; the Passkeys
+  section explains when setup is unavailable and offers Check again
 - **What’s new** — weekly deployment notes for both ministries, available in
   the sidebar, phone More menu, and search. See [the release-note workflow](docs/release-notes.md).
 - **Responsive mobile web experience** using the same features and permissions
@@ -127,6 +150,28 @@ deletion in the mobile app.
 - **Privacy Policy and Terms of Service** in the shared footer and account menu;
   their routes preserve the active mode and authenticated navigation, with a
   context-aware back link to the exact page the user came from
+
+### Video guides
+
+Guides appear for the people who need them. The Servants Prep staff library and
+its Watch guide links are shown only to enabled accounts with a current
+`SERVANTS_PREP_SERVANT`, `SUPER_ADMIN`, or `PRIEST` role tag. Students, parents,
+Sunday School-only servants, and mentors without one of those staff tags do not
+see that library. Account and Sunday School guides retain their own audiences.
+
+The existing account and Sunday School guides contain fictional demo records
+and use public MP4s, posters and English captions. Anyone with a direct media
+URL or access to the public GitHub repository may download them.
+
+**Pending in PR #339:** the new Servants Prep staff videos will use the same
+public-file approach, with role checks controlling the library and links shown
+in the app. Replacing the current encrypted bundle requires the original
+exports. Until that replacement is included, the PR's encrypted staff videos
+still require `SP_GUIDE_MEDIA_KEY`; the planned simplification removes that
+requirement. No database migration is needed for the guide library.
+
+See [the guide documentation](docs/guides.md) and
+[Servants Prep production notes](docs/sp-video-production.md) when updating media.
 
 ## Tech stack
 
@@ -213,6 +258,18 @@ NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
 
 Generate a secret with `openssl rand -base64 32`. Never commit `.env`.
 
+Optional account features:
+
+| Variables | Purpose |
+|---|---|
+| `PASSKEY_RP_ID`, `PASSKEY_ORIGIN` | Enable passkeys. Use a stable relying-party hostname and the exact app origin; HTTPS is required except on localhost. See [passkey setup](docs/passkeys.md). |
+| `RESEND_API_KEY` | Enable account emails and password setup/reset links. Without it, delivery is skipped. |
+| `APP_URL`, `EMAIL_FROM` | Optional email link base URL and sender overrides. `APP_URL` defaults to `NEXTAUTH_URL`. |
+| `EMAIL_DEV_ALLOWLIST` | Addresses or `@domains` allowed to receive non-production emails, in addition to `@resend.dev` recipients. |
+
+Production email delivery is live by default. Local and preview delivery is
+restricted to the allowlist unless explicitly configured for live delivery.
+
 ## Commands
 
 ```bash
@@ -254,7 +311,11 @@ changes a database. Run schema updates as an explicit deployment step.
 | Parent | None | Only actively linked children | None |
 
 Sunday School authority comes from an **assignment**, not a role — which is how
-one person can serve both sides. See [`docs/permissions.md`](docs/permissions.md).
+one person can serve both sides. Accounts can hold multiple access tags;
+`User.role` remains a compatibility field for existing dashboards. Mentor access
+comes from active assignments rather than a permanent mentor tag. Access
+changes can require the affected person to sign in again.
+See [`docs/permissions.md`](docs/permissions.md).
 
 ## Account onboarding
 
@@ -264,10 +325,10 @@ The login page is the shared entry point for both ministries:
   each child for coordinator approval and class placement.
 - **Sunday School servants** submit their name, email, phone number, and the
   grade they currently serve. Only a Super Admin can review the application.
-  Approval creates the account with the shared Sunday School temporary password
-  and the **Sunday School Servant** access tag. The Super Admin shares the
-  password directly; the portal does not email credentials. The servant changes
-  it at first login and is assigned to a class separately.
+  Approval creates the account with the **Sunday School Servant** access tag
+  and sends a set-password link when email delivery is configured. A generated
+  temporary password is available to the reviewer as a fallback; passwords are
+  not emailed. Class assignment remains a separate step.
 - **Servants Prep students** use the existing invite-code registration flow.
   A Super Admin or Servants Prep Servant reviews the registration before an
   account and enrollment are created.
