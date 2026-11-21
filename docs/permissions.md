@@ -75,6 +75,18 @@ and active mentor assignments in the same transaction, including the previous
 mentor on reassignment or removal. A tagged Sunday School servant therefore
 receives limited mentor access when assigned, without becoming a Prep leader.
 
+Self-assignment and self-removal also maintain `MentorAssignment` history and
+synchronize the dashboard role in the same serializable transaction. Removing
+the final active mentee returns a Sunday School servant to `SERVANT`; another
+active mentee keeps `MENTOR` access. Single/bulk enrollment status changes and
+mentor-form reactivation re-evaluate the linked mentors too. Deleting a student
+account also re-evaluates their former mentors. Withdrawn and
+graduated enrollments do not grant mentor access. Priest, Super Admin and Prep
+staff tags retain their higher access, and Sunday School tags and assignments
+are preserved. Role changes invalidate existing sessions through the identity
+security trigger, so the affected person must sign in again. The live attendance
+scope also stops allowing a student as soon as their assignment ends.
+
 Promoting a student to Year 2 ends their previous mentor assignments and clears
 the assigned account and mentor contact fields. Active Year 2 students need a
 submitted form for the active academic year before an app mentor account may be

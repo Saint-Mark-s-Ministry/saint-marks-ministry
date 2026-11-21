@@ -58,3 +58,9 @@ uses the current desktop UI and a clearly labeled, animated illustration for the
 device/password-manager confirmation because those prompts vary. It covers
 enrollment after account creation, sign-in, removal, fallback, and the recent
 sign-in requirement. It grants no additional account or ministry permissions.
+
+## Servants Prep staff
+
+The separate [SP staff library](sp-video-production.md) contains ten private
+guides. Its media is never placed in `public/guides`: page and asset requests
+require a current SP servant, super admin or priest grant from the database.

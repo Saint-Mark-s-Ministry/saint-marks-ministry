@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { syncMentorCompatibilityRoles } from '@/lib/mentor-assignments'
 
 export class UserDeletionConflictError extends Error {
   constructor(message: string) {
@@ -30,6 +31,13 @@ export async function deleteUserWithRelations(
     )
   }
 
+  const affectedMentors = enrollment
+    ? await tx.mentorAssignment.findMany({
+        where: { studentEnrollmentId: enrollment.id, endedAt: null, mentorUserId: { not: userId } },
+        select: { mentorUserId: true },
+      })
+    : []
+
   await tx.mentorAssignment.deleteMany({
     where: {
       OR: [
@@ -41,4 +49,5 @@ export async function deleteUserWithRelations(
   await tx.sundaySchoolChildGuardian.deleteMany({ where: { parentId: userId } })
   await tx.userRoleAssignment.deleteMany({ where: { userId } })
   await tx.user.delete({ where: { id: userId } })
+  await syncMentorCompatibilityRoles(tx, affectedMentors.map(assignment => assignment.mentorUserId))
 }

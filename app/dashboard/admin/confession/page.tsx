@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isAdmin, canManageData } from '@/lib/roles'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -16,6 +18,7 @@ export default function ConfessionPage() {
   return (
     <div className="content-reveal flex min-w-0 flex-col gap-5">
       <PageHeader title="Confession" meta={['Father of confession sign-offs', 'two-month periods']} />
+      <PrepGuideLink id="confession" />
       <ConfessionTracker canEdit={canManageData(session.user.role)} />
     </div>
   )

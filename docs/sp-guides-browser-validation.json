@@ -1,0 +1,58 @@
+{
+  "roles": [
+    {
+      "role": "SUPER_ADMIN",
+      "tag": "SUPER_ADMIN",
+      "allowed": true,
+      "result": "passed"
+    },
+    {
+      "role": "PRIEST",
+      "tag": "PRIEST",
+      "allowed": true,
+      "result": "passed"
+    },
+    {
+      "role": "SERVANT_PREP",
+      "tag": "SERVANTS_PREP_SERVANT",
+      "allowed": true,
+      "result": "passed"
+    },
+    {
+      "role": "SERVANT",
+      "tag": "SUNDAY_SCHOOL_SERVANT",
+      "allowed": false,
+      "result": "passed"
+    },
+    {
+      "role": "STUDENT",
+      "tag": "SERVANTS_PREP_STUDENT",
+      "allowed": false,
+      "result": "passed"
+    },
+    {
+      "role": "PARENT",
+      "tag": "PARENT",
+      "allowed": false,
+      "result": "passed"
+    },
+    {
+      "role": "MENTOR",
+      "tag": null,
+      "allowed": false,
+      "result": "passed"
+    }
+  ],
+  "anonymous": "denied all asset types",
+  "playback": "all 10 played and sought for each allowed role",
+  "mobile": "390px without overflow",
+  "revocation": "immediate denial",
+  "disabled": "denied",
+  "captions": "All 10 English tracks loaded timed cues for each allowed role",
+  "productionBundle": "Only the 30 AES-256-GCM encrypted assets are traced into the media function",
+  "build": "passed",
+  "contextualLinks": "Watch guide verified on all eight SP workflow pages",
+  "singlePlayback": "Starting a second guide pauses the first",
+  "publicFiles": "Plaintext media and temporary demo form return 404",
+  "encryptedPlayback": "All 10 played and sought for all three allowed roles using encrypted files"
+}

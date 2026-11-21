@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { StudentProfileLink } from '@/components/student-profile-link'
 
 import { Suspense, useEffect, useState } from 'react'
@@ -607,6 +609,7 @@ function StudentsManagementContent() {
           </>
         }
       />
+      <PrepGuideLink id="student-progress" />
 
       <YearEndReviewPanel
         activeYear={activeYear}

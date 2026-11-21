@@ -8,7 +8,7 @@ import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib
 import { notifyMentorAssigned } from "@/lib/notifications"
 import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
 import { isEligibleMentorAccount, MENTOR_CANDIDATE_SELECT } from "@/lib/mentor-eligibility"
-import { resetYearTwoMentors, syncMentorCompatibilityRoles, YEAR_TWO_MENTOR_RESET } from "@/lib/mentor-assignments"
+import { resetYearTwoMentors, syncMentorCompatibilityRoles, syncEnrollmentMentorCompatibilityRoles, YEAR_TWO_MENTOR_RESET } from "@/lib/mentor-assignments"
 import { withEnrollmentMentorContacts } from '@/lib/student-mentor-contact'
 
 // PATCH /api/enrollments/[id] - Update an enrollment
@@ -196,6 +196,10 @@ export async function PATCH(
         if (currentEnrollment?.mentorId) affectedMentorIds.push(currentEnrollment.mentorId)
         if (nextMentorId) affectedMentorIds.push(nextMentorId)
         await syncMentorCompatibilityRoles(tx, affectedMentorIds)
+      }
+
+      if (status !== undefined) {
+        await syncEnrollmentMentorCompatibilityRoles(tx, [id])
       }
 
       // Reconcile late-start attendance atomically when the start date changed

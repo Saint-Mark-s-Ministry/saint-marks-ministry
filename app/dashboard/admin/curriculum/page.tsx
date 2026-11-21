@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -536,6 +538,7 @@ export default function CurriculumPage() {
           )
         }
       />
+      <PrepGuideLink id="lesson-calendar" />
 
       <Panel
         className="relative"

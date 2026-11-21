@@ -24,7 +24,8 @@ export async function DELETE(
         id: true,
         classId: true,
         revokedAt: true,
-        class: { select: { academicYearId: true } },
+        contactUpdateOnly: true,
+        class: { select: { academicYearId: true, name: true } },
       },
     })
     if (!link) {
@@ -40,18 +41,20 @@ export async function DELETE(
       return NextResponse.json({ success: true, alreadyRevoked: true })
     }
 
-    await prisma.sundaySchoolRosterLink.update({
-      where: { id },
+    const revoked = await prisma.sundaySchoolRosterLink.updateMany({
+      where: { id, revokedAt: null },
       data: { revokedAt: new Date() },
     })
 
+    if (!revoked.count) return NextResponse.json({ success: true, alreadyRevoked: true })
+
     await recordAuditEvent({
       actorUserId: user.id,
-      action: 'SUNDAY_SCHOOL_ROSTER_LINK_REVOKED',
+      action: link.contactUpdateOnly ? 'sunday_school.contact_update_qr.revoked' : 'SUNDAY_SCHOOL_ROSTER_LINK_REVOKED',
       entityType: 'SundaySchoolRosterLink',
       entityId: id,
       result: 'SUCCESS',
-      metadata: { classId: link.classId },
+      metadata: { classId: link.classId, targetName: link.class.name, contactUpdateOnly: link.contactUpdateOnly },
     })
 
     return NextResponse.json({ success: true })

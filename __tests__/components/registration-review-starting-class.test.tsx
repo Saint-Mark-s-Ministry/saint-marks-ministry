@@ -1,3 +1,4 @@
+vi.mock('@/components/guides/prep-guide-link', () => ({ PrepGuideLink: () => null }))
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

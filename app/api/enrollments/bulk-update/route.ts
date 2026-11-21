@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageEnrollments } from '@/lib/roles'
 import { backfillAttendanceForStudents, enrollmentStatusUpdate } from '@/lib/api-utils'
-import { resetYearTwoMentors } from '@/lib/mentor-assignments'
+import { resetYearTwoMentors, syncEnrollmentMentorCompatibilityRoles } from '@/lib/mentor-assignments'
 
 interface BulkUpdateRequest {
   enrollmentIds: string[]
@@ -97,6 +97,9 @@ export async function POST(req: NextRequest) {
       })
 
       await resetYearTwoMentors(tx, promotions, session.user.id, activeAcademicYearId)
+      if (updates.status) {
+        await syncEnrollmentMentorCompatibilityRoles(tx, enrollmentIds)
+      }
 
       if (activeAcademicYearId && promotedStudentIds.length > 0) {
         attendanceRecordsCreated = await backfillAttendanceForStudents(

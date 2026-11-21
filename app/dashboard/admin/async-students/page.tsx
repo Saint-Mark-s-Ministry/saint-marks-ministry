@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { PageLoading } from '@/components/ui/page-loading'
 
 import { useSession } from 'next-auth/react'
@@ -34,6 +36,7 @@ export default function AsyncStudentsPage() {
         title="Async students"
         meta={['Review student-uploaded rotation forms and manage serving assignments']}
       />
+      <PrepGuideLink id="async-rotations" />
 
       <SundaySchoolPanel
         canManage={canManageSundaySchool(role)}

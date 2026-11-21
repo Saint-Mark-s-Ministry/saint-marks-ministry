@@ -162,7 +162,7 @@ export default function ActivityPage() {
                       <span className="truncate text-[13px] text-ink">{auditActionSummary(event)}</span>
                       <span className="truncate text-xs text-ink-3">
                         {auditEntityLabel(event.entityType)} · {auditTargetLabel(event)}
-                        {event.action.startsWith('attendance.') && event.metadata && typeof event.metadata === 'object' && 'attendanceDate' in event.metadata
+                        {event.metadata && typeof event.metadata === 'object' && 'attendanceDate' in event.metadata
                           ? ` · ${String(event.metadata.attendanceDate)}` : ''}
                       </span>
                     </span>

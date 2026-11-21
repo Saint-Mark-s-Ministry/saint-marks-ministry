@@ -14,6 +14,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  outputFileTracingIncludes: {
+    "/api/guides/servants-prep/*/*": ["./private/sp-guides/**/*"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }]
   },

@@ -50,4 +50,10 @@ describe('mentor compatibility roles', () => {
     await syncMentorCompatibilityRoles(tx, ['sarah'])
     expect(update).not.toHaveBeenCalled()
   })
+  it('revokes a mentor-only account when its last active assignment ends', async () => {
+    const { tx, update } = transactionUser(UserRole.MENTOR, [], false)
+    await syncMentorCompatibilityRoles(tx, ['former-mentor'])
+    expect(update).toHaveBeenCalledWith({ where: { id: 'former-mentor' }, data: { role: UserRole.SERVANT } })
+  })
+
 })

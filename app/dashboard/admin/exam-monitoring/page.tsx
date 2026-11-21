@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { PageLoading } from '@/components/ui/page-loading'
 
 import Link from 'next/link'
@@ -42,6 +44,7 @@ export default function ExamMonitoringPage() {
     .sort((a, b) => states[examState(a)].order - states[examState(b)].order || new Date(b.examDate).getTime() - new Date(a.examDate).getTime())
   return <div className="flex min-w-0 flex-col gap-5">
     <PageHeader title="Exam Monitoring" meta={['Servants Prep', 'Original multiple-choice exams']} actions={<Button variant="outline" asChild><Link href="/dashboard/admin/exams">{manage ? 'Manage exams' : 'View exams'}</Link></Button>} />
+    <PrepGuideLink id="exam-setup" />
     <Panel title={manage ? 'Start proctoring' : 'View proctoring'} bodyClassName="p-4">
       <p className="text-sm">{manage ? 'Choose an exam, save its complete answer key, then select Open exam in its dashboard. You can open proctoring on any date. Opening makes the sheet available to all eligible students who have not submitted.' : 'Choose an exam to see student progress, pauses, connection status, and activity history. Servants Prep servants control opening, closing, and unlocking.'}</p>
       <p className="mt-2 text-sm text-ink-3">Students see answer sheets only while proctoring is open. Answer keys stay private; students receive released grades in My Progress. Makeup exams stay on paper.</p>

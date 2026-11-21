@@ -1,5 +1,7 @@
 'use client'
 
+import { PrepGuideLink } from '@/components/guides/prep-guide-link'
+
 import { StudentProfileLink } from '@/components/student-profile-link'
 
 import { usePrepAttendance } from '@/hooks/usePrepAttendance'
@@ -322,6 +324,7 @@ export default function AttendancePage() {
           )
         }
       />
+      <PrepGuideLink id="attendance" />
 
       {!selectedLesson ? (
         <Panel

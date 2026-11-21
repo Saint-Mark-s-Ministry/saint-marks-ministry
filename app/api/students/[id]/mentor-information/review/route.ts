@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext, canWriteBusinessData } from '@/lib/authorization'
 import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { backfillAttendanceForStudent, enrollmentStatusUpdate, handleApiError } from '@/lib/api-utils'
+import { syncEnrollmentMentorCompatibilityRoles } from '@/lib/mentor-assignments'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           })
           reactivated = activated.count === 1
           if (reactivated) {
+            await syncEnrollmentMentorCompatibilityRoles(tx, [requirement.enrollment.id])
             // Restore missed lessons as absences along with roster eligibility.
             // The shared backfill preserves existing records and skips async students.
             await backfillAttendanceForStudent(id, requirement.activeYear.id, tx)

@@ -2,7 +2,7 @@ import { getClassCheckInWindow } from '@/lib/sunday-school-attendance-check-in-t
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
-import { recordAttendanceAudit } from '@/lib/attendance-audit'
+import { recordAuditEvent } from '@/lib/audit'
 import { prisma } from '@/lib/prisma'
 import { CheckInError, hashCheckInToken, lockCheckInSession, newCheckInToken, requireCheckInManager } from '@/lib/sunday-school-attendance-check-in'
 import { normalizeSessionDate } from '@/lib/sunday-school-class'
@@ -24,18 +24,28 @@ export async function POST(request: Request) {
       if (!Array.isArray(body.childIds) || !body.childIds.length || body.childIds.length > 150 || !body.childIds.every((id: unknown) => typeof id === 'string')) return NextResponse.json({ error: 'Choose check-in requests to confirm.' }, { status: 400 })
       const session = await prisma.sundaySchoolSession.findUnique({ where: { classId_date: { classId: classroom.id, date } } })
       if (!session) return NextResponse.json({ error: 'Meeting not found.' }, { status: 404 })
-      const personIds = await prisma.$transaction(async tx => {
+      const reviewed = await prisma.$transaction(async tx => {
         await lockCheckInSession(tx, session.id)
         const pending = await tx.sundaySchoolAttendanceCheckInRequest.findMany({ where: { sessionId: session.id, childId: { in: body.childIds }, reviewedAt: null, child: { classId: classroom.id, isActive: true, status: 'ACTIVE' } } })
         const existing = await tx.sundaySchoolChildAttendance.findMany({ where: { sessionId: session.id, childId: { in: pending.map(row => row.childId) } }, select: { childId: true } })
         const existingIds = new Set(existing.map(row => row.childId))
         const additions = body.action === 'approve' ? pending.filter(row => !existingIds.has(row.childId)) : []
-        if (additions.length) await tx.sundaySchoolChildAttendance.createMany({ data: additions.map(row => ({ sessionId: session.id, childId: row.childId, status: 'PRESENT', recordedBy: user.id, selfCheckedInAt: row.submittedAt })), skipDuplicates: true })
+        const saved = additions.length
+          ? await tx.sundaySchoolChildAttendance.createMany({ data: additions.map(row => ({ sessionId: session.id, childId: row.childId, status: 'PRESENT', recordedBy: user.id, selfCheckedInAt: row.submittedAt })), skipDuplicates: true })
+          : { count: 0 }
         await tx.sundaySchoolAttendanceCheckInRequest.updateMany({ where: { id: { in: pending.map(row => row.id) } }, data: { reviewedAt: new Date(), approved: body.action === 'approve' } })
-        return additions.map(row => row.childId)
+        return { requestCount: pending.length, added: saved.count }
       })
-      await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_children.qr_check_in', entityType: 'SundaySchoolSession', entityId: session.id, targetName: classroom.name, attendanceDate: date, personIds })
-      return NextResponse.json({ confirmed: true, added: personIds.length }, { headers: { 'Cache-Control': 'no-store' } })
+      if (reviewed.requestCount) {
+        await recordAuditEvent({
+          actorUserId: user.id,
+          action: body.action === 'approve' ? 'sunday_school.attendance_qr.approved' : 'sunday_school.attendance_qr.dismissed',
+          entityType: 'SundaySchoolSession', entityId: session.id, result: 'SUCCESS',
+          metadata: { classId: classroom.id, targetName: classroom.name, attendanceDate: body.date,
+            requestCount: reviewed.requestCount, attendanceAddedCount: reviewed.added },
+        })
+      }
+      return NextResponse.json({ confirmed: true, added: reviewed.added }, { headers: { 'Cache-Control': 'no-store' } })
     }
     const token = newCheckInToken()
     const hours = getClassCheckInWindow(body.date, classroom.level)
@@ -43,15 +53,27 @@ export async function POST(request: Request) {
     const opensAt = hours?.opensAt ?? new Date()
     const expiresAt = hours?.expiresAt ?? new Date()
     const session = await prisma.sundaySchoolSession.upsert({ where: { classId_date: { classId: classroom.id, date } }, create: { classId: classroom.id, date }, update: {} })
-    await prisma.$transaction(async tx => {
+    const activity = await prisma.$transaction(async tx => {
       await lockCheckInSession(tx, session.id)
       if (body.action === 'close') {
-        await tx.sundaySchoolAttendanceCheckIn.updateMany({ where: { sessionId: session.id }, data: { closedAt: new Date() } })
+        const closed = await tx.sundaySchoolAttendanceCheckIn.updateMany({ where: { sessionId: session.id, closedAt: null }, data: { closedAt: new Date() } })
+        return closed.count ? 'sunday_school.attendance_qr.closed' : null
       } else {
+        const existing = await tx.sundaySchoolAttendanceCheckIn.findUnique({ where: { sessionId: session.id }, select: { sessionId: true } })
         const data = { tokenHash: hashCheckInToken(token), opensAt, expiresAt, createdById: user.id, authVersion: user.authVersion, closedAt: null }
         await tx.sundaySchoolAttendanceCheckIn.upsert({ where: { sessionId: session.id }, create: { sessionId: session.id, ...data }, update: data })
+        return existing ? 'sunday_school.attendance_qr.replaced' : 'sunday_school.attendance_qr.created'
       }
     })
+    if (activity) {
+      await recordAuditEvent({
+        actorUserId: user.id, action: activity,
+        entityType: 'SundaySchoolSession', entityId: session.id, result: 'SUCCESS',
+        metadata: { classId: classroom.id, targetName: classroom.name, attendanceDate: body.date,
+          ...(body.action === 'open' ? { opensAt: opensAt.toISOString(), expiresAt: expiresAt.toISOString() } : {}),
+        },
+      })
+    }
     return NextResponse.json(body.action === 'open' ? { token, codeVersion: hashCheckInToken(token).slice(0, 12), opensAt: opensAt.toISOString(), expiresAt: expiresAt.toISOString(), sessionId: session.id } : { closed: true }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error: unknown) {
     if (error instanceof CheckInError) return NextResponse.json({ error: error.message }, { status: error.status })

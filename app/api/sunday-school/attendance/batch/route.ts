@@ -1,4 +1,5 @@
 import { CheckInError, finishAttendanceWithCheckIn, lockCheckInSession } from '@/lib/sunday-school-attendance-check-in'
+import { recordAuditEvent } from "@/lib/audit"
 import { recordAttendanceAudit } from "@/lib/attendance-audit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -92,7 +93,12 @@ export async function POST(request: Request) {
     if (body.finalize === true) {
       if (!Array.isArray(body.explicitChildIds) || !body.explicitChildIds.every(id => typeof id === 'string' && childIds.includes(id))) return NextResponse.json({ error: 'Invalid explicit attendance marks' }, { status: 400 })
       const savedAt = await finishAttendanceWithCheckIn(sessionId, user.id, records, body.explicitChildIds)
-      await recordAttendanceAudit({ actorUserId: user.id, action: 'attendance.sunday_school_children.save', entityType: 'SundaySchoolSession', entityId: sessionId, targetName: session.class.name, attendanceDate: session.date, personIds: childIds })
+      await recordAuditEvent({
+        actorUserId: user.id, action: 'sunday_school.attendance.finished',
+        entityType: 'SundaySchoolSession', entityId: sessionId, result: 'SUCCESS',
+        metadata: { classId: session.classId, targetName: session.class.name,
+          attendanceDate: session.date.toISOString().slice(0, 10), personCount: new Set(childIds).size },
+      })
       return NextResponse.json({ success: true, lastSavedBy: { savedAt: savedAt.toISOString(), recorder: { id: user.id, name: user.name ?? null } } })
     }
 
