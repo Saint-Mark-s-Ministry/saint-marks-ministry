@@ -134,6 +134,15 @@ endpoint. View as and priest read-only sessions cannot change subscriptions. The
 setting grants no role or exam access; delivery checks current subscription and
 staff tags again.
 
+Active Servants Prep students may also upload their own confession slips
+through `/api/slips/mine` (page: `/dashboard/student/confession`). The route
+resolves role tags and the enrollment from the database and ignores any
+client-supplied student identity. A student may upload only for a two-month
+period of the active academic year that is open or has ended (not the period
+their registration covers, and not a future one), and may replace only a slip
+they uploaded themselves; a slip a servant recorded is final from the student's
+side. Servants still list, upload, and remove slips through `/api/slips`.
+
 Original grade writes and `/api/exams/[id]/makeup-scores` resolve current
 role tags from the database. `SUPER_ADMIN`, `PRIEST`, and
 `SERVANTS_PREP_SERVANT` may record or correct grades. Priests may read makeup

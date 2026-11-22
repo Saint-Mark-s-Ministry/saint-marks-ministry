@@ -43,6 +43,11 @@ describe('navigationFor', () => {
     expect(hrefs('STUDENT', 'prep', { isAsyncStudent: true })).toContain('/dashboard/student/attendance-slip')
   })
 
+  it('gives every prep student their confession page', () => {
+    expect(hrefs('STUDENT', 'prep')).toContain('/dashboard/student/confession')
+    expect(hrefs('STUDENT', 'prep', { isAsyncStudent: true })).toContain('/dashboard/student/confession')
+  })
+
   it('never shows prep pages to a SERVANT, whatever the path', () => {
     for (const ministry of ['prep', 'sunday-school'] as const) {
       expect(

@@ -258,6 +258,7 @@ function ministryNavigationFor(user: NavUser, ministry: Ministry): NavGroup[] {
             { href: '/dashboard/student/class-lessons', label: 'Class lessons', icon: Presentation, tab: true, tabLabel: 'Class' },
             { href: '/dashboard/student/exams', label: 'Live Exam', icon: CalendarCheck },
             { href: '/dashboard/student/makeup-exams', label: 'Makeup exams', icon: CalendarCheck },
+            { href: '/dashboard/student/confession', label: 'Confession', icon: Cross },
             { href: '/dashboard/files', label: 'Files', icon: Folder, tab: true },
           ],
         },
