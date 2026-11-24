@@ -18,8 +18,11 @@ import { cn } from '@/lib/utils'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
 import { getAttendanceGuidance, getExamGuidance } from '@/lib/graduation-guidance'
-import { BookOpen, Check, ClipboardCheck, Printer, X } from 'lucide-react'
+import { BookOpen, Check, ClipboardCheck, Cross, Printer, X } from 'lucide-react'
 import { TodayInChurch } from '@/components/liturgical/today-in-church'
+import { ConfessionSlipTemplateLink, myConfessionPeriods } from '@/components/student-confession-slips'
+import { formatConfessionPeriod } from '@/lib/confession'
+import { useMyConfessionSlips } from '@/lib/slips-client'
 
 interface Analytics {
   mentorUpdateRequired?: boolean
@@ -86,6 +89,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [, setAcademicYearId] = useState<string | null>(null)
   const [academicYearName, setAcademicYearName] = useState<string>('')
+  const { data: confessionSlips } = useMyConfessionSlips()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -326,6 +330,8 @@ export default function StudentDashboard() {
             </div>
           </Panel>
 
+          <ConfessionPanel periods={myConfessionPeriods(confessionSlips)} />
+
           {isAsync && (
             <Panel
               title="Sunday School serving"
@@ -385,5 +391,41 @@ function GoalBar({ label, value, detail, goal }: { label: string; value: number 
       </span>
       <span className="text-xs text-ink-3">{detail}</span>
     </div>
+  )
+}
+
+/** The current confession period at a glance, with links to upload and to the blank slip. */
+function ConfessionPanel({ periods }: { periods: ReturnType<typeof myConfessionPeriods> }) {
+  const current = periods.find((p) => p.isCurrent)
+  const missed = periods.filter((p) => p.status === 'missing').length
+  const badge = !current ? null
+    : current.status === 'slip' ? <StatusBadge tone="ok">Received</StatusBadge>
+    : current.status === 'due' ? <StatusBadge tone="warn">Due</StatusBadge>
+    : current.status === 'registration' ? <StatusBadge tone="info">Covered</StatusBadge>
+    : null
+  return (
+    <Panel
+      title="Confession"
+      description="Upload a signed slip every two months"
+      actions={
+        <Button asChild variant="outline" size="sm">
+          <Link href="/dashboard/student/confession">
+            <Cross />
+            Open
+          </Link>
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-3 px-4 py-3">
+        {current && (
+          <div className="flex items-center justify-between gap-2 text-[13px]">
+            <span className="text-ink-2">This period · {formatConfessionPeriod(current.period)}</span>
+            {badge}
+          </div>
+        )}
+        {missed > 0 && <p className="text-xs text-bad">{missed} past period{missed === 1 ? '' : 's'} without a slip</p>}
+        <ConfessionSlipTemplateLink size="sm" />
+      </div>
+    </Panel>
   )
 }

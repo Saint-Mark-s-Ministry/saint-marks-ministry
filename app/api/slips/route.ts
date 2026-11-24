@@ -6,9 +6,7 @@ import { AttendanceStatus, LessonStatus, SlipType } from "@prisma/client"
 import { isAdmin, canManageData } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
 import { blobUploadTarget } from "@/lib/blob-upload"
-
-const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "application/pdf"]
-const MAX_FILE_SIZE = 4.5 * 1024 * 1024 // Vercel's server upload limit
+import { slipFileError } from "@/lib/slip-upload"
 
 const isSlipType = (value: unknown): value is SlipType => Object.values(SlipType).includes(value as SlipType)
 
@@ -68,11 +66,9 @@ export async function POST(request: Request) {
     if (!file || !studentId || !isSlipType(type)) {
       return NextResponse.json({ error: "file, studentId and a valid type are required" }, { status: 400 })
     }
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: "Please upload a photo (PNG, JPG, WEBP, GIF) or a PDF" }, { status: 400 })
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File size exceeds 4.5 MB limit" }, { status: 400 })
+    const fileError = slipFileError(file)
+    if (fileError) {
+      return NextResponse.json({ error: fileError }, { status: 400 })
     }
 
     const enrollment = await prisma.studentEnrollment.findUnique({

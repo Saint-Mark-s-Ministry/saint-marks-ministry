@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getConfessionPeriods, getConfessionPeriodStatus, getStudentStart, formatConfessionPeriod } from '@/lib/confession'
+import { getConfessionPeriods, getConfessionPeriodStatus, getStudentStart, formatConfessionPeriod, canStudentUploadConfessionSlip, CONFESSION_SLIP_TEMPLATE_URL } from '@/lib/confession'
 
 const year = { startDate: '2025-09-01T00:00:00.000Z', endDate: '2026-06-30T00:00:00.000Z' }
 
@@ -45,5 +45,19 @@ describe('confession periods', () => {
     const start = getStudentStart({ academicYear: { startDate: '2024-09-01' }, enrolledAt: '2024-08-01' })
     const [sepOct] = getConfessionPeriods(year)
     expect(getConfessionPeriodStatus(sepOct, start, false, new Date('2026-01-01'))).toBe('missing')
+  })
+})
+
+describe('student confession uploads', () => {
+  it('lets students upload only for open or ended periods', () => {
+    expect(canStudentUploadConfessionSlip('due')).toBe(true)
+    expect(canStudentUploadConfessionSlip('missing')).toBe(true)
+    for (const status of ['registration', 'upcoming', 'na', 'slip'] as const) {
+      expect(canStudentUploadConfessionSlip(status)).toBe(false)
+    }
+  })
+
+  it('links the blank slip as a read-only preview, never the editor', () => {
+    expect(CONFESSION_SLIP_TEMPLATE_URL).toMatch(/^https:\/\/docs\.google\.com\/document\/d\/[\w-]+\/preview$/)
   })
 })

@@ -6,6 +6,26 @@ export function useSlips<T>(type: 'ATTENDANCE' | 'CONFESSION', studentId?: strin
   return useSWR<T[]>(`/api/slips?type=${type}${studentId ? `&studentId=${studentId}` : ''}`, fetcher, defaultSWRConfig)
 }
 
+export interface MyConfessionSlip {
+  id: string
+  periodStart: string
+  imageUrl: string
+  createdAt: string
+  uploadedByMe: boolean
+}
+
+export interface MyConfessionSlips {
+  enrolled: boolean
+  year: { id: string; name: string; startDate: string; endDate: string } | null
+  studentStart: string | null
+  slips: MyConfessionSlip[]
+}
+
+/** The signed-in student's own confession slips (/api/slips/mine). */
+export function useMyConfessionSlips() {
+  return useSWR<MyConfessionSlips>('/api/slips/mine', fetcher, defaultSWRConfig)
+}
+
 // Phone photos often exceed the 4.5 MB server upload limit, so large images are
 // scaled down and re-encoded as JPEG first. Anything that can't be decoded
 // (PDFs, unsupported formats) is sent as-is.
@@ -26,12 +46,12 @@ async function shrinkImage(file: File, maxDimension = 2000): Promise<File> {
   }
 }
 
-export async function uploadSlip(file: File, fields: Record<string, string>) {
+export async function uploadSlip(file: File, fields: Record<string, string>, endpoint = '/api/slips') {
   const form = new FormData()
   form.append('file', await shrinkImage(file))
   for (const [key, value] of Object.entries(fields)) form.append(key, value)
 
-  const res = await fetch('/api/slips', { method: 'POST', body: form })
+  const res = await fetch(endpoint, { method: 'POST', body: form })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Upload failed')
   return data

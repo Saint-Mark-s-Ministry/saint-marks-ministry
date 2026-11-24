@@ -24,6 +24,7 @@ import {
   Megaphone,
   HeartHandshake,
   CircleHelp,
+  Cross,
   X,
 } from 'lucide-react'
 import { isAdmin, canManageAllUsers, canManageEnrollments, canViewRegistrations, canViewGuides } from '@/lib/roles'
@@ -96,6 +97,7 @@ function getNavItemsForRole(role: UserRole, hasSundaySchool: boolean): NavItem[]
       { label: 'My Lessons', href: '/dashboard/student/lessons', icon: BookOpen },
       { label: 'Live Exam', href: '/dashboard/student/exams', icon: GraduationCap },
       { label: 'Makeup Exams', href: '/dashboard/student/makeup-exams', icon: GraduationCap },
+      { label: 'Confession', href: '/dashboard/student/confession', icon: Cross },
       { label: 'Class Lessons', href: '/dashboard/student/class-lessons', icon: School },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },

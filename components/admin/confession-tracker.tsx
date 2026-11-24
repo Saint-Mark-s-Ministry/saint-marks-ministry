@@ -18,6 +18,7 @@ import { formatToastTimestamp } from '@/lib/utils'
 import { fetcher, defaultSWRConfig, staticDataConfig } from '@/lib/swr'
 import type { AcademicYear } from '@/lib/types'
 import {
+  CONFESSION_SLIP_TEMPLATE_URL,
   formatConfessionPeriod,
   getConfessionPeriods,
   getConfessionPeriodStatus,
@@ -292,7 +293,11 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
         <div className="flex flex-col gap-2 border-b border-line px-4 py-2.5 text-xs text-ink-3">
           <p>
             Every student confesses at least once per two-month period. The registration form covers the first period;
-            after that, upload a photo of the slip signed by the father of confession.
+            after that, a photo of the slip signed by the father of confession is uploaded here or by the student from
+            their own Confession page.{' '}
+            <a href={CONFESSION_SLIP_TEMPLATE_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-accent-ink underline">
+              View the blank slip
+            </a>
           </p>
           <div className="flex flex-wrap gap-2">
             {(['slip', 'due', 'missing', 'registration', 'upcoming'] as const).map((k) => (

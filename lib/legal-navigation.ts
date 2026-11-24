@@ -44,6 +44,7 @@ const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
   ['/dashboard/student/lessons', 'My Lessons'],
   ['/dashboard/student/exams', 'Live Exam'],
   ['/dashboard/student/makeup-exams', 'Makeup Exams'],
+  ['/dashboard/student/confession', 'Confession'],
   ['/dashboard/student', 'My Progress'],
   ['/dashboard/files/preview', 'File Preview'],
   ['/dashboard/files', 'Files'],
